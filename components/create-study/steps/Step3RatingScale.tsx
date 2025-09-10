@@ -1,0 +1,129 @@
+"use client"
+
+import { useEffect, useMemo, useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+
+interface Step3RatingScaleProps {
+  onNext: () => void
+  onBack: () => void
+}
+
+export function Step3RatingScale({ onNext, onBack }: Step3RatingScaleProps) {
+  const [minLabel, setMinLabel] = useState("")
+  const [maxLabel, setMaxLabel] = useState("")
+  const [middleLabel, setMiddleLabel] = useState("")
+
+  // Fixed values - user cannot change these
+  const minValue = 1
+  const maxValue = 5
+
+  useEffect(() => {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('cs_step3') : null
+    if (raw) {
+      try { const v = JSON.parse(raw); setMinLabel(v.minLabel || ""); setMaxLabel(v.maxLabel || ""); setMiddleLabel(v.middleLabel || "") } catch {}
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    localStorage.setItem('cs_step3', JSON.stringify({ minValue, maxValue, minLabel, maxLabel, middleLabel }))
+  }, [minLabel, maxLabel, middleLabel])
+
+  const previewValues = useMemo(() => {
+    const values: number[] = []
+    for (let i = minValue; i <= maxValue; i++) values.push(i)
+    return values
+  }, [minValue, maxValue])
+
+  const canProceed = minLabel && maxLabel
+
+  return (
+    <div>
+      <div className="space-y-6">
+        <h3 className="text-lg font-semibold text-gray-800">Rating Scale Configuration</h3>
+        <p className="text-sm text-gray-600">Configure the rating scale that respondents will use to evaluate elements.</p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-semibold text-gray-800 mb-2">Minimum Label (Value: 1) <span className="text-red-500">*</span></label>
+            <Input
+              placeholder="e.g., Not at all important"
+              value={minLabel}
+              onChange={(e) => setMinLabel(e.target.value)}
+              className="rounded-lg"
+            />
+            <p className="mt-2 text-xs text-gray-500">Label for the minimum value (1)</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-800 mb-2">Maximum Label (Value: 5) <span className="text-red-500">*</span></label>
+            <Input
+              placeholder="e.g., Very important"
+              value={maxLabel}
+              onChange={(e) => setMaxLabel(e.target.value)}
+              className="rounded-lg"
+            />
+            <p className="mt-2 text-xs text-gray-500">Label for the maximum value (5)</p>
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="block text-sm font-semibold text-gray-800 mb-2">Middle Label (Value: 3) - Optional</label>
+            <Input
+              placeholder="e.g., Moderately important"
+              value={middleLabel}
+              onChange={(e) => setMiddleLabel(e.target.value)}
+              className="rounded-lg"
+            />
+            <p className="mt-2 text-xs text-gray-500">Optional label for the middle value (3)</p>
+          </div>
+        </div>
+
+        <div className="border rounded-xl p-5 bg-slate-50">
+          <div className="text-sm font-medium text-gray-700 mb-4">Scale Preview</div>
+          <div className="flex items-center justify-center gap-8">
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-10 h-10 rounded-full border-2 border-[rgba(38,116,186,1)] text-[rgba(38,116,186,1)] flex items-center justify-center font-medium">
+                1
+              </div>
+              <div className="text-xs text-gray-500 text-center max-w-[80px]">{minLabel || 'Lowest'}</div>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              {previewValues.slice(1, -1).map((v) => (
+                <div key={v} className="flex flex-col items-center gap-2">
+                  <div className="w-10 h-10 rounded-full border-2 border-[rgba(38,116,186,1)] text-[rgba(38,116,186,1)] flex items-center justify-center font-medium">
+                    {v}
+                  </div>
+                  {v === 3 && middleLabel && (
+                    <div className="text-xs text-gray-500 text-center max-w-[80px]">{middleLabel}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+            
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-10 h-10 rounded-full border-2 border-[rgba(38,116,186,1)] text-[rgba(38,116,186,1)] flex items-center justify-center font-medium">
+                5
+              </div>
+              <div className="text-xs text-gray-500 text-center max-w-[80px]">{maxLabel || 'Highest'}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mt-10">
+        <Button variant="outline" className="rounded-full px-6 w-full sm:w-auto" onClick={onBack}>Back</Button>
+        <Button
+          className="rounded-full px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] w-full sm:w-auto"
+          onClick={onNext}
+          disabled={!canProceed}
+        >
+          Next
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+

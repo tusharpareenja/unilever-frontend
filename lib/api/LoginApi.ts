@@ -1,0 +1,112 @@
+// User registration API for /auth/register
+export const API_BASE_URL = "http://127.0.0.1:8000/api/v1";
+
+export interface RegisterPayload {
+	username: string;
+	email: string;
+	name: string;
+	password: string;
+	phone?: string;
+	date_of_birth?: string; // ISO string
+}
+
+export interface User {
+	id: string;
+	username: string;
+	email: string;
+	name: string;
+	phone: string;
+	date_of_birth: string;
+	is_active: boolean;
+	is_verified: boolean;
+	created_at: string;
+	updated_at: string;
+	last_login: string;
+}
+
+export interface Tokens {
+	access_token: string;
+	refresh_token: string;
+	token_type: string;
+}
+
+export interface RegisterResponse {
+	user: User;
+	tokens: Tokens;
+}
+
+export class ApiError extends Error {
+	status?: number;
+	data?: any;
+	constructor(message: string, status?: number, data?: any) {
+		super(message);
+		this.name = "ApiError";
+		this.status = status;
+		this.data = data;
+	}
+}
+
+export async function register(payload: RegisterPayload): Promise<RegisterResponse> {
+	try {
+		// Omit undefined or empty optional fields from the request body
+		const bodyPayload: Record<string, any> = { ...payload };
+		if (bodyPayload.phone === undefined || bodyPayload.phone === "") {
+			delete bodyPayload.phone;
+		}
+		if (bodyPayload.date_of_birth === undefined || bodyPayload.date_of_birth === "") {
+			delete bodyPayload.date_of_birth;
+		}
+		const res = await fetch(`${API_BASE_URL}/auth/register`, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify(bodyPayload),
+		});
+
+		const data = await res.json();
+
+		if (!res.ok) {
+			throw new ApiError(data?.detail || "Registration failed", res.status, data);
+		}
+
+		return data as RegisterResponse;
+	} catch (err: any) {
+		if (err instanceof ApiError) throw err;
+		throw new ApiError(err.message || "Network error");
+	}
+}
+
+// Login API for /auth/login
+export interface LoginPayload {
+	username_or_email: string; // username or email
+	password: string;
+}
+
+export type LoginResponse = RegisterResponse;
+
+export async function login(payload: LoginPayload): Promise<LoginResponse> {
+	if (!payload.username_or_email) {
+		throw new ApiError("Username or email is required", 400);
+	}
+	try {
+		const res = await fetch(`${API_BASE_URL}/auth/login`, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify(payload),
+		});
+
+		const data = await res.json();
+
+		if (!res.ok) {
+			throw new ApiError(data?.detail || "Login failed", res.status, data);
+		}
+
+		return data as LoginResponse;
+	} catch (err: any) {
+		if (err instanceof ApiError) throw err;
+		throw new ApiError(err.message || "Network error");
+	}
+}
