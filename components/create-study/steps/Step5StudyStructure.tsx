@@ -20,31 +20,29 @@ interface Step5StudyStructureProps {
 }
 
 export function Step5StudyStructure({ onNext, onBack, mode = "grid" }: Step5StudyStructureProps) {
-  const [elements, setElements] = useState<ElementItem[]>([])
+  const [elements, setElements] = useState<ElementItem[]>(() => {
+    try {
+      const raw = localStorage.getItem('cs_step5_grid')
+      if (raw) {
+        const arr = JSON.parse(raw) as Array<Partial<ElementItem>>
+        return (arr || []).map((e, idx) => ({
+          id: e.id || crypto.randomUUID(),
+          name: e.name || `Element ${idx + 1}`,
+          description: e.description || "",
+          previewUrl: e.previewUrl,
+          secureUrl: e.secureUrl,
+        }))
+      }
+    } catch {}
+    return []
+  })
   const [uploading, setUploading] = useState(false)
   const [nextLoading, setNextLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement | null>(null)
+  const gridHasHydratedRef = useRef(false)
 
   // Hydrate GRID elements from localStorage on mount
-  useEffect(() => {
-    if (mode !== 'grid') return
-    if (typeof window === 'undefined') return
-    try {
-      const raw = localStorage.getItem('cs_step5_grid')
-      if (!raw) return
-      const arr = JSON.parse(raw) as Array<Partial<ElementItem>>
-      const restored: ElementItem[] = (arr || []).map((e, idx) => ({
-        id: e.id || crypto.randomUUID(),
-        name: e.name || `Element ${idx + 1}`,
-        description: e.description || "",
-        previewUrl: e.previewUrl,
-        secureUrl: e.secureUrl,
-      }))
-      if (restored.length > 0) setElements(restored)
-    } catch {}
-  // run once per mode
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode])
+  useEffect(() => { gridHasHydratedRef.current = true }, [mode])
 
   const handleFiles = async (files: FileList | null) => {
     if (!files) return
@@ -81,10 +79,25 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid" }: Step5Stud
     handleFiles(e.dataTransfer.files)
   }
 
+  // Warn on reload if any grid uploads pending
+  useEffect(() => {
+    if (mode !== 'grid') return
+    const hasPending = elements.some(e => !e.secureUrl)
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    if (hasPending) {
+      window.addEventListener('beforeunload', handler)
+    }
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [mode, elements])
+
   // persist grid elements
   useEffect(() => {
     if (mode !== 'grid') return
     if (typeof window === 'undefined') return
+    if (!gridHasHydratedRef.current) return
     const minimal = elements.map(e => ({ 
       id: e.id, 
       name: e.name, 
@@ -164,10 +177,10 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid" }: Step5Stud
                 </div>
                 <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="md:col-span-1">
-                    {el.previewUrl ? (
+                    {(el.secureUrl || el.previewUrl) ? (
                       <div className="w-full h-40 bg-gray-100 flex items-center justify-center p-2 rounded-lg border">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={el.previewUrl} alt={el.name} className="max-w-full max-h-full object-contain" />
+                        <img src={el.secureUrl || el.previewUrl} alt={el.name} className="max-w-full max-h-full object-contain" />
                       </div>
                     ) : (
                       <div className="w-full h-40 rounded-lg border border-dashed flex items-center justify-center text-gray-400">No Image</div>
@@ -225,7 +238,25 @@ type Layer = {
 }
 
 function LayerMode({ onNext, onBack }: LayerModeProps) {
-  const [layers, setLayers] = useState<Layer[]>([])
+  const [layers, setLayers] = useState<Layer[]>(() => {
+    try {
+      const raw = localStorage.getItem('cs_step5_layer')
+      if (raw) {
+        const saved = JSON.parse(raw) as Array<{ id: string; name: string; z: number; images: Array<{ id: string; previewUrl?: string; secureUrl?: string }> }>
+        if (Array.isArray(saved)) {
+          return saved.map((l, idx) => ({
+            id: l.id || crypto.randomUUID(),
+            name: l.name || `Layer ${idx + 1}`,
+            description: "",
+            z: typeof l.z === 'number' ? l.z : idx,
+            images: (l.images || []).map(img => ({ id: img.id || crypto.randomUUID(), previewUrl: img.previewUrl || img.secureUrl || '', secureUrl: img.secureUrl })),
+            open: false,
+          }))
+        }
+      }
+    } catch {}
+    return []
+  })
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [overIndex, setOverIndex] = useState<number | null>(null)
   const [showModal, setShowModal] = useState(false)
@@ -234,26 +265,6 @@ function LayerMode({ onNext, onBack }: LayerModeProps) {
   const [draftImages, setDraftImages] = useState<Array<{ id: string; file?: File; previewUrl: string; secureUrl?: string }>>([])
   const [selectedImageIds, setSelectedImageIds] = useState<Record<string, string>>({}) // layerId -> selectedImageId
   const [nextLoading, setNextLoading] = useState(false)
-
-  // Hydrate layers from localStorage
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    try {
-      const raw = localStorage.getItem('cs_step5_layer')
-      if (!raw) return
-      const saved = JSON.parse(raw) as Array<{ id: string; name: string; z: number; images: Array<{ id: string; previewUrl?: string; secureUrl?: string }> }>
-      if (!Array.isArray(saved)) return
-      const restored: Layer[] = saved.map((l, idx) => ({
-        id: l.id || crypto.randomUUID(),
-        name: l.name || `Layer ${idx + 1}`,
-        description: "",
-        z: typeof l.z === 'number' ? l.z : idx,
-        images: (l.images || []).map(img => ({ id: img.id || crypto.randomUUID(), previewUrl: img.previewUrl || img.secureUrl || '', secureUrl: img.secureUrl })),
-        open: false,
-      }))
-      setLayers(restored)
-    } catch {}
-  }, [])
 
   const addLayer = () => setShowModal(true)
 
@@ -391,6 +402,14 @@ function LayerMode({ onNext, onBack }: LayerModeProps) {
     })
   }
 
+  // Warn on reload if any layer image uploads pending
+  useEffect(() => {
+    const hasPending = layers.some(l => l.images.some(img => !img.secureUrl))
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = '' }
+    if (hasPending) window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [layers])
+
   // persist layers
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -398,13 +417,8 @@ function LayerMode({ onNext, onBack }: LayerModeProps) {
       id: l.id, 
       name: l.name, 
       z: l.z, 
-      images: l.images.map(i => ({ 
-        id: i.id, 
-        previewUrl: i.previewUrl, 
-        secureUrl: i.secureUrl 
-      })) 
+      images: l.images.map(i => ({ id: i.id, previewUrl: i.previewUrl, secureUrl: i.secureUrl })) 
     }))
-    console.log('Saving layers to localStorage:', minimal)
     localStorage.setItem('cs_step5_layer', JSON.stringify(minimal))
   }, [layers])
 

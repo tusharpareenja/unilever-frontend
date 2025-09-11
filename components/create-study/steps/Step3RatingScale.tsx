@@ -10,20 +10,15 @@ interface Step3RatingScaleProps {
 }
 
 export function Step3RatingScale({ onNext, onBack }: Step3RatingScaleProps) {
-  const [minLabel, setMinLabel] = useState("")
-  const [maxLabel, setMaxLabel] = useState("")
-  const [middleLabel, setMiddleLabel] = useState("")
+  const [minLabel, setMinLabel] = useState(() => { try { const v = localStorage.getItem('cs_step3'); if (v) { const o = JSON.parse(v); return o.minLabel || "" } } catch {}; return "" })
+  const [maxLabel, setMaxLabel] = useState(() => { try { const v = localStorage.getItem('cs_step3'); if (v) { const o = JSON.parse(v); return o.maxLabel || "" } } catch {}; return "" })
+  const [middleLabel, setMiddleLabel] = useState(() => { try { const v = localStorage.getItem('cs_step3'); if (v) { const o = JSON.parse(v); return o.middleLabel || "" } } catch {}; return "" })
 
   // Fixed values - user cannot change these
   const minValue = 1
   const maxValue = 5
 
-  useEffect(() => {
-    const raw = typeof window !== 'undefined' ? localStorage.getItem('cs_step3') : null
-    if (raw) {
-      try { const v = JSON.parse(raw); setMinLabel(v.minLabel || ""); setMaxLabel(v.maxLabel || ""); setMiddleLabel(v.middleLabel || "") } catch {}
-    }
-  }, [])
+  useEffect(() => {}, [])
 
   useEffect(() => {
     if (typeof window === 'undefined') return

@@ -45,19 +45,12 @@ interface Step6AudienceSegmentationProps {
 }
 
 export function Step6AudienceSegmentation({ onNext, onBack }: Step6AudienceSegmentationProps) {
-	const [respondents, setRespondents] = useState<number | ''>('')
+	const [respondents, setRespondents] = useState<number | ''>(() => { try { const v = localStorage.getItem('cs_step6'); if (v) { const o = JSON.parse(v); return typeof o.respondents === 'number' ? o.respondents : '' } } catch {}; return '' })
 	const [countryQuery, setCountryQuery] = useState("")
-	const [countries, setCountries] = useState<string[]>([])
-	const [genderMale, setGenderMale] = useState<number | ''>('')
-	const [genderFemale, setGenderFemale] = useState<number | ''>('')
-	const [ageSelections, setAgeSelections] = useState<Record<string, { checked: boolean; percent: string }>>({
-		"18 - 24": { checked: false, percent: "" },
-		"25 - 34": { checked: false, percent: "" },
-		"35 - 44": { checked: false, percent: "" },
-		"45 - 54": { checked: false, percent: "" },
-		"55 - 64": { checked: false, percent: "" },
-		"65+": { checked: false, percent: "" },
-	})
+	const [countries, setCountries] = useState<string[]>(() => { try { const v = localStorage.getItem('cs_step6'); if (v) { const o = JSON.parse(v); return Array.isArray(o.countries) ? o.countries : [] } } catch {}; return [] })
+	const [genderMale, setGenderMale] = useState<number | ''>(() => { try { const v = localStorage.getItem('cs_step6'); if (v) { const o = JSON.parse(v); return typeof o.genderMale === 'number' ? o.genderMale : '' } } catch {}; return '' })
+	const [genderFemale, setGenderFemale] = useState<number | ''>(() => { try { const v = localStorage.getItem('cs_step6'); if (v) { const o = JSON.parse(v); return typeof o.genderFemale === 'number' ? o.genderFemale : '' } } catch {}; return '' })
+	const [ageSelections, setAgeSelections] = useState<Record<string, { checked: boolean; percent: string }>>(() => { try { const v = localStorage.getItem('cs_step6'); if (v) { const o = JSON.parse(v); if (o.ageSelections && typeof o.ageSelections === 'object') return o.ageSelections } } catch {}; return { "18 - 24": { checked: false, percent: "" }, "25 - 34": { checked: false, percent: "" }, "35 - 44": { checked: false, percent: "" }, "45 - 54": { checked: false, percent: "" }, "55 - 64": { checked: false, percent: "" }, "65+": { checked: false, percent: "" } } })
 
 	const suggestions = useCountryFilter(countryQuery)
 
@@ -69,23 +62,6 @@ export function Step6AudienceSegmentation({ onNext, onBack }: Step6AudienceSegme
 	const removeCountry = (name: string) => setCountries((prev) => prev.filter((c) => c !== name))
 
 	const canProceed = typeof respondents === 'number' && respondents > 0 && countries.length > 0
-
-	// Hydrate on mount
-	useEffect(() => {
-		if (typeof window === 'undefined') return
-		const raw = localStorage.getItem('cs_step6')
-		if (!raw) return
-		try {
-			const v = JSON.parse(raw)
-			if (v) {
-				setRespondents(typeof v.respondents === 'number' ? v.respondents : '')
-				setCountries(Array.isArray(v.countries) ? v.countries : [])
-				setGenderMale(typeof v.genderMale === 'number' ? v.genderMale : '')
-				setGenderFemale(typeof v.genderFemale === 'number' ? v.genderFemale : '')
-				if (v.ageSelections && typeof v.ageSelections === 'object') setAgeSelections(v.ageSelections)
-			}
-		} catch {}
-	}, [])
 
 	useEffect(() => {
 		if (typeof window === 'undefined') return
@@ -106,7 +82,7 @@ export function Step6AudienceSegmentation({ onNext, onBack }: Step6AudienceSegme
 				</div>
 
 				<div>
-					<label className="block text-sm font-semibold text-gray-800 mb-2">Country Selection <span className="text-red-500">*</span></label>
+					<label className="block text sm font-semibold text-gray-800 mb-2">Country Selection <span className="text-red-500">*</span></label>
 					<div className="relative">
 						<div className="flex flex-wrap gap-2 border rounded-lg p-2">
 							{countries.map((c) => (

@@ -11,17 +11,86 @@ interface Step2StudyTypeProps {
 
 type StudyType = "grid" | "layer"
 
-export function Step2StudyType({ onNext, onBack, value }: Step2StudyTypeProps) {
-  const [type, setType] = useState<StudyType | null>(value ?? "grid")
-  const [mainQuestion, setMainQuestion] = useState("")
-  const [orientationText, setOrientationText] = useState("ENGLISH")
+// Visual preview for Layer Study (as provided)
+export function LayerStudy() {
+  return (
+    <div className="w-full h-full bg-gradient-to-br from-blue-100 to-blue-200 rounded-3xl p-8 flex flex-col items-center justify-between relative">
+      {/* Header */}
+      <div className="text-center">
+        <h2 className="text-blue-700 font-semibold text-lg leading-tight">Layer Study - Categorized</h2>
+        <h3 className="text-blue-700 font-semibold text-lg">Elements (A, B, C, D)</h3>
+      </div>
 
-  useEffect(() => {
-    const raw = typeof window !== 'undefined' ? localStorage.getItem('cs_step2') : null
-    if (raw) {
-      try { const v = JSON.parse(raw); setType(v.type || "grid"); setMainQuestion(v.mainQuestion || ""); setOrientationText(v.orientationText || "ENGLISH") } catch {}
-    }
-  }, [])
+      {/* Geometric Shapes */}
+      <div className="flex-1 flex items-center justify-center relative">
+        {/* Large square background */}
+        <div className="w-32 h-32 border-2 border-blue-600 rounded-lg bg-blue-200/50 relative">
+          {/* Vertical rectangle */}
+          <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 w-16 h-24 bg-blue-500 rounded-lg border-2 border-blue-600"></div>
+        </div>
+
+        {/* Horizontal rounded rectangle at bottom */}
+        <div className="absolute bottom-8 w-28 h-8 bg-blue-400 rounded-full border-2 border-blue-600"></div>
+      </div>
+
+      {/* Bottom dots */}
+      <div className="flex space-x-3 mt-4">
+        {[...Array(6)].map((_, i) => (
+          <div key={i} className="w-4 h-4 bg-blue-400/60 rounded-full"></div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// Visual preview for Grid Study (as provided)
+export function GridStudy() {
+  return (
+    <div className="w-full h-full bg-gradient-to-br from-blue-100 to-blue-200 rounded-3xl p-6 shadow-lg flex flex-col">
+      {/* Title */}
+      <div className="text-center mb-6">
+        <h2 className="text-blue-700 font-semibold text-lg leading-tight">
+          Grid Study - Image/Text
+          <br />
+          Elements
+        </h2>
+      </div>
+
+      {/* 2x2 Grid */}
+      <div className="grid grid-cols-2 gap-4 flex-1 mb-6">
+        <div className="bg-blue-400/60 rounded-2xl border-2 border-blue-500/30"></div>
+        <div className="bg-blue-400/60 rounded-2xl border-2 border-blue-500/30"></div>
+        <div className="bg-blue-400/60 rounded-2xl border-2 border-blue-500/30"></div>
+        <div className="bg-blue-400/60 rounded-2xl border-2 border-blue-500/30"></div>
+      </div>
+
+      <div className="flex justify-center space-x-2">
+        <div className="w-3 h-3 bg-blue-400/70 rounded-full"></div>
+        <div className="w-3 h-3 bg-blue-400/70 rounded-full"></div>
+        <div className="w-3 h-3 bg-blue-400/70 rounded-full"></div>
+        <div className="w-3 h-3 bg-blue-400/70 rounded-full"></div>
+        <div className="w-3 h-3 bg-blue-400/70 rounded-full"></div>
+        <div className="w-3 h-3 bg-blue-400/70 rounded-full"></div>
+      </div>
+    </div>
+  )
+}
+
+export function Step2StudyType({ onNext, onBack, value }: Step2StudyTypeProps) {
+  const [type, setType] = useState<StudyType | null>(() => {
+    try { const v = localStorage.getItem('cs_step2'); if (v) { const o = JSON.parse(v); return (o.type === 'layer' || o.type === 'grid') ? o.type : (value ?? 'grid') } } catch {}
+    return value ?? 'grid'
+  })
+  const [mainQuestion, setMainQuestion] = useState(() => {
+    try { const v = localStorage.getItem('cs_step2'); if (v) { const o = JSON.parse(v); return o.mainQuestion || "" } } catch {}
+    return ""
+  })
+  const [orientationText, setOrientationText] = useState(() => {
+    try { const v = localStorage.getItem('cs_step2'); if (v) { const o = JSON.parse(v); return o.orientationText || "ENGLISH" } } catch {}
+    return "ENGLISH"
+  })
+
+  useEffect(() => {}, [])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -38,25 +107,20 @@ export function Step2StudyType({ onNext, onBack, value }: Step2StudyTypeProps) {
             <button
               type="button"
               onClick={() => setType("grid")}
-              className={`border rounded-xl p-4 w-full h-full text-left transition-all ${type === "grid" ? "border-[rgba(38,116,186,1)] ring-2 ring-[rgba(38,116,186,0.2)] bg-[rgba(38,116,186,0.05)]" : "border-gray-200 bg-white"}`}
+              className={`border rounded-3xl aspect-square w-full max-w-[22rem] mx-auto flex items-center justify-center text-left transition-all ${type === "grid" ? "border-[rgba(38,116,186,1)] ring-2 ring-[rgba(38,116,186,0.2)] bg-[rgba(38,116,186,0.05)]" : "border-gray-200 bg-white"}`}
             >
-              <div className="text-[11px] text-center text-gray-600 mb-2">Grid Study - Image/Text Elements</div>
-              <div className="aspect-[4/3] rounded-lg bg-slate-100 grid grid-cols-2 gap-3 p-4">
-                <div className="bg-white border border-gray-200 rounded-md" />
-                <div className="bg-white border border-gray-200 rounded-md" />
-                <div className="bg-white border border-gray-200 rounded-md" />
-                <div className="bg-white border border-gray-200 rounded-md" />
+              <div className="w-full h-full p-2">
+                <GridStudy />
               </div>
             </button>
 
             <button
               type="button"
               onClick={() => setType("layer")}
-              className={`border rounded-xl p-4 w-full h-full text-left transition-all ${type === "layer" ? "border-[rgba(38,116,186,1)] ring-2 ring-[rgba(38,116,186,0.2)] bg-[rgba(38,116,186,0.05)]" : "border-gray-200 bg-white"}`}
+              className={`border rounded-3xl aspect-square w-full max-w-[22rem] mx-auto flex items-center justify-center text-left transition-all ${type === "layer" ? "border-[rgba(38,116,186,1)] ring-2 ring-[rgba(38,116,186,0.2)] bg-[rgba(38,116,186,0.05)]" : "border-gray-200 bg-white"}`}
             >
-              <div className="text-[11px] text-center text-gray-600 mb-2">Layer Study - Categorized Elements (A, B, C, D)</div>
-              <div className="aspect-[4/3] rounded-lg bg-slate-100 flex items-center justify-center">
-                <div className="w-2/3 h-10 bg-white border border-gray-200 rounded-sm" />
+              <div className="w-full h-full p-2">
+                <LayerStudy />
               </div>
             </button>
           </div>

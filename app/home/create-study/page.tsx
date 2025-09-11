@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { motion } from "framer-motion"
 import { DashboardHeader } from "../components/dashboard-header"
 import { AuthGuard } from "@/components/auth/AuthGuard"
@@ -17,6 +17,74 @@ import { Step8LaunchPreview } from "@/components/create-study/steps/Step8LaunchP
 export default function CreateStudyPage() {
   const [currentStep, setCurrentStep] = useState(1)
   const [studyType, setStudyType] = useState<"grid" | "layer">("grid")
+
+  // Synchronous restore from backup before children mount
+  const didRestoreBackupRef = useRef(false)
+  if (typeof window !== 'undefined' && !didRestoreBackupRef.current) {
+    try {
+      const backupRaw = localStorage.getItem('cs_backup_steps')
+      if (backupRaw) {
+        const backup = JSON.parse(backupRaw) as Record<string, unknown>
+        const stepKeys = ['cs_step1','cs_step2','cs_step3','cs_step4','cs_step5_grid','cs_step5_layer','cs_step6']
+        stepKeys.forEach((k) => {
+          if (!localStorage.getItem(k) && backup && Object.prototype.hasOwnProperty.call(backup, k)) {
+            const v = backup[k]
+            if (v != null) {
+              try { localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v)) } catch {}
+            }
+          }
+        })
+      }
+    } catch {}
+    didRestoreBackupRef.current = true
+  }
+
+  // Hydrate study type and last step from localStorage to avoid resets on refresh
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const s2 = localStorage.getItem('cs_step2')
+      if (s2) {
+        const v = JSON.parse(s2)
+        if (v?.type === 'layer' || v?.type === 'grid') setStudyType(v.type)
+      }
+      const savedStep = localStorage.getItem('cs_current_step')
+      if (savedStep) {
+        const stepNum = Number(savedStep)
+        if (!Number.isNaN(stepNum) && stepNum >= 1 && stepNum <= 8) setCurrentStep(stepNum)
+      }
+    } catch {}
+  }, [])
+
+  // Persist current step for refresh continuity
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try { localStorage.setItem('cs_current_step', String(currentStep)) } catch {}
+  }, [currentStep])
+
+  // Periodically snapshot all step keys into a backup to survive accidental clears
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const stepKeys = ['cs_step1','cs_step2','cs_step3','cs_step4','cs_step5_grid','cs_step5_layer','cs_step6']
+    const writeBackup = () => {
+      try {
+        const snapshot: Record<string, unknown> = {}
+        stepKeys.forEach((k) => {
+          const v = localStorage.getItem(k)
+          if (v != null) snapshot[k] = v
+        })
+        localStorage.setItem('cs_backup_steps', JSON.stringify(snapshot))
+      } catch {}
+    }
+    const id = window.setInterval(writeBackup, 2000)
+    window.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') writeBackup() })
+    window.addEventListener('beforeunload', writeBackup)
+    writeBackup()
+    return () => {
+      clearInterval(id)
+      window.removeEventListener('beforeunload', writeBackup)
+    }
+  }, [])
 
   return (
     <AuthGuard requireAuth={true}>

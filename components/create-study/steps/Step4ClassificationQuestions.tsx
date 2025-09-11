@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 
 interface Option {
@@ -21,40 +21,29 @@ interface Step4ClassificationQuestionsProps {
 }
 
 export function Step4ClassificationQuestions({ onNext, onBack }: Step4ClassificationQuestionsProps) {
-	const [questions, setQuestions] = useState<QuestionCard[]>([
-		{
-			id: crypto.randomUUID(),
-			title: "",
-			required: true,
-			options: [
-				{ id: crypto.randomUUID(), text: "" },
-				{ id: crypto.randomUUID(), text: "" },
-			],
-		},
-	])
-
-	// Hydrate on mount
-	useEffect(() => {
-		if (typeof window === 'undefined') return
-		const raw = localStorage.getItem('cs_step4')
-		if (!raw) return
+	const [questions, setQuestions] = useState<QuestionCard[]>(() => {
 		try {
-			const data = JSON.parse(raw) as QuestionCard[]
-			if (Array.isArray(data) && data.length > 0) {
-				// Ensure ids exist
-				const restored = data.map((q) => ({
-					id: q.id || crypto.randomUUID(),
-					title: q.title || "",
-					required: typeof q.required === 'boolean' ? q.required : true,
-					options: Array.isArray(q.options) && q.options.length > 0 ? q.options.map(o => ({ id: o.id || crypto.randomUUID(), text: o.text || "" })) : [
-						{ id: crypto.randomUUID(), text: "" },
-						{ id: crypto.randomUUID(), text: "" },
-					],
-				}))
-				setQuestions(restored)
+			const raw = localStorage.getItem('cs_step4')
+			if (raw) {
+				const data = JSON.parse(raw) as QuestionCard[]
+				if (Array.isArray(data) && data.length > 0) {
+					return data.map((q) => ({
+						id: q.id || crypto.randomUUID(),
+						title: q.title || "",
+						required: typeof q.required === 'boolean' ? q.required : true,
+						options: Array.isArray(q.options) && q.options.length > 0 ? q.options.map(o => ({ id: o.id || crypto.randomUUID(), text: o.text || "" })) : [
+							{ id: crypto.randomUUID(), text: "" },
+							{ id: crypto.randomUUID(), text: "" },
+						],
+					}))
+				}
 			}
 		} catch {}
-	}, [])
+		return [{ id: crypto.randomUUID(), title: "", required: true, options: [{ id: crypto.randomUUID(), text: "" }, { id: crypto.randomUUID(), text: "" }] }]
+	})
+
+	// Hydrate marker (kept for compatibility)
+	const hasHydratedRef = useRef(true)
 
 	// Persist on change
 	useEffect(() => {

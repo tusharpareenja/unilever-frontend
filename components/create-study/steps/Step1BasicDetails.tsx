@@ -10,24 +10,22 @@ interface Step1BasicDetailsProps {
 }
 
 export function Step1BasicDetails({ onNext, onCancel }: Step1BasicDetailsProps) {
-  const [title, setTitle] = useState("")
-  const [description, setDescription] = useState("")
-  const [language, setLanguage] = useState("ENGLISH")
-  const [agree, setAgree] = useState(false)
-
-  useEffect(() => {
-    // hydrate from storage
-    const raw = typeof window !== 'undefined' ? localStorage.getItem('cs_step1') : null
-    if (raw) {
-      try {
-        const v = JSON.parse(raw)
-        setTitle(v.title || "")
-        setDescription(v.description || "")
-        setLanguage(v.language || "ENGLISH")
-        setAgree(Boolean(v.agree))
-      } catch {}
-    }
-  }, [])
+  const [title, setTitle] = useState(() => {
+    try { const v = localStorage.getItem('cs_step1'); if (v) { const o = JSON.parse(v); return o.title || "" } } catch {};
+    return ""
+  })
+  const [description, setDescription] = useState(() => {
+    try { const v = localStorage.getItem('cs_step1'); if (v) { const o = JSON.parse(v); return o.description || "" } } catch {};
+    return ""
+  })
+  const [language, setLanguage] = useState(() => {
+    try { const v = localStorage.getItem('cs_step1'); if (v) { const o = JSON.parse(v); return o.language || "ENGLISH" } } catch {};
+    return "ENGLISH"
+  })
+  const [agree, setAgree] = useState(() => {
+    try { const v = localStorage.getItem('cs_step1'); if (v) { const o = JSON.parse(v); return Boolean(o.agree) } } catch {};
+    return false
+  })
 
   useEffect(() => {
     if (typeof window === 'undefined') return
