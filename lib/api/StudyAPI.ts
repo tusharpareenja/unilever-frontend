@@ -462,3 +462,137 @@ export async function regenerateTasksForStudy(studyId: string): Promise<any> {
   return data
 }
 
+// Study Management Types
+export interface StudyDetails {
+  id: string
+  title: string
+  background: string
+  language: string
+  main_question: string
+  orientation_text: string
+  study_type: StudyType
+  rating_scale: RatingScalePayload
+  audience_segmentation: AudienceSegmentationPayload
+  elements: Array<ElementPayload & { id: string }>
+  study_layers: Array<StudyLayerPayload & { 
+    id: string
+    images: Array<{
+      image_id: string
+      name: string
+      url: string
+      alt_text: string
+      order: number
+      id: string
+    }>
+  }>
+  tasks: Record<string, any[]>
+  creator_id: string
+  status: "draft" | "active" | "paused" | "completed"
+  share_token: string
+  share_url: string
+  created_at: string
+  updated_at: string
+  launched_at: string | null
+  completed_at: string | null
+  total_responses: number
+  completed_responses: number
+  abandoned_responses: number
+}
+
+export interface UpdateStudyStatusPayload {
+  status: "active" | "paused" | "completed"
+}
+
+// Full/partial update via PUT (backend expects PUT)
+export type UpdateStudyPutPayload = Partial<{
+  title: string
+  background: string
+  language: string
+  main_question: string
+  orientation_text: string
+  study_type: StudyType
+  rating_scale: RatingScalePayload
+  audience_segmentation: AudienceSegmentationPayload
+  elements: ElementPayload[]
+  study_layers: StudyLayerPayload[]
+  status: "draft" | "active" | "paused" | "completed"
+}>
+
+// Fetch study details by ID
+export async function getStudyDetails(studyId: string): Promise<StudyDetails> {
+  console.log('=== HTTP REQUEST TO /studies/{id} ===')
+  console.log('URL:', `${API_BASE_URL}/studies/${studyId}`)
+  
+  const res = await fetchWithAuth(`${API_BASE_URL}/studies/${studyId}`, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  })
+  
+  const text = await res.text().catch(() => "")
+  let data: any = {}
+  try { data = text ? JSON.parse(text) : {} } catch { data = { detail: text } }
+  
+  if (!res.ok) {
+    const msg = (data && (data.detail || data.message)) || text || `Get study details failed (${res.status})`
+    console.log('Get study details error:', msg, data)
+    throw Object.assign(new Error(typeof msg === 'string' ? msg : JSON.stringify(msg)), { status: res.status, data })
+  }
+  
+  console.log('Get study details success:', data)
+  return data
+}
+
+// Update study status (pause/activate/complete)
+export async function updateStudyStatus(studyId: string, status: "active" | "paused" | "completed"): Promise<StudyDetails> {
+  console.log('=== HTTP REQUEST TO /studies/{id} (PATCH) ===')
+  console.log('URL:', `${API_BASE_URL}/studies/${studyId}`)
+  console.log('Status update:', status)
+  
+  const payload: UpdateStudyStatusPayload = { status }
+  
+  const res = await fetchWithAuth(`${API_BASE_URL}/studies/${studyId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  })
+  
+  const text = await res.text().catch(() => "")
+  let data: any = {}
+  try { data = text ? JSON.parse(text) : {} } catch { data = { detail: text } }
+  
+  if (!res.ok) {
+    const msg = (data && (data.detail || data.message)) || text || `Update study status failed (${res.status})`
+    console.log('Update study status error:', msg, data)
+    throw Object.assign(new Error(typeof msg === 'string' ? msg : JSON.stringify(msg)), { status: res.status, data })
+  }
+  
+  console.log('Update study status success:', data)
+  return data
+}
+
+// PUT update study (e.g., activate via status change)
+export async function putUpdateStudy(studyId: string, payload: UpdateStudyPutPayload): Promise<StudyDetails> {
+  console.log('=== HTTP REQUEST TO /studies/{id} (PUT) ===')
+  console.log('URL:', `${API_BASE_URL}/studies/${studyId}`)
+  console.log('Payload keys:', Object.keys(payload))
+  
+  const res = await fetchWithAuth(`${API_BASE_URL}/studies/${studyId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  })
+  
+  const text = await res.text().catch(() => "")
+  let data: any = {}
+  try { data = text ? JSON.parse(text) : {} } catch { data = { detail: text } }
+  
+  if (!res.ok) {
+    const msg = (data && (data.detail || data.message)) || text || `PUT study update failed (${res.status})`
+    console.log('PUT study update error:', msg, data)
+    throw Object.assign(new Error(typeof msg === 'string' ? msg : JSON.stringify(msg)), { status: res.status, data })
+  }
+  
+  console.log('PUT study update success:', data)
+  return data
+}
+

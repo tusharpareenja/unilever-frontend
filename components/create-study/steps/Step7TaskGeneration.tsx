@@ -7,9 +7,10 @@ import { buildTaskGenerationPayloadFromLocalStorage, generateTasks } from "@/lib
 interface Step7TaskGenerationProps {
   onNext: () => void
   onBack: () => void
+  active?: boolean
 }
 
-export function Step7TaskGeneration({ onNext, onBack }: Step7TaskGenerationProps) {
+export function Step7TaskGeneration({ onNext, onBack, active = false }: Step7TaskGenerationProps) {
   const [isGenerating, setIsGenerating] = useState(false)
   const [matrix, setMatrix] = useState<any | null>(null)
 
@@ -31,11 +32,13 @@ export function Step7TaskGeneration({ onNext, onBack }: Step7TaskGenerationProps
     }
   }
 
+  // Trigger on becoming active so it doesn't run too early
   useEffect(() => {
-    // Auto-trigger when landing on this step
-    generateNow()
+    if (active) {
+      generateNow()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [active])
 
   function getFromLS<T>(key: string, fallback: T): T {
     if (typeof window === 'undefined') return fallback

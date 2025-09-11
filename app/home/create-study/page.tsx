@@ -35,34 +35,34 @@ export default function CreateStudyPage() {
             </div>
 
             <div className="px-4 sm:px-6 lg:px-8 py-6">
-              {currentStep === 1 && (
+              <div className={currentStep === 1 ? "block" : "hidden"} aria-hidden={currentStep !== 1}>
                 <Step1BasicDetails onNext={() => setCurrentStep(2)} onCancel={() => history.back()} />
-              )}
-              {currentStep === 2 && (
+              </div>
+              <div className={currentStep === 2 ? "block" : "hidden"} aria-hidden={currentStep !== 2}>
                 <Step2StudyType
                   value={studyType}
                   onNext={(selected) => { setStudyType(selected); setCurrentStep(3) }}
                   onBack={() => setCurrentStep(1)}
                 />
-              )}
-              {currentStep === 3 && (
+              </div>
+              <div className={currentStep === 3 ? "block" : "hidden"} aria-hidden={currentStep !== 3}>
                 <Step3RatingScale onNext={() => setCurrentStep(4)} onBack={() => setCurrentStep(2)} />
-              )}
-              {currentStep === 4 && (
+              </div>
+              <div className={currentStep === 4 ? "block" : "hidden"} aria-hidden={currentStep !== 4}>
                 <Step4ClassificationQuestions onNext={() => setCurrentStep(5)} onBack={() => setCurrentStep(3)} />
-              )}
-              {currentStep === 5 && (
+              </div>
+              <div className={currentStep === 5 ? "block" : "hidden"} aria-hidden={currentStep !== 5}>
                 <Step5StudyStructure onNext={() => setCurrentStep(6)} onBack={() => setCurrentStep(4)} mode={studyType} />
-              )}
-              {currentStep === 6 && (
+              </div>
+              <div className={currentStep === 6 ? "block" : "hidden"} aria-hidden={currentStep !== 6}>
                 <Step6AudienceSegmentation onNext={() => setCurrentStep(7)} onBack={() => setCurrentStep(5)} />
-              )}
-              {currentStep === 7 && (
-                <Step7TaskGeneration onNext={() => setCurrentStep(8)} onBack={() => setCurrentStep(6)} />
-              )}
-              {currentStep === 8 && (
+              </div>
+              <div className={currentStep === 7 ? "block" : "hidden"} aria-hidden={currentStep !== 7}>
+                <Step7TaskGeneration active={currentStep === 7} onNext={() => setCurrentStep(8)} onBack={() => setCurrentStep(6)} />
+              </div>
+              <div className={currentStep === 8 ? "block" : "hidden"} aria-hidden={currentStep !== 8}>
                 <Step8LaunchPreview onBack={() => setCurrentStep(7)} />
-              )}
+              </div>
             </div>
           </div>
         </div>

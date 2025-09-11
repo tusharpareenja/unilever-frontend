@@ -52,9 +52,9 @@ export function Step8LaunchPreview({ onBack }: { onBack: () => void }) {
       const keysToRemove = ['cs_step1', 'cs_step2', 'cs_step3', 'cs_step4', 'cs_step5_grid', 'cs_step5_layer', 'cs_step6', 'cs_step7']
       keysToRemove.forEach(key => localStorage.removeItem(key))
       
-      // Redirect to home or show success message
+      // Redirect to study management page
       alert('Study launched successfully!')
-      window.location.href = '/home'
+      window.location.href = `/home/study/${studyId}`
     } catch (error: any) {
       console.error('Failed to launch study:', error)
       setLaunchError(error.message || 'Failed to launch study. Please try again.')

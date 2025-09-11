@@ -1,6 +1,7 @@
 interface StepperProps {
   currentStep?: number
   className?: string
+  onStepChange?: (step: number) => void
 }
 
 const steps = [
@@ -14,7 +15,12 @@ const steps = [
   { id: 8, label: "Launch Study" },
 ]
 
-export default function Stepper({ currentStep = 5, className = "" }: StepperProps) {
+export default function Stepper({ currentStep = 5, className = "", onStepChange }: StepperProps) {
+  const totalSegments = steps.length - 1
+  const isLast = currentStep >= steps.length
+  const progressWidth = isLast
+    ? `calc(100% - 100px)`
+    : `calc(${((currentStep - 1) / totalSegments) * 100}% - 100px + ${100 / totalSegments}%)`
   return (
     <div className={`w-full max-w-6xl mx-auto p-4 ${className}`}>
       <div className="relative">
@@ -32,7 +38,7 @@ export default function Stepper({ currentStep = 5, className = "" }: StepperProp
           className="absolute top-6 left-0 h-0.5 bg-[rgba(38,116,186,0.9)] hidden sm:block transition-all duration-300"
           style={{
             left: "calc(50px)",
-            width: `calc(${((currentStep - 1) / (steps.length - 1)) * 100}% - 100px + ${100 / (steps.length - 1)}%)`,
+            width: progressWidth,
           }}
         />
 
@@ -44,7 +50,13 @@ export default function Stepper({ currentStep = 5, className = "" }: StepperProp
             const isUpcoming = step.id > currentStep
 
             return (
-              <div key={step.id} className="flex flex-col items-center text-center flex-shrink-0 min-w-[100px]">
+              <div
+                key={step.id}
+                className="flex flex-col items-center text-center flex-shrink-0 min-w-[100px] cursor-pointer"
+                onClick={() => onStepChange?.(step.id)}
+                role="button"
+                aria-current={isCurrent ? "step" : undefined}
+              >
                 {/* Step circle */}
                 <div
                   className={`

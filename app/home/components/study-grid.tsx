@@ -3,6 +3,7 @@
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Calendar, Share2, Eye } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 const studies = [
   {
@@ -68,6 +69,13 @@ const studies = [
 ]
 
 export function StudyGrid() {
+  const router = useRouter()
+
+  const handleViewDetails = (studyId: number) => {
+    // For now, using the study ID as a string. In a real app, you'd use the actual study ID from the API
+    router.push(`/home/study/${studyId}`)
+  }
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {studies.map((study, index) => (
@@ -152,7 +160,10 @@ export function StudyGrid() {
           {/* Actions */}
           <div className="flex items-center justify-between">
             <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-              <Button className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] text-white px-6 py-2 rounded-lg flex items-center space-x-2">
+              <Button 
+                onClick={() => handleViewDetails(study.id)}
+                className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] text-white px-6 py-2 rounded-lg flex items-center space-x-2"
+              >
                 <Eye className="w-4 h-4" />
                 <span>View Details</span>
               </Button>

@@ -22,44 +22,50 @@ interface Step5StudyStructureProps {
 export function Step5StudyStructure({ onNext, onBack, mode = "grid" }: Step5StudyStructureProps) {
   const [elements, setElements] = useState<ElementItem[]>([])
   const [uploading, setUploading] = useState(false)
+  const [nextLoading, setNextLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement | null>(null)
+
+  // Hydrate GRID elements from localStorage on mount
+  useEffect(() => {
+    if (mode !== 'grid') return
+    if (typeof window === 'undefined') return
+    try {
+      const raw = localStorage.getItem('cs_step5_grid')
+      if (!raw) return
+      const arr = JSON.parse(raw) as Array<Partial<ElementItem>>
+      const restored: ElementItem[] = (arr || []).map((e, idx) => ({
+        id: e.id || crypto.randomUUID(),
+        name: e.name || `Element ${idx + 1}`,
+        description: e.description || "",
+        previewUrl: e.previewUrl,
+        secureUrl: e.secureUrl,
+      }))
+      if (restored.length > 0) setElements(restored)
+    } catch {}
+  // run once per mode
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode])
 
   const handleFiles = async (files: FileList | null) => {
     if (!files) return
-    
-    setUploading(true)
-    try {
-      const items: ElementItem[] = []
-      Array.from(files).forEach((file) => {
-        const id = crypto.randomUUID()
-        const url = URL.createObjectURL(file)
-        items.push({ id, name: `Element ${elements.length + items.length + 1}`, description: "", file, previewUrl: url })
-      })
-      
-      // Upload images immediately
-      const imageFiles = items.map(item => item.file!)
-      const uploadResults = await uploadImages(imageFiles)
-      
-      // Update items with secure URLs
-      const itemsWithSecureUrls = items.map((item, idx) => ({
-        ...item,
-        secureUrl: uploadResults[idx]?.secure_url
-      }))
-      
-      setElements((prev) => [...prev, ...itemsWithSecureUrls])
-    } catch (error) {
-      console.error('Failed to upload images:', error)
-      // Still add items with preview URLs even if upload fails
-      const items: ElementItem[] = []
-      Array.from(files).forEach((file) => {
-        const id = crypto.randomUUID()
-        const url = URL.createObjectURL(file)
-        items.push({ id, name: `Element ${elements.length + items.length + 1}`, description: "", file, previewUrl: url })
-      })
-      setElements((prev) => [...prev, ...items])
-    } finally {
-      setUploading(false)
-    }
+    Array.from(files).forEach(async (file) => {
+      const tempId = crypto.randomUUID()
+      const url = URL.createObjectURL(file)
+      const newItem: ElementItem = { id: tempId, name: `Element ${elements.length + 1}`, description: "", file, previewUrl: url }
+      // add immediately
+      setElements(prev => [...prev, newItem])
+      // start upload for this single file and patch result as soon as it arrives
+      try {
+        const res = await uploadImages([file])
+        const secure = res?.[0]?.secure_url
+        if (secure) {
+          setElements(prev => prev.map(e => e.id === tempId ? { ...e, secureUrl: secure } : e))
+        }
+      } catch (e) {
+        // keep preview only
+        console.error('Upload failed for file', e)
+      }
+    })
   }
 
   const removeElement = (id: string) => {
@@ -88,6 +94,33 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid" }: Step5Stud
     }))
     localStorage.setItem('cs_step5_grid', JSON.stringify(minimal))
   }, [elements, mode])
+
+  // Ensure all grid elements have secureUrl (upload pending ones)
+  const ensureGridUploads = async () => {
+    const pending = elements.filter(e => !e.secureUrl && e.file)
+    if (pending.length === 0) return
+    const files = pending.map(p => p.file!)
+    try {
+      const results = await uploadImages(files)
+      setElements(prev => prev.map(el => {
+        const i = pending.findIndex(p => p.id === el.id)
+        if (i !== -1) return { ...el, secureUrl: results[i]?.secure_url || el.secureUrl }
+        return el
+      }))
+    } catch (e) {
+      console.error('ensureGridUploads error', e)
+    }
+  }
+
+  const handleNext = async () => {
+    setNextLoading(true)
+    await Promise.all([
+      ensureGridUploads(),
+      new Promise(res => setTimeout(res, 1500)),
+    ])
+    setNextLoading(false)
+    onNext()
+  }
 
   if (mode === "layer") {
     return (
@@ -169,10 +202,10 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid" }: Step5Stud
         <Button variant="outline" className="rounded-full px-6 w-full sm:w-auto" onClick={onBack}>Back</Button>
         <Button
           className="rounded-full px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] w-full sm:w-auto"
-          onClick={onNext}
-          disabled={uploading}
+          onClick={handleNext}
+          disabled={nextLoading}
         >
-          {uploading ? 'Uploading...' : 'Next'}
+          {nextLoading ? 'Loading…' : 'Next'}
         </Button>
       </div>
     </div>
@@ -187,7 +220,7 @@ type Layer = {
   name: string
   description?: string
   z: number
-  images: { id: string; file: File; previewUrl: string; secureUrl?: string }[]
+  images: { id: string; file?: File; previewUrl: string; secureUrl?: string }[]
   open: boolean
 }
 
@@ -198,9 +231,9 @@ function LayerMode({ onNext, onBack }: LayerModeProps) {
   const [showModal, setShowModal] = useState(false)
   const [draftName, setDraftName] = useState("Layer 1")
   const [draftDescription, setDraftDescription] = useState("")
-  const [draftFiles, setDraftFiles] = useState<FileList | null>(null)
-  const [saving, setSaving] = useState(false)
+  const [draftImages, setDraftImages] = useState<Array<{ id: string; file?: File; previewUrl: string; secureUrl?: string }>>([])
   const [selectedImageIds, setSelectedImageIds] = useState<Record<string, string>>({}) // layerId -> selectedImageId
+  const [nextLoading, setNextLoading] = useState(false)
 
   const addLayer = () => setShowModal(true)
 
@@ -209,47 +242,67 @@ function LayerMode({ onNext, onBack }: LayerModeProps) {
     return list.map((l, idx) => ({ ...l, z: idx }))
   }
 
-  const saveLayer = async () => {
-    setSaving(true)
-    try {
-      const id = crypto.randomUUID()
-      const nextZ = layers.length // z starts at 0
-      
-      let images: { id: string; file: File; previewUrl: string; secureUrl?: string }[] = []
-      
-      if (draftFiles) {
-        try {
-          // Upload images immediately when creating layer
-          const imageFiles = Array.from(draftFiles)
-          console.log('Uploading images for new layer:', imageFiles.length)
-          const uploadResults = await uploadImages(imageFiles)
-          console.log('Upload results for new layer:', uploadResults)
-          
-          images = Array.from(draftFiles).map((f, idx) => ({ 
-            id: crypto.randomUUID(), 
-            file: f, 
-            previewUrl: URL.createObjectURL(f),
-            secureUrl: uploadResults[idx]?.secure_url
-          }))
-          console.log('Images with secure URLs for new layer:', images)
-        } catch (error) {
-          console.error('Failed to upload images for new layer:', error)
-          // Fallback to preview URLs only
-          images = Array.from(draftFiles).map(f => ({ 
-            id: crypto.randomUUID(), 
-            file: f, 
-            previewUrl: URL.createObjectURL(f) 
+  const handleDraftFiles = (files: FileList | null) => {
+    if (!files) return
+    Array.from(files).forEach(async (file) => {
+      const tempId = crypto.randomUUID()
+      const url = URL.createObjectURL(file)
+      setDraftImages(prev => [...prev, { id: tempId, file, previewUrl: url }])
+      try {
+        const res = await uploadImages([file])
+        const secure = res?.[0]?.secure_url
+        if (secure) {
+          setDraftImages(prev => prev.map(img => img.id === tempId ? { ...img, secureUrl: secure } : img))
+        }
+      } catch (e) {
+        console.error('Draft upload failed', e)
+      }
+    })
+  }
+
+  const saveLayer = () => {
+    // Close immediately with whatever images drafted (keep file so we can finalize if still pending)
+    const id = crypto.randomUUID()
+    const nextZ = layers.length
+    const imgs = draftImages.map(i => ({ id: i.id, file: i.file, previewUrl: i.previewUrl, secureUrl: i.secureUrl }))
+    const layer: Layer = { id, name: draftName || `Layer ${nextZ + 1}`, description: draftDescription, z: nextZ, images: imgs, open: false }
+    setLayers(prev => reindexLayers([...prev, layer]))
+    setShowModal(false)
+    setDraftName("")
+    setDraftDescription("")
+    setDraftImages([])
+  }
+
+  const ensureLayerUploads = async () => {
+    // Find all images across layers missing secureUrl but with file
+    const pending: Array<{ layerId: string; imageId: string; file: File }> = []
+    layers.forEach(l => l.images.forEach(img => { if (!img.secureUrl && img.file) pending.push({ layerId: l.id, imageId: img.id, file: img.file }) }))
+    if (pending.length === 0) return
+    // Upload one-by-one to patch as soon as ready (avoids mis-ordering)
+    for (const item of pending) {
+      try {
+        const res = await uploadImages([item.file])
+        const secure = res?.[0]?.secure_url
+        if (secure) {
+          setLayers(prev => prev.map(l => {
+            if (l.id !== item.layerId) return l
+            return { ...l, images: l.images.map(img => img.id === item.imageId ? { ...img, secureUrl: secure } : img) }
           }))
         }
+      } catch (e) {
+        console.error('ensureLayerUploads item failed', e)
       }
-      
-      const layer: Layer = { id, name: draftName || `Layer ${nextZ + 1}`, description: draftDescription, z: nextZ, images, open: false }
-      setLayers(prev => reindexLayers([...prev, layer]))
-      // reset modal
-      setShowModal(false); setDraftName(""); setDraftDescription(""); setDraftFiles(null)
-    } finally {
-      setSaving(false)
     }
+  }
+
+  const handleNext = async () => {
+    setNextLoading(true)
+    await Promise.all([
+      ensureLayerUploads(),
+      new Promise(res => setTimeout(res, 1500)),
+    ])
+    setNextLoading(false)
+    onNext()
   }
 
   const removeLayer = (id: string) => {
@@ -297,39 +350,25 @@ function LayerMode({ onNext, onBack }: LayerModeProps) {
     })
   }
 
-  const addImagesToLayer = async (layerId: string, files: FileList | null) => {
+  const addImagesToLayer = (layerId: string, files: FileList | null) => {
     if (!files) return
-    
-    console.log('Adding images to layer:', layerId, 'Files:', files.length)
-    
-    try {
-      // Upload images immediately
-      const imageFiles = Array.from(files)
-      console.log('Uploading images:', imageFiles.length)
-      const uploadResults = await uploadImages(imageFiles)
-      console.log('Upload results:', uploadResults)
-      
-      setLayers(prev => prev.map(l => {
-        if (l.id !== layerId) return l
-        const newImages = Array.from(files).map((f, idx) => ({ 
-          id: crypto.randomUUID(), 
-          file: f, 
-          previewUrl: URL.createObjectURL(f),
-          secureUrl: uploadResults[idx]?.secure_url
-        }))
-        console.log('New images with secure URLs:', newImages)
-        const images = [...l.images, ...newImages]
-        return { ...l, images }
-      }))
-    } catch (error) {
-      console.error('Failed to upload images:', error)
-      // Still add images with preview URLs even if upload fails
-      setLayers(prev => prev.map(l => {
-        if (l.id !== layerId) return l
-        const images = [...l.images, ...Array.from(files).map(f => ({ id: crypto.randomUUID(), file: f, previewUrl: URL.createObjectURL(f) }))]
-        return { ...l, images }
-      }))
-    }
+    Array.from(files).forEach(async (file) => {
+      const tempId = crypto.randomUUID()
+      const url = URL.createObjectURL(file)
+      setLayers(prev => prev.map(l => (l.id === layerId ? { ...l, images: [...l.images, { id: tempId, file, previewUrl: url }] } : l)))
+      try {
+        const res = await uploadImages([file])
+        const secure = res?.[0]?.secure_url
+        if (secure) {
+          setLayers(prev => prev.map(l => {
+            if (l.id !== layerId) return l
+            return { ...l, images: l.images.map(img => img.id === tempId ? { ...img, secureUrl: secure } : img) }
+          }))
+        }
+      } catch (e) {
+        console.error('Layer add image upload failed', e)
+      }
+    })
   }
 
   // persist layers
@@ -493,18 +532,27 @@ function LayerMode({ onNext, onBack }: LayerModeProps) {
                 <div className="text-sm text-[rgba(38,116,186,1)]">Drag And Drop</div>
                 <div className="text-[10px] text-gray-500">Supports JPG, PNG (Max 10MB Each)</div>
                 <div className="mt-3">
-                  <input type="file" multiple accept="image/*" onChange={(e) => setDraftFiles(e.target.files)} />
+                  <input type="file" multiple accept="image/*" onChange={(e) => handleDraftFiles(e.target.files)} />
                 </div>
+                {draftImages.length > 0 && (
+                  <div className="mt-3 flex gap-2 flex-wrap">
+                    {draftImages.map(img => (
+                      <div key={img.id} className="w-16 h-16 border rounded-md overflow-hidden">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={img.previewUrl} alt="preview" className="w-full h-full object-cover" />
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
             <div className="px-5 py-4 border-t flex items-center justify-between">
-              <Button variant="outline" onClick={() => setShowModal(false)} disabled={saving}>Cancel</Button>
+              <Button variant="outline" onClick={() => setShowModal(false)} disabled={false}>Cancel</Button>
               <Button 
                 className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)]" 
                 onClick={saveLayer}
-                disabled={saving}
               >
-                {saving ? 'Uploading...' : 'Save Layer'}
+                Save Layer
               </Button>
             </div>
           </div>
@@ -513,11 +561,8 @@ function LayerMode({ onNext, onBack }: LayerModeProps) {
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mt-10">
         <Button variant="outline" className="rounded-full px-6 w-full sm:w-auto" onClick={onBack}>Back</Button>
-        <Button className="rounded-full px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] w-full sm:w-auto" onClick={onNext}>Next</Button>
+        <Button className="rounded-full px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] w-full sm:w-auto" onClick={handleNext} disabled={nextLoading}>{nextLoading ? 'Loading…' : 'Next'}</Button>
       </div>
     </div>
   )
 }
-
-
-
