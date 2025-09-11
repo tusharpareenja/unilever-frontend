@@ -235,6 +235,26 @@ function LayerMode({ onNext, onBack }: LayerModeProps) {
   const [selectedImageIds, setSelectedImageIds] = useState<Record<string, string>>({}) // layerId -> selectedImageId
   const [nextLoading, setNextLoading] = useState(false)
 
+  // Hydrate layers from localStorage
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const raw = localStorage.getItem('cs_step5_layer')
+      if (!raw) return
+      const saved = JSON.parse(raw) as Array<{ id: string; name: string; z: number; images: Array<{ id: string; previewUrl?: string; secureUrl?: string }> }>
+      if (!Array.isArray(saved)) return
+      const restored: Layer[] = saved.map((l, idx) => ({
+        id: l.id || crypto.randomUUID(),
+        name: l.name || `Layer ${idx + 1}`,
+        description: "",
+        z: typeof l.z === 'number' ? l.z : idx,
+        images: (l.images || []).map(img => ({ id: img.id || crypto.randomUUID(), previewUrl: img.previewUrl || img.secureUrl || '', secureUrl: img.secureUrl })),
+        open: false,
+      }))
+      setLayers(restored)
+    } catch {}
+  }, [])
+
   const addLayer = () => setShowModal(true)
 
   const reindexLayers = (list: Layer[]): Layer[] => {
@@ -409,7 +429,7 @@ function LayerMode({ onNext, onBack }: LayerModeProps) {
               const selectedImage = selectedImageId ? l.images.find(img => img.id === selectedImageId) : l.images[0]
               return selectedImage ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img key={`${l.id}-${selectedImage.id}`} src={selectedImage.previewUrl} alt={l.name} className="absolute inset-0 w-full h-full object-contain" style={{ zIndex: l.z }} />
+                <img key={`${l.id}-${selectedImage.id}`} src={selectedImage.secureUrl || selectedImage.previewUrl} alt={l.name} className="absolute inset-0 w-full h-full object-contain" style={{ zIndex: l.z }} />
               ) : null
             })}
           </div>
@@ -482,7 +502,7 @@ function LayerMode({ onNext, onBack }: LayerModeProps) {
                             onClick={() => selectImage(layer.id, img.id)}
                           >
                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={img.previewUrl} alt="layer" className="w-full h-full object-cover rounded-md" />
+                            <img src={img.secureUrl || img.previewUrl} alt="layer" className="w-full h-full object-cover rounded-md" />
                           </div>
                           <button
                             onClick={() => removeImageFromLayer(layer.id, img.id)}
