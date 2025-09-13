@@ -7,6 +7,7 @@ interface Step2StudyTypeProps {
   onNext: (selected: StudyType, mainQuestion: string, orientationText: string) => void
   onBack: () => void
   value?: StudyType
+  onDataChange?: () => void
 }
 
 type StudyType = "grid" | "layer"
@@ -76,7 +77,7 @@ export function GridStudy() {
   )
 }
 
-export function Step2StudyType({ onNext, onBack, value }: Step2StudyTypeProps) {
+export function Step2StudyType({ onNext, onBack, value, onDataChange }: Step2StudyTypeProps) {
   const [type, setType] = useState<StudyType | null>(() => {
     try { const v = localStorage.getItem('cs_step2'); if (v) { const o = JSON.parse(v); return (o.type === 'layer' || o.type === 'grid') ? o.type : (value ?? 'grid') } } catch {}
     return value ?? 'grid'
@@ -95,7 +96,8 @@ export function Step2StudyType({ onNext, onBack, value }: Step2StudyTypeProps) {
   useEffect(() => {
     if (typeof window === 'undefined') return
     localStorage.setItem('cs_step2', JSON.stringify({ type, mainQuestion, orientationText }))
-  }, [type, mainQuestion, orientationText])
+    onDataChange?.()
+  }, [type, mainQuestion, orientationText, onDataChange])
 
   return (
     <div>

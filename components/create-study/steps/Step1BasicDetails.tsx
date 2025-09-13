@@ -7,9 +7,10 @@ import { Input } from "@/components/ui/input"
 interface Step1BasicDetailsProps {
   onNext: () => void
   onCancel: () => void
+  onDataChange?: () => void
 }
 
-export function Step1BasicDetails({ onNext, onCancel }: Step1BasicDetailsProps) {
+export function Step1BasicDetails({ onNext, onCancel, onDataChange }: Step1BasicDetailsProps) {
   const [title, setTitle] = useState(() => {
     try { const v = localStorage.getItem('cs_step1'); if (v) { const o = JSON.parse(v); return o.title || "" } } catch {};
     return ""
@@ -30,7 +31,8 @@ export function Step1BasicDetails({ onNext, onCancel }: Step1BasicDetailsProps) 
   useEffect(() => {
     if (typeof window === 'undefined') return
     localStorage.setItem('cs_step1', JSON.stringify({ title, description, language, agree }))
-  }, [title, description, language, agree])
+    onDataChange?.()
+  }, [title, description, language, agree, onDataChange])
 
   return (
     <div>

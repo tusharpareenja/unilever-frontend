@@ -1,7 +1,90 @@
+"use client"
+
+import { useState, useEffect, useRef } from 'react'
+
 interface StepperProps {
   currentStep?: number
   className?: string
   onStepChange?: (step: number) => void
+}
+
+// Helper function to check if a step is completed based on localStorage data
+function isStepCompleted(stepId: number): boolean {
+  if (typeof window === 'undefined') return false
+  
+  try {
+    switch (stepId) {
+      case 1: {
+        const data = localStorage.getItem('cs_step1')
+        if (!data) return false
+        const parsed = JSON.parse(data)
+        return !!(parsed.title && parsed.description && parsed.language && parsed.agree)
+      }
+      case 2: {
+        const data = localStorage.getItem('cs_step2')
+        if (!data) return false
+        const parsed = JSON.parse(data)
+        return !!(parsed.type && parsed.mainQuestion && parsed.orientationText)
+      }
+      case 3: {
+        const data = localStorage.getItem('cs_step3')
+        if (!data) return false
+        const parsed = JSON.parse(data)
+        return !!(parsed.minValue && parsed.maxValue && parsed.minLabel && parsed.maxLabel && parsed.middleLabel)
+      }
+      case 4: {
+        const data = localStorage.getItem('cs_step4')
+        if (!data) return false
+        const parsed = JSON.parse(data)
+        return Array.isArray(parsed) && parsed.length > 0 && parsed.every((q: any) => 
+          q.title && q.options && q.options.length >= 2 && q.options.every((o: any) => o.text)
+        )
+      }
+      case 5: {
+        const gridData = localStorage.getItem('cs_step5_grid')
+        const layerData = localStorage.getItem('cs_step5_layer')
+        const step2Data = localStorage.getItem('cs_step2')
+        
+        if (!step2Data) return false
+        const step2 = JSON.parse(step2Data)
+        
+        if (step2.type === 'grid') {
+          if (!gridData) return false
+          const grid = JSON.parse(gridData)
+          return Array.isArray(grid) && grid.length > 0 && grid.every((e: any) => e.secureUrl)
+        } else {
+          if (!layerData) return false
+          const layer = JSON.parse(layerData)
+          return Array.isArray(layer) && layer.length > 0 && layer.every((l: any) => 
+            l.images && l.images.length > 0 && l.images.every((img: any) => img.secureUrl)
+          )
+        }
+      }
+      case 6: {
+        const data = localStorage.getItem('cs_step6')
+        if (!data) return false
+        const parsed = JSON.parse(data)
+        return !!(parsed.respondents && parsed.respondents > 0)
+      }
+      case 7: {
+        // Step 7 is completed when task generation is successful
+        // We can check if there's task data in localStorage or if the step has been visited
+        const data = localStorage.getItem('cs_step7_tasks')
+        return !!data
+      }
+      case 8: {
+        // Step 8 is only completed when the user reaches it
+        // We don't need to check for specific data since it's the final step
+        // It should only be blue when it's the current step or when study is actually launched
+        return false
+      }
+      default:
+        return false
+    }
+  } catch (error) {
+    console.error('Error checking step completion:', error)
+    return false
+  }
 }
 
 const steps = [
@@ -9,13 +92,72 @@ const steps = [
   { id: 2, label: "Study Type" },
   { id: 3, label: "Rating Scale" },
   { id: 4, label: "Classification Questions" },
-  { id: 5, label: "Layer Configuration" },
+  { id: 5, label: "Study Structure" },
   { id: 6, label: "Audience Segmentation" },
   { id: 7, label: "Task Generation" },
   { id: 8, label: "Launch Study" },
 ]
 
 export default function Stepper({ currentStep = 5, className = "", onStepChange }: StepperProps) {
+  const [refreshKey, setRefreshKey] = useState(0)
+  const stepsContainerRef = useRef<HTMLDivElement>(null)
+  
+  // Listen for localStorage changes to update step completion status
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setRefreshKey(prev => prev + 1)
+    }
+    
+    window.addEventListener('storage', handleStorageChange)
+    
+    // Also listen for custom events that might indicate localStorage changes
+    window.addEventListener('stepDataChanged', handleStorageChange)
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('stepDataChanged', handleStorageChange)
+    }
+  }, [])
+  
+  // Force re-evaluation of step completion when refreshKey changes
+  const isStepCompletedWithRefresh = (stepId: number): boolean => {
+    // Use refreshKey to force re-evaluation
+    refreshKey // This forces the function to re-run when refreshKey changes
+    return isStepCompleted(stepId)
+  }
+  
+  // Auto-scroll to current step on mobile
+  useEffect(() => {
+    if (!stepsContainerRef.current) return
+    
+    // Small delay to ensure DOM is fully rendered
+    const timeoutId = setTimeout(() => {
+      const container = stepsContainerRef.current
+      if (!container) return
+      
+      const currentStepElement = container.children[currentStep - 1] as HTMLElement
+      
+      if (currentStepElement) {
+        const containerRect = container.getBoundingClientRect()
+        const stepRect = currentStepElement.getBoundingClientRect()
+        
+        // Calculate if the step is visible in the container
+        const isVisible = stepRect.left >= containerRect.left && stepRect.right <= containerRect.right
+        
+        if (!isVisible) {
+          // Scroll to center the current step
+          const scrollLeft = currentStepElement.offsetLeft - (container.offsetWidth / 2) + (currentStepElement.offsetWidth / 2)
+          container.scrollTo({
+            left: Math.max(0, scrollLeft),
+            behavior: 'smooth'
+          })
+        }
+      }
+    }, 100)
+    
+    return () => clearTimeout(timeoutId)
+  }, [currentStep])
+  
   const totalSegments = steps.length - 1
   const isLast = currentStep >= steps.length
   const progressWidth = isLast
@@ -43,9 +185,9 @@ export default function Stepper({ currentStep = 5, className = "", onStepChange 
         />
 
         {/* Steps container */}
-        <div className="relative flex flex-row justify-between items-start gap-2 overflow-x-auto pb-2">
+        <div ref={stepsContainerRef} className="relative flex flex-row justify-between items-start gap-2 overflow-x-auto pb-2">
           {steps.map((step, index) => {
-            const isCompleted = step.id < currentStep
+            const isCompleted = isStepCompletedWithRefresh(step.id)
             const isCurrent = step.id === currentStep
             const isUpcoming = step.id > currentStep
 

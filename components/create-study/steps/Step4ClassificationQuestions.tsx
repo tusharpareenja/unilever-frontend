@@ -18,9 +18,10 @@ interface QuestionCard {
 interface Step4ClassificationQuestionsProps {
 	onNext: () => void
 	onBack: () => void
+	onDataChange?: () => void
 }
 
-export function Step4ClassificationQuestions({ onNext, onBack }: Step4ClassificationQuestionsProps) {
+export function Step4ClassificationQuestions({ onNext, onBack, onDataChange }: Step4ClassificationQuestionsProps) {
 	const [questions, setQuestions] = useState<QuestionCard[]>(() => {
 		try {
 			const raw = localStorage.getItem('cs_step4')
@@ -49,7 +50,8 @@ export function Step4ClassificationQuestions({ onNext, onBack }: Step4Classifica
 	useEffect(() => {
 		if (typeof window === 'undefined') return
 		localStorage.setItem('cs_step4', JSON.stringify(questions))
-	}, [questions])
+		onDataChange?.()
+	}, [questions, onDataChange])
 
 	const addQuestion = () => {
 		setQuestions((prev) => [
@@ -74,7 +76,14 @@ export function Step4ClassificationQuestions({ onNext, onBack }: Step4Classifica
 	}
 
 	const removeOption = (qid: string, oid: string) => {
-		setQuestions((prev) => prev.map(q => q.id === qid ? { ...q, options: q.options.filter(o => o.id !== oid) } : q))
+		setQuestions((prev) => prev.map(q => {
+			if (q.id === qid) {
+				// Don't allow removing if there are only 2 options left
+				if (q.options.length <= 2) return q
+				return { ...q, options: q.options.filter(o => o.id !== oid) }
+			}
+			return q
+		}))
 	}
 
 	const addOption = (qid: string) => {
@@ -93,7 +102,11 @@ export function Step4ClassificationQuestions({ onNext, onBack }: Step4Classifica
 		setQuestions((prev) => prev.map(q => q.id === qid ? { ...q, required: !q.required } : q))
 	}
 
-	const canProceed = questions.every(q => q.title.trim().length > 0 && q.options.some(o => o.text.trim().length > 0))
+	const canProceed = questions.every(q => 
+		q.title.trim().length > 0 && 
+		q.options.length >= 2 && 
+		q.options.every(o => o.text.trim().length > 0)
+	)
 
 	return (
 		<div>
@@ -137,6 +150,7 @@ export function Step4ClassificationQuestions({ onNext, onBack }: Step4Classifica
 
 							<div className="mt-4">
 								<div className="text-sm font-semibold text-gray-800 mb-2">Answer Options <span className="text-red-500">*</span></div>
+								<div className="text-xs text-gray-500 mb-3">Minimum 2 options required</div>
 								<div className="space-y-3">
 									{q.options.map((o) => (
 										<div key={o.id} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
@@ -146,7 +160,14 @@ export function Step4ClassificationQuestions({ onNext, onBack }: Step4Classifica
 												value={o.text}
 												onChange={(e) => updateOptionText(q.id, o.id, e.target.value)}
 											/>
-											<Button variant="outline" onClick={() => removeOption(q.id, o.id)} className="sm:w-auto w-full">Remove</Button>
+											<Button 
+												variant="outline" 
+												onClick={() => removeOption(q.id, o.id)} 
+												disabled={q.options.length <= 2}
+												className="sm:w-auto w-full disabled:opacity-50 disabled:cursor-not-allowed"
+											>
+												Remove
+											</Button>
 										</div>
 									))}
 								</div>

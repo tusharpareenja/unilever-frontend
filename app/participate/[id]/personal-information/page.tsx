@@ -3,12 +3,16 @@
 import { useParams, useRouter } from "next/navigation"
 import { DashboardHeader } from "@/app/home/components/dashboard-header"
 import { useState } from "react"
-import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
 import { CalendarIcon } from "lucide-react"
 import { format } from "date-fns"
 import Link from "next/link"
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
+import { DateCalendar } from '@mui/x-date-pickers/DateCalendar'
+import dayjs from 'dayjs'
+import { updateUserPersonalInfo } from "@/lib/api/ResponseAPI"
 
 export default function PersonalInformationPage() {
   const params = useParams<{ id: string }>()
@@ -16,6 +20,60 @@ export default function PersonalInformationPage() {
 
   const [dob, setDob] = useState<Date>()
   const [gender, setGender] = useState<string | null>("male")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const handleDateChange = (newValue: any) => {
+    if (newValue) {
+      setDob(newValue.toDate())
+    }
+  }
+
+  const handleContinue = async () => {
+    if (!dob || !gender) {
+      alert('Please fill in all required fields')
+      return
+    }
+
+    setIsSubmitting(true)
+    
+    try {
+      // Get session data from localStorage
+      const sessionData = localStorage.getItem('study_session')
+      console.log('Session data from localStorage:', sessionData)
+      if (!sessionData) {
+        throw new Error('Session data not found')
+      }
+      
+      const { sessionId } = JSON.parse(sessionData)
+      console.log('Session ID:', sessionId)
+      
+      // Check if study details are available
+      const studyDetails = localStorage.getItem('current_study_details')
+      console.log('Study details from localStorage:', studyDetails)
+      
+      // Prepare personal info payload
+      const personalInfo = {
+        user_details: {
+          date_of_birth: dob.toISOString().split('T')[0], // Format as YYYY-MM-DD
+          gender: gender
+        }
+      }
+      
+      // Store in localStorage for later use
+      localStorage.setItem('personal_info', JSON.stringify(personalInfo))
+      
+      // Update user personal info via API
+      await updateUserPersonalInfo(sessionId, personalInfo)
+      
+      // Navigate to next page
+      router.push(`/participate/${params?.id}/classification-questions`)
+    } catch (error) {
+      console.error('Failed to update personal info:', error)
+      alert('Failed to save personal information. Please try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-white">
@@ -42,18 +100,42 @@ export default function PersonalInformationPage() {
                     {dob ? format(dob, "dd / MM / yyyy") : <span className="text-gray-500">DD / MM / YYYY</span>}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="p-0 w-[90vw] max-w-[20rem] sm:w-auto" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={dob}
-                    onSelect={setDob}
-                    captionLayout="dropdown"
-                    fromYear={1900}
-                    toYear={new Date().getFullYear()}
-                    defaultMonth={dob || new Date()}
-                    initialFocus
-                    className="rounded-md border p-2 [&_.rdp-caption]:px-2 [&_.rdp-dropdown]:max-w-[46%] [&_.rdp-dropdown]:truncate [&_.rdp-dropdowns]:flex [&_.rdp-dropdowns]:gap-2"
-                  />
+                <PopoverContent className="p-4 w-[90vw] max-w-[20rem] sm:w-auto" align="start">
+                  <LocalizationProvider dateAdapter={AdapterDayjs}>
+                    <DateCalendar
+                      value={dob ? dayjs(dob) : null}
+                      onChange={handleDateChange}
+                      maxDate={dayjs()}
+                      minDate={dayjs('1900-01-01')}
+                      sx={{
+                        '& .MuiPickersCalendarHeader-root': {
+                          paddingLeft: 1,
+                          paddingRight: 1,
+                          minHeight: '40px',
+                        },
+                        '& .MuiDayCalendar-root': {
+                          fontSize: '0.875rem',
+                        },
+                        '& .MuiPickersDay-root': {
+                          fontSize: '0.875rem',
+                          width: '32px',
+                          height: '32px',
+                          '&.Mui-selected': {
+                            backgroundColor: 'rgba(38,116,186,1)',
+                            '&:hover': {
+                              backgroundColor: 'rgba(38,116,186,0.9)',
+                            },
+                          },
+                        },
+                        '& .MuiPickersCalendarHeader-switchViewButton': {
+                          fontSize: '0.875rem',
+                        },
+                        '& .MuiPickersArrowSwitcher-button': {
+                          fontSize: '0.875rem',
+                        },
+                      }}
+                    />
+                  </LocalizationProvider>
                 </PopoverContent>
               </Popover>
             </div>
@@ -73,16 +155,20 @@ export default function PersonalInformationPage() {
           </div>
 
           <div className="mt-8 flex justify-end">
-            <Link href={`/participate/${params?.id}/classification-questions`}>
             <button
-              onClick={() => router.push(`/participate/${params?.id}/classification-questions`)}
-              className="px-5 py-2 rounded-md bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] text-white text-sm"
+              onClick={handleContinue}
+              disabled={isSubmitting}
+              className="px-5 py-2 rounded-md bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] disabled:bg-gray-400 disabled:cursor-not-allowed text-white text-sm"
             >
-              Continue
+              {isSubmitting ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2 inline-block"></div>
+                  Saving...
+                </>
+              ) : (
+                'Continue'
+              )}
             </button>
-            
-            </Link>
-            
           </div>
         </div>
       </div>

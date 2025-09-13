@@ -9,7 +9,7 @@ function get<T>(key: string, fallback: T): T {
   try { const v = localStorage.getItem(key); return v ? JSON.parse(v) as T : fallback } catch { return fallback }
 }
 
-export function Step8LaunchPreview({ onBack }: { onBack: () => void }) {
+export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => void; onDataChange?: () => void }) {
   const [isLaunching, setIsLaunching] = useState(false)
   const [launchError, setLaunchError] = useState<string | null>(null)
   const [isConfirmed, setIsConfirmed] = useState(false)

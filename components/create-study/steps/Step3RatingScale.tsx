@@ -7,9 +7,10 @@ import { Input } from "@/components/ui/input"
 interface Step3RatingScaleProps {
   onNext: () => void
   onBack: () => void
+  onDataChange?: () => void
 }
 
-export function Step3RatingScale({ onNext, onBack }: Step3RatingScaleProps) {
+export function Step3RatingScale({ onNext, onBack, onDataChange }: Step3RatingScaleProps) {
   const [minLabel, setMinLabel] = useState(() => { try { const v = localStorage.getItem('cs_step3'); if (v) { const o = JSON.parse(v); return o.minLabel || "" } } catch {}; return "" })
   const [maxLabel, setMaxLabel] = useState(() => { try { const v = localStorage.getItem('cs_step3'); if (v) { const o = JSON.parse(v); return o.maxLabel || "" } } catch {}; return "" })
   const [middleLabel, setMiddleLabel] = useState(() => { try { const v = localStorage.getItem('cs_step3'); if (v) { const o = JSON.parse(v); return o.middleLabel || "" } } catch {}; return "" })
@@ -23,7 +24,8 @@ export function Step3RatingScale({ onNext, onBack }: Step3RatingScaleProps) {
   useEffect(() => {
     if (typeof window === 'undefined') return
     localStorage.setItem('cs_step3', JSON.stringify({ minValue, maxValue, minLabel, maxLabel, middleLabel }))
-  }, [minLabel, maxLabel, middleLabel])
+    onDataChange?.()
+  }, [minLabel, maxLabel, middleLabel, onDataChange])
 
   const previewValues = useMemo(() => {
     const values: number[] = []

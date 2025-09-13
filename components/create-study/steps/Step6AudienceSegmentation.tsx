@@ -42,9 +42,10 @@ function useCountryFilter(query: string) {
 interface Step6AudienceSegmentationProps {
 	onNext: () => void
 	onBack: () => void
+	onDataChange?: () => void
 }
 
-export function Step6AudienceSegmentation({ onNext, onBack }: Step6AudienceSegmentationProps) {
+export function Step6AudienceSegmentation({ onNext, onBack, onDataChange }: Step6AudienceSegmentationProps) {
 	const [respondents, setRespondents] = useState<number | ''>(() => { try { const v = localStorage.getItem('cs_step6'); if (v) { const o = JSON.parse(v); return typeof o.respondents === 'number' ? o.respondents : '' } } catch {}; return '' })
 	const [countryQuery, setCountryQuery] = useState("")
 	const [countries, setCountries] = useState<string[]>(() => { try { const v = localStorage.getItem('cs_step6'); if (v) { const o = JSON.parse(v); return Array.isArray(o.countries) ? o.countries : [] } } catch {}; return [] })
@@ -66,7 +67,8 @@ export function Step6AudienceSegmentation({ onNext, onBack }: Step6AudienceSegme
 	useEffect(() => {
 		if (typeof window === 'undefined') return
 		localStorage.setItem('cs_step6', JSON.stringify({ respondents, countries, genderMale, genderFemale, ageSelections }))
-	}, [respondents, countries, genderMale, genderFemale, ageSelections])
+		onDataChange?.()
+	}, [respondents, countries, genderMale, genderFemale, ageSelections, onDataChange])
 
 	return (
 		<div>

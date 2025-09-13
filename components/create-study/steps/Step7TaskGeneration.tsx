@@ -8,9 +8,10 @@ interface Step7TaskGenerationProps {
   onNext: () => void
   onBack: () => void
   active?: boolean
+  onDataChange?: () => void
 }
 
-export function Step7TaskGeneration({ onNext, onBack, active = false }: Step7TaskGenerationProps) {
+export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChange }: Step7TaskGenerationProps) {
   const [isGenerating, setIsGenerating] = useState(false)
   const [matrix, setMatrix] = useState<any | null>(null)
 
@@ -22,6 +23,9 @@ export function Step7TaskGeneration({ onNext, onBack, active = false }: Step7Tas
       const data = await generateTasks(payload)
       console.log('Task generation response:', data)
       setMatrix(data)
+      // Mark step 7 as completed
+      localStorage.setItem('cs_step7_tasks', JSON.stringify({ completed: true, timestamp: Date.now() }))
+      onDataChange?.()
     } catch (e) {
       console.error('Task generation error:', e)
       const err: any = e

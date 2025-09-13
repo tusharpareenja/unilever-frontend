@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { DashboardHeader } from "@/app/home/components/dashboard-header"
+import { submitTaskResponse, submitTaskSession } from "@/lib/api/ResponseAPI"
 
 type Task = {
   id: string
@@ -10,54 +11,107 @@ type Task = {
   rightImageUrl?: string
   leftLabel?: string
   rightLabel?: string
+  layeredImages?: Array<{ url: string; z: number }>
 }
 
 export default function TasksPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
 
-  // Dummy 4 tasks for now; in real integration, hydrate from backend
-  const tasks: Task[] = useMemo(
-    () => [
-      {
-        id: "t1",
-        leftImageUrl:
-          "https://images.unsplash.com/photo-1542831371-29b0f74f9713?q=80&w=1200&auto=format&fit=crop",
-        rightImageUrl:
-          "https://images.unsplash.com/photo-1511920170033-f8396924c348?q=80&w=1200&auto=format&fit=crop",
-        leftLabel: "1 - A",
-        rightLabel: "5 - B",
-      },
-      {
-        id: "t2",
-        leftImageUrl:
-          "https://images.unsplash.com/photo-1504754524776-8f4f37790ca0?q=80&w=1200&auto=format&fit=crop",
-        rightImageUrl:
-          "https://images.unsplash.com/photo-1481391032119-d89fee407e44?q=80&w=1200&auto=format&fit=crop",
-        leftLabel: "2 - A",
-        rightLabel: "4 - B",
-      },
-      {
-        id: "t3",
-        leftImageUrl:
-          "https://images.unsplash.com/photo-1498804103079-a6351b050096?q=80&w=1200&auto=format&fit=crop",
-        rightImageUrl:
-          "https://images.unsplash.com/photo-1497534446932-c925b458314e?q=80&w=1200&auto=format&fit=crop",
-        leftLabel: "1 - C",
-        rightLabel: "5 - D",
-      },
-      {
-        id: "t4",
-        leftImageUrl:
-          "https://images.unsplash.com/photo-1510627498534-cf7e9002facc?q=80&w=1200&auto=format&fit=crop",
-        rightImageUrl:
-          "https://images.unsplash.com/photo-1490818387583-1baba5e638af?q=80&w=1200&auto=format&fit=crop",
-        leftLabel: "2 - C",
-        rightLabel: "4 - D",
-      },
-    ],
-    []
-  )
+  // Load tasks from localStorage study details using respondentId
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [isFetching, setIsFetching] = useState<boolean>(true)
+  const [fetchError, setFetchError] = useState<string | null>(null)
+  const [scaleLabels, setScaleLabels] = useState<{ left: string; right: string; middle: string }>({ left: "", right: "", middle: "" })
+  const [studyType, setStudyType] = useState<'grid' | 'layer' | undefined>(undefined)
+
+  // Interaction tracking
+  const hoverCountsRef = useRef<Record<number, number>>({})
+  const clickCountsRef = useRef<Record<number, number>>({})
+  const firstViewTimeRef = useRef<string | null>(null)
+  const lastViewTimeRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    firstViewTimeRef.current = new Date().toISOString()
+  }, [])
+
+  useEffect(() => {
+    firstViewTimeRef.current = new Date().toISOString()
+    lastViewTimeRef.current = null
+    hoverCountsRef.current = {}
+    clickCountsRef.current = {}
+  }, [])
+
+  useEffect(() => {
+    try {
+      setIsFetching(true)
+      setFetchError(null)
+
+      const sessionRaw = typeof window !== 'undefined' ? localStorage.getItem('study_session') : null
+      const detailsRaw = typeof window !== 'undefined' ? localStorage.getItem('current_study_details') : null
+
+      if (!sessionRaw || !detailsRaw) {
+        throw new Error('Missing session or study details in localStorage')
+      }
+
+      const { respondentId } = JSON.parse(sessionRaw || '{}')
+      const study = JSON.parse(detailsRaw || '{}')
+
+      setStudyType(study?.study_type)
+
+      if (study?.rating_scale) {
+        const rs = study.rating_scale || {}
+        const left = rs.min_label ? `${rs.min_label}` : ""
+        const right = rs.max_label ? `${rs.max_label}` : ""
+        const middle = rs.middle_label ? `${rs.middle_label}` : ""
+        setScaleLabels({ left, right, middle })
+      } else {
+        setScaleLabels({ left: "", right: "", middle: "" })
+      }
+
+      const tasksObj = study?.tasks || study?.data?.tasks || {}
+      const respondentKey = String(respondentId ?? 0)
+      const respondentTasks: any[] = tasksObj?.[respondentKey] || tasksObj?.[Number(respondentKey)] || []
+
+      const parsed: Task[] = (Array.isArray(respondentTasks) ? respondentTasks : [])
+        .map((t: any) => {
+          if ((study?.study_type as string) === 'layer') {
+            const shown = t?.elements_shown || {}
+            const content = t?.elements_shown_content || {}
+            const layers = Object.keys(shown)
+              .filter((k) => Number(shown[k]) === 1 && content?.[k]?.url)
+              .map((k) => ({ url: String(content[k].url), z: Number(content[k].z_index ?? 0) }))
+              .sort((a, b) => a.z - b.z)
+            return {
+              id: String(t?.task_id ?? t?.task_index ?? Math.random()),
+              layeredImages: layers,
+            }
+          } else {
+            const es = t?.elements_shown || {}
+            const activeKeys = Object.keys(es).filter((k) => /^E\d+$/.test(k) && Number(es[k]) === 1)
+            const urls = activeKeys
+              .map((k) => t?.elements_shown?.[`${k}`] !== undefined ? t?.elements_shown_content?.[`${k}_content`] || es[`${k}_content`] || t?.elements_shown?.[`${k}_content`] : es[`${k}_content`])
+            // Fallback to older format where *_content lives inside es
+            const fromEs = activeKeys.map((k) => es[`${k}_content`]).filter((u: any) => typeof u === 'string' && u)
+            const list = Array.isArray(urls) && urls.filter((u: any) => typeof u === 'string' && u) || fromEs
+            return {
+              id: String(t?.task_id ?? t?.task_index ?? Math.random()),
+              leftImageUrl: list[0],
+              rightImageUrl: list[1],
+              leftLabel: '',
+              rightLabel: '',
+            }
+          }
+        })
+
+      setTasks(parsed)
+    } catch (err: any) {
+      console.error('Failed to load tasks from localStorage:', err)
+      setFetchError(err?.message || 'Failed to load tasks')
+    } finally {
+      setIsFetching(false)
+    }
+  }, [])
 
   const totalTasks = tasks.length
   const [currentTaskIndex, setCurrentTaskIndex] = useState(0)
@@ -70,10 +124,82 @@ export default function TasksPage() {
   useEffect(() => {
     taskStartRef.current = Date.now()
     setLastSelected(null)
+    firstViewTimeRef.current = new Date().toISOString()
+    lastViewTimeRef.current = null
+    hoverCountsRef.current = {}
+    clickCountsRef.current = {}
   }, [currentTaskIndex])
 
+  const submitTaskInBackground = (rating: number) => {
+    try {
+      const sessionRaw = localStorage.getItem('study_session')
+      if (!sessionRaw) return
+      const { sessionId } = JSON.parse(sessionRaw)
+      if (!sessionId) return
+
+      const task = tasks[currentTaskIndex]
+      const elapsedMs = Date.now() - taskStartRef.current
+      const seconds = Math.round(elapsedMs / 1000)
+
+      const interactions = [1, 2, 3, 4, 5].map((n) => ({
+        element_id: `R${n}`,
+        view_time_seconds: seconds,
+        hover_count: hoverCountsRef.current[n] || 0,
+        click_count: clickCountsRef.current[n] || 0,
+        first_view_time: firstViewTimeRef.current || new Date().toISOString(),
+        last_view_time: new Date().toISOString(),
+      }))
+
+      submitTaskResponse(String(sessionId), {
+        task_id: task?.id || String(currentTaskIndex),
+        rating_given: rating,
+        task_duration_seconds: seconds,
+        element_interactions: interactions,
+      }).catch((e) => console.error('submitTaskResponse error:', e))
+    } catch (e) {
+      console.error('Failed to submit task in background:', e)
+    }
+  }
+
+  const submitSessionInBackground = () => {
+    try {
+      const sessionRaw = localStorage.getItem('study_session')
+      if (!sessionRaw) return
+      const { sessionId } = JSON.parse(sessionRaw)
+      if (!sessionId) return
+
+      const metrics = JSON.parse(localStorage.getItem('session_metrics') || '{}')
+      const timesMap = JSON.parse(localStorage.getItem('study_response_times') || '{}') as Record<string, number>
+      const individual = Object.keys(timesMap)
+        .sort((a,b) => Number(a.replace(/\D/g,'')) - Number(b.replace(/\D/g,'')))
+        .map((k) => Number(timesMap[k] || 0))
+
+      const payload = {
+        session_id: String(sessionId),
+        task_id: tasks?.[tasks.length - 1]?.id || String(tasks.length - 1),
+        classification_page_time: Number(metrics.classification_page_time || 0),
+        orientation_page_time: Number(metrics.orientation_page_time || 0),
+        individual_task_page_times: individual,
+        page_transitions: [],
+        is_completed: true,
+        abandonment_timestamp: null,
+        abandonment_reason: null,
+        recovery_attempts: 0,
+        browser_performance: {},
+        page_load_times: [],
+        device_info: {},
+        screen_resolution: typeof window !== 'undefined' ? `${window.screen.width}x${window.screen.height}` : '',
+      }
+
+      submitTaskSession(payload).catch((e) => console.error('submitTaskSession error:', e))
+    } catch (e) {
+      console.error('Failed to submit task session:', e)
+    }
+  }
+
   const handleSelect = (value: number) => {
-    // compute time taken in seconds for this task
+    clickCountsRef.current[value] = (clickCountsRef.current[value] || 0) + 1
+
     const elapsedMs = Date.now() - taskStartRef.current
     const seconds = Math.round(elapsedMs / 1000)
     setResponseTimesSec((prev) => {
@@ -83,7 +209,6 @@ export default function TasksPage() {
     })
     setLastSelected(value)
 
-    // Store response times in localStorage as "task1", "task2", etc.
     const updatedTimes = [...responseTimesSec]
     updatedTimes[currentTaskIndex] = seconds
     const localStorageData: Record<string, number> = {}
@@ -92,13 +217,13 @@ export default function TasksPage() {
     })
     localStorage.setItem('study_response_times', JSON.stringify(localStorageData))
 
-    // advance to next task (or finish)
+    submitTaskInBackground(value)
+
     if (currentTaskIndex < totalTasks - 1) {
       setTimeout(() => setCurrentTaskIndex((i) => i + 1), 80)
     } else {
-      // All tasks completed, show loading then redirect to thank you
       setIsLoading(true)
-      // Simulate backend processing time (2-3 seconds)
+      submitSessionInBackground()
       setTimeout(() => {
         router.push(`/participate/${params?.id}/thank-you`)
       }, 2500)
@@ -107,95 +232,263 @@ export default function TasksPage() {
 
   const progressPct = Math.max(
     2,
-    Math.min(100, Math.round(((currentTaskIndex + 1) / totalTasks) * 100))
+    Math.min(100, Math.round(((Math.min(currentTaskIndex, Math.max(totalTasks - 1, 0)) + 1) / Math.max(totalTasks, 1)) * 100))
   )
 
   const task = tasks[currentTaskIndex]
 
-  const isFinished = currentTaskIndex >= totalTasks - 1 && lastSelected !== null
+  const isFinished = totalTasks > 0 && currentTaskIndex >= totalTasks - 1 && lastSelected !== null
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen lg:bg-white">
       <DashboardHeader />
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-10 pb-16">
-        <div className="flex items-center justify-end text-sm text-gray-600 mb-1">
-          <span>
-            {Math.min(currentTaskIndex + 1, totalTasks)} / {totalTasks}
-          </span>
-        </div>
-        <div className="h-1 rounded bg-gray-200 overflow-hidden">
-          <div
-            className="h-full bg-[rgba(38,116,186,1)] transition-all"
-            style={{ width: `${progressPct}%` }}
-          />
-        </div>
-
-        <div className="mt-4 bg-white border rounded-xl shadow-sm p-3 sm:p-4">
-          {isLoading ? (
-            <div className="p-6 sm:p-10 text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[rgba(38,116,186,1)] mx-auto mb-4"></div>
-              <h2 className="text-xl sm:text-2xl font-semibold text-gray-900">Processing your responses...</h2>
-              <p className="mt-2 text-sm text-gray-600">Please wait while we save your study data.</p>
-            </div>
-          ) : !isFinished ? (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="aspect-[4/3] w-full overflow-hidden rounded-md border bg-gray-100">
-                  {task.leftImageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={task.leftImageUrl}
-                      alt="left"
-                      className="h-full w-full object-cover"
-                    />
-                  ) : null}
+        {isFetching ? (
+          <div className="p-10 text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[rgba(38,116,186,1)] mx-auto mb-4" />
+            <div className="text-sm text-gray-600">Loading tasks...</div>
+          </div>
+        ) : fetchError ? (
+          <div className="p-6 text-center text-sm text-red-600">{fetchError}</div>
+        ) : totalTasks === 0 ? (
+          <div className="p-6 text-center text-sm text-gray-600">No tasks assigned.</div>
+        ) : (
+          <>
+            {/* Mobile Layout - Exact copy of image */}
+            <div className="lg:hidden flex flex-col h-[calc(100vh-120px)]">
+              {/* Progress Section - Outside white card */}
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-base font-medium text-gray-800">Question {Math.min(currentTaskIndex + 1, totalTasks)}</div>
+                  <div className="text-base font-semibold text-[rgba(38,116,186,1)]">
+                    {Math.min(currentTaskIndex + 1, totalTasks)} / {totalTasks}
+                  </div>
                 </div>
-                <div className="aspect-[4/3] w-full overflow-hidden rounded-md border bg-gray-100">
-                  {task.rightImageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={task.rightImageUrl}
-                      alt="right"
-                      className="h-full w-full object-cover"
-                    />
-                  ) : null}
+                <div className="h-2 w-full bg-gray-200 rounded overflow-hidden">
+                  <div 
+                    className="h-full bg-[rgba(38,116,186,1)] rounded transition-all duration-300"
+                    style={{ width: `${progressPct}%` }}
+                  ></div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 text-sm font-semibold text-gray-800">
-                <div className="text-center">{task.leftLabel ?? ""}</div>
-                <div className="text-center">{task.rightLabel ?? ""}</div>
+              {/* Main Content - Full height layout */}
+              <div className="flex-1 flex flex-col">
+                {isLoading ? (
+                  <div className="flex-1 flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[rgba(38,116,186,1)] mx-auto mb-4"></div>
+                      <h2 className="text-xl font-semibold text-gray-900">Processing your responses...</h2>
+                      <p className="mt-2 text-sm text-gray-600">Please wait while we save your study data.</p>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {/* Image Section - Centered in middle */}
+                    <div className="flex-1 flex items-center justify-center">
+                      {studyType === 'layer' ? (
+                        <div className="relative w-full max-w-sm aspect-square overflow-hidden rounded-md">
+                          {task?.layeredImages?.map((img, idx) => (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              key={`${img.url}-${idx}`}
+                              src={img.url}
+                              alt={String(img.z)}
+                              className="absolute inset-0 m-auto h-full w-full object-contain"
+                              style={{ zIndex: img.z }}
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-4 w-full max-w-sm">
+                          <div className="aspect-[4/3] w-full overflow-hidden rounded-md border">
+                            {task?.leftImageUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={task.leftImageUrl}
+                                alt="left"
+                                className="h-full w-full object-contain"
+                              />
+                            ) : null}
+                          </div>
+                          <div className="aspect-[4/3] w-full overflow-hidden rounded-md border">
+                            {task?.rightImageUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={task.rightImageUrl}
+                                alt="right"
+                                className="h-full w-full object-contain"
+                              />
+                            ) : null}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Labels for grid study */}
+                    {studyType === 'grid' && (
+                      <div className="grid grid-cols-2 gap-4 text-sm font-semibold text-gray-800 mb-6">
+                        <div className="text-center">{task?.leftLabel ?? ""}</div>
+                        <div className="text-center">{task?.rightLabel ?? ""}</div>
+                      </div>
+                    )}
+
+                    {/* Rating Scale - Fixed at bottom */}
+                    <div className="pb-6">
+                      <div className="flex items-center justify-center">
+                        <div className="flex items-center gap-5">
+                          {[1, 2, 3, 4, 5].map((n) => {
+                            const selected = lastSelected === n
+                            let labelText = ""
+                            if (n === 1) labelText = scaleLabels.left
+                            if (n === 3) labelText = scaleLabels.middle
+                            if (n === 5) labelText = scaleLabels.right
+
+                            return (
+                              <div
+                                key={n}
+                                className="flex flex-col items-center"
+                                onMouseEnter={() => {
+                                  hoverCountsRef.current[n] = (hoverCountsRef.current[n] || 0) + 1
+                                  lastViewTimeRef.current = new Date().toISOString()
+                                }}
+                              >
+                                <div className="h-5 flex items-end justify-center text-sm font-medium text-gray-800 mb-3">
+                                  {labelText}
+                                </div>
+                                <button
+                                  onClick={() => handleSelect(n)}
+                                  className={`h-14 w-14 rounded-full border-2 transition-colors text-lg font-semibold ${
+                                    selected
+                                      ? "bg-white text-[rgba(38,116,186,1)] border-[rgba(38,116,186,1)]"
+                                      : "bg-white text-gray-700 border-gray-300 hover:border-gray-400"
+                                  }`}
+                                >
+                                  {n}
+                                </button>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Desktop Layout - Keep original */}
+            <div className="hidden lg:block">
+              <div className="flex items-center justify-end text-sm text-gray-600 mb-1">
+                <span>
+                  {Math.min(currentTaskIndex + 1, totalTasks)} / {totalTasks}
+                </span>
+              </div>
+              <div className="h-1 rounded bg-gray-200 overflow-hidden">
+                <div
+                  className="h-full bg-[rgba(38,116,186,1)] transition-all"
+                  style={{ width: `${progressPct}%` }}
+                />
               </div>
 
-              <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 pt-2">
-                {[1, 2, 3, 4, 5].map((n) => {
-                  const selected = lastSelected === n
-                  return (
-                    <button
-                      key={n}
-                      onClick={() => handleSelect(n)}
-                      className={`h-10 w-10 sm:h-11 sm:w-11 rounded-full border transition-colors ${
-                        selected
-                          ? "border-[rgba(38,116,186,1)] text-[rgba(38,116,186,1)] bg-white"
-                          : "border-gray-200 text-gray-700 hover:border-gray-300 bg-white"
-                      }`}
-                    >
-                      {n}
-                    </button>
-                  )
-                })}
+              <div className="mt-4 bg-white border rounded-xl shadow-sm p-3 sm:p-4">
+              {isLoading ? (
+                <div className="p-6 sm:p-10 text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[rgba(38,116,186,1)] mx-auto mb-4"></div>
+                  <h2 className="text-xl sm:text-2xl font-semibold text-gray-900">Processing your responses...</h2>
+                  <p className="mt-2 text-sm text-gray-600">Please wait while we save your study data.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {studyType === 'layer' ? (
+                    <div className="flex justify-center">
+                      <div className="relative w-full max-w-lg aspect-square overflow-hidden rounded-md">
+                        {task?.layeredImages?.map((img, idx) => (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            key={`${img.url}-${idx}`}
+                            src={img.url}
+                            alt={String(img.z)}
+                            className="absolute inset-0 m-auto h-full w-full object-contain"
+                            style={{ zIndex: img.z }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="aspect-[4/3] w-full overflow-hidden rounded-md border">
+                        {task?.leftImageUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={task.leftImageUrl}
+                            alt="left"
+                            className="h-full w-full object-contain"
+                          />
+                        ) : null}
+                      </div>
+                      <div className="aspect-[4/3] w-full overflow-hidden rounded-md border">
+                        {task?.rightImageUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={task.rightImageUrl}
+                            alt="right"
+                            className="h-full w-full object-contain"
+                          />
+                        ) : null}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-4 text-sm font-semibold text-gray-800">
+                    <div className="text-center">{task?.leftLabel ?? ""}</div>
+                    <div className="text-center">{task?.rightLabel ?? ""}</div>
+                  </div>
+
+                  {/* Labels and rating scale - Larger for desktop */}
+                  <div className="w-fit mx-auto">
+                    <div className="flex items-center justify-center gap-4 lg:gap-6">
+                      {[1, 2, 3, 4, 5].map((n) => {
+                        const selected = lastSelected === n
+                        let labelText = ""
+                        if (n === 1) labelText = scaleLabels.left
+                        if (n === 3) labelText = scaleLabels.middle
+                        if (n === 5) labelText = scaleLabels.right
+
+                        return (
+                          <div
+                            key={n}
+                            className="flex flex-col items-center"
+                            onMouseEnter={() => {
+                              hoverCountsRef.current[n] = (hoverCountsRef.current[n] || 0) + 1
+                              lastViewTimeRef.current = new Date().toISOString()
+                            }}
+                          >
+                            <div className="h-6 lg:h-7 flex items-end justify-center text-[11px] sm:text-xs lg:text-sm font-medium text-gray-900 mb-1 lg:mb-2">
+                              {labelText}
+                            </div>
+                            <button
+                              onClick={() => handleSelect(n)}
+                              className={`h-10 w-10 sm:h-11 sm:w-11 lg:h-12 lg:w-12 rounded-full border-2 lg:border-2 transition-colors text-sm lg:text-base font-semibold ${
+                                selected
+                                  ? "border-[rgba(38,116,186,1)] text-[rgba(38,116,186,1)] bg-white"
+                                  : "border-gray-200 text-gray-700 hover:border-gray-300 bg-white"
+                              }`}
+                            >
+                              {n}
+                            </button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
               </div>
             </div>
-          ) : (
-            <div className="p-6 sm:p-10 text-center">
-              <h2 className="text-xl sm:text-2xl font-semibold text-gray-900">All tasks completed</h2>
-              <p className="mt-2 text-sm text-gray-600">Response times (s): {responseTimesSec.join(", ")}</p>
-            </div>
-          )}
-        </div>
+          </>
+        )}
       </div>
     </div>
   )
 }
-
-

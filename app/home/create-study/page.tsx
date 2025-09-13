@@ -14,6 +14,13 @@ import { Step6AudienceSegmentation } from "@/components/create-study/steps/Step6
 import { Step7TaskGeneration } from "@/components/create-study/steps/Step7TaskGeneration"
 import { Step8LaunchPreview } from "@/components/create-study/steps/Step8LaunchPreview"
 
+// Utility function to notify stepper of data changes
+const notifyStepDataChanged = () => {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('stepDataChanged'))
+  }
+}
+
 export default function CreateStudyPage() {
   const [currentStep, setCurrentStep] = useState(1)
   const [studyType, setStudyType] = useState<"grid" | "layer">("grid")
@@ -104,32 +111,33 @@ export default function CreateStudyPage() {
 
             <div className="px-4 sm:px-6 lg:px-8 py-6">
               <div className={currentStep === 1 ? "block" : "hidden"} aria-hidden={currentStep !== 1}>
-                <Step1BasicDetails onNext={() => setCurrentStep(2)} onCancel={() => history.back()} />
+                <Step1BasicDetails onNext={() => setCurrentStep(2)} onCancel={() => history.back()} onDataChange={notifyStepDataChanged} />
               </div>
               <div className={currentStep === 2 ? "block" : "hidden"} aria-hidden={currentStep !== 2}>
                 <Step2StudyType
                   value={studyType}
                   onNext={(selected) => { setStudyType(selected); setCurrentStep(3) }}
                   onBack={() => setCurrentStep(1)}
+                  onDataChange={notifyStepDataChanged}
                 />
               </div>
               <div className={currentStep === 3 ? "block" : "hidden"} aria-hidden={currentStep !== 3}>
-                <Step3RatingScale onNext={() => setCurrentStep(4)} onBack={() => setCurrentStep(2)} />
+                <Step3RatingScale onNext={() => setCurrentStep(4)} onBack={() => setCurrentStep(2)} onDataChange={notifyStepDataChanged} />
               </div>
               <div className={currentStep === 4 ? "block" : "hidden"} aria-hidden={currentStep !== 4}>
-                <Step4ClassificationQuestions onNext={() => setCurrentStep(5)} onBack={() => setCurrentStep(3)} />
+                <Step4ClassificationQuestions onNext={() => setCurrentStep(5)} onBack={() => setCurrentStep(3)} onDataChange={notifyStepDataChanged} />
               </div>
               <div className={currentStep === 5 ? "block" : "hidden"} aria-hidden={currentStep !== 5}>
-                <Step5StudyStructure onNext={() => setCurrentStep(6)} onBack={() => setCurrentStep(4)} mode={studyType} />
+                <Step5StudyStructure onNext={() => setCurrentStep(6)} onBack={() => setCurrentStep(4)} mode={studyType} onDataChange={notifyStepDataChanged} />
               </div>
               <div className={currentStep === 6 ? "block" : "hidden"} aria-hidden={currentStep !== 6}>
-                <Step6AudienceSegmentation onNext={() => setCurrentStep(7)} onBack={() => setCurrentStep(5)} />
+                <Step6AudienceSegmentation onNext={() => setCurrentStep(7)} onBack={() => setCurrentStep(5)} onDataChange={notifyStepDataChanged} />
               </div>
               <div className={currentStep === 7 ? "block" : "hidden"} aria-hidden={currentStep !== 7}>
-                <Step7TaskGeneration active={currentStep === 7} onNext={() => setCurrentStep(8)} onBack={() => setCurrentStep(6)} />
+                <Step7TaskGeneration active={currentStep === 7} onNext={() => setCurrentStep(8)} onBack={() => setCurrentStep(6)} onDataChange={notifyStepDataChanged} />
               </div>
               <div className={currentStep === 8 ? "block" : "hidden"} aria-hidden={currentStep !== 8}>
-                <Step8LaunchPreview onBack={() => setCurrentStep(7)} />
+                <Step8LaunchPreview onBack={() => setCurrentStep(7)} onDataChange={notifyStepDataChanged} />
               </div>
             </div>
           </div>

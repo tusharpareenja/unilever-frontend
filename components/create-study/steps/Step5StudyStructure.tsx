@@ -17,9 +17,10 @@ interface Step5StudyStructureProps {
   onNext: () => void
   onBack: () => void
   mode?: "grid" | "layer"
+  onDataChange?: () => void
 }
 
-export function Step5StudyStructure({ onNext, onBack, mode = "grid" }: Step5StudyStructureProps) {
+export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChange }: Step5StudyStructureProps) {
   const [elements, setElements] = useState<ElementItem[]>(() => {
     try {
       const raw = localStorage.getItem('cs_step5_grid')
@@ -49,7 +50,8 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid" }: Step5Stud
     Array.from(files).forEach(async (file) => {
       const tempId = crypto.randomUUID()
       const url = URL.createObjectURL(file)
-      const newItem: ElementItem = { id: tempId, name: `Element ${elements.length + 1}`, description: "", file, previewUrl: url }
+      const fileName = file.name.replace(/\.[^/.]+$/, "") // Remove file extension
+      const newItem: ElementItem = { id: tempId, name: fileName, description: "", file, previewUrl: url }
       // add immediately
       setElements(prev => [...prev, newItem])
       // start upload for this single file and patch result as soon as it arrives
@@ -106,15 +108,19 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid" }: Step5Stud
       secureUrl: e.secureUrl 
     }))
     localStorage.setItem('cs_step5_grid', JSON.stringify(minimal))
-  }, [elements, mode])
+    onDataChange?.()
+  }, [elements, mode, onDataChange])
 
   // Ensure all grid elements have secureUrl (upload pending ones)
   const ensureGridUploads = async () => {
     const pending = elements.filter(e => !e.secureUrl && e.file)
     if (pending.length === 0) return
+    
     const files = pending.map(p => p.file!)
+    
     try {
       const results = await uploadImages(files)
+      
       setElements(prev => prev.map(el => {
         const i = pending.findIndex(p => p.id === el.id)
         if (i !== -1) return { ...el, secureUrl: results[i]?.secure_url || el.secureUrl }
@@ -127,17 +133,14 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid" }: Step5Stud
 
   const handleNext = async () => {
     setNextLoading(true)
-    await Promise.all([
-      ensureGridUploads(),
-      new Promise(res => setTimeout(res, 1500)),
-    ])
+    await ensureGridUploads()
     setNextLoading(false)
     onNext()
   }
 
   if (mode === "layer") {
     return (
-      <LayerMode onNext={onNext} onBack={onBack} />
+      <LayerMode onNext={onNext} onBack={onBack} onDataChange={onDataChange} />
     )
   }
 
@@ -218,7 +221,7 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid" }: Step5Stud
           onClick={handleNext}
           disabled={nextLoading}
         >
-          {nextLoading ? 'Loading…' : 'Next'}
+          {nextLoading ? 'Uploading...' : 'Next'}
         </Button>
       </div>
     </div>
@@ -226,30 +229,35 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid" }: Step5Stud
 }
 
 // ---------------- Layer Mode ----------------
-interface LayerModeProps { onNext: () => void; onBack: () => void }
+interface LayerModeProps { onNext: () => void; onBack: () => void; onDataChange?: () => void }
 
 type Layer = {
   id: string
   name: string
   description?: string
   z: number
-  images: { id: string; file?: File; previewUrl: string; secureUrl?: string }[]
+  images: { id: string; file?: File; previewUrl: string; secureUrl?: string; name?: string }[]
   open: boolean
 }
 
-function LayerMode({ onNext, onBack }: LayerModeProps) {
+function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
   const [layers, setLayers] = useState<Layer[]>(() => {
     try {
       const raw = localStorage.getItem('cs_step5_layer')
       if (raw) {
-        const saved = JSON.parse(raw) as Array<{ id: string; name: string; z: number; images: Array<{ id: string; previewUrl?: string; secureUrl?: string }> }>
+        const saved = JSON.parse(raw) as Array<{ id: string; name: string; z: number; images: Array<{ id: string; previewUrl?: string; secureUrl?: string; name?: string }> }>
         if (Array.isArray(saved)) {
           return saved.map((l, idx) => ({
             id: l.id || crypto.randomUUID(),
             name: l.name || `Layer ${idx + 1}`,
             description: "",
             z: typeof l.z === 'number' ? l.z : idx,
-            images: (l.images || []).map(img => ({ id: img.id || crypto.randomUUID(), previewUrl: img.previewUrl || img.secureUrl || '', secureUrl: img.secureUrl })),
+            images: (l.images || []).map((img, imgIdx) => ({ 
+              id: img.id || crypto.randomUUID(), 
+              previewUrl: img.previewUrl || img.secureUrl || '', 
+              secureUrl: img.secureUrl,
+              name: img.name || `Image ${imgIdx + 1}`
+            })),
             open: false,
           }))
         }
@@ -262,7 +270,7 @@ function LayerMode({ onNext, onBack }: LayerModeProps) {
   const [showModal, setShowModal] = useState(false)
   const [draftName, setDraftName] = useState("Layer 1")
   const [draftDescription, setDraftDescription] = useState("")
-  const [draftImages, setDraftImages] = useState<Array<{ id: string; file?: File; previewUrl: string; secureUrl?: string }>>([])
+  const [draftImages, setDraftImages] = useState<Array<{ id: string; file?: File; previewUrl: string; secureUrl?: string; name?: string }>>([])
   const [selectedImageIds, setSelectedImageIds] = useState<Record<string, string>>({}) // layerId -> selectedImageId
   const [nextLoading, setNextLoading] = useState(false)
 
@@ -278,7 +286,8 @@ function LayerMode({ onNext, onBack }: LayerModeProps) {
     Array.from(files).forEach(async (file) => {
       const tempId = crypto.randomUUID()
       const url = URL.createObjectURL(file)
-      setDraftImages(prev => [...prev, { id: tempId, file, previewUrl: url }])
+      const fileName = file.name.replace(/\.[^/.]+$/, "") // Remove file extension
+      setDraftImages(prev => [...prev, { id: tempId, file, previewUrl: url, name: fileName }])
       try {
         const res = await uploadImages([file])
         const secure = res?.[0]?.secure_url
@@ -295,7 +304,7 @@ function LayerMode({ onNext, onBack }: LayerModeProps) {
     // Close immediately with whatever images drafted (keep file so we can finalize if still pending)
     const id = crypto.randomUUID()
     const nextZ = layers.length
-    const imgs = draftImages.map(i => ({ id: i.id, file: i.file, previewUrl: i.previewUrl, secureUrl: i.secureUrl }))
+    const imgs = draftImages.map(i => ({ id: i.id, file: i.file, previewUrl: i.previewUrl, secureUrl: i.secureUrl, name: i.name }))
     const layer: Layer = { id, name: draftName || `Layer ${nextZ + 1}`, description: draftDescription, z: nextZ, images: imgs, open: false }
     setLayers(prev => reindexLayers([...prev, layer]))
     setShowModal(false)
@@ -309,29 +318,32 @@ function LayerMode({ onNext, onBack }: LayerModeProps) {
     const pending: Array<{ layerId: string; imageId: string; file: File }> = []
     layers.forEach(l => l.images.forEach(img => { if (!img.secureUrl && img.file) pending.push({ layerId: l.id, imageId: img.id, file: img.file }) }))
     if (pending.length === 0) return
-    // Upload one-by-one to patch as soon as ready (avoids mis-ordering)
-    for (const item of pending) {
-      try {
-        const res = await uploadImages([item.file])
-        const secure = res?.[0]?.secure_url
-        if (secure) {
-          setLayers(prev => prev.map(l => {
-            if (l.id !== item.layerId) return l
-            return { ...l, images: l.images.map(img => img.id === item.imageId ? { ...img, secureUrl: secure } : img) }
-          }))
-        }
-      } catch (e) {
-        console.error('ensureLayerUploads item failed', e)
-      }
+    
+    // Upload all files in parallel for much faster processing
+    const files = pending.map(p => p.file)
+    
+    try {
+      const results = await uploadImages(files)
+      
+      // Update all layers with their corresponding secure URLs
+      setLayers(prev => prev.map(layer => {
+        const updatedImages = layer.images.map(img => {
+          const pendingIndex = pending.findIndex(p => p.layerId === layer.id && p.imageId === img.id)
+          if (pendingIndex !== -1) {
+            return { ...img, secureUrl: results[pendingIndex]?.secure_url || img.secureUrl }
+          }
+          return img
+        })
+        return { ...layer, images: updatedImages }
+      }))
+    } catch (e) {
+      console.error('ensureLayerUploads error', e)
     }
   }
 
   const handleNext = async () => {
     setNextLoading(true)
-    await Promise.all([
-      ensureLayerUploads(),
-      new Promise(res => setTimeout(res, 1500)),
-    ])
+    await ensureLayerUploads()
     setNextLoading(false)
     onNext()
   }
@@ -372,6 +384,13 @@ function LayerMode({ onNext, onBack }: LayerModeProps) {
     }))
   }
 
+  const updateImageName = (layerId: string, imageId: string, name: string) => {
+    setLayers(prev => prev.map(layer => {
+      if (layer.id !== layerId) return layer
+      return { ...layer, images: layer.images.map(img => img.id === imageId ? { ...img, name } : img) }
+    }))
+  }
+
   const moveLayer = (fromIdx: number, toIdx: number) => {
     setLayers(prev => {
       const copy = [...prev]
@@ -386,7 +405,8 @@ function LayerMode({ onNext, onBack }: LayerModeProps) {
     Array.from(files).forEach(async (file) => {
       const tempId = crypto.randomUUID()
       const url = URL.createObjectURL(file)
-      setLayers(prev => prev.map(l => (l.id === layerId ? { ...l, images: [...l.images, { id: tempId, file, previewUrl: url }] } : l)))
+      const fileName = file.name.replace(/\.[^/.]+$/, "") // Remove file extension
+      setLayers(prev => prev.map(l => (l.id === layerId ? { ...l, images: [...l.images, { id: tempId, file, previewUrl: url, name: fileName }] } : l)))
       try {
         const res = await uploadImages([file])
         const secure = res?.[0]?.secure_url
@@ -417,10 +437,11 @@ function LayerMode({ onNext, onBack }: LayerModeProps) {
       id: l.id, 
       name: l.name, 
       z: l.z, 
-      images: l.images.map(i => ({ id: i.id, previewUrl: i.previewUrl, secureUrl: i.secureUrl })) 
+      images: l.images.map(i => ({ id: i.id, previewUrl: i.previewUrl, secureUrl: i.secureUrl, name: i.name })) 
     }))
     localStorage.setItem('cs_step5_layer', JSON.stringify(minimal))
-  }, [layers])
+    onDataChange?.()
+  }, [layers, onDataChange])
 
   return (
     <div>
@@ -520,10 +541,17 @@ function LayerMode({ onNext, onBack }: LayerModeProps) {
                           </div>
                           <button
                             onClick={() => removeImageFromLayer(layer.id, img.id)}
-                            className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                            className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-red-600"
                           >
                             ×
                           </button>
+                          <input
+                            type="text"
+                            value={img.name || ''}
+                            onChange={(e) => updateImageName(layer.id, img.id, e.target.value)}
+                            className="w-20 mt-1 text-xs px-1 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            placeholder="Image name"
+                          />
                         </div>
                       )
                     })}
@@ -562,18 +590,43 @@ function LayerMode({ onNext, onBack }: LayerModeProps) {
                 <label className="block text-sm font-semibold text-gray-800 mb-2">Description (Optional)</label>
                 <input value={draftDescription} onChange={(e) => setDraftDescription(e.target.value)} className="w-full rounded-lg border border-gray-200 px-3 py-2" />
               </div>
-              <div className="border-2 border-dashed rounded-xl p-6 text-center">
+              <div 
+                className="border-2 border-dashed rounded-xl p-6 text-center cursor-pointer hover:border-[rgba(38,116,186,1)] hover:bg-blue-50 transition-colors"
+                onClick={() => document.getElementById('draft-file-input')?.click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  handleDraftFiles(e.dataTransfer.files)
+                }}
+              >
                 <div className="text-sm text-[rgba(38,116,186,1)]">Drag And Drop</div>
                 <div className="text-[10px] text-gray-500">Supports JPG, PNG (Max 10MB Each)</div>
-                <div className="mt-3">
-                  <input type="file" multiple accept="image/*" onChange={(e) => handleDraftFiles(e.target.files)} />
-                </div>
+                <div className="mt-3 text-sm text-gray-600">Click anywhere to select files</div>
+                <input 
+                  id="draft-file-input"
+                  type="file" 
+                  multiple 
+                  accept="image/*" 
+                  onChange={(e) => handleDraftFiles(e.target.files)} 
+                  className="hidden"
+                />
                 {draftImages.length > 0 && (
                   <div className="mt-3 flex gap-2 flex-wrap">
                     {draftImages.map(img => (
-                      <div key={img.id} className="w-16 h-16 border rounded-md overflow-hidden">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={img.previewUrl} alt="preview" className="w-full h-full object-cover" />
+                      <div key={img.id} className="flex flex-col items-center">
+                        <div className="w-16 h-16 border rounded-md overflow-hidden">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={img.previewUrl} alt="preview" className="w-full h-full object-cover" />
+                        </div>
+                        <input
+                          type="text"
+                          value={img.name || ''}
+                          onChange={(e) => setDraftImages(prev => prev.map(draftImg => 
+                            draftImg.id === img.id ? { ...draftImg, name: e.target.value } : draftImg
+                          ))}
+                          className="w-16 mt-1 text-xs px-1 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          placeholder="Name"
+                        />
                       </div>
                     ))}
                   </div>
@@ -595,7 +648,13 @@ function LayerMode({ onNext, onBack }: LayerModeProps) {
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mt-10">
         <Button variant="outline" className="rounded-full px-6 w-full sm:w-auto" onClick={onBack}>Back</Button>
-        <Button className="rounded-full px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] w-full sm:w-auto" onClick={handleNext} disabled={nextLoading}>{nextLoading ? 'Loading…' : 'Next'}</Button>
+        <Button 
+          className="rounded-full px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] w-full sm:w-auto" 
+          onClick={handleNext} 
+          disabled={nextLoading}
+        >
+          {nextLoading ? 'Uploading...' : 'Next'}
+        </Button>
       </div>
     </div>
   )
