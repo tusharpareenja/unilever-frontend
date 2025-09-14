@@ -49,11 +49,96 @@ export function Step6AudienceSegmentation({ onNext, onBack, onDataChange }: Step
 	const [respondents, setRespondents] = useState<number | ''>(() => { try { const v = localStorage.getItem('cs_step6'); if (v) { const o = JSON.parse(v); return typeof o.respondents === 'number' ? o.respondents : '' } } catch {}; return '' })
 	const [countryQuery, setCountryQuery] = useState("")
 	const [countries, setCountries] = useState<string[]>(() => { try { const v = localStorage.getItem('cs_step6'); if (v) { const o = JSON.parse(v); return Array.isArray(o.countries) ? o.countries : [] } } catch {}; return [] })
-	const [genderMale, setGenderMale] = useState<number | ''>(() => { try { const v = localStorage.getItem('cs_step6'); if (v) { const o = JSON.parse(v); return typeof o.genderMale === 'number' ? o.genderMale : '' } } catch {}; return '' })
-	const [genderFemale, setGenderFemale] = useState<number | ''>(() => { try { const v = localStorage.getItem('cs_step6'); if (v) { const o = JSON.parse(v); return typeof o.genderFemale === 'number' ? o.genderFemale : '' } } catch {}; return '' })
+	const [genderMale, setGenderMale] = useState<number | ''>(() => { try { const v = localStorage.getItem('cs_step6'); if (v) { const o = JSON.parse(v); return typeof o.genderMale === 'number' ? o.genderMale : 50 } } catch {}; return 50 })
+	const [genderFemale, setGenderFemale] = useState<number | ''>(() => { try { const v = localStorage.getItem('cs_step6'); if (v) { const o = JSON.parse(v); return typeof o.genderFemale === 'number' ? o.genderFemale : 50 } } catch {}; return 50 })
 	const [ageSelections, setAgeSelections] = useState<Record<string, { checked: boolean; percent: string }>>(() => { try { const v = localStorage.getItem('cs_step6'); if (v) { const o = JSON.parse(v); if (o.ageSelections && typeof o.ageSelections === 'object') return o.ageSelections } } catch {}; return { "18 - 24": { checked: false, percent: "" }, "25 - 34": { checked: false, percent: "" }, "35 - 44": { checked: false, percent: "" }, "45 - 54": { checked: false, percent: "" }, "55 - 64": { checked: false, percent: "" }, "65+": { checked: false, percent: "" } } })
 
 	const suggestions = useCountryFilter(countryQuery)
+
+	// Helper function to balance gender percentages
+	const handleGenderChange = (type: 'male' | 'female', value: number | '') => {
+		// Validate percentage range (0-100)
+		if (typeof value === 'number' && (value < 0 || value > 100)) {
+			return // Don't update if invalid
+		}
+		
+		if (type === 'male') {
+			setGenderMale(value)
+			if (typeof value === 'number') {
+				setGenderFemale(100 - value)
+			}
+		} else {
+			setGenderFemale(value)
+			if (typeof value === 'number') {
+				setGenderMale(100 - value)
+			}
+		}
+	}
+
+	// Helper function to balance age percentages
+	const handleAgeChange = (label: string, checked: boolean, percent: string) => {
+		const newAgeSelections = { ...ageSelections, [label]: { checked, percent } }
+		
+		if (checked) {
+			// If this is the only selected age group, set it to 100%
+			const selectedCount = Object.values(newAgeSelections).filter(v => v.checked).length
+			if (selectedCount === 1) {
+				newAgeSelections[label] = { checked, percent: "100" }
+			} else {
+				// If multiple age groups are selected, distribute equally
+				const selectedGroups = Object.entries(newAgeSelections).filter(([_, v]) => v.checked)
+				const equalPercent = Math.floor(100 / selectedGroups.length)
+				const remainder = 100 - (equalPercent * selectedGroups.length)
+				
+				selectedGroups.forEach(([ageLabel, _], index) => {
+					const percentValue = equalPercent + (index < remainder ? 1 : 0)
+					newAgeSelections[ageLabel] = { ...newAgeSelections[ageLabel], percent: percentValue.toString() }
+				})
+			}
+		} else {
+			// If unchecking, redistribute percentages among remaining selected groups
+			const remainingSelected = Object.entries(newAgeSelections).filter(([_, v]) => v.checked)
+			if (remainingSelected.length > 0) {
+				const equalPercent = Math.floor(100 / remainingSelected.length)
+				const remainder = 100 - (equalPercent * remainingSelected.length)
+				
+				remainingSelected.forEach(([ageLabel, _], index) => {
+					const percentValue = equalPercent + (index < remainder ? 1 : 0)
+					newAgeSelections[ageLabel] = { ...newAgeSelections[ageLabel], percent: percentValue.toString() }
+				})
+			}
+		}
+		
+		setAgeSelections(newAgeSelections)
+	}
+
+	// Helper function to handle manual percentage changes in age groups
+	const handleAgePercentChange = (label: string, percent: string) => {
+		// Validate percentage range (0-100)
+		const percentValue = parseInt(percent) || 0
+		if (percentValue < 0 || percentValue > 100) {
+			return // Don't update if invalid
+		}
+		
+		const newAgeSelections = { ...ageSelections, [label]: { ...ageSelections[label], percent } }
+		
+		// Calculate remaining percentage to distribute among other selected groups
+		const currentPercent = percentValue
+		const otherSelected = Object.entries(newAgeSelections).filter(([ageLabel, v]) => v.checked && ageLabel !== label)
+		
+		if (otherSelected.length > 0) {
+			const remainingPercent = 100 - currentPercent
+			const equalPercent = Math.floor(remainingPercent / otherSelected.length)
+			const remainder = remainingPercent - (equalPercent * otherSelected.length)
+			
+			otherSelected.forEach(([ageLabel, _], index) => {
+				const percentValue = equalPercent + (index < remainder ? 1 : 0)
+				newAgeSelections[ageLabel] = { ...newAgeSelections[ageLabel], percent: percentValue.toString() }
+			})
+		}
+		
+		setAgeSelections(newAgeSelections)
+	}
 
 	const addCountry = (name: string) => {
 		if (!countries.includes(name)) setCountries((prev) => [...prev, name])
@@ -116,10 +201,24 @@ export function Step6AudienceSegmentation({ onNext, onBack, onDataChange }: Step
 					<div className="text-sm font-semibold text-gray-800 mb-2">Audience Distribution</div>
 					<div className="flex items-center gap-2">
 						<div className="px-4 py-2 rounded-md bg-slate-100 border text-sm">Male</div>
-						<Input type="number" value={genderMale} onChange={(e) => setGenderMale(e.target.value === '' ? '' : Number(e.target.value))} className="w-20 text-center" />
+						<Input 
+							type="number" 
+							value={genderMale} 
+							onChange={(e) => handleGenderChange('male', e.target.value === '' ? '' : Number(e.target.value))} 
+							className="w-20 text-center" 
+							min="0" 
+							max="100" 
+						/>
 						<div className="text-sm">%</div>
 						<div className="px-4 py-2 rounded-md bg-slate-100 border text-sm ml-4">Female</div>
-						<Input type="number" value={genderFemale} onChange={(e) => setGenderFemale(e.target.value === '' ? '' : Number(e.target.value))} className="w-20 text-center" />
+						<Input 
+							type="number" 
+							value={genderFemale} 
+							onChange={(e) => handleGenderChange('female', e.target.value === '' ? '' : Number(e.target.value))} 
+							className="w-20 text-center" 
+							min="0" 
+							max="100" 
+						/>
 						<div className="text-sm">%</div>
 					</div>
 				</div>
@@ -129,12 +228,16 @@ export function Step6AudienceSegmentation({ onNext, onBack, onDataChange }: Step
 					<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
 						{Object.entries(ageSelections).map(([label, v]) => (
 							<div key={label} className="flex items-center gap-2 border rounded-md p-2">
-								<input type="checkbox" checked={v.checked} onChange={(e) => setAgeSelections((prev) => ({ ...prev, [label]: { ...prev[label], checked: e.target.checked } }))} />
+								<input type="checkbox" checked={v.checked} onChange={(e) => handleAgeChange(label, e.target.checked, v.percent)} />
 								<div className="flex-1 text-sm">{label}</div>
 								<Input
 									value={v.percent}
-									onChange={(e) => setAgeSelections((prev) => ({ ...prev, [label]: { ...prev[label], percent: e.target.value } }))}
+									onChange={(e) => handleAgePercentChange(label, e.target.value)}
 									className="w-16 text-center"
+									disabled={!v.checked}
+									type="number"
+									min="0"
+									max="100"
 								/>
 								<div className="text-sm">%</div>
 							</div>

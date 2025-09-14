@@ -680,3 +680,96 @@ export async function getStudyDetailsWithoutAuth(studyId: string): Promise<Study
   console.log('Get study details success:', data)
   return data
 }
+
+// Fetch private study details by ID (requires authentication and ownership)
+export async function getPrivateStudyDetails(studyId: string): Promise<StudyDetails> {
+  const res = await fetchWithAuth(`${API_BASE_URL}/studies/private/${studyId}`, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  })
+  
+  const text = await res.text().catch(() => "")
+  let data: any = {}
+  try { data = text ? JSON.parse(text) : {} } catch { data = { detail: text } }
+  
+  if (!res.ok) {
+    const msg = (data && (data.detail || data.message)) || text || `Get private study details failed (${res.status})`
+    throw Object.assign(new Error(typeof msg === 'string' ? msg : JSON.stringify(msg)), { status: res.status, data })
+  }
+  
+  return data
+}
+
+// Check if the logged-in user is the owner of a study and if study is active
+export async function checkStudyOwnership(studyId: string): Promise<{ is_owner: boolean; is_active: boolean }> {
+  const res = await fetchWithAuth(`${API_BASE_URL}/studies/${studyId}/is-owner`, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  })
+  
+  const text = await res.text().catch(() => "")
+  let data: any = {}
+  try { data = text ? JSON.parse(text) : {} } catch { data = { detail: text } }
+  
+  if (!res.ok) {
+    const msg = (data && (data.detail || data.message)) || text || `Check study ownership failed (${res.status})`
+    throw Object.assign(new Error(typeof msg === 'string' ? msg : JSON.stringify(msg)), { status: res.status, data })
+  }
+  
+  return {
+    is_owner: data.is_owner === true,
+    is_active: data.is_active === true
+  }
+}
+
+// Home page studies API
+export interface StudyListItem {
+  id: string
+  title: string
+  study_type: 'grid' | 'layer'
+  status: 'active' | 'draft' | 'completed' | 'paused'
+  created_at: string
+  total_responses: number
+  completed_responses: number
+  abandoned_responses: number
+}
+
+export interface StudiesResponse {
+  studies?: StudyListItem[]
+  total?: number
+  page?: number
+  per_page?: number
+  total_pages?: number
+}
+
+export async function getStudies(page: number = 1, per_page: number = 10): Promise<StudyListItem[]> {
+  const response = await fetchWithAuth(`${API_BASE_URL}/studies?page=${page}&per_page=${per_page}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    throw new Error(`Failed to get studies: ${response.status} ${JSON.stringify(errorData)}`)
+  }
+
+  const data = await response.json()
+  
+  // Debug: Log the response structure
+  console.log('API Response structure:', data)
+  
+  // Handle different response structures
+  if (Array.isArray(data)) {
+    return data
+  } else if (data.studies && Array.isArray(data.studies)) {
+    return data.studies
+  } else if (data === null || data === undefined) {
+    console.log('API returned null/undefined, returning empty array')
+    return []
+  } else {
+    console.warn('Unexpected API response structure:', data)
+    return []
+  }
+}

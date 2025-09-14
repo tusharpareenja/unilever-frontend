@@ -49,11 +49,11 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
       }
       
       // Clear all step data from localStorage
-      const keysToRemove = ['cs_step1', 'cs_step2', 'cs_step3', 'cs_step4', 'cs_step5_grid', 'cs_step5_layer', 'cs_step6', 'cs_step7']
+      const keysToRemove = ['cs_step1', 'cs_step2', 'cs_step3', 'cs_step4', 'cs_step5_grid', 'cs_step5_layer', 'cs_step6', 'cs_step7', 'cs_step7_tasks']
       keysToRemove.forEach(key => localStorage.removeItem(key))
       
       // Redirect to study management page
-      alert('Study launched successfully!')
+      // alert('Study launched successfully!')
       window.location.href = `/home/study/${studyId}`
     } catch (error: any) {
       console.error('Failed to launch study:', error)

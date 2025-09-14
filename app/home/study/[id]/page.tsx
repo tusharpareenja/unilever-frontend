@@ -4,7 +4,8 @@ import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { DashboardHeader } from "../../components/dashboard-header"
 import { AuthGuard } from "@/components/auth/AuthGuard"
-import { getStudyDetails, updateStudyStatus, putUpdateStudy, StudyDetails } from "@/lib/api/StudyAPI"
+import { getPrivateStudyDetails, updateStudyStatus, putUpdateStudy, StudyDetails } from "@/lib/api/StudyAPI"
+import { getStudyAnalytics, StudyAnalytics } from "@/lib/api/ResponseAPI"
 import { Pause, Play, CheckCircle, Share, Eye, Download, BarChart3 } from "lucide-react"
 
 export default function StudyManagementPage() {
@@ -16,6 +17,8 @@ export default function StudyManagementPage() {
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [analytics, setAnalytics] = useState<StudyAnalytics | null>(null)
+  const [analyticsLoading, setAnalyticsLoading] = useState(false)
 
   useEffect(() => {
     if (studyId) {
@@ -23,17 +26,42 @@ export default function StudyManagementPage() {
     }
   }, [studyId])
 
+  // Load analytics separately to not interfere with main page speed
+  useEffect(() => {
+    if (studyId && study) {
+      loadAnalytics()
+    }
+  }, [studyId, study])
+
   const loadStudyDetails = async () => {
     try {
       setLoading(true)
       setError(null)
-      const studyData = await getStudyDetails(studyId)
+      const studyData = await getPrivateStudyDetails(studyId)
       setStudy(studyData)
     } catch (err: any) {
       console.error("Failed to load study details:", err)
-      setError(err.message || "Failed to load study details")
+      if (err.status === 403) {
+        setError("You don't have permission to view this study")
+        router.push('/home/studies')
+      } else {
+        setError(err.message || "Failed to load study details")
+      }
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadAnalytics = async () => {
+    try {
+      setAnalyticsLoading(true)
+      const analyticsData = await getStudyAnalytics(studyId)
+      setAnalytics(analyticsData)
+    } catch (err: any) {
+      console.error("Failed to load analytics:", err)
+      // Don't show error to user, analytics is optional
+    } finally {
+      setAnalyticsLoading(false)
     }
   }
 
@@ -139,8 +167,27 @@ export default function StudyManagementPage() {
   }
 
   const getCompletionRate = () => {
+    if (analytics) {
+      return analytics.completion_rate.toFixed(1) + "%"
+    }
     if (!study || study.total_responses === 0) return "0.0%"
     return ((study.completed_responses / study.total_responses) * 100).toFixed(1) + "%"
+  }
+
+  const getAbandonmentRate = () => {
+    if (analytics) {
+      return analytics.abandonment_rate.toFixed(1) + "%"
+    }
+    return "0.0%"
+  }
+
+  const getAverageDuration = () => {
+    if (analytics && analytics.average_duration > 0) {
+      const minutes = Math.floor(analytics.average_duration / 60)
+      const seconds = Math.floor(analytics.average_duration % 60)
+      return `${minutes}m ${seconds}s`
+    }
+    return "0m 0s"
   }
 
   if (loading) {
@@ -229,10 +276,27 @@ export default function StudyManagementPage() {
                 {study.study_type === "layer" ? "Layer Study" : "Grid Study"}
               </div>
               <div className="flex items-center gap-5 text-sm" style={{ color: '#2674BA' }}>
-                <button onClick={() => router.push(`/home/study/${studyId}/share`)} className="flex items-center gap-2 hover:opacity-80">
-                  <Share className="w-4 h-4" />
-                  <span>Share</span>
-                </button>
+                <div className="relative group">
+                  <button 
+                    onClick={() => study.status === 'active' && router.push(`/home/study/${studyId}/share`)} 
+                    disabled={study.status !== 'active'}
+                    className={`flex items-center gap-2 transition-all duration-200 ${
+                      study.status === 'active' 
+                        ? 'hover:opacity-80 cursor-pointer' 
+                        : 'opacity-50 cursor-not-allowed'
+                    }`}
+                    title={study.status !== 'active' ? 'Activate study to share' : ''}
+                  >
+                    <Share className="w-4 h-4" />
+                    <span>Share</span>
+                  </button>
+                  {/* {study.status !== 'active' && (
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                      
+                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
+                    </div>
+                  )} */}
+                </div>
                 <button className="flex items-center gap-2 hover:opacity-80">
                   <Eye className="w-4 h-4" />
                   <span>Preview</span>
@@ -306,24 +370,54 @@ export default function StudyManagementPage() {
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               <div className="text-center p-4 border rounded-lg" style={{ borderColor: '#2674BA' }}>
-                <div className="text-2xl font-bold" style={{ color: '#2674BA' }}>{study.total_responses}</div>
+                <div className="text-2xl font-bold" style={{ color: '#2674BA' }}>
+                  {analyticsLoading ? (
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 mx-auto" style={{ borderColor: '#2674BA' }}></div>
+                  ) : (
+                    analytics?.total_responses ?? study.total_responses
+                  )}
+                </div>
                 <div className="text-sm text-gray-600">Total Responses</div>
               </div>
               <div className="text-center p-4 border rounded-lg" style={{ borderColor: '#2674BA' }}>
-                <div className="text-2xl font-bold" style={{ color: '#2674BA' }}>{study.completed_responses}</div>
+                <div className="text-2xl font-bold" style={{ color: '#2674BA' }}>
+                  {analyticsLoading ? (
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 mx-auto" style={{ borderColor: '#2674BA' }}></div>
+                  ) : (
+                    analytics?.completed_responses ?? study.completed_responses
+                  )}
+                </div>
                 <div className="text-sm text-gray-600">Completed</div>
               </div>
               <div className="text-center p-4 border rounded-lg" style={{ borderColor: '#2674BA' }}>
-                <div className="text-2xl font-bold" style={{ color: '#2674BA' }}>{study.abandoned_responses}</div>
+                <div className="text-2xl font-bold" style={{ color: '#2674BA' }}>
+                  {analyticsLoading ? (
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 mx-auto" style={{ borderColor: '#2674BA' }}></div>
+                  ) : (
+                    analytics?.abandoned_responses ?? study.abandoned_responses
+                  )}
+                </div>
                 <div className="text-sm text-gray-600">Abandoned</div>
               </div>
               <div className="text-center p-4 border rounded-lg" style={{ borderColor: '#2674BA' }}>
-                <div className="text-2xl font-bold" style={{ color: '#2674BA' }}>{getCompletionRate()}</div>
+                <div className="text-2xl font-bold" style={{ color: '#2674BA' }}>
+                  {analyticsLoading ? (
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 mx-auto" style={{ borderColor: '#2674BA' }}></div>
+                  ) : (
+                    getCompletionRate()
+                  )}
+                </div>
                 <div className="text-sm text-gray-600">Completion Rate</div>
               </div>
               <div className="text-center p-4 border rounded-lg" style={{ borderColor: '#2674BA' }}>
-                <div className="text-2xl font-bold" style={{ color: '#2674BA' }}>0.0s</div>
-                <div className="text-sm text-gray-600">Avg Task Time</div>
+                <div className="text-2xl font-bold" style={{ color: '#2674BA' }}>
+                  {analyticsLoading ? (
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 mx-auto" style={{ borderColor: '#2674BA' }}></div>
+                  ) : (
+                    getAverageDuration()
+                  )}
+                </div>
+                <div className="text-sm text-gray-600">Avg Duration</div>
               </div>
             </div>
           </div>
@@ -382,7 +476,11 @@ export default function StudyManagementPage() {
                   className="px-3 py-1 text-white rounded-full text-sm font-medium"
                   style={{ backgroundColor: '#2674BA' }}
                 >
-                  {study.total_responses}
+                  {analyticsLoading ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  ) : (
+                    analytics?.total_responses ?? study.total_responses
+                  )}
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -391,7 +489,11 @@ export default function StudyManagementPage() {
                   className="px-3 py-1 text-white rounded-full text-sm font-medium"
                   style={{ backgroundColor: '#2674BA' }}
                 >
-                  {study.completed_responses}
+                  {analyticsLoading ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  ) : (
+                    analytics?.completed_responses ?? study.completed_responses
+                  )}
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -400,7 +502,11 @@ export default function StudyManagementPage() {
                   className="px-3 py-1 text-white rounded-full text-sm font-medium"
                   style={{ backgroundColor: '#2674BA' }}
                 >
-                  {study.abandoned_responses}
+                  {analyticsLoading ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  ) : (
+                    analytics?.abandoned_responses ?? study.abandoned_responses
+                  )}
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -409,7 +515,24 @@ export default function StudyManagementPage() {
                   className="text-sm font-medium"
                   style={{ color: '#2674BA' }}
                 >
-                  {getCompletionRate()}
+                  {analyticsLoading ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2" style={{ borderColor: '#2674BA' }}></div>
+                  ) : (
+                    getCompletionRate()
+                  )}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600">Avg Duration</span>
+                <span 
+                  className="text-sm font-medium"
+                  style={{ color: '#2674BA' }}
+                >
+                  {analyticsLoading ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2" style={{ borderColor: '#2674BA' }}></div>
+                  ) : (
+                    getAverageDuration()
+                  )}
                 </span>
               </div>
             </div>

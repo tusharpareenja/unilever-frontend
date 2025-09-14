@@ -10,12 +10,32 @@ export default function ThankYouPage() {
   const router = useRouter()
   const [responseTimes, setResponseTimes] = useState<Record<string, number>>({})
   const [completionTime, setCompletionTime] = useState<string>("")
+  const [studyName, setStudyName] = useState<string>("")
+  const [responseId, setResponseId] = useState<string>("")
+  const [isHydrated, setIsHydrated] = useState(false)
 
   useEffect(() => {
+    // Mark as hydrated to prevent hydration mismatches
+    setIsHydrated(true)
+
     // Get response times from localStorage
     const times = localStorage.getItem('study_response_times')
     if (times) {
       setResponseTimes(JSON.parse(times))
+    }
+
+    // Get study name from localStorage
+    const studyDetails = localStorage.getItem('current_study_details')
+    if (studyDetails) {
+      try {
+        const parsed = JSON.parse(studyDetails)
+        setStudyName(parsed.title || 'Study')
+      } catch (error) {
+        console.error('Error parsing study details:', error)
+        setStudyName('Study')
+      }
+    } else {
+      setStudyName('Study')
     }
 
     // Set completion time
@@ -30,9 +50,13 @@ export default function ThankYouPage() {
     })
     setCompletionTime(formattedTime)
 
-    // Generate a simple response ID
-    const responseId = Math.random().toString(36).substring(2, 8).toUpperCase()
-    localStorage.setItem('study_response_id', responseId)
+    // Generate or get existing response ID
+    let existingResponseId = localStorage.getItem('study_response_id')
+    if (!existingResponseId) {
+      existingResponseId = Math.random().toString(36).substring(2, 8).toUpperCase()
+      localStorage.setItem('study_response_id', existingResponseId)
+    }
+    setResponseId(existingResponseId)
   }, [])
 
   const handleReturnHome = () => {
@@ -43,8 +67,24 @@ export default function ThankYouPage() {
     window.close()
   }
 
-  const responseId = typeof window !== 'undefined' ? localStorage.getItem('study_response_id') || 'De13e0b' : 'De13e0b'
   const totalTasks = Object.keys(responseTimes).length
+
+  // Show loading state until hydrated to prevent hydration mismatches
+  if (!isHydrated) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <DashboardHeader />
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-12 pb-16">
+          <div className="bg-white border rounded-xl shadow-sm p-6 sm:p-8 lg:p-10">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="mt-4 text-gray-600">Loading...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -73,7 +113,7 @@ export default function ThankYouPage() {
               <li className="flex items-start">
                 <span className="text-gray-400 mr-2">•</span>
                 <span>
-                  We have successfully received your responses for the study "aaaaaaaa". 
+                  We have successfully received your responses for the study "{studyName}". 
                   Your participation is greatly appreciated and will contribute valuable insights to our research.
                 </span>
               </li>

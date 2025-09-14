@@ -2,6 +2,9 @@
 
 const BASE_URL = "http://127.0.0.1:8000/api/v1"
 
+// Import fetchWithAuth from StudyAPI for authenticated requests
+import { fetchWithAuth } from './StudyAPI'
+
 export interface StudyInfo {
 	id: string
 	title: string
@@ -240,5 +243,39 @@ export async function getStudyTasks(sessionId: string): Promise<any> {
 
 	const data = await response.json()
 	console.log('Study tasks:', data)
+	return data
+}
+
+// Analytics response interface
+export interface StudyAnalytics {
+	total_responses: number
+	completed_responses: number
+	abandoned_responses: number
+	completion_rate: number
+	average_duration: number
+	abandonment_rate: number
+	element_heatmap: Record<string, any>
+	timing_distributions: Record<string, any>
+}
+
+/**
+ * Get study analytics data
+ * @param studyId - The study ID
+ * @returns Promise with analytics data
+ */
+export async function getStudyAnalytics(studyId: string): Promise<StudyAnalytics> {
+	const response = await fetchWithAuth(`${BASE_URL}/responses/analytics/study/${studyId}`, {
+		method: 'GET',
+		headers: {
+			'Content-Type': 'application/json',
+		},
+	})
+
+	if (!response.ok) {
+		const errorData = await response.json().catch(() => ({}))
+		throw new Error(`Failed to get study analytics: ${response.status} ${JSON.stringify(errorData)}`)
+	}
+
+	const data = await response.json()
 	return data
 }

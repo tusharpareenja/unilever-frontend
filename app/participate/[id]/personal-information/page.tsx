@@ -85,7 +85,7 @@ export default function PersonalInformationPage() {
         </p>
 
         <div className="mt-8 bg-white border rounded-xl shadow-sm p-4 sm:p-6">
-          <div className="text-right text-xs text-gray-500">1 / 4</div>
+          {/* <div className="text-right text-xs text-gray-500">1 / 4</div> */}
 
           <div className="mt-2">
             <label className="block text-sm font-semibold text-gray-800 mb-2">Date of Birth</label>

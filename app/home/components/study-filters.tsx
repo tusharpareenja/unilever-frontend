@@ -4,6 +4,14 @@ import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Search, ChevronDown } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
+
+interface Stats {
+  total: number
+  active: number
+  draft: number
+  completed: number
+}
 
 interface StudyFiltersProps {
   activeTab: string
@@ -15,14 +23,8 @@ interface StudyFiltersProps {
   selectedTime: string
   setSelectedTime: (time: string) => void
   onClearFilters: () => void
+  stats: Stats
 }
-
-const tabs = [
-  { name: "All Studies", count: null },
-  { name: "Active Studies", count: 2 },
-  { name: "Draft Studies", count: null },
-  { name: "Complete", count: null },
-]
 
 export function StudyFilters({
   activeTab,
@@ -34,7 +36,39 @@ export function StudyFilters({
   selectedTime,
   setSelectedTime,
   onClearFilters,
+  stats,
 }: StudyFiltersProps) {
+  const [showTypeDropdown, setShowTypeDropdown] = useState(false)
+  const [showTimeDropdown, setShowTimeDropdown] = useState(false)
+  const typeDropdownRef = useRef<HTMLDivElement>(null)
+  const timeDropdownRef = useRef<HTMLDivElement>(null)
+
+  const tabs = [
+    { name: "All Studies", count: stats.total },
+    { name: "Active Studies", count: stats.active },
+    { name: "Draft Studies", count: stats.draft },
+    { name: "Complete", count: stats.completed },
+  ]
+
+  const typeOptions = ["All Types", "Grid", "Layer"]
+  const timeOptions = ["All Time", "Last 7 days", "Last 30 days", "Last 3 months", "Last year"]
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (typeDropdownRef.current && !typeDropdownRef.current.contains(event.target as Node)) {
+        setShowTypeDropdown(false)
+      }
+      if (timeDropdownRef.current && !timeDropdownRef.current.contains(event.target as Node)) {
+        setShowTimeDropdown(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
   return (
     <div className="mb-8">
       {/* Tabs */}
@@ -52,7 +86,7 @@ export function StudyFilters({
             }`}
           >
             {tab.name}
-            {tab.count && (
+            {tab.count !== null && tab.count !== undefined && (
               <span className="ml-2 bg-[rgba(38,116,186,1)] text-white text-xs px-2 py-1 rounded-full">
                 {tab.count}
               </span>
@@ -79,19 +113,71 @@ export function StudyFilters({
         </div>
 
         <div className="flex gap-2 flex-wrap">
-          <motion.div whileHover={{ scale: 1.02 }}>
-            <Button variant="outline" className="flex items-center space-x-1 bg-transparent">
-              <span>{selectedType}</span>
-              <ChevronDown className="w-4 h-4" />
-            </Button>
-          </motion.div>
+          {/* Type Filter Dropdown */}
+          <div className="relative" ref={typeDropdownRef}>
+            <motion.div whileHover={{ scale: 1.02 }}>
+              <Button 
+                variant="outline" 
+                className="flex items-center space-x-1 bg-transparent min-w-[120px]"
+                onClick={() => setShowTypeDropdown(!showTypeDropdown)}
+              >
+                <span className="truncate">{selectedType}</span>
+                <ChevronDown className="w-4 h-4 flex-shrink-0" />
+              </Button>
+            </motion.div>
+            
+            {showTypeDropdown && (
+              <div className="absolute top-full left-0 mt-1 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-10">
+                {typeOptions.map((option) => (
+                  <button
+                    key={option}
+                    onClick={() => {
+                      setSelectedType(option)
+                      setShowTypeDropdown(false)
+                    }}
+                    className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${
+                      selectedType === option ? 'bg-blue-50 text-blue-600' : 'text-gray-700'
+                    }`}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
-          <motion.div whileHover={{ scale: 1.02 }}>
-            <Button variant="outline" className="flex items-center space-x-1 bg-transparent">
-              <span>{selectedTime}</span>
-              <ChevronDown className="w-4 h-4" />
-            </Button>
-          </motion.div>
+          {/* Time Filter Dropdown */}
+          <div className="relative" ref={timeDropdownRef}>
+            <motion.div whileHover={{ scale: 1.02 }}>
+              <Button 
+                variant="outline" 
+                className="flex items-center space-x-1 bg-transparent min-w-[120px]"
+                onClick={() => setShowTimeDropdown(!showTimeDropdown)}
+              >
+                <span className="truncate">{selectedTime}</span>
+                <ChevronDown className="w-4 h-4 flex-shrink-0" />
+              </Button>
+            </motion.div>
+            
+            {showTimeDropdown && (
+              <div className="absolute top-full left-0 mt-1 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-10">
+                {timeOptions.map((option) => (
+                  <button
+                    key={option}
+                    onClick={() => {
+                      setSelectedTime(option)
+                      setShowTimeDropdown(false)
+                    }}
+                    className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${
+                      selectedTime === option ? 'bg-blue-50 text-blue-600' : 'text-gray-700'
+                    }`}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
           <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
             <Button variant="outline" onClick={onClearFilters}>

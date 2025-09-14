@@ -30,7 +30,8 @@ function isStepCompleted(stepId: number): boolean {
         const data = localStorage.getItem('cs_step3')
         if (!data) return false
         const parsed = JSON.parse(data)
-        return !!(parsed.minValue && parsed.maxValue && parsed.minLabel && parsed.maxLabel && parsed.middleLabel)
+        // middleLabel is optional, only require minValue, maxValue, minLabel, maxLabel
+        return !!(parsed.minValue && parsed.maxValue && parsed.minLabel && parsed.maxLabel)
       }
       case 4: {
         const data = localStorage.getItem('cs_step4')
@@ -68,7 +69,6 @@ function isStepCompleted(stepId: number): boolean {
       }
       case 7: {
         // Step 7 is completed when task generation is successful
-        // We can check if there's task data in localStorage or if the step has been visited
         const data = localStorage.getItem('cs_step7_tasks')
         return !!data
       }
@@ -191,13 +191,23 @@ export default function Stepper({ currentStep = 5, className = "", onStepChange 
             const isCurrent = step.id === currentStep
             const isUpcoming = step.id > currentStep
 
+            // Determine if step is clickable
+            const isClickable = isCompleted || isCurrent || step.id < currentStep
+            
             return (
               <div
                 key={step.id}
-                className="flex flex-col items-center text-center flex-shrink-0 min-w-[100px] cursor-pointer"
-                onClick={() => onStepChange?.(step.id)}
+                className={`flex flex-col items-center text-center flex-shrink-0 min-w-[100px] ${
+                  isClickable ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'
+                }`}
+                onClick={() => {
+                  if (isClickable) {
+                    onStepChange?.(step.id)
+                  }
+                }}
                 role="button"
                 aria-current={isCurrent ? "step" : undefined}
+                aria-disabled={!isClickable}
               >
                 {/* Step circle */}
                 <div
@@ -208,7 +218,9 @@ export default function Stepper({ currentStep = 5, className = "", onStepChange 
                       ? "bg-[rgba(38,116,186,0.9)] border-[rgba(38,116,186,0.9)] text-white"
                       : isCurrent
                         ? "bg-[rgba(38,116,186,0.9)] border-[rgba(38,116,186,0.9)] text-white"
-                        : "bg-white border-gray-300 text-gray-500"
+                        : isClickable
+                          ? "bg-white border-gray-300 text-gray-500 hover:border-gray-400"
+                          : "bg-gray-100 border-gray-200 text-gray-400"
                   }
                 `}
                 >
@@ -219,7 +231,15 @@ export default function Stepper({ currentStep = 5, className = "", onStepChange 
                 <div
                   className={`
                   mt-3 text-xs font-medium px-2 leading-tight transition-all duration-300
-                  ${isCurrent ? "text-[rgba(38,116,186,0.9)]" : isCompleted ? "text-gray-700" : "text-gray-500"}
+                  ${
+                    isCurrent 
+                      ? "text-[rgba(38,116,186,0.9)]" 
+                      : isCompleted 
+                        ? "text-gray-700" 
+                        : isClickable
+                          ? "text-gray-500"
+                          : "text-gray-400"
+                  }
                 `}
                 >
                   {step.label}

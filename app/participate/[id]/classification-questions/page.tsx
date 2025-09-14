@@ -163,7 +163,7 @@ export default function ClassificationQuestionsPage() {
         </p>
 
         <div className="mt-8 bg-white border rounded-xl shadow-sm p-4 sm:p-6 lg:p-8">
-          <div className="text-right text-xs text-gray-500">2 / 4</div>
+          {/* <div className="text-right text-xs text-gray-500">2 / 4</div> */}
 
           <div className="mt-2 space-y-8">
             {questions.map((question) => (
