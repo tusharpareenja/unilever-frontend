@@ -21,6 +21,8 @@ export default function PersonalInformationPage() {
   const [dob, setDob] = useState<Date>()
   const [gender, setGender] = useState<string | null>("male")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [ageError, setAgeError] = useState<string>("")
+  const [formError, setFormError] = useState<string>("")
 
   const handleDateChange = (newValue: any) => {
     if (newValue) {
@@ -29,10 +31,24 @@ export default function PersonalInformationPage() {
   }
 
   const handleContinue = async () => {
-    if (!dob || !gender) {
-      alert('Please fill in all required fields')
+    if (!dob || !gender || !gender.trim()) {
+      setFormError("All fields are required.")
       return
+    } else {
+      setFormError("")
     }
+
+    // Age validation: must be 13+
+    try {
+      const today = new Date()
+      const ageYears = today.getFullYear() - dob.getFullYear() - (today < new Date(today.getFullYear(), dob.getMonth(), dob.getDate()) ? 1 : 0)
+      if (ageYears < 13) {
+        setAgeError("You must be at least 13 years old to participate.")
+        return
+      } else {
+        setAgeError("")
+      }
+    } catch {}
 
     setIsSubmitting(true)
     
@@ -77,7 +93,7 @@ export default function PersonalInformationPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <DashboardHeader />
+     
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-12 pb-16">
         <h1 className="text-3xl sm:text-4xl font-extrabold text-center text-gray-900">Personal Information</h1>
         <p className="mt-2 text-center text-sm text-gray-600">
@@ -142,6 +158,12 @@ export default function PersonalInformationPage() {
             <p className="mt-2 text-xs text-gray-500">
               Please enter your birth date. We'll calculate your age automatically.
             </p>
+            {ageError && (
+              <div className="mt-2 text-xs text-red-600">{ageError}</div>
+            )}
+            {formError && (
+              <div className="mt-2 text-xs text-red-600">{formError}</div>
+            )}
           </div>
 
           <div className="mt-6">

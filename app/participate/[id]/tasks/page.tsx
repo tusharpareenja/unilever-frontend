@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { DashboardHeader } from "@/app/home/components/dashboard-header"
 import { submitTaskResponse, submitTaskSession } from "@/lib/api/ResponseAPI"
 
 type Task = {
@@ -24,6 +23,7 @@ export default function TasksPage() {
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [scaleLabels, setScaleLabels] = useState<{ left: string; right: string; middle: string }>({ left: "", right: "", middle: "" })
   const [studyType, setStudyType] = useState<'grid' | 'layer' | undefined>(undefined)
+  const [mainQuestion, setMainQuestion] = useState<string>("")
 
   // Interaction tracking
   const hoverCountsRef = useRef<Record<number, number>>({})
@@ -58,6 +58,7 @@ export default function TasksPage() {
       const study = JSON.parse(detailsRaw || '{}')
 
       setStudyType(study?.study_type)
+      setMainQuestion(String(study?.main_question || ""))
 
       if (study?.rating_scale) {
         const rs = study.rating_scale || {}
@@ -69,9 +70,19 @@ export default function TasksPage() {
         setScaleLabels({ left: "", right: "", middle: "" })
       }
 
-      const tasksObj = study?.tasks || study?.data?.tasks || {}
+      // Support multiple backend shapes for tasks
+      const tasksObj = study?.tasks || study?.data?.tasks || study?.task_map || study?.task || {}
       const respondentKey = String(respondentId ?? 0)
-      const respondentTasks: any[] = tasksObj?.[respondentKey] || tasksObj?.[Number(respondentKey)] || []
+      let respondentTasks: any[] = tasksObj?.[respondentKey] || tasksObj?.[Number(respondentKey)] || []
+      if (!Array.isArray(respondentTasks) || respondentTasks.length === 0) {
+        // Some backends may provide a flat array
+        if (Array.isArray(tasksObj)) respondentTasks = tasksObj
+        // Or an object of arrays – flatten
+        else if (tasksObj && typeof tasksObj === 'object') {
+          const vals = Object.values(tasksObj)
+          if (vals.every((v: any) => Array.isArray(v))) respondentTasks = (vals as any[]).flat()
+        }
+      }
 
       const parsed: Task[] = (Array.isArray(respondentTasks) ? respondentTasks : [])
         .map((t: any) => {
@@ -88,12 +99,35 @@ export default function TasksPage() {
             }
           } else {
             const es = t?.elements_shown || {}
-            const activeKeys = Object.keys(es).filter((k) => /^E\d+$/.test(k) && Number(es[k]) === 1)
-            const urls = activeKeys
-              .map((k) => t?.elements_shown?.[`${k}`] !== undefined ? t?.elements_shown_content?.[`${k}_content`] || es[`${k}_content`] || t?.elements_shown?.[`${k}_content`] : es[`${k}_content`])
-            // Fallback to older format where *_content lives inside es
-            const fromEs = activeKeys.map((k) => es[`${k}_content`]).filter((u: any) => typeof u === 'string' && u)
-            const list = Array.isArray(urls) && urls.filter((u: any) => typeof u === 'string' && u) || fromEs
+            const content = t?.elements_shown_content || {}
+            const activeKeys = Object.keys(es).filter((k) => Number(es[k]) === 1)
+
+            const getUrlForKey = (k: string): string | undefined => {
+              const c1: any = (content as any)[k]
+              if (c1 && typeof c1 === 'object' && typeof c1.url === 'string') return c1.url
+              const c2: any = (content as any)[`${k}_content`]
+              if (c2 && typeof c2 === 'object' && typeof c2.url === 'string') return c2.url
+              const s1: any = (es as any)[`${k}_content`]
+              if (typeof s1 === 'string') return s1
+              const s2: any = (content as any)[k]
+              if (typeof s2 === 'string') return s2
+              return undefined
+            }
+
+            const list: string[] = []
+            activeKeys.forEach((k) => {
+              const url = getUrlForKey(k)
+              if (typeof url === 'string' && url) list.push(url)
+            })
+
+            // As a last resort, scan content object for any url fields when no activeKeys resolved
+            if (list.length === 0 && content && typeof content === 'object') {
+              Object.values(content).forEach((v: any) => {
+                if (v && typeof v === 'object' && typeof v.url === 'string') list.push(v.url)
+                if (typeof v === 'string') list.push(v)
+              })
+            }
+
             return {
               id: String(t?.task_id ?? t?.task_index ?? Math.random()),
               leftImageUrl: list[0],
@@ -105,6 +139,27 @@ export default function TasksPage() {
         })
 
       setTasks(parsed)
+      // Preload all task images in background to avoid display jitter
+      try {
+        const urls = new Set<string>()
+        parsed.forEach((t) => {
+          if (t.layeredImages && t.layeredImages.length > 0) {
+            t.layeredImages.forEach((li) => li.url && urls.add(li.url))
+          } else {
+            if (t.leftImageUrl) urls.add(t.leftImageUrl)
+            if (t.rightImageUrl) urls.add(t.rightImageUrl)
+          }
+        })
+        const unique = Array.from(urls).filter((u) => !preloadedUrlsRef.current.has(u))
+        unique.forEach((u) => preloadedUrlsRef.current.add(u))
+        unique.forEach((src) => {
+          const img = new Image()
+          img.decoding = 'async'
+          // @ts-ignore
+          img.referrerPolicy = 'no-referrer'
+          img.src = src
+        })
+      } catch {}
     } catch (err: any) {
       console.error('Failed to load tasks from localStorage:', err)
       setFetchError(err?.message || 'Failed to load tasks')
@@ -119,6 +174,7 @@ export default function TasksPage() {
   const taskStartRef = useRef<number>(Date.now())
   const [lastSelected, setLastSelected] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const preloadedUrlsRef = useRef<Set<string>>(new Set())
 
   // Reset timer when task changes
   useEffect(() => {
@@ -139,7 +195,7 @@ export default function TasksPage() {
 
       const task = tasks[currentTaskIndex]
       const elapsedMs = Date.now() - taskStartRef.current
-      const seconds = Math.round(elapsedMs / 1000)
+      const seconds = Number((elapsedMs / 1000).toFixed(3))
 
       const interactions = [1, 2, 3, 4, 5].map((n) => ({
         element_id: `R${n}`,
@@ -201,7 +257,7 @@ export default function TasksPage() {
     clickCountsRef.current[value] = (clickCountsRef.current[value] || 0) + 1
 
     const elapsedMs = Date.now() - taskStartRef.current
-    const seconds = Math.round(elapsedMs / 1000)
+    const seconds = Number((elapsedMs / 1000).toFixed(3))
     setResponseTimesSec((prev) => {
       const next = [...prev]
       next[currentTaskIndex] = seconds
@@ -240,9 +296,9 @@ export default function TasksPage() {
   const isFinished = totalTasks > 0 && currentTaskIndex >= totalTasks - 1 && lastSelected !== null
 
   return (
-    <div className="min-h-screen lg:bg-white">
-      <DashboardHeader />
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-10 pb-16">
+    <div className="min-h-screen lg:bg-white" style={{ paddingTop: 'max(20px, env(safe-area-inset-top))' }}>
+      
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-12 md:pt-14 pb-16">
         {isFetching ? (
           <div className="p-10 text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[rgba(38,116,186,1)] mx-auto mb-4" />
@@ -255,11 +311,11 @@ export default function TasksPage() {
         ) : (
           <>
             {/* Mobile Layout - Exact copy of image */}
-            <div className="lg:hidden flex flex-col h-[calc(100vh-120px)]">
+            <div className="lg:hidden flex flex-col h-[calc(100vh-150px)]" style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}>
               {/* Progress Section - Outside white card */}
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-2">
-                  <div className="text-base font-medium text-gray-800">Question {Math.min(currentTaskIndex + 1, totalTasks)}</div>
+                  <div className="text-base font-medium text-gray-800 truncate pr-3">{mainQuestion || `Question ${Math.min(currentTaskIndex + 1, totalTasks)}`}</div>
                   <div className="text-base font-semibold text-[rgba(38,116,186,1)]">
                     {Math.min(currentTaskIndex + 1, totalTasks)} / {totalTasks}
                   </div>
@@ -287,7 +343,7 @@ export default function TasksPage() {
                     {/* Image Section - Centered in middle */}
                     <div className="flex-1 flex items-center justify-center">
                       {studyType === 'layer' ? (
-                        <div className="relative w-full max-w-sm aspect-square overflow-hidden rounded-md">
+                        <div className="relative w-full h-[65vh] max-w-none overflow-hidden rounded-md">
                           {task?.layeredImages?.map((img, idx) => (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
@@ -333,8 +389,8 @@ export default function TasksPage() {
                       </div>
                     )}
 
-                    {/* Rating Scale - Fixed at bottom */}
-                    <div className="pb-6">
+                    {/* Rating Scale - Bottom with iOS safe area padding */}
+                    <div className="mt-6 pb-6" style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}>
                       <div className="flex items-center justify-center">
                         <div className="flex items-center gap-5">
                           {[1, 2, 3, 4, 5].map((n) => {
@@ -379,7 +435,8 @@ export default function TasksPage() {
 
             {/* Desktop Layout - Keep original */}
             <div className="hidden lg:block">
-              <div className="flex items-center justify-end text-sm text-gray-600 mb-1">
+              <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
+                <div className="text-base font-medium text-gray-800 truncate pr-3">{mainQuestion || `Question ${Math.min(currentTaskIndex + 1, totalTasks)}`}</div>
                 <span>
                   {Math.min(currentTaskIndex + 1, totalTasks)} / {totalTasks}
                 </span>
@@ -446,7 +503,7 @@ export default function TasksPage() {
                   </div>
 
                   {/* Labels and rating scale - Larger for desktop */}
-                  <div className="w-fit mx-auto">
+                  <div className="w-fit mx-auto mt-6">
                     <div className="flex items-center justify-center gap-4 lg:gap-6">
                       {[1, 2, 3, 4, 5].map((n) => {
                         const selected = lastSelected === n

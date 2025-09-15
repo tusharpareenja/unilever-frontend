@@ -13,6 +13,8 @@ export default function ThankYouPage() {
   const [studyName, setStudyName] = useState<string>("")
   const [responseId, setResponseId] = useState<string>("")
   const [isHydrated, setIsHydrated] = useState(false)
+  const [redirecting, setRedirecting] = useState(false)
+  const [countdown, setCountdown] = useState<number | null>(null)
 
   useEffect(() => {
     // Mark as hydrated to prevent hydration mismatches
@@ -57,6 +59,28 @@ export default function ThankYouPage() {
       localStorage.setItem('study_response_id', existingResponseId)
     }
     setResponseId(existingResponseId)
+    
+    // If redirected id exists, schedule redirect 2s after thank-you shows
+    try {
+      const rid = localStorage.getItem('redirect_rid')
+      if (rid) {
+        setRedirecting(true)
+        setCountdown(3)
+        const interval = setInterval(() => {
+          setCountdown((prev) => {
+            if (prev === null) return null
+            if (prev <= 1) {
+              clearInterval(interval)
+              try { localStorage.removeItem('redirect_rid') } catch {}
+              const cintRid = encodeURIComponent(rid)
+              window.location.href = `https://notch.insights.supply/cb?token=446a1929-7cfa-4ee3-9778-a9e9dae498ac&RID=${cintRid}`
+              return 0
+            }
+            return prev - 1
+          })
+        }, 1000)
+      }
+    } catch {}
   }, [])
 
   const handleReturnHome = () => {
@@ -73,7 +97,7 @@ export default function ThankYouPage() {
   if (!isHydrated) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <DashboardHeader />
+        
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-12 pb-16">
           <div className="bg-white border rounded-xl shadow-sm p-6 sm:p-8 lg:p-10">
             <div className="text-center">
@@ -88,7 +112,7 @@ export default function ThankYouPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader />
+     
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-12 pb-16">
         <div className="bg-white border rounded-xl shadow-sm p-6 sm:p-8 lg:p-10">
           {/* Completion Header */}
@@ -117,6 +141,14 @@ export default function ThankYouPage() {
                   Your participation is greatly appreciated and will contribute valuable insights to our research.
                 </span>
               </li>
+              {redirecting && (
+                <li className="flex items-start">
+                  <span className="text-gray-400 mr-2">•</span>
+                  <span className="font-medium text-blue-700">
+                    Redirecting in {countdown ?? 3}...
+                  </span>
+                </li>
+              )}
             </ul>
           </div>
 

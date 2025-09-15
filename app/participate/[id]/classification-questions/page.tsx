@@ -155,7 +155,7 @@ export default function ClassificationQuestionsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader />
+     
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-12 pb-16">
         <h1 className="text-3xl sm:text-4xl font-extrabold text-center text-gray-900">Classification Questions</h1>
         <p className="mt-2 text-center text-sm text-gray-600">

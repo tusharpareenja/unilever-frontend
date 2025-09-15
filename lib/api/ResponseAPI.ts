@@ -251,6 +251,7 @@ export interface StudyAnalytics {
 	total_responses: number
 	completed_responses: number
 	abandoned_responses: number
+	in_progress_responses?: number
 	completion_rate: number
 	average_duration: number
 	abandonment_rate: number
@@ -278,4 +279,135 @@ export async function getStudyAnalytics(studyId: string): Promise<StudyAnalytics
 
 	const data = await response.json()
 	return data
+}
+
+// ---------------- Responses Listing (owner) ----------------
+export interface StudyResponseItem {
+  id: string
+  session_id: string
+  respondent_id: number
+  personal_info?: {
+    gender?: string
+    date_of_birth?: string
+  }
+  is_completed: boolean
+  is_abandoned: boolean
+  completion_percentage?: number
+  total_study_duration?: number
+  session_start_time?: string
+  session_end_time?: string
+  last_activity?: string
+}
+
+export interface ResponsesListResult {
+  results: StudyResponseItem[]
+  count?: number
+  next?: string | null
+  previous?: string | null
+}
+
+/** Fetch responses for a given study (owner/admin). Defaults to limit=100 for fast single fetch. */
+export async function getStudyResponses(
+  studyId: string,
+  limit: number = 100,
+  offset: number = 0
+): Promise<ResponsesListResult> {
+  const url = `${BASE_URL}/responses/?study_id=${encodeURIComponent(studyId)}&limit=${limit}&offset=${offset}`
+  const res = await fetchWithAuth(url, { method: 'GET', headers: { 'Content-Type': 'application/json' } })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(`Failed to fetch responses (${res.status}): ${text}`)
+  }
+  const data = await res.json().catch(() => ([] as any))
+  if (Array.isArray(data)) {
+    return { results: data as StudyResponseItem[], count: data.length }
+  }
+  if (data && Array.isArray(data.results)) {
+    return {
+      results: data.results as StudyResponseItem[],
+      count: typeof data.count === 'number' ? data.count : data.results.length,
+      next: data.next ?? null,
+      previous: data.previous ?? null,
+    }
+  }
+  // best-effort fallback
+  return { results: [], count: 0 }
+}
+
+// ---------------- Response Session Details ----------------
+export interface SessionTaskItem {
+  task_id: string
+  respondent_id: number
+  task_index: number
+  task_type: 'grid' | 'layer'
+  task_context?: any
+  elements_shown_in_task?: Record<string, number>
+  elements_shown_content?: Record<string, any>
+  /** Some backends send a combined map including *_content URLs */
+  elements_shown?: Record<string, any>
+  task_start_time?: string
+  task_completion_time?: string
+  task_duration_seconds?: number
+  rating_given?: number
+  rating_timestamp?: string
+}
+
+export interface ResponseSessionDetails {
+  session_id: string
+  respondent_id: number
+  current_task_index: number
+  completed_tasks_count: number
+  total_tasks_assigned: number
+  session_start_time?: string
+  session_end_time?: string
+  is_completed: boolean
+  personal_info?: { gender?: string; date_of_birth?: string }
+  ip_address?: string
+  user_agent?: string
+  browser_info?: any
+  completion_percentage?: number
+  total_study_duration?: number
+  last_activity?: string
+  is_abandoned?: boolean
+  abandonment_timestamp?: string | null
+  abandonment_reason?: string | null
+  id?: string
+  study_id?: string
+  created_at?: string
+  updated_at?: string
+  completed_tasks?: SessionTaskItem[]
+  classification_answers?: Array<{
+    question_id: string
+    question_text: string
+    answer: string
+    answer_timestamp?: string
+    time_spent_seconds?: number
+    id?: string
+    study_response_id?: string
+  }>
+}
+
+export async function getResponseSessionDetails(sessionId: string): Promise<ResponseSessionDetails> {
+  const url = `${BASE_URL}/responses/session/${encodeURIComponent(sessionId)}`
+  const res = await fetchWithAuth(url, { method: 'GET', headers: { 'Content-Type': 'application/json' } })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(`Failed to fetch session details (${res.status}): ${text}`)
+  }
+  return res.json()
+}
+
+/** Download flattened CSV for a study (owner-only) */
+export async function downloadStudyResponsesCsv(studyId: string): Promise<Blob> {
+  const res = await fetchWithAuth(`${BASE_URL}/responses/export/study/${studyId}/flattened-csv`, {
+    method: 'GET',
+    headers: {
+      'Accept': 'text/csv',
+    },
+  })
+  if (!res.ok) {
+    const errorText = await res.text().catch(() => '')
+    throw new Error(`Failed to export CSV: ${res.status} ${errorText}`)
+  }
+  return await res.blob()
 }

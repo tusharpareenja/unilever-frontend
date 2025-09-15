@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { createStudyFromLocalStorage, regenerateTasksForStudy } from "@/lib/api/StudyAPI"
+import { createStudyFromLocalStorage, regenerateTasksForStudy, putUpdateStudy, updateStudyStatus } from "@/lib/api/StudyAPI"
 
 function get<T>(key: string, fallback: T): T {
   if (typeof window === 'undefined') return fallback
@@ -44,6 +44,17 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
         console.log('Regenerating tasks for study:', studyId)
         await regenerateTasksForStudy(String(studyId))
         console.log('Tasks regenerated successfully for study:', studyId)
+
+        // Ensure the study is activated immediately after launch
+        try {
+          await putUpdateStudy(String(studyId), { status: 'active' as any })
+        } catch (e1) {
+          try {
+            await updateStudyStatus(String(studyId), 'active')
+          } catch (e2) {
+            console.warn('Failed to set study active after launch:', e1, e2)
+          }
+        }
       } else {
         console.warn('Cannot regenerate tasks: study id missing in create response')
       }
@@ -64,7 +75,7 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
   }
 
   return (
-    <div>
+    <div className="relative">
       <h3 className="text-lg font-semibold text-gray-800">Study Preview</h3>
       <p className="text-sm text-gray-600">Review all details before launching. This view summarizes your current setup.</p>
 
@@ -207,16 +218,38 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
                 PREVIOUS
               </Button>
               <Button 
-                className="flex-1 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] text-white rounded-full"
+                className="flex-1 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] text-white rounded-full disabled:opacity-80"
                 onClick={handleLaunchStudy}
                 disabled={isLaunching || !isConfirmed}
               >
-                {isLaunching ? 'LAUNCHING...' : 'LAUNCH STUDY'}
+                {isLaunching ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="relative inline-flex">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-30"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-white"></span>
+                    </span>
+                    Launching...
+                  </span>
+                ) : (
+                  'LAUNCH STUDY'
+                )}
               </Button>
             </div>
           </div>
         </section>
       </div>
+
+      {isLaunching && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <div className="bg-white rounded-xl shadow-lg px-8 py-6 text-center">
+            <div className="mx-auto mb-3 relative inline-flex">
+              <span className="animate-ping absolute inline-flex h-6 w-6 rounded-full bg-[rgba(38,116,186,1)] opacity-30"></span>
+              <span className="relative inline-flex rounded-full h-6 w-6 bg-[rgba(38,116,186,1)]"></span>
+            </div>
+            <div className="text-sm font-semibold text-gray-800">Launching… Please wait</div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

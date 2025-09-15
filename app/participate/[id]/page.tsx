@@ -18,12 +18,48 @@ export default function ParticipateIntroPage() {
 
   // Fetch study details on component mount
   useEffect(() => {
+    // Capture rid query once and store in localStorage for post-completion redirect
+    try {
+      const search = typeof window !== 'undefined' ? window.location.search : ''
+      if (search) {
+        const params = new URLSearchParams(search)
+        const rid = params.get('rid')
+        if (rid) {
+          localStorage.setItem('redirect_rid', rid)
+        }
+      }
+    } catch {}
+
     const fetchStudyDetails = async () => {
       if (!params?.id) return
       
       try {
         const details = await getStudyDetailsWithoutAuth(params.id)
         setStudyDetails(details)
+        // Proactively preload study assets to avoid first-task lag
+        try {
+          const urls = new Set<string>()
+          if (details?.study_type === 'grid' && Array.isArray(details?.elements)) {
+            details.elements.forEach((el: any) => el?.content && urls.add(String(el.content)))
+          } else if (details?.study_type === 'layer' && Array.isArray(details?.study_layers)) {
+            details.study_layers.forEach((layer: any) => {
+              (layer?.images || []).forEach((img: any) => img?.url && urls.add(String(img.url)))
+            })
+          }
+          // Fallback: scan tasks map if present
+          const tasksObj: any = (details as any)?.tasks || {}
+          if (tasksObj && typeof tasksObj === 'object') {
+            const arrays = Array.isArray(tasksObj) ? tasksObj : Object.values(tasksObj).flat?.() || []
+            arrays.forEach((t: any) => {
+              const content = t?.elements_shown_content || {}
+              Object.values(content).forEach((v: any) => {
+                if (v && typeof v === 'object' && v.url) urls.add(String(v.url))
+                if (typeof v === 'string') urls.add(String(v))
+              })
+            })
+          }
+          Array.from(urls).forEach((src) => { try { const img = new Image(); img.decoding = 'async'; /* @ts-ignore */ img.referrerPolicy = 'no-referrer'; img.src = src } catch {} })
+        } catch {}
       } catch (error) {
         console.error('Failed to fetch study details:', error)
       } finally {
@@ -89,7 +125,7 @@ export default function ParticipateIntroPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-white pb-28 sm:pb-12">
-        <DashboardHeader />
+        
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 sm:pt-14">
           <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[rgba(38,116,186,1)]"></div>
@@ -101,7 +137,7 @@ export default function ParticipateIntroPage() {
 
   return (
     <div className="min-h-screen bg-white pb-28 sm:pb-12">
-      <DashboardHeader />
+      
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 sm:pt-14">
         <h1 className="text-3xl sm:text-4xl font-extrabold text-center text-gray-900">{studyTitle}</h1>
         <p className="mt-2 text-center text-sm sm:text-base text-gray-600">Thank you for participating in this research study.</p>

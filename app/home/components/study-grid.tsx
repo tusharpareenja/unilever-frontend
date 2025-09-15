@@ -228,7 +228,7 @@ export function StudyGrid({
           <p className="text-sm text-gray-600 mb-4">this is to se what type...</p>
 
           {/* Three metric cards in a row */}
-          <div className="flex gap-4 mb-6">
+          <div className="flex gap-4 mb-6 flex-wrap">
             {/* Total Response */}
             <div className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-[rgba(38,116,186,1)] rounded flex items-center justify-center text-white text-xs font-medium">
@@ -252,6 +252,22 @@ export function StudyGrid({
               </div>
               <span className="text-sm text-gray-600">Total Response</span>
             </div>
+
+            {/* Study Complete (%) using respondents_completed/respondents_target */}
+            {typeof (study as any).respondents_target !== 'undefined' && typeof (study as any).respondents_completed !== 'undefined' && (
+              <div className="flex items-center space-x-2">
+                <div className="w-10 h-8 bg-[rgba(38,116,186,1)] rounded flex items-center justify-center text-white text-xs font-medium px-2">
+                  {(() => {
+                    const target = Number((study as any).respondents_target || 0)
+                    const done = Number((study as any).respondents_completed || 0)
+                    if (target <= 0) return '0%'
+                    const pct = Math.round((done / target) * 100)
+                    return `${pct}%`
+                  })()}
+                </div>
+                <span className="text-sm text-gray-600">Study Complete</span>
+              </div>
+            )}
           </div>
 
           {/* Actions */}

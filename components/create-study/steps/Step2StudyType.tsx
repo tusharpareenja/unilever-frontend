@@ -86,9 +86,8 @@ export function Step2StudyType({ onNext, onBack, value, onDataChange }: Step2Stu
     try { const v = localStorage.getItem('cs_step2'); if (v) { const o = JSON.parse(v); return o.mainQuestion || "" } } catch {}
     return ""
   })
-  const [orientationText, setOrientationText] = useState(() => {
-    try { const v = localStorage.getItem('cs_step2'); if (v) { const o = JSON.parse(v); return o.orientationText || "ENGLISH" } } catch {}
-    return "ENGLISH"
+  const [orientationText] = useState(() => {
+    return "Welcome to the study!"
   })
 
   useEffect(() => {}, [])
@@ -140,13 +139,13 @@ export function Step2StudyType({ onNext, onBack, value, onDataChange }: Step2Stu
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-gray-800 mb-2">Orientation Text for Respondents <span className="text-red-500">*</span></label>
+          <label className="block text-sm font-semibold text-gray-800 mb-2">Orientation Text for Respondents</label>
           <input
-            className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 bg-gray-100 text-gray-700"
             value={orientationText}
-            onChange={(e) => setOrientationText(e.target.value)}
+            readOnly
           />
-          <p className="mt-2 text-xs text-gray-500">Provide context about your study (max 2000 characters)</p>
+          <p className="mt-2 text-xs text-gray-500">This text is fixed for now.</p>
         </div>
       </div>
 
@@ -155,7 +154,7 @@ export function Step2StudyType({ onNext, onBack, value, onDataChange }: Step2Stu
         <Button
           className="rounded-full px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] w-full sm:w-auto"
           onClick={() => type && onNext(type, mainQuestion, orientationText)}
-          disabled={!type || !mainQuestion || !orientationText}
+          disabled={!type || !mainQuestion}
         >
           Next
         </Button>

@@ -132,6 +132,10 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
   }
 
   const handleNext = async () => {
+    if (mode === 'grid' && elements.length < 4) {
+      alert('Please add at least 4 elements for a grid study.')
+      return
+    }
     setNextLoading(true)
     await ensureGridUploads()
     setNextLoading(false)
@@ -313,6 +317,10 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     setDraftImages([])
   }
 
+  const removeDraftImage = (imageId: string) => {
+    setDraftImages(prev => prev.filter(img => img.id !== imageId))
+  }
+
   const ensureLayerUploads = async () => {
     // Find all images across layers missing secureUrl but with file
     const pending: Array<{ layerId: string; imageId: string; file: File }> = []
@@ -342,6 +350,10 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
   }
 
   const handleNext = async () => {
+    if (layers.length < 4) {
+      alert('Please add at least 4 layers for a layer study.')
+      return
+    }
     setNextLoading(true)
     await ensureLayerUploads()
     setNextLoading(false)
@@ -611,20 +623,30 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                   className="hidden"
                 />
                 {draftImages.length > 0 && (
-                  <div className="mt-3 flex gap-2 flex-wrap">
+                  <div className="mt-3 flex gap-3 flex-wrap justify-center">
                     {draftImages.map(img => (
-                      <div key={img.id} className="flex flex-col items-center">
-                        <div className="w-16 h-16 border rounded-md overflow-hidden">
+                      <div key={img.id} className="relative group flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
+                        <div className="w-20 h-20 border rounded-md overflow-hidden">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img src={img.previewUrl} alt="preview" className="w-full h-full object-cover" />
                         </div>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); removeDraftImage(img.id) }}
+                          className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                          aria-label="Remove image"
+                        >
+                          ×
+                        </button>
                         <input
                           type="text"
                           value={img.name || ''}
+                          onClick={(e) => e.stopPropagation()}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onFocus={(e) => e.stopPropagation()}
                           onChange={(e) => setDraftImages(prev => prev.map(draftImg => 
                             draftImg.id === img.id ? { ...draftImg, name: e.target.value } : draftImg
                           ))}
-                          className="w-16 mt-1 text-xs px-1 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          className="w-20 mt-1 text-xs px-1 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                           placeholder="Name"
                         />
                       </div>

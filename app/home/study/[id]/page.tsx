@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation"
 import { DashboardHeader } from "../../components/dashboard-header"
 import { AuthGuard } from "@/components/auth/AuthGuard"
 import { getPrivateStudyDetails, updateStudyStatus, putUpdateStudy, StudyDetails } from "@/lib/api/StudyAPI"
-import { getStudyAnalytics, StudyAnalytics } from "@/lib/api/ResponseAPI"
+import { getStudyAnalytics, StudyAnalytics, downloadStudyResponsesCsv } from "@/lib/api/ResponseAPI"
 import { Pause, Play, CheckCircle, Share, Eye, Download, BarChart3 } from "lucide-react"
 
 export default function StudyManagementPage() {
@@ -19,6 +19,7 @@ export default function StudyManagementPage() {
   const [error, setError] = useState<string | null>(null)
   const [analytics, setAnalytics] = useState<StudyAnalytics | null>(null)
   const [analyticsLoading, setAnalyticsLoading] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
     if (studyId) {
@@ -190,6 +191,24 @@ export default function StudyManagementPage() {
     return "0m 0s"
   }
 
+  const buildCsvAndDownload = async () => {
+    try {
+      setExporting(true)
+      const blob = await downloadStudyResponsesCsv(studyId)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${study?.title || 'study'}-responses.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      console.error('Export CSV failed:', e)
+      alert('Failed to export CSV')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   if (loading) {
     return (
       <AuthGuard requireAuth={true}>
@@ -297,10 +316,10 @@ export default function StudyManagementPage() {
                     </div>
                   )} */}
                 </div>
-                <button className="flex items-center gap-2 hover:opacity-80">
+                {/* <button className="flex items-center gap-2 hover:opacity-80">
                   <Eye className="w-4 h-4" />
                   <span>Preview</span>
-                </button>
+                </button> */}
               </div>
             </div>
             <div className="border-t" style={{ borderColor: 'rgba(0,0,0,0.06)' }} />
@@ -368,7 +387,7 @@ export default function StudyManagementPage() {
             >
               Response Statistics
             </h3>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
               <div className="text-center p-4 border rounded-lg" style={{ borderColor: '#2674BA' }}>
                 <div className="text-2xl font-bold" style={{ color: '#2674BA' }}>
                   {analyticsLoading ? (
@@ -378,6 +397,16 @@ export default function StudyManagementPage() {
                   )}
                 </div>
                 <div className="text-sm text-gray-600">Total Responses</div>
+              </div>
+              <div className="text-center p-4 border rounded-lg" style={{ borderColor: '#2674BA' }}>
+                <div className="text-2xl font-bold" style={{ color: '#2674BA' }}>
+                  {analyticsLoading ? (
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 mx-auto" style={{ borderColor: '#2674BA' }}></div>
+                  ) : (
+                    analytics?.in_progress_responses ?? Math.max(0, (study.total_responses - study.completed_responses - study.abandoned_responses))
+                  )}
+                </div>
+                <div className="text-sm text-gray-600">In Progress</div>
               </div>
               <div className="text-center p-4 border rounded-lg" style={{ borderColor: '#2674BA' }}>
                 <div className="text-2xl font-bold" style={{ color: '#2674BA' }}>
@@ -538,6 +567,7 @@ export default function StudyManagementPage() {
             </div>
             <div className="flex gap-3">
               <button 
+                onClick={() => router.push(`/home/study/${studyId}/response`)}
                 className="flex items-center gap-2 px-4 py-2 text-white rounded-lg hover:opacity-90"
                 style={{ backgroundColor: '#2674BA' }}
               >
@@ -545,11 +575,13 @@ export default function StudyManagementPage() {
                 View All Response
               </button>
               <button 
-                className="flex items-center gap-2 px-4 py-2 border rounded-lg hover:opacity-80"
+                onClick={buildCsvAndDownload}
+                disabled={exporting}
+                className="flex items-center gap-2 px-4 py-2 border rounded-lg hover:opacity-80 disabled:opacity-60"
                 style={{ borderColor: '#2674BA', color: '#2674BA' }}
               >
                 <Download className="w-4 h-4" />
-                Export CSV
+                {exporting ? 'Exporting...' : 'Export CSV'}
               </button>
             </div>
           </div>
