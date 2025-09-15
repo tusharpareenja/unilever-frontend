@@ -281,6 +281,63 @@ export async function getStudyAnalytics(studyId: string): Promise<StudyAnalytics
 	return data
 }
 
+/** Subscribe to live analytics via SSE with graceful fallback to polling. Returns an unsubscribe function. */
+export function subscribeStudyAnalytics(
+  studyId: string,
+  onData: (data: StudyAnalytics) => void,
+  onError?: (err: any) => void,
+  intervalSeconds: number = 5
+): () => void {
+  let stopped = false
+  let es: EventSource | null = null
+  let pollTimer: number | null = null
+
+  const startPolling = () => {
+    // Fallback: poll using authenticated fetch
+    const tick = async () => {
+      if (stopped) return
+      try {
+        const data = await getStudyAnalytics(studyId)
+        if (!stopped && data) onData(data)
+      } catch (e) {
+        onError?.(e)
+      }
+    }
+    // First immediate tick to hydrate
+    tick()
+    pollTimer = window.setInterval(tick, Math.max(1000, intervalSeconds * 1000))
+  }
+
+  try {
+    const url = `${BASE_URL}/responses/analytics/study/${encodeURIComponent(studyId)}/stream?interval_seconds=${encodeURIComponent(String(intervalSeconds))}`
+    es = new EventSource(url)
+    es.onmessage = (ev) => {
+      try {
+        const data = JSON.parse(ev.data)
+        if (!stopped) onData(data)
+      } catch (e) {
+        // ignore parse errors
+      }
+    }
+    es.onerror = (e) => {
+      // Close and fallback to polling
+      try { es?.close() } catch {}
+      es = null
+      if (!stopped) startPolling()
+      onError?.(e)
+    }
+  } catch (e) {
+    onError?.(e)
+    startPolling()
+  }
+
+  return () => {
+    stopped = true
+    try { es?.close() } catch {}
+    if (pollTimer) { window.clearInterval(pollTimer); pollTimer = null }
+  }
+}
+
 // ---------------- Responses Listing (owner) ----------------
 export interface StudyResponseItem {
   id: string

@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation"
 import { DashboardHeader } from "../../components/dashboard-header"
 import { AuthGuard } from "@/components/auth/AuthGuard"
 import { getPrivateStudyDetails, updateStudyStatus, putUpdateStudy, StudyDetails } from "@/lib/api/StudyAPI"
-import { getStudyAnalytics, StudyAnalytics, downloadStudyResponsesCsv } from "@/lib/api/ResponseAPI"
+import { getStudyAnalytics, StudyAnalytics, downloadStudyResponsesCsv, subscribeStudyAnalytics } from "@/lib/api/ResponseAPI"
 import { Pause, Play, CheckCircle, Share, Eye, Download, BarChart3 } from "lucide-react"
 
 export default function StudyManagementPage() {
@@ -27,11 +27,17 @@ export default function StudyManagementPage() {
     }
   }, [studyId])
 
-  // Load analytics separately to not interfere with main page speed
+  // Live analytics subscription (SSE with fallback)
   useEffect(() => {
-    if (studyId && study) {
-      loadAnalytics()
-    }
+    if (!studyId || !study) return
+    setAnalyticsLoading(true)
+    const unsubscribe = subscribeStudyAnalytics(
+      studyId,
+      (data) => { setAnalytics(data); setAnalyticsLoading(false) },
+      () => { /* keep silent */ },
+      5
+    )
+    return () => { unsubscribe() }
   }, [studyId, study])
 
   const loadStudyDetails = async () => {
