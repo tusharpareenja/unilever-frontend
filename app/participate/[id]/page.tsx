@@ -80,9 +80,8 @@ export default function ParticipateIntroPage() {
 
   const handleStartStudy = async () => {
     if (!params?.id || isStarting) return
-    
     setIsStarting(true)
-    
+
     // Store orientation page time
     try {
       const elapsed = Math.round((Date.now() - orientStartRef.current) / 1000)
@@ -91,35 +90,68 @@ export default function ParticipateIntroPage() {
       localStorage.setItem('session_metrics', JSON.stringify(metrics))
     } catch {}
 
-    // Store full study details in localStorage for use in subsequent pages
-    if (studyDetails) {
-      console.log('Storing study details in localStorage:', studyDetails)
-      localStorage.setItem('current_study_details', JSON.stringify(studyDetails))
-      console.log('Study details stored successfully')
-    } else {
-      console.log('No study details to store')
+    try {
+      // Ensure study details request is at least triggered
+      if (!studyDetails && !isLoading) {
+        console.warn('Study details missing; proceeding with session start only')
+      }
+
+      const response = await startStudy(params.id)
+      console.log('Study session started:', response)
+
+      // Store session data
+      localStorage.setItem('study_session', JSON.stringify({
+        sessionId: response.session_id,
+        respondentId: response.respondent_id,
+        studyId: params.id,
+        totalTasks: response.total_tasks_assigned
+      }))
+
+      // Store filtered study details containing only this respondent's tasks
+      try {
+        if (studyDetails) {
+          const filtered = JSON.parse(JSON.stringify(studyDetails))
+          const tasksSrc: any = studyDetails?.tasks || studyDetails?.data?.tasks || studyDetails?.task_map || studyDetails?.task || {}
+          let userTasks: any[] = []
+          if (Array.isArray(tasksSrc)) {
+            userTasks = tasksSrc
+          } else if (tasksSrc && typeof tasksSrc === 'object') {
+            const rk = String(response.respondent_id ?? 0)
+            userTasks = tasksSrc?.[rk] || tasksSrc?.[Number(rk)] || []
+            if (!Array.isArray(userTasks) || userTasks.length === 0) {
+              // pick first non-empty bucket (backend may not index by respondent id)
+              for (const v of Object.values(tasksSrc)) { if (Array.isArray(v) && v.length) { userTasks = v; break } }
+            }
+          }
+          // Write back only into the same location the tasks were found
+          if (studyDetails?.tasks) {
+            filtered.tasks = userTasks
+          } else if (studyDetails?.data?.tasks) {
+            if (!filtered.data) filtered.data = {}
+            filtered.data.tasks = userTasks
+          } else if (studyDetails?.task_map) {
+            filtered.task_map = userTasks
+          } else if (studyDetails?.task) {
+            filtered.task = userTasks
+          }
+          try {
+            localStorage.setItem('current_study_details', JSON.stringify(filtered))
+          } catch (e) {
+            console.warn('Failed to store filtered study details:', e)
+          }
+        }
+      } catch (e) {
+        console.warn('Post-start filtering failed:', e)
+      }
+
+      // Navigate only after session and (if present) details are stored
+      router.push(startHref)
+    } catch (error) {
+      console.error('Failed to start study:', error)
+      alert('Failed to start the study. Please try again in a moment.')
+    } finally {
+      setIsStarting(false)
     }
-    
-    // Call API in background without waiting for response
-    startStudy(params.id)
-      .then((response) => {
-        console.log('Study session started:', response)
-        
-        // Store session data in localStorage for use in subsequent pages
-        localStorage.setItem('study_session', JSON.stringify({
-          sessionId: response.session_id,
-          respondentId: response.respondent_id,
-          studyId: params.id,
-          totalTasks: response.total_tasks_assigned
-        }))
-      })
-      .catch((error) => {
-        console.error('Failed to start study:', error)
-        // Don't show alert to user since they're already on next page
-      })
-    
-    // Immediately navigate to next page
-    router.push(startHref)
   }
 
   if (isLoading) {

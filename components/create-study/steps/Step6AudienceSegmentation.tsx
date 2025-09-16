@@ -147,7 +147,7 @@ export function Step6AudienceSegmentation({ onNext, onBack, onDataChange }: Step
 
 	const removeCountry = (name: string) => setCountries((prev) => prev.filter((c) => c !== name))
 
-	const canProceed = typeof respondents === 'number' && respondents > 0 && countries.length > 0
+	const canProceed = typeof respondents === 'number' && respondents >= 1 && countries.length > 0
 
 	useEffect(() => {
 		if (typeof window === 'undefined') return
@@ -165,7 +165,19 @@ export function Step6AudienceSegmentation({ onNext, onBack, onDataChange }: Step
 			<div className="space-y-6 mt-5">
 				<div>
 					<label className="block text-sm font-semibold text-gray-800 mb-2">Number of Respondents <span className="text-red-500">*</span></label>
-					<Input type="number" value={respondents} onChange={(e) => setRespondents(e.target.value === '' ? '' : Number(e.target.value))} className="rounded-lg" />
+					<Input 
+						type="number" 
+						min={1}
+						value={respondents} 
+						onChange={(e) => {
+							const v = e.target.value
+							if (v === '') { setRespondents(''); return }
+							const n = Math.max(1, Number(v))
+							setRespondents(Number.isNaN(n) ? 1 : n)
+						}}
+						className="rounded-lg" 
+					/>
+					<div className="mt-1 text-xs text-gray-500">Minimum 1 respondent.</div>
 				</div>
 
 				<div>

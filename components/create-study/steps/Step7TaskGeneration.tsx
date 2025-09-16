@@ -23,6 +23,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
       const data = await generateTasks(payload)
       console.log('Task generation response:', data)
       setMatrix(data)
+      try { localStorage.setItem('cs_step7_matrix', JSON.stringify(data)) } catch {}
       // Mark step 7 as completed
       localStorage.setItem('cs_step7_tasks', JSON.stringify({ completed: true, timestamp: Date.now() }))
       onDataChange?.()
@@ -38,9 +39,16 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
 
   // Trigger on becoming active so it doesn't run too early
   useEffect(() => {
-    if (active) {
-      generateNow()
-    }
+    if (!active) return
+    // Load from cache if available, else generate
+    try {
+      const cached = localStorage.getItem('cs_step7_matrix')
+      if (cached) {
+        setMatrix(JSON.parse(cached))
+        return
+      }
+    } catch {}
+    generateNow()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active])
 
@@ -173,8 +181,8 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                         return (
                           <div key={tIdx} className="border rounded-lg overflow-hidden">
                             <div className="bg-slate-50 px-4 py-2 text-xs text-gray-600 flex items-center justify-between">
-                              <div>Task {task?.task_index ?? tIdx}</div>
-                              <div className="text-gray-400">{task?.task_id}</div>
+                              <div>Task {(typeof task?.task_index === 'number') ? task.task_index + 1 : tIdx + 1}</div>
+                              {/* <div className="text-gray-400">{task?.task_id}</div> */}
                             </div>
                             <div className="relative bg-gray-100 min-h-[300px] overflow-hidden">
                               {visibleLayers.length > 0 ? (
@@ -262,18 +270,22 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                         }
                         
                         console.log('Extracted URLs:', urls)
+                        // Determine elements per task dynamically, fallback to all urls
+                        const maxPerTask = typeof elementsPerTask === 'number' && elementsPerTask > 0 ? elementsPerTask : urls.length
+                        const show = urls.slice(0, maxPerTask)
+                        const colClass = show.length >= 4 ? 'lg:grid-cols-4 md:grid-cols-3 sm:grid-cols-2 grid-cols-1' : (show.length === 3 ? 'md:grid-cols-3 sm:grid-cols-2 grid-cols-1' : 'sm:grid-cols-2 grid-cols-1')
                         return (
                           <div key={tIdx} className="border rounded-lg overflow-hidden">
                             <div className="bg-slate-50 px-4 py-2 text-xs text-gray-600 flex items-center justify-between">
-                              <div>Task {task?.task_index ?? tIdx}</div>
-                              <div className="text-gray-400">{task?.task_id}</div>
+                              <div>Task {(typeof task?.task_index === 'number') ? task.task_index + 1 : tIdx + 1}</div>
+                              {/* <div className="text-gray-400">{task?.task_id}</div> */}
                             </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-0">
-                              {(urls.length ? urls : [null, null]).slice(0,2).map((url, i) => (
+                            <div className={`grid ${colClass} gap-0`}>
+                              {(show.length ? show : [null]).map((url, i) => (
                                 url ? (
                                   <div key={i} className="aspect-square bg-gray-100 flex items-center justify-center p-2">
                                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img src={url} alt="element" className="max-w-full max-h-full object-contain" />
+                                    <img src={url} alt={`element-${i+1}`} className="max-w-full max-h-full object-contain" />
                                   </div>
                                 ) : (
                                   <div key={i} className="aspect-square bg-slate-100 flex items-center justify-center text-xs text-gray-400">No Image</div>

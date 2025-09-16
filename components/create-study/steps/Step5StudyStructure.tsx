@@ -171,15 +171,15 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
 
       {elements.length > 0 && (
         <div className="mt-6">
-          <div className="rounded-md bg-blue-50 border border-blue-100 text-xs text-blue-700 px-3 py-2">
+          {/* <div className="rounded-md bg-blue-50 border border-blue-100 text-xs text-blue-700 px-3 py-2">
             Drag and drop elements to reorder them. The order will be preserved in your study.
-          </div>
+          </div> */}
 
           <div className="mt-5 space-y-5">
             {elements.map((el, idx) => (
               <div key={el.id} className="border rounded-xl overflow-hidden">
                 <div className="flex items-center justify-between bg-slate-50 px-4 py-2 text-sm text-gray-700">
-                  <div>Elements {idx + 1}</div>
+                  <div>Element {idx + 1}</div>
                   <Button variant="outline" onClick={() => removeElement(el.id)} className="px-3 py-1">Remove</Button>
                 </div>
                 <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -249,12 +249,12 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     try {
       const raw = localStorage.getItem('cs_step5_layer')
       if (raw) {
-        const saved = JSON.parse(raw) as Array<{ id: string; name: string; z: number; images: Array<{ id: string; previewUrl?: string; secureUrl?: string; name?: string }> }>
+        const saved = JSON.parse(raw) as Array<{ id: string; name: string; description?: string; z: number; images: Array<{ id: string; previewUrl?: string; secureUrl?: string; name?: string }> }>
         if (Array.isArray(saved)) {
           return saved.map((l, idx) => ({
             id: l.id || crypto.randomUUID(),
             name: l.name || `Layer ${idx + 1}`,
-            description: "",
+            description: l.description || "",
             z: typeof l.z === 'number' ? l.z : idx,
             images: (l.images || []).map((img, imgIdx) => ({ 
               id: img.id || crypto.randomUUID(), 
@@ -448,6 +448,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     const minimal = layers.map(l => ({ 
       id: l.id, 
       name: l.name, 
+      description: l.description || '',
       z: l.z, 
       images: l.images.map(i => ({ id: i.id, previewUrl: i.previewUrl, secureUrl: i.secureUrl, name: i.name })) 
     }))
@@ -506,9 +507,14 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                 onDrop={(e) => { e.preventDefault(); if (dragIndex !== null && overIndex !== null) { let to = overIndex; if (dragIndex < to) to = to - 1; if (to !== dragIndex) moveLayer(dragIndex, to) } setDragIndex(null); setOverIndex(null) }}
                 onDragEnd={() => { if (dragIndex !== null && overIndex !== null) { let to = overIndex; if (dragIndex < to) to = to - 1; if (to !== dragIndex) moveLayer(dragIndex, to) } setDragIndex(null); setOverIndex(null) }}
               >
-                <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                  <span>{layer.name || `Layer ${idx + 1}`}</span>
-                  <span className="text-xs text-gray-500">z-{layer.z}</span>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                    <span className="truncate max-w-[40ch]">{layer.name || `Layer ${idx + 1}`}</span>
+                    <span className="text-xs text-gray-500">z-{layer.z}</span>
+                  </div>
+                  {layer.description ? (
+                    <div className="text-xs text-gray-500 truncate max-w-[60ch]">{layer.description}</div>
+                  ) : null}
                 </div>
                 <div className="flex items-center gap-2">
                   <Button variant="outline" onClick={() => removeLayer(layer.id)}>Remove</Button>

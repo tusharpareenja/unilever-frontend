@@ -16,6 +16,7 @@ export default function DashboardPage() {
   const [selectedTime, setSelectedTime] = useState("All Time")
   const [studies, setStudies] = useState<StudyListItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [cardsLoading, setCardsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [stats, setStats] = useState({
     total: 0,
@@ -23,6 +24,25 @@ export default function DashboardPage() {
     draft: 0,
     completed: 0
   })
+
+  // Hydrate cards from cache immediately for instant paint
+  useEffect(() => {
+    try {
+      const cached = localStorage.getItem('home_stats_cache')
+      if (cached) {
+        const parsed = JSON.parse(cached)
+        if (parsed && typeof parsed === 'object') {
+          setStats({
+            total: Number(parsed.total || 0),
+            active: Number(parsed.active || 0),
+            draft: Number(parsed.draft || 0),
+            completed: Number(parsed.completed || 0),
+          })
+          setCardsLoading(false)
+        }
+      }
+    } catch {}
+  }, [])
 
   // Fetch studies data
   useEffect(() => {
@@ -42,7 +62,11 @@ export default function DashboardPage() {
         const draft = safeStudiesArray.filter(s => s.status === 'draft').length
         const completed = safeStudiesArray.filter(s => s.status === 'completed').length
         
-        setStats({ total, active, draft, completed })
+        const nextStats = { total, active, draft, completed }
+        setStats(nextStats)
+        setCardsLoading(false)
+        // Cache for next load to render instantly
+        try { localStorage.setItem('home_stats_cache', JSON.stringify(nextStats)) } catch {}
         
         // Log for debugging
         console.log(`Loaded ${total} studies: ${active} active, ${draft} draft, ${completed} completed`)
@@ -74,7 +98,7 @@ export default function DashboardPage() {
         <DashboardHeader />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <OverviewCards stats={stats} loading={loading} />
+          <OverviewCards stats={stats} loading={cardsLoading} />
 
           <StudyFilters
             activeTab={activeTab}

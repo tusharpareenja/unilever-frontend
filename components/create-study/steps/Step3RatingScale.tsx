@@ -78,32 +78,30 @@ export function Step3RatingScale({ onNext, onBack, onDataChange }: Step3RatingSc
 
         <div className="border rounded-xl p-5 bg-slate-50">
           <div className="text-sm font-medium text-gray-700 mb-4">Scale Preview</div>
-          <div className="flex items-center justify-center gap-8">
-            <div className="flex flex-col items-center gap-2">
+          <div className="flex items-start justify-center gap-7">
+            <div className="relative flex flex-col items-center gap-2 pt-7">
+              <div className="absolute top-0 text-xs text-gray-500 text-center whitespace-nowrap left-1/2 -translate-x-1/2 px-1">{minLabel || 'Lowest'}</div>
               <div className="w-10 h-10 rounded-full border-2 border-[rgba(38,116,186,1)] text-[rgba(38,116,186,1)] flex items-center justify-center font-medium">
                 1
               </div>
-              <div className="text-xs text-gray-500 text-center max-w-[80px]">{minLabel || 'Lowest'}</div>
             </div>
             
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-7">
               {previewValues.slice(1, -1).map((v) => (
-                <div key={v} className="flex flex-col items-center gap-2">
+                <div key={v} className="relative flex flex-col items-center gap-2 pt-7">
+                  <div className="absolute top-0 text-xs text-gray-500 text-center whitespace-nowrap left-1/2 -translate-x-1/2 px-1">{v === 3 && middleLabel ? middleLabel : ''}</div>
                   <div className="w-10 h-10 rounded-full border-2 border-[rgba(38,116,186,1)] text-[rgba(38,116,186,1)] flex items-center justify-center font-medium">
                     {v}
                   </div>
-                  {v === 3 && middleLabel && (
-                    <div className="text-xs text-gray-500 text-center max-w-[80px]">{middleLabel}</div>
-                  )}
                 </div>
               ))}
             </div>
             
-            <div className="flex flex-col items-center gap-2">
+            <div className="relative flex flex-col items-center gap-2 pt-7">
+              <div className="absolute top-0 text-xs text-gray-500 text-center whitespace-nowrap left-1/2 -translate-x-1/2 px-1">{maxLabel || 'Highest'}</div>
               <div className="w-10 h-10 rounded-full border-2 border-[rgba(38,116,186,1)] text-[rgba(38,116,186,1)] flex items-center justify-center font-medium">
                 5
               </div>
-              <div className="text-xs text-gray-500 text-center max-w-[80px]">{maxLabel || 'Highest'}</div>
             </div>
           </div>
         </div>

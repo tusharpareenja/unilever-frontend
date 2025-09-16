@@ -59,8 +59,8 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
         console.warn('Cannot regenerate tasks: study id missing in create response')
       }
       
-      // Clear all step data from localStorage
-      const keysToRemove = ['cs_step1', 'cs_step2', 'cs_step3', 'cs_step4', 'cs_step5_grid', 'cs_step5_layer', 'cs_step6', 'cs_step7', 'cs_step7_tasks']
+      // Clear all step data from localStorage (including cached step7 matrix)
+      const keysToRemove = ['cs_step1', 'cs_step2', 'cs_step3', 'cs_step4', 'cs_step5_grid', 'cs_step5_layer', 'cs_step6', 'cs_step7', 'cs_step7_tasks', 'cs_step7_matrix']
       keysToRemove.forEach(key => localStorage.removeItem(key))
       
       // Redirect to study management page
@@ -76,7 +76,17 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
 
   return (
     <div className="relative">
-      <h3 className="text-lg font-semibold text-gray-800">Study Preview</h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-gray-800">Study Preview</h3>
+        <a
+          href="/home/create-study/preview"
+          target="_blank"
+          rel="noreferrer"
+          className="text-sm font-medium text-[rgba(38,116,186,1)] hover:underline"
+        >
+          Preview as Participant ↗
+        </a>
+      </div>
       <p className="text-sm text-gray-600">Review all details before launching. This view summarizes your current setup.</p>
 
       <div className="space-y-6 mt-4">

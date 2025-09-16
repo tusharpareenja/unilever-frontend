@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from "next/navigation"
 import { DashboardHeader } from "@/app/home/components/dashboard-header"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
 import { CalendarIcon } from "lucide-react"
@@ -18,6 +18,21 @@ export default function PersonalInformationPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
 
+  // Guard: ensure session exists before allowing input
+  const [sessionReady, setSessionReady] = useState<boolean>(false)
+  const [guardChecked, setGuardChecked] = useState<boolean>(false)
+
+  useEffect(() => {
+    try {
+      const s = localStorage.getItem('study_session')
+      if (s) {
+        const { sessionId } = JSON.parse(s)
+        if (sessionId) setSessionReady(true)
+      }
+    } catch {}
+    setGuardChecked(true)
+  }, [])
+
   const [dob, setDob] = useState<Date>()
   const [gender, setGender] = useState<string | null>("male")
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -31,6 +46,10 @@ export default function PersonalInformationPage() {
   }
 
   const handleContinue = async () => {
+    if (!sessionReady) {
+      alert('Study is still starting. Please wait a moment and try again.')
+      return
+    }
     if (!dob || !gender || !gender.trim()) {
       setFormError("All fields are required.")
       return
@@ -89,6 +108,26 @@ export default function PersonalInformationPage() {
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  if (!guardChecked) {
+    return (
+      <div className="min-h-screen bg-white">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-16">
+          <div className="flex justify-center items-center h-48">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[rgba(38,116,186,1)]"></div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!sessionReady) {
+    if (typeof window !== 'undefined' && params?.id) {
+      // redirect back to intro to restart flow
+      router.replace(`/participate/${params.id}`)
+    }
+    return null
   }
 
   return (

@@ -1,8 +1,7 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
-import { submitTaskResponse, submitTaskSession } from "@/lib/api/ResponseAPI"
+import { useEffect, useRef, useState } from "react"
+import { useRouter } from "next/navigation"
 
 type Task = {
   id: string
@@ -15,7 +14,6 @@ type Task = {
 }
 
 export default function TasksPage() {
-  const params = useParams<{ id: string }>()
   const router = useRouter()
 
   // Load tasks from localStorage study details using respondentId
@@ -37,159 +35,85 @@ export default function TasksPage() {
   }, [])
 
   useEffect(() => {
-    firstViewTimeRef.current = new Date().toISOString()
-    lastViewTimeRef.current = null
-    hoverCountsRef.current = {}
-    clickCountsRef.current = {}
-  }, [])
-
-  useEffect(() => {
     try {
       setIsFetching(true)
       setFetchError(null)
 
-      const sessionRaw = typeof window !== 'undefined' ? localStorage.getItem('study_session') : null
-      const detailsRaw = typeof window !== 'undefined' ? localStorage.getItem('current_study_details') : null
+      // Load from preview step caches
+      const step2 = JSON.parse(localStorage.getItem('cs_step2') || '{}')
+      const step3 = JSON.parse(localStorage.getItem('cs_step3') || '{}')
+      const matrix = JSON.parse(localStorage.getItem('cs_step7_matrix') || 'null')
 
-      if (!sessionRaw || !detailsRaw) {
-        throw new Error('Missing session or study details in localStorage')
-      }
+      setStudyType(step2?.type === 'layer' || (matrix?.metadata?.study_type || '').includes('layer') ? 'layer' : 'grid')
+      setMainQuestion(String(step2?.mainQuestion || ''))
+      setScaleLabels({ left: step3?.minLabel || '', right: step3?.maxLabel || '', middle: step3?.middleLabel || '' })
 
-      const { respondentId } = JSON.parse(sessionRaw || '{}')
-      const study = JSON.parse(detailsRaw || '{}')
-
-      setStudyType(study?.study_type)
-      setMainQuestion(String(study?.main_question || ""))
-
-      if (study?.rating_scale) {
-        const rs = study.rating_scale || {}
-        const left = rs.min_label ? `${rs.min_label}` : ""
-        const right = rs.max_label ? `${rs.max_label}` : ""
-        const middle = rs.middle_label ? `${rs.middle_label}` : ""
-        setScaleLabels({ left, right, middle })
-      } else {
-        setScaleLabels({ left: "", right: "", middle: "" })
-      }
-
-      // Derive respondent tasks from unified study details
-      const tasksObj = study?.tasks || study?.data?.tasks || study?.task_map || study?.task || {}
-      const respondentKey = String(respondentId ?? 0)
-      let respondentTasks: any[] = tasksObj?.[respondentKey] || tasksObj?.[Number(respondentKey)] || []
-      if (!Array.isArray(respondentTasks) || respondentTasks.length === 0) {
-        if (Array.isArray(tasksObj)) {
-          respondentTasks = tasksObj
-        } else if (tasksObj && typeof tasksObj === 'object') {
-          // Pick the first non-empty respondent bucket instead of flattening all
-          for (const [k, v] of Object.entries(tasksObj)) {
-            if (Array.isArray(v) && v.length) { respondentTasks = v as any[]; break }
+      // Normalize to single respondent bucket (robust across shapes)
+      let raw: any[] = []
+      const src = matrix?.tasks || matrix?.data?.tasks || matrix
+      if (Array.isArray(src)) {
+        raw = src
+      } else if (src && typeof src === 'object') {
+        const values = Object.values(src)
+        // If values are arrays, pick the first non-empty; else if values are objects, look one level deeper
+        let candidate: any[] | null = null
+        for (const v of values) {
+          if (Array.isArray(v) && v.length) { candidate = v; break }
+        }
+        if (!candidate) {
+          for (const v of values) {
+            if (v && typeof v === 'object') {
+              const innerVals = Object.values(v as any)
+              for (const iv of innerVals) { if (Array.isArray(iv) && iv.length) { candidate = iv; break } }
+              if (candidate) break
+            }
           }
         }
+        raw = candidate || []
       }
 
-      const parsed: Task[] = (Array.isArray(respondentTasks) ? respondentTasks : [])
-        .map((t: any) => {
-          if ((study?.study_type as string) === 'layer') {
-            const shown = t?.elements_shown || {}
-            const content = t?.elements_shown_content || {}
-            const layers = Object.keys(shown)
-              .filter((k) => Number(shown[k]) === 1 && content?.[k]?.url)
-              .map((k) => ({ url: String(content[k].url), z: Number(content[k].z_index ?? 0) }))
-              .sort((a, b) => a.z - b.z)
-            return {
-              id: String(t?.task_id ?? t?.task_index ?? Math.random()),
-              layeredImages: layers,
-            }
-          } else {
-            const es = t?.elements_shown || {}
-            const content = t?.elements_shown_content || {}
-            const activeKeys = Object.keys(es).filter((k) => Number(es[k]) === 1)
-
-            const getUrlForKey = (k: string): string | undefined => {
-              // FIRST: Check directly in elements_shown for k_content (this is where your URLs are!)
-              const directUrl = (es as any)[`${k}_content`]
-              if (typeof directUrl === 'string' && directUrl) return directUrl
-              
-              // Then check the content object if it exists
-              const c1: any = (content as any)[k]
-              if (c1 && typeof c1 === 'object' && typeof c1.url === 'string') return c1.url
-              
-              const c2: any = (content as any)[`${k}_content`]
-              if (c2 && typeof c2 === 'object' && typeof c2.url === 'string') return c2.url
-              if (typeof c2 === 'string') return c2
-              
-              const s2: any = (content as any)[k]
-              if (typeof s2 === 'string') return s2
-              
-              return undefined
-            }
-
-            const list: string[] = []
-            activeKeys.forEach((k) => {
-              const url = getUrlForKey(k)
-              if (typeof url === 'string' && url) list.push(url)
-            })
-
-            // As a last resort, scan content object for any url fields when no activeKeys resolved
-            if (list.length === 0 && content && typeof content === 'object') {
-              Object.values(content).forEach((v: any) => {
-                if (v && typeof v === 'object' && typeof v.url === 'string') list.push(v.url)
-                if (typeof v === 'string') list.push(v)
-              })
-            }
-
-            // Fallback: if we still have fewer than 4 images, try to pull any *_content string URLs from elements_shown itself
-            try {
-              if (list.length < 4 && es && typeof es === 'object') {
-                const seen = new Set(list)
-                Object.entries(es as Record<string, any>).forEach(([key, val]) => {
-                  if (list.length >= 4) return
-                  if (typeof val === 'string' && key.endsWith('_content') && val.startsWith('http') && !seen.has(val)) {
-                    list.push(val)
-                    seen.add(val)
-                  }
-                })
-              }
-            } catch {}
-
-            return {
-              id: String(t?.task_id ?? t?.task_index ?? Math.random()),
-              leftImageUrl: list[0],
-              rightImageUrl: list[1],
-              leftLabel: '',
-              rightLabel: '',
-              gridUrls: list, // Store all URLs for grid display
-            }
-          }
-        })
+      const parsed: Task[] = (raw || []).map((t: any) => {
+        if ((step2?.type === 'layer') || (matrix?.metadata?.study_type || '').includes('layer')) {
+          const shown = t?.elements_shown || {}
+          const content = t?.elements_shown_content || {}
+          const layers = Object.keys(shown)
+            .filter((k) => Number(shown[k]) === 1 && content?.[k]?.url)
+            .map((k) => ({ url: String(content[k].url), z: Number(content[k].z_index ?? 0) }))
+            .sort((a, b) => a.z - b.z)
+          return { id: String(t?.task_id ?? t?.task_index ?? Math.random()), layeredImages: layers }
+        }
+        // grid fallback
+        const es = t?.elements_shown || {}
+        const content = t?.elements_shown_content || {}
+        const activeKeys = Object.keys(es).filter((k) => Number(es[k]) === 1)
+        const getUrlForKey = (k: string): string | undefined => {
+          const c1: any = (content as any)[k]; if (c1 && typeof c1 === 'object' && typeof c1.url === 'string') return c1.url
+          const c2: any = (content as any)[`${k}_content`]; if (c2 && typeof c2 === 'object' && typeof c2.url === 'string') return c2.url
+          const s1: any = (es as any)[`${k}_content`]; if (typeof s1 === 'string') return s1
+          const s2: any = (content as any)[k]; if (typeof s2 === 'string') return s2
+          return undefined
+        }
+        const list: string[] = []
+        activeKeys.forEach((k) => { const url = getUrlForKey(k); if (typeof url === 'string' && url) list.push(url) })
+        return { id: String(t?.task_id ?? t?.task_index ?? Math.random()), leftImageUrl: list[0], rightImageUrl: list[1], gridUrls: list }
+      })
 
       setTasks(parsed)
-      // Preload all task images in background to avoid display jitter
+
+      // Preload images
       try {
         const urls = new Set<string>()
         parsed.forEach((t) => {
-          if (t.layeredImages && t.layeredImages.length > 0) {
-            t.layeredImages.forEach((li) => li.url && urls.add(li.url))
-          } else {
-            if (t.gridUrls) {
-              t.gridUrls.forEach((url) => urls.add(url))
-            } else {
-              if (t.leftImageUrl) urls.add(t.leftImageUrl)
-              if (t.rightImageUrl) urls.add(t.rightImageUrl)
-            }
-          }
+          if (t.layeredImages) t.layeredImages.forEach((li) => li.url && urls.add(li.url))
+          if (t.leftImageUrl) urls.add(t.leftImageUrl)
+          if (t.rightImageUrl) urls.add(t.rightImageUrl)
         })
         const unique = Array.from(urls).filter((u) => !preloadedUrlsRef.current.has(u))
         unique.forEach((u) => preloadedUrlsRef.current.add(u))
-        unique.forEach((src) => {
-          const img = new Image()
-          img.decoding = 'async'
-          // @ts-ignore
-          img.referrerPolicy = 'no-referrer'
-          img.src = src
-        })
+        unique.forEach((src) => { const img = new Image(); img.decoding = 'async'; /* @ts-ignore */ img.referrerPolicy = 'no-referrer'; img.src = src })
       } catch {}
     } catch (err: any) {
-      console.error('Failed to load tasks from localStorage:', err)
+      console.error('Failed to load preview tasks:', err)
       setFetchError(err?.message || 'Failed to load tasks')
     } finally {
       setIsFetching(false)
@@ -214,72 +138,7 @@ export default function TasksPage() {
     clickCountsRef.current = {}
   }, [currentTaskIndex])
 
-  const submitTaskInBackground = (rating: number) => {
-    try {
-      const sessionRaw = localStorage.getItem('study_session')
-      if (!sessionRaw) return
-      const { sessionId } = JSON.parse(sessionRaw)
-      if (!sessionId) return
-
-      const task = tasks[currentTaskIndex]
-      const elapsedMs = Date.now() - taskStartRef.current
-      const seconds = Number((elapsedMs / 1000).toFixed(3))
-
-      const interactions = [1, 2, 3, 4, 5].map((n) => ({
-        element_id: `R${n}`,
-        view_time_seconds: seconds,
-        hover_count: hoverCountsRef.current[n] || 0,
-        click_count: clickCountsRef.current[n] || 0,
-        first_view_time: firstViewTimeRef.current || new Date().toISOString(),
-        last_view_time: new Date().toISOString(),
-      }))
-
-      submitTaskResponse(String(sessionId), {
-        task_id: task?.id || String(currentTaskIndex),
-        rating_given: rating,
-        task_duration_seconds: seconds,
-        element_interactions: interactions,
-      }).catch((e) => console.error('submitTaskResponse error:', e))
-    } catch (e) {
-      console.error('Failed to submit task in background:', e)
-    }
-  }
-
-  const submitSessionInBackground = () => {
-    try {
-      const sessionRaw = localStorage.getItem('study_session')
-      if (!sessionRaw) return
-      const { sessionId } = JSON.parse(sessionRaw)
-      if (!sessionId) return
-
-      const metrics = JSON.parse(localStorage.getItem('session_metrics') || '{}')
-      const timesMap = JSON.parse(localStorage.getItem('study_response_times') || '{}') as Record<string, number>
-      const individual = Object.keys(timesMap)
-        .sort((a,b) => Number(a.replace(/\D/g,'')) - Number(b.replace(/\D/g,'')))
-        .map((k) => Number(timesMap[k] || 0))
-
-      const payload = {
-        session_id: String(sessionId),
-        task_id: tasks?.[tasks.length - 1]?.id || String(tasks.length - 1),
-        classification_page_time: Number(metrics.classification_page_time || 0),
-        orientation_page_time: Number(metrics.orientation_page_time || 0),
-        individual_task_page_times: individual,
-        page_transitions: [],
-        is_completed: true,
-        abandonment_timestamp: null,
-        abandonment_reason: null,
-        recovery_attempts: 0,
-        browser_performance: {},
-        page_load_times: [],
-        device_info: {},
-        screen_resolution: typeof window !== 'undefined' ? `${window.screen.width}x${window.screen.height}` : '',
-      }
-
-      submitTaskSession(payload).catch((e) => console.error('submitTaskSession error:', e))
-    } catch (e) {
-      console.error('Failed to submit task session:', e)
-    }
-  }
+  // Preview mode: no network or storage submission
 
   const handleSelect = (value: number) => {
     clickCountsRef.current[value] = (clickCountsRef.current[value] || 0) + 1
@@ -293,24 +152,11 @@ export default function TasksPage() {
     })
     setLastSelected(value)
 
-    const updatedTimes = [...responseTimesSec]
-    updatedTimes[currentTaskIndex] = seconds
-    const localStorageData: Record<string, number> = {}
-    updatedTimes.forEach((time, index) => {
-      localStorageData[`task${index + 1}`] = time
-    })
-    localStorage.setItem('study_response_times', JSON.stringify(localStorageData))
-
-    submitTaskInBackground(value)
-
     if (currentTaskIndex < totalTasks - 1) {
       setTimeout(() => setCurrentTaskIndex((i) => i + 1), 80)
     } else {
-      setIsLoading(true)
-      submitSessionInBackground()
-      setTimeout(() => {
-        router.push(`/participate/${params?.id}/thank-you`)
-      }, 2500)
+      setIsLoading(false)
+      router.push('/home/create-study/preview/thank-you')
     }
   }
 
@@ -384,45 +230,32 @@ export default function TasksPage() {
                           ))}
                         </div>
                       ) : (
-                        <div className="w-full max-w-lg">
-                          {task?.gridUrls && task.gridUrls.length > 2 ? (
-                            <div className="grid grid-cols-2 gap-3">
-                              {task.gridUrls.slice(0, 4).map((url, i) => (
-                                <div key={i} className="aspect-square w-full overflow-hidden rounded-md border">
+                        (() => {
+                          const urls = (task?.gridUrls && task.gridUrls.length ? task.gridUrls : [task?.leftImageUrl, task?.rightImageUrl].filter(Boolean)) as string[]
+                          const count = urls.length
+                          if (count <= 2) {
+                            return (
+                              <div className="flex flex-col gap-4 w-full max-w-sm">
+                                <div className="aspect-[4/3] w-full overflow-hidden rounded-md border">
+                                  {urls[0] && (<img src={urls[0]} alt="left" className="h-full w-full object-contain" />)}
+                                </div>
+                                <div className="aspect-[4/3] w-full overflow-hidden rounded-md border">
+                                  {urls[1] && (<img src={urls[1]} alt="right" className="h-full w-full object-contain" />)}
+                                </div>
+                              </div>
+                            )
+                          }
+                          return (
+                            <div className="grid grid-cols-2 gap-3 w-full max-w-md mx-auto">
+                              {urls.slice(0,4).map((url, i) => (
+                                <div key={i} className="aspect-square max-h-[42vw] w-full overflow-hidden rounded-md border bg-white flex items-center justify-center">
                                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img
-                                    src={url}
-                                    alt={`element-${i+1}`}
-                                    className="h-full w-full object-contain"
-                                  />
+                                  <img src={url as string} alt={`element-${i+1}`} className="h-full w-full object-contain" />
                                 </div>
                               ))}
                             </div>
-                          ) : (
-                            <div className="flex flex-col gap-4">
-                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md border">
-                                {task?.leftImageUrl ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    src={task.leftImageUrl}
-                                    alt="left"
-                                    className="h-full w-full object-contain"
-                                  />
-                                ) : null}
-                              </div>
-                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md border">
-                                {task?.rightImageUrl ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    src={task.rightImageUrl}
-                                    alt="right"
-                                    className="h-full w-full object-contain"
-                                  />
-                                ) : null}
-                              </div>
-                            </div>
-                          )}
-                        </div>
+                          )
+                        })()
                       )}
                     </div>
 
@@ -448,13 +281,15 @@ export default function TasksPage() {
                             return (
                               <div
                                 key={n}
-                                className="relative flex flex-col items-center pt-7"
+                                className="flex flex-col items-center"
                                 onMouseEnter={() => {
                                   hoverCountsRef.current[n] = (hoverCountsRef.current[n] || 0) + 1
                                   lastViewTimeRef.current = new Date().toISOString()
                                 }}
                               >
-                                <div className="absolute top-0 w-[120px] text-xs font-medium text-gray-800 text-center whitespace-nowrap truncate">{labelText}</div>
+                                <div className="h-5 flex items-end justify-center text-sm font-medium text-gray-800 mb-3">
+                                  {labelText}
+                                </div>
                                 <button
                                   onClick={() => handleSelect(n)}
                                   className={`h-14 w-14 rounded-full border-2 transition-colors text-lg font-semibold ${
@@ -476,7 +311,7 @@ export default function TasksPage() {
               </div>
             </div>
 
-            {/* Desktop Layout */}
+            {/* Desktop Layout - Keep original */}
             <div className="hidden lg:block">
               <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
                 <div className="text-base font-medium text-gray-800 truncate pr-3">{mainQuestion || `Question ${Math.min(currentTaskIndex + 1, totalTasks)}`}</div>
@@ -527,9 +362,9 @@ export default function TasksPage() {
                         )
                       }
                       return (
-                        <div className={`grid grid-cols-2 gap-4`}>
-                          {urls.slice(0,4).map((url, i) => (
-                            <div key={i} className="aspect-[4/3] w-full md:h-[24vh] lg:h-[26vh] overflow-hidden rounded-md border">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          {urls.slice(0,3).map((url, i) => (
+                            <div key={i} className="aspect-[4/3] w-full overflow-hidden rounded-md border">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img src={url as string} alt={`element-${i+1}`} className="h-full w-full object-contain" />
                             </div>
@@ -557,13 +392,15 @@ export default function TasksPage() {
                         return (
                           <div
                             key={n}
-                            className="relative flex flex-col items-center pt-7"
+                            className="flex flex-col items-center"
                             onMouseEnter={() => {
                               hoverCountsRef.current[n] = (hoverCountsRef.current[n] || 0) + 1
                               lastViewTimeRef.current = new Date().toISOString()
                             }}
                           >
-                            <div className="absolute top-0 w-[160px] text-[11px] sm:text-xs lg:text-sm font-medium text-gray-900 text-center whitespace-nowrap truncate">{labelText}</div>
+                            <div className="h-6 lg:h-7 flex items-end justify-center text-[11px] sm:text-xs lg:text-sm font-medium text-gray-900 mb-1 lg:mb-2">
+                              {labelText}
+                            </div>
                             <button
                               onClick={() => handleSelect(n)}
                               className={`h-10 w-10 sm:h-11 sm:w-11 lg:h-12 lg:w-12 rounded-full border-2 lg:border-2 transition-colors text-sm lg:text-base font-semibold ${
