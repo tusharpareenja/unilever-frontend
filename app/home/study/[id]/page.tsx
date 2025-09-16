@@ -21,10 +21,26 @@ export default function StudyManagementPage() {
   const [analyticsLoading, setAnalyticsLoading] = useState(false)
   const [exporting, setExporting] = useState(false)
 
+  // Cache keys
+  const STUDY_CACHE_KEY = `study_details_cache_${studyId}`
+  const ANALYTICS_CACHE_KEY = `study_analytics_cache_${studyId}`
+
+  // Hydrate from cache immediately, then fetch fresh in background
   useEffect(() => {
-    if (studyId) {
-      loadStudyDetails()
-    }
+    if (!studyId) return
+    try {
+      const cachedStudy = localStorage.getItem(STUDY_CACHE_KEY)
+      if (cachedStudy) {
+        setStudy(JSON.parse(cachedStudy))
+        setLoading(false)
+      }
+      const cachedAnalytics = localStorage.getItem(ANALYTICS_CACHE_KEY)
+      if (cachedAnalytics) {
+        setAnalytics(JSON.parse(cachedAnalytics))
+        setAnalyticsLoading(false)
+      }
+    } catch {}
+    loadStudyDetails()
   }, [studyId])
 
   // Live analytics subscription (SSE with fallback)
@@ -33,7 +49,11 @@ export default function StudyManagementPage() {
     setAnalyticsLoading(true)
     const unsubscribe = subscribeStudyAnalytics(
       studyId,
-      (data) => { setAnalytics(data); setAnalyticsLoading(false) },
+      (data) => { 
+        setAnalytics(data); 
+        setAnalyticsLoading(false);
+        try { localStorage.setItem(ANALYTICS_CACHE_KEY, JSON.stringify(data)) } catch {}
+      },
       () => { /* keep silent */ },
       5
     )
@@ -46,6 +66,7 @@ export default function StudyManagementPage() {
       setError(null)
       const studyData = await getPrivateStudyDetails(studyId)
       setStudy(studyData)
+      try { localStorage.setItem(STUDY_CACHE_KEY, JSON.stringify(studyData)) } catch {}
     } catch (err: any) {
       console.error("Failed to load study details:", err)
       if (err.status === 403) {

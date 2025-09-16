@@ -758,7 +758,7 @@ export async function getStudies(page: number = 1, per_page: number = 10): Promi
   const data = await response.json()
   
   // Debug: Log the response structure
-  console.log('API Response structure:', data)
+
   
   // Handle different response structures
   if (Array.isArray(data)) {

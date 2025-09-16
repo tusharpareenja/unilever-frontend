@@ -82,6 +82,33 @@ export interface SubmitTaskPayload {
 		first_view_time: string
 		last_view_time: string
 	}>
+	/** Optional: echo what was shown to the participant (grid/layer) */
+	elements_shown_in_task?: Record<string, any>
+	elements_shown_content?: Record<string, any>
+}
+
+/** Bulk submit multiple task responses at once (participant, no auth) */
+export async function submitTasksBulk(sessionId: string, tasks: SubmitTaskPayload[]): Promise<any> {
+	const q = encodeURIComponent(sessionId)
+	const body = { tasks }
+	const controller = new AbortController()
+	const timeout = window.setTimeout(() => controller.abort(), 8000)
+	try {
+		const res = await fetch(`${BASE_URL}/responses/submit-tasks-bulk?session_id=${q}`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(body),
+			keepalive: true,
+			signal: controller.signal,
+		})
+		if (!res.ok) {
+			const text = await res.text().catch(() => '')
+			throw new Error(`Bulk submit failed (${res.status}): ${text}`)
+		}
+		return res.json().catch(() => ({}))
+	} finally {
+		window.clearTimeout(timeout)
+	}
 }
 
 export interface TaskSessionPayload {

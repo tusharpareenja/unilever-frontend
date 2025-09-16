@@ -136,36 +136,64 @@ export default function ResponseDetailsPage() {
 
                           {/* Right: images/elements */}
                           <div className="grid grid-cols-2 gap-4 items-center">
-                            {t.task_type === 'grid' && (
+                            {(t.task_type === 'grid' || (!!t.elements_shown_in_task || !!t.elements_shown || !!t.elements_shown_content)) && (
                               (() => {
-                                // Prefer explicit content map; else derive from *_content + flags
-                                let list: any[] = []
+                                // Build list of URLs for grid tasks
+                                let list: Array<{ url: string; name?: string; alt_text?: string }> = []
+
+                                // Case 1: elements_shown_content is an object of strings or objects
                                 if (t.elements_shown_content && typeof t.elements_shown_content === 'object') {
-                                  list = Object.values(t.elements_shown_content).filter((e: any) => e?.url)
-                                } else if (t.elements_shown_in_task && typeof t.elements_shown_in_task === 'object') {
-                                  const map: Record<string, any> = t.elements_shown_in_task as any
-                                  const candidates: string[] = Object.keys(map).filter(k => k.endsWith('_content'))
-                                  list = candidates
-                                    .map((k) => {
-                                      const base = k.replace(/_content$/, '')
-                                      const shown = Number(map[base]) === 1
-                                      const url = String(map[k] || '')
-                                      return shown && url ? { url, name: base } : null
-                                    })
-                                    .filter(Boolean) as any[]
-                                } else if (t.elements_shown && typeof t.elements_shown === 'object') {
-                                  const map: Record<string, any> = t.elements_shown as any
-                                  const candidates: string[] = Object.keys(map).filter(k => k.endsWith('_content'))
-                                  list = candidates
-                                    .map((k) => {
-                                      const base = k.replace(/_content$/, '')
-                                      const shown = Number(map[base]) === 1
-                                      const url = String(map[k] || '')
-                                      return shown && url ? { url, name: base } : null
-                                    })
-                                    .filter(Boolean) as any[]
+                                  const contentObj: Record<string, any> = t.elements_shown_content as any
+                                  const flags: Record<string, any> | null = (t.elements_shown_in_task && typeof t.elements_shown_in_task === 'object') ? (t.elements_shown_in_task as any) : null
+                                  Object.entries(contentObj).forEach(([key, val]) => {
+                                    let url: string | null = null
+                                    if (typeof val === 'string') {
+                                      url = val
+                                    } else if (val && typeof val === 'object' && typeof (val as any).url === 'string') {
+                                      url = (val as any).url
+                                    }
+                                    if (url) {
+                                      // If flags exist, require shown flag; else include
+                                      if (!flags || Number(flags[key]) === 1 || Number(flags[key.replace(/_content$/, '')]) === 1) {
+                                        list.push({ url, name: key })
+                                      }
+                                    }
+                                  })
                                 }
-                                return list.map((e: any, i: number) => (
+
+                                // Case 2: derive from *_content keys inside elements_shown_in_task
+                                if (list.length === 0 && t.elements_shown_in_task && typeof t.elements_shown_in_task === 'object') {
+                                  const map: Record<string, any> = t.elements_shown_in_task as any
+                                  Object.keys(map)
+                                    .filter((k) => k.endsWith('_content'))
+                                    .forEach((k) => {
+                                      const base = k.replace(/_content$/, '')
+                                      const shown = Number(map[base]) === 1
+                                      const url = String(map[k] || '')
+                                      if (shown && url) list.push({ url, name: base })
+                                    })
+                                }
+
+                                // Case 3: legacy: derive from *_content inside elements_shown
+                                if (list.length === 0 && t.elements_shown && typeof t.elements_shown === 'object') {
+                                  const map: Record<string, any> = t.elements_shown as any
+                                  Object.keys(map)
+                                    .filter((k) => k.endsWith('_content'))
+                                    .forEach((k) => {
+                                      const base = k.replace(/_content$/, '')
+                                      const shown = Number(map[base]) === 1
+                                      const url = String(map[k] || '')
+                                      if (shown && url) list.push({ url, name: base })
+                                    })
+                                }
+
+                                if (list.length === 0) {
+                                  return (
+                                    <div className="col-span-2 text-sm text-gray-500">No elements to display</div>
+                                  )
+                                }
+
+                                return list.map((e, i) => (
                                   <div key={i} className="aspect-[4/5] bg-gray-100 rounded-md overflow-hidden flex items-center justify-center">
                                     {/* eslint-disable-next-line @next/next/no-img-element */}
                                     <img src={e.url} alt={e?.alt_text || e?.name || ''} className="object-contain w-full h-full" />

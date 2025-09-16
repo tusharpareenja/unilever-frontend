@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { submitTaskResponse, submitTaskSession } from "@/lib/api/ResponseAPI"
+import { submitTaskResponse, submitTaskSession, submitTasksBulk } from "@/lib/api/ResponseAPI"
 
 type Task = {
   id: string
@@ -12,6 +12,9 @@ type Task = {
   rightLabel?: string
   layeredImages?: Array<{ url: string; z: number }>
   gridUrls?: string[]
+  // Source maps from backend to echo on submit
+  _elements_shown?: Record<string, any>
+  _elements_shown_content?: Record<string, any>
 }
 
 export default function TasksPage() {
@@ -98,6 +101,8 @@ export default function TasksPage() {
             return {
               id: String(t?.task_id ?? t?.task_index ?? Math.random()),
               layeredImages: layers,
+              _elements_shown: shown,
+              _elements_shown_content: content,
             }
           } else {
             const es = t?.elements_shown || {}
@@ -158,6 +163,8 @@ export default function TasksPage() {
               leftLabel: '',
               rightLabel: '',
               gridUrls: list, // Store all URLs for grid display
+              _elements_shown: es,
+              _elements_shown_content: content,
             }
           }
         })
@@ -214,7 +221,7 @@ export default function TasksPage() {
     clickCountsRef.current = {}
   }, [currentTaskIndex])
 
-  const submitTaskInBackground = (rating: number) => {
+  const enqueueTask = (rating: number) => {
     try {
       const sessionRaw = localStorage.getItem('study_session')
       if (!sessionRaw) return
@@ -234,16 +241,130 @@ export default function TasksPage() {
         last_view_time: new Date().toISOString(),
       }))
 
-      submitTaskResponse(String(sessionId), {
+      // Build a flat elements_shown_content map with URL strings if available
+      let payloadShownContent: Record<string, string> | undefined = undefined
+      try {
+        const es: any = task?._elements_shown || {}
+        const content: any = task?._elements_shown_content || {}
+        const result: Record<string, string> = {}
+        if (es && typeof es === 'object') {
+          Object.keys(es).forEach((k) => {
+            const s1 = (es as any)[`${k}_content`]
+            if (typeof s1 === 'string' && s1.startsWith('http')) {
+              result[k] = s1
+            }
+          })
+        }
+        if (content && typeof content === 'object') {
+          Object.keys(content).forEach((k) => {
+            const cv = (content as any)[k]
+            if (typeof cv === 'string' && cv.startsWith('http')) {
+              result[k] = cv
+            } else if (cv && typeof cv === 'object' && typeof cv.url === 'string') {
+              result[k] = cv.url
+            }
+          })
+        }
+        if (Object.keys(result).length > 0) payloadShownContent = result
+      } catch {}
+
+      const item = {
         task_id: task?.id || String(currentTaskIndex),
         rating_given: rating,
         task_duration_seconds: seconds,
         element_interactions: interactions,
-      }).catch((e) => console.error('submitTaskResponse error:', e))
+        elements_shown_in_task: task?._elements_shown,
+        elements_shown_content: payloadShownContent,
+        _idemp: `${sessionId}:${task?.id || String(currentTaskIndex)}`,
+      }
+      const qRaw = localStorage.getItem('task_submit_queue')
+      const q: any[] = qRaw ? JSON.parse(qRaw) : []
+      q.push(item)
+      localStorage.setItem('task_submit_queue', JSON.stringify(q))
     } catch (e) {
-      console.error('Failed to submit task in background:', e)
+      console.error('Failed to enqueue task:', e)
     }
   }
+
+  // Periodic/background flush using bulk endpoint
+  useEffect(() => {
+    const flush = async () => {
+      try {
+        const sessionRaw = localStorage.getItem('study_session')
+        if (!sessionRaw) return
+        const { sessionId } = JSON.parse(sessionRaw)
+        if (!sessionId) return
+
+        const qRaw = localStorage.getItem('task_submit_queue')
+        const q: any[] = qRaw ? JSON.parse(qRaw) : []
+        if (!Array.isArray(q) || q.length === 0) return
+
+        // Deduplicate by idempotency key and trim payload
+        const seen = new Set<string>()
+        const tasksToSend = q.filter((it) => {
+          const key = String(it._idemp || `${sessionId}:${it.task_id}`)
+          if (seen.has(key)) return false
+          seen.add(key)
+          return true
+        }).map((it) => ({
+          task_id: it.task_id,
+          rating_given: it.rating_given,
+          task_duration_seconds: it.task_duration_seconds,
+          element_interactions: Array.isArray(it.element_interactions) ? it.element_interactions.slice(0, 10) : [],
+          elements_shown_in_task: it.elements_shown_in_task || undefined,
+          elements_shown_content: it.elements_shown_content || undefined,
+        }))
+
+        if (tasksToSend.length === 0) return
+
+        // Try sendBeacon first
+        let sent = false
+        try {
+          const url = `http://127.0.0.1:8000/api/v1/responses/submit-tasks-bulk?session_id=${encodeURIComponent(sessionId)}`
+          const data = JSON.stringify({ tasks: tasksToSend })
+          if (navigator.sendBeacon) {
+            const ok = navigator.sendBeacon(url, new Blob([data], { type: 'application/json' }))
+            if (ok) sent = true
+          }
+        } catch {}
+
+        if (!sent) {
+          await submitTasksBulk(String(sessionId), tasksToSend)
+        }
+
+        // On success, clear queue
+        localStorage.removeItem('task_submit_queue')
+      } catch (e: any) {
+        // Retry only on transient; keep queue
+        const msg = String(e?.message || '')
+        if (/\b(429|408|5\d\d|NetworkError|timeout|aborted)\b/i.test(msg)) {
+          // keep queue
+        } else {
+          // drop malformed items to avoid permanent blockage
+          console.warn('Dropping queue due to non-retryable error:', e)
+          // Optionally keep a few recent items
+          try {
+            const qRaw = localStorage.getItem('task_submit_queue')
+            const q: any[] = qRaw ? JSON.parse(qRaw) : []
+            localStorage.setItem('task_submit_queue', JSON.stringify(q.slice(-5)))
+          } catch {}
+        }
+      }
+    }
+
+    const interval = window.setInterval(flush, 3000)
+    const onVis = () => { if (document.visibilityState !== 'visible') flush() }
+    const onHide = () => flush()
+    document.addEventListener('visibilitychange', onVis)
+    window.addEventListener('pagehide', onHide)
+    window.addEventListener('beforeunload', onHide)
+    return () => {
+      window.clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVis)
+      window.removeEventListener('pagehide', onHide)
+      window.removeEventListener('beforeunload', onHide)
+    }
+  }, [])
 
   const submitSessionInBackground = () => {
     try {
@@ -301,16 +422,46 @@ export default function TasksPage() {
     })
     localStorage.setItem('study_response_times', JSON.stringify(localStorageData))
 
-    submitTaskInBackground(value)
+    enqueueTask(value)
 
     if (currentTaskIndex < totalTasks - 1) {
       setTimeout(() => setCurrentTaskIndex((i) => i + 1), 80)
     } else {
       setIsLoading(true)
-      submitSessionInBackground()
-      setTimeout(() => {
-        router.push(`/participate/${params?.id}/thank-you`)
-      }, 2500)
+      // Final flush then quick navigate
+      const doFinish = async () => {
+        try {
+          const sessionRaw = localStorage.getItem('study_session')
+          const { sessionId } = sessionRaw ? JSON.parse(sessionRaw) : { sessionId: null }
+          if (sessionId) {
+            const qRaw = localStorage.getItem('task_submit_queue')
+            const q: any[] = qRaw ? JSON.parse(qRaw) : []
+            if (Array.isArray(q) && q.length) {
+              const tasksToSend = q.map((it) => ({
+                task_id: it.task_id,
+                rating_given: it.rating_given,
+                task_duration_seconds: it.task_duration_seconds,
+                element_interactions: Array.isArray(it.element_interactions) ? it.element_interactions.slice(0, 10) : [],
+                elements_shown_in_task: it.elements_shown_in_task || undefined,
+                elements_shown_content: it.elements_shown_content || undefined,
+              }))
+              try {
+                const url = `http://127.0.0.1:8000/api/v1/responses/submit-tasks-bulk?session_id=${encodeURIComponent(sessionId)}`
+                const data = JSON.stringify({ tasks: tasksToSend })
+                let sent = false
+                if (navigator.sendBeacon) {
+                  sent = navigator.sendBeacon(url, new Blob([data], { type: 'application/json' }))
+                }
+                if (!sent) await submitTasksBulk(String(sessionId), tasksToSend)
+                localStorage.removeItem('task_submit_queue')
+              } catch {}
+            }
+          }
+        } catch {}
+        submitSessionInBackground()
+        setTimeout(() => router.push(`/participate/${params?.id}/thank-you`), 600)
+      }
+      doFinish()
     }
   }
 

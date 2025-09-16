@@ -20,6 +20,57 @@ export default function ThankYouPage() {
     // Mark as hydrated to prevent hydration mismatches
     setIsHydrated(true)
 
+    // Background: attempt to flush any remaining queued task submissions (non-blocking)
+    const flushOnce = async () => {
+      try {
+        const sessionRaw = localStorage.getItem('study_session')
+        const queueRaw = localStorage.getItem('task_submit_queue')
+        if (!sessionRaw || !queueRaw) return
+        const { sessionId } = JSON.parse(sessionRaw)
+        const q: any[] = JSON.parse(queueRaw)
+        if (!sessionId || !Array.isArray(q) || q.length === 0) return
+
+        const tasks = q.map((it) => ({
+          task_id: it.task_id,
+          rating_given: it.rating_given,
+          task_duration_seconds: it.task_duration_seconds,
+          element_interactions: Array.isArray(it.element_interactions) ? it.element_interactions.slice(0, 10) : [],
+          elements_shown_in_task: it.elements_shown_in_task || undefined,
+          elements_shown_content: it.elements_shown_content || undefined,
+        }))
+
+        const url = `http://127.0.0.1:8000/api/v1/responses/submit-tasks-bulk?session_id=${encodeURIComponent(String(sessionId))}`
+        const data = JSON.stringify({ tasks })
+
+        // Try sendBeacon first
+        let sent = false
+        try {
+          if (navigator.sendBeacon) {
+            sent = navigator.sendBeacon(url, new Blob([data], { type: 'application/json' }))
+          }
+        } catch {}
+
+        if (!sent) {
+          const controller = new AbortController()
+          const timeout = window.setTimeout(() => controller.abort(), 12000)
+          try {
+            const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: data, keepalive: true, signal: controller.signal })
+            if (res.ok) sent = true
+          } catch {}
+          window.clearTimeout(timeout)
+        }
+
+        if (sent) {
+          try { localStorage.removeItem('task_submit_queue') } catch {}
+        }
+      } catch {}
+    }
+
+    // Run one flush immediately and a few retries for a short window
+    flushOnce()
+    const interval = window.setInterval(flushOnce, 3000)
+    const timeoutStop = window.setTimeout(() => { try { window.clearInterval(interval) } catch {} }, 15000)
+
     // Get response times from localStorage
     const times = localStorage.getItem('study_response_times')
     if (times) {
@@ -81,6 +132,7 @@ export default function ThankYouPage() {
         }, 1000)
       }
     } catch {}
+    return () => { try { window.clearInterval(interval); window.clearTimeout(timeoutStop) } catch {} }
   }, [])
 
   const handleReturnHome = () => {
