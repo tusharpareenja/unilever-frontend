@@ -74,17 +74,17 @@ export default function PersonalInformationPage() {
     try {
       // Get session data from localStorage
       const sessionData = localStorage.getItem('study_session')
-      console.log('Session data from localStorage:', sessionData)
+      // console.log('Session data from localStorage:', sessionData)
       if (!sessionData) {
         throw new Error('Session data not found')
       }
       
       const { sessionId } = JSON.parse(sessionData)
-      console.log('Session ID:', sessionId)
+      // console.log('Session ID:', sessionId)
       
       // Check if study details are available
       const studyDetails = localStorage.getItem('current_study_details')
-      console.log('Study details from localStorage:', studyDetails)
+      // console.log('Study details from localStorage:', studyDetails)
       
       // Prepare personal info payload
       const personalInfo = {

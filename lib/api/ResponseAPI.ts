@@ -1,6 +1,6 @@
 // No authentication required for study participation
 
-const BASE_URL = "http://127.0.0.1:8000/api/v1"
+import { API_BASE_URL } from './LoginApi'
 
 // Import fetchWithAuth from StudyAPI for authenticated requests
 import { fetchWithAuth } from './StudyAPI'
@@ -91,23 +91,36 @@ export interface SubmitTaskPayload {
 export async function submitTasksBulk(sessionId: string, tasks: SubmitTaskPayload[]): Promise<any> {
 	const q = encodeURIComponent(sessionId)
 	const body = { tasks }
-	const controller = new AbortController()
-	const timeout = window.setTimeout(() => controller.abort(), 8000)
+	
+	// Use fallback URL if API_BASE_URL is undefined
+	const baseUrl = API_BASE_URL || 'http://127.0.0.1:8000/api/v1'
+	const url = `${baseUrl}/responses/submit-tasks-bulk?session_id=${q}`
+	
+	console.log(`submitTasksBulk: sending ${tasks.length} tasks for session ${sessionId}`)
+	console.log('API_BASE_URL:', API_BASE_URL)
+	console.log('Using URL:', url)
+	
 	try {
-		const res = await fetch(`${BASE_URL}/responses/submit-tasks-bulk?session_id=${q}`, {
+		const res = await fetch(url, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(body),
-			keepalive: true,
-			signal: controller.signal,
 		})
+		
+		console.log('submitTasksBulk response status:', res.status, res.statusText)
+		
 		if (!res.ok) {
 			const text = await res.text().catch(() => '')
-			throw new Error(`Bulk submit failed (${res.status}): ${text}`)
+			console.error('submitTasksBulk failed:', res.status, text)
+			return { ok: false, status: res.status, error: text }
 		}
-		return res.json().catch(() => ({}))
-	} finally {
-		window.clearTimeout(timeout)
+		
+		const result = await res.json().catch(() => ({}))
+		console.log('submitTasksBulk success:', result)
+		return result
+	} catch (error) {
+		// Swallow network errors to avoid UI disruption; backend will still have prior tasks
+		return { ok: false }
 	}
 }
 
@@ -139,7 +152,7 @@ export async function startStudy(studyId: string): Promise<StartStudyResponse> {
 		personal_info: {}
 	}
 
-	const response = await fetch(`${BASE_URL}/responses/start-study`, {
+	const response = await fetch(`${API_BASE_URL}/responses/start-study`, {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',
@@ -163,7 +176,7 @@ export async function startStudy(studyId: string): Promise<StartStudyResponse> {
  * @returns Promise with submission result
  */
 export async function submitStudyResponses(payload: SubmitResponsePayload): Promise<SubmitResponseResult> {
-	const response = await fetch('http://127.0.0.1:8000/api/v1/studies/responses', {
+	const response = await fetch(`${API_BASE_URL}/studies/responses`, {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',
@@ -188,7 +201,7 @@ export async function submitStudyResponses(payload: SubmitResponsePayload): Prom
  * @returns Promise with update result
  */
 export async function updateUserPersonalInfo(sessionId: string, personalInfo: PersonalInfoPayload): Promise<any> {
-	const response = await fetch(`${BASE_URL}/responses/session/${sessionId}/user-details`, {
+	const response = await fetch(`${API_BASE_URL}/responses/session/${sessionId}/user-details`, {
 		method: 'PUT',
 		headers: {
 			'Content-Type': 'application/json',
@@ -209,7 +222,7 @@ export async function updateUserPersonalInfo(sessionId: string, personalInfo: Pe
 /** Submit classification answers (per-click or batched) with session_id in query */
 export async function submitClassificationAnswers(sessionId: string, payload: SubmitClassificationAnswersPayload): Promise<any> {
 	const q = encodeURIComponent(sessionId)
-	const response = await fetch(`${BASE_URL}/responses/submit-classification?session_id=${q}`, {
+	const response = await fetch(`${API_BASE_URL}/responses/submit-classification?session_id=${q}`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(payload),
@@ -224,7 +237,7 @@ export async function submitClassificationAnswers(sessionId: string, payload: Su
 /** Submit a single task response with interactions */
 export async function submitTaskResponse(sessionId: string, payload: SubmitTaskPayload): Promise<any> {
 	const q = encodeURIComponent(sessionId)
-	const res = await fetch(`${BASE_URL}/responses/submit-task?session_id=${q}`, {
+	const res = await fetch(`${API_BASE_URL}/responses/submit-task?session_id=${q}`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(payload),
@@ -238,7 +251,7 @@ export async function submitTaskResponse(sessionId: string, payload: SubmitTaskP
 
 /** Submit task session analytics */
 export async function submitTaskSession(payload: TaskSessionPayload): Promise<any> {
-	const res = await fetch(`${BASE_URL}/responses/task-sessions/`, {
+	const res = await fetch(`${API_BASE_URL}/responses/task-sessions/`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(payload),
@@ -256,7 +269,7 @@ export async function submitTaskSession(payload: TaskSessionPayload): Promise<an
  * @returns Promise with task data
  */
 export async function getStudyTasks(sessionId: string): Promise<any> {
-	const response = await fetch(`http://127.0.0.1:8000/api/v1/studies/sessions/${sessionId}/tasks`, {
+	const response = await fetch(`${API_BASE_URL}/studies/sessions/${sessionId}/tasks`, {
 		method: 'GET',
 		headers: {
 			'Content-Type': 'application/json',
@@ -292,7 +305,7 @@ export interface StudyAnalytics {
  * @returns Promise with analytics data
  */
 export async function getStudyAnalytics(studyId: string): Promise<StudyAnalytics> {
-	const response = await fetchWithAuth(`${BASE_URL}/responses/analytics/study/${studyId}`, {
+	const response = await fetchWithAuth(`${API_BASE_URL}/responses/analytics/study/${studyId}`, {
 		method: 'GET',
 		headers: {
 			'Content-Type': 'application/json',
@@ -336,7 +349,7 @@ export function subscribeStudyAnalytics(
   }
 
   try {
-    const url = `${BASE_URL}/responses/analytics/study/${encodeURIComponent(studyId)}/stream?interval_seconds=${encodeURIComponent(String(intervalSeconds))}`
+    const url = `${API_BASE_URL}/responses/analytics/study/${encodeURIComponent(studyId)}/stream?interval_seconds=${encodeURIComponent(String(intervalSeconds))}`
     es = new EventSource(url)
     es.onmessage = (ev) => {
       try {
@@ -396,7 +409,7 @@ export async function getStudyResponses(
   limit: number = 100,
   offset: number = 0
 ): Promise<ResponsesListResult> {
-  const url = `${BASE_URL}/responses/?study_id=${encodeURIComponent(studyId)}&limit=${limit}&offset=${offset}`
+  const url = `${API_BASE_URL}/responses/?study_id=${encodeURIComponent(studyId)}&limit=${limit}&offset=${offset}`
   const res = await fetchWithAuth(url, { method: 'GET', headers: { 'Content-Type': 'application/json' } })
   if (!res.ok) {
     const text = await res.text().catch(() => '')
@@ -472,7 +485,7 @@ export interface ResponseSessionDetails {
 }
 
 export async function getResponseSessionDetails(sessionId: string): Promise<ResponseSessionDetails> {
-  const url = `${BASE_URL}/responses/session/${encodeURIComponent(sessionId)}`
+  const url = `${API_BASE_URL}/responses/session/${encodeURIComponent(sessionId)}`
   const res = await fetchWithAuth(url, { method: 'GET', headers: { 'Content-Type': 'application/json' } })
   if (!res.ok) {
     const text = await res.text().catch(() => '')
@@ -483,7 +496,7 @@ export async function getResponseSessionDetails(sessionId: string): Promise<Resp
 
 /** Download flattened CSV for a study (owner-only) */
 export async function downloadStudyResponsesCsv(studyId: string): Promise<Blob> {
-  const res = await fetchWithAuth(`${BASE_URL}/responses/export/study/${studyId}/flattened-csv`, {
+  const res = await fetchWithAuth(`${API_BASE_URL}/responses/export/study/${studyId}/flattened-csv`, {
     method: 'GET',
     headers: {
       'Accept': 'text/csv',

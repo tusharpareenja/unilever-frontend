@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation"
 import { useMemo, useRef, useState, useEffect } from "react"
 import { DashboardHeader } from "@/app/home/components/dashboard-header"
 import { startStudy } from "@/lib/api/ResponseAPI"
-import { getStudyDetailsWithoutAuth } from "@/lib/api/StudyAPI"
+import { getStudyDetailsWithoutAuth, getStudyDetailsForStart } from "@/lib/api/StudyAPI"
 
 export default function ParticipateIntroPage() {
   const params = useParams<{ id: string }>()
@@ -74,7 +74,7 @@ export default function ParticipateIntroPage() {
   const studyTitle = studyDetails?.title || "Study Title"
   const estimatedTime = "3-5 minutes" // Keep as requested
   const studyType = studyDetails?.study_type === "grid" ? "Grid Study" : "Layer Study"
-  const totalVignettes = studyDetails?.audience_segmentation?.number_of_respondents || 3
+  const totalVignettes = studyDetails?.respondents_target || 3
 
   const startHref = useMemo(() => `/participate/${params?.id}/personal-information`, [params?.id])
 
@@ -146,6 +146,52 @@ export default function ParticipateIntroPage() {
 
       // Navigate only after session and (if present) details are stored
       router.push(startHref)
+
+      // Background: fetch study details using new API endpoint
+      ;(async () => {
+        try {
+          const details: any = await getStudyDetailsForStart(params.id)
+          if (!details) return
+          
+          const filtered = JSON.parse(JSON.stringify(details))
+          const tasksSrc: any = details?.tasks || details?.data?.tasks || details?.task_map || details?.task || {}
+          let userTasks: any[] = []
+          
+          if (Array.isArray(tasksSrc)) {
+            userTasks = tasksSrc
+          } else if (tasksSrc && typeof tasksSrc === 'object') {
+            const rk = String(response.respondent_id ?? 0)
+            userTasks = tasksSrc?.[rk] || tasksSrc?.[Number(rk)] || []
+            if (!Array.isArray(userTasks) || userTasks.length === 0) {
+              for (const v of Object.values(tasksSrc)) { 
+                if (Array.isArray(v) && v.length) { 
+                  userTasks = v; 
+                  break 
+                } 
+              }
+            }
+          }
+          
+          if (details?.tasks) {
+            filtered.tasks = userTasks
+          } else if (details?.data?.tasks) {
+            if (!filtered.data) filtered.data = {}
+            filtered.data.tasks = userTasks
+          } else if (details?.task_map) {
+            filtered.task_map = userTasks
+          } else if (details?.task) {
+            filtered.task = userTasks
+          }
+          
+          try {
+            localStorage.setItem('current_study_details', JSON.stringify(filtered))
+          } catch (e) {
+            console.warn('Failed to store filtered study details:', e)
+          }
+        } catch (e) {
+          console.warn('Background study details fetch failed:', e)
+        }
+      })()
     } catch (error) {
       console.error('Failed to start study:', error)
       alert('Failed to start the study. Please try again in a moment.')

@@ -41,31 +41,60 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
   const [nextLoading, setNextLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement | null>(null)
   const gridHasHydratedRef = useRef(false)
+  // Hybrid uploader (grid): accumulate single-file adds for 2s, batch upload
+  const gridPendingRef = useRef<Array<{ id: string; file: File }>>([])
+  const gridTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Hydrate GRID elements from localStorage on mount
   useEffect(() => { gridHasHydratedRef.current = true }, [mode])
 
   const handleFiles = async (files: FileList | null) => {
     if (!files) return
-    Array.from(files).forEach(async (file) => {
+    const list = Array.from(files)
+    // Add previews and remember ids in selection order
+    const selectionIds: string[] = []
+    list.forEach((file) => {
       const tempId = crypto.randomUUID()
       const url = URL.createObjectURL(file)
-      const fileName = file.name.replace(/\.[^/.]+$/, "") // Remove file extension
+      const fileName = file.name.replace(/\.[^/.]+$/, "")
       const newItem: ElementItem = { id: tempId, name: fileName, description: "", file, previewUrl: url }
-      // add immediately
+      selectionIds.push(tempId)
       setElements(prev => [...prev, newItem])
-      // start upload for this single file and patch result as soon as it arrives
-      try {
-        const res = await uploadImages([file])
-        const secure = res?.[0]?.secure_url
-        if (secure) {
-          setElements(prev => prev.map(e => e.id === tempId ? { ...e, secureUrl: secure } : e))
-        }
-      } catch (e) {
-        // keep preview only
-        console.error('Upload failed for file', e)
-      }
     })
+
+    // If user selected multiple at once, upload this selection as one batch now
+    if (list.length > 1) {
+      try {
+        const results = await uploadImages(list)
+        setElements(prev => prev.map((e) => {
+          const idx = selectionIds.indexOf(e.id)
+          if (idx !== -1) return { ...e, secureUrl: results[idx]?.secure_url || e.secureUrl }
+          return e
+        }))
+      } catch (e) {
+        console.error('Batch upload (grid) failed', e)
+      }
+      return
+    }
+
+    // Single file added: debounce and batch with other singles
+    gridPendingRef.current.push({ id: selectionIds[0], file: list[0] })
+    if (gridTimerRef.current) clearTimeout(gridTimerRef.current)
+    gridTimerRef.current = setTimeout(async () => {
+      const pending = gridPendingRef.current.splice(0)
+      gridTimerRef.current = null
+      if (pending.length === 0) return
+      try {
+        const results = await uploadImages(pending.map(p => p.file))
+        setElements(prev => prev.map((e) => {
+          const idx = pending.findIndex(p => p.id === e.id)
+          if (idx !== -1) return { ...e, secureUrl: results[idx]?.secure_url || e.secureUrl }
+          return e
+        }))
+      } catch (e) {
+        console.error('Debounced upload (grid) failed', e)
+      }
+    }, 1000)
   }
 
   const removeElement = (id: string) => {
@@ -277,6 +306,9 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
   const [draftImages, setDraftImages] = useState<Array<{ id: string; file?: File; previewUrl: string; secureUrl?: string; name?: string }>>([])
   const [selectedImageIds, setSelectedImageIds] = useState<Record<string, string>>({}) // layerId -> selectedImageId
   const [nextLoading, setNextLoading] = useState(false)
+  // Hybrid uploader (layer): accumulate single-file adds per layer, debounce 2s
+  const layerPendingRef = useRef<Record<string, Array<{ imageId: string; file: File }>>>({})
+  const layerTimersRef = useRef<Record<string, ReturnType<typeof setTimeout> | null>>({})
 
   const addLayer = () => setShowModal(true)
 
@@ -287,21 +319,47 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
 
   const handleDraftFiles = (files: FileList | null) => {
     if (!files) return
-    Array.from(files).forEach(async (file) => {
+    const list = Array.from(files)
+    const ids: string[] = []
+    list.forEach((file) => {
       const tempId = crypto.randomUUID()
       const url = URL.createObjectURL(file)
-      const fileName = file.name.replace(/\.[^/.]+$/, "") // Remove file extension
+      const fileName = file.name.replace(/\.[^/.]+$/, "")
+      ids.push(tempId)
       setDraftImages(prev => [...prev, { id: tempId, file, previewUrl: url, name: fileName }])
-      try {
-        const res = await uploadImages([file])
-        const secure = res?.[0]?.secure_url
-        if (secure) {
-          setDraftImages(prev => prev.map(img => img.id === tempId ? { ...img, secureUrl: secure } : img))
-        }
-      } catch (e) {
-        console.error('Draft upload failed', e)
-      }
     })
+    if (list.length > 1) {
+      uploadImages(list).then((results) => {
+        setDraftImages(prev => prev.map(img => {
+          const idx = ids.indexOf(img.id)
+          if (idx !== -1) return { ...img, secureUrl: results[idx]?.secure_url || img.secureUrl }
+          return img
+        }))
+      }).catch((e) => console.error('Draft batch upload failed', e))
+      return
+    }
+    // Single: debounce
+    const singleId = ids[0]
+    const singleFile = list[0]
+    // Use a shared queue for draft context (key 'draft')
+    if (!layerPendingRef.current['__draft__']) layerPendingRef.current['__draft__'] = []
+    layerPendingRef.current['__draft__'].push({ imageId: singleId, file: singleFile })
+    if (layerTimersRef.current['__draft__']) clearTimeout(layerTimersRef.current['__draft__']!)
+    layerTimersRef.current['__draft__'] = setTimeout(async () => {
+      const pending = (layerPendingRef.current['__draft__'] || []).splice(0)
+      layerTimersRef.current['__draft__'] = null
+      if (pending.length === 0) return
+      try {
+        const results = await uploadImages(pending.map(p => p.file))
+        setDraftImages(prev => prev.map(img => {
+          const idx = pending.findIndex(p => p.imageId === img.id)
+          if (idx !== -1) return { ...img, secureUrl: results[idx]?.secure_url || img.secureUrl }
+          return img
+        }))
+      } catch (e) {
+        console.error('Draft debounced upload failed', e)
+      }
+    }, 1000)
   }
 
   const saveLayer = () => {
@@ -414,24 +472,50 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
 
   const addImagesToLayer = (layerId: string, files: FileList | null) => {
     if (!files) return
-    Array.from(files).forEach(async (file) => {
+    const list = Array.from(files)
+    const ids: string[] = []
+    list.forEach((file) => {
       const tempId = crypto.randomUUID()
       const url = URL.createObjectURL(file)
-      const fileName = file.name.replace(/\.[^/.]+$/, "") // Remove file extension
+      const fileName = file.name.replace(/\.[^/.]+$/, "")
+      ids.push(tempId)
       setLayers(prev => prev.map(l => (l.id === layerId ? { ...l, images: [...l.images, { id: tempId, file, previewUrl: url, name: fileName }] } : l)))
-      try {
-        const res = await uploadImages([file])
-        const secure = res?.[0]?.secure_url
-        if (secure) {
-          setLayers(prev => prev.map(l => {
-            if (l.id !== layerId) return l
-            return { ...l, images: l.images.map(img => img.id === tempId ? { ...img, secureUrl: secure } : img) }
-          }))
-        }
-      } catch (e) {
-        console.error('Layer add image upload failed', e)
-      }
     })
+    if (list.length > 1) {
+      uploadImages(list).then((results) => {
+        setLayers(prev => prev.map(l => {
+          if (l.id !== layerId) return l
+          return { ...l, images: l.images.map((img) => {
+            const idx = ids.indexOf(img.id)
+            if (idx !== -1) return { ...img, secureUrl: results[idx]?.secure_url || img.secureUrl }
+            return img
+          }) }
+        }))
+      }).catch((e) => console.error('Layer batch upload failed', e))
+      return
+    }
+    // Single file added to layer: debounce per-layer
+    if (!layerPendingRef.current[layerId]) layerPendingRef.current[layerId] = []
+    layerPendingRef.current[layerId].push({ imageId: ids[0], file: list[0] })
+    if (layerTimersRef.current[layerId]) clearTimeout(layerTimersRef.current[layerId]!)
+    layerTimersRef.current[layerId] = setTimeout(async () => {
+      const pending = (layerPendingRef.current[layerId] || []).splice(0)
+      layerTimersRef.current[layerId] = null
+      if (pending.length === 0) return
+      try {
+        const results = await uploadImages(pending.map(p => p.file))
+        setLayers(prev => prev.map(l => {
+          if (l.id !== layerId) return l
+          return { ...l, images: l.images.map((img) => {
+            const idx = pending.findIndex(p => p.imageId === img.id)
+            if (idx !== -1) return { ...img, secureUrl: results[idx]?.secure_url || img.secureUrl }
+            return img
+          }) }
+        }))
+      } catch (e) {
+        console.error('Layer debounced upload failed', e)
+      }
+    }, 1000)
   }
 
   // Warn on reload if any layer image uploads pending

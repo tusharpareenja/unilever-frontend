@@ -681,6 +681,30 @@ export async function getStudyDetailsWithoutAuth(studyId: string): Promise<Study
   return data
 }
 
+// Get study details for start study flow (uses new endpoint)
+export async function getStudyDetailsForStart(studyId: string): Promise<StudyDetails> {
+  console.log('=== HTTP REQUEST TO /studies/public/{id}/details ===')
+  console.log('URL:', `${API_BASE_URL}/studies/public/${studyId}/details`)
+  
+  const res = await fetch(`${API_BASE_URL}/studies/public/${studyId}/details`, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  })
+  
+  const text = await res.text().catch(() => "")
+  let data: any = {}
+  try { data = text ? JSON.parse(text) : {} } catch { data = { detail: text } }
+  
+  if (!res.ok) {
+    const msg = (data && (data.detail || data.message)) || text || `Get study details failed (${res.status})`
+    console.log('Get study details error:', msg, data)
+    throw Object.assign(new Error(typeof msg === 'string' ? msg : JSON.stringify(msg)), { status: res.status, data })
+  }
+  
+  // console.log('Get study details success:', data)
+  return data
+}
+
 // Fetch private study details by ID (requires authentication and ownership)
 export async function getPrivateStudyDetails(studyId: string): Promise<StudyDetails> {
   const res = await fetchWithAuth(`${API_BASE_URL}/studies/private/${studyId}`, {
@@ -698,6 +722,17 @@ export async function getPrivateStudyDetails(studyId: string): Promise<StudyDeta
   }
   
   return data
+}
+
+// NEW: Public share details for id/share page
+export async function getPublicShareDetails(studyId: string): Promise<{ id: string; title: string; study_type: string; status: string; share_url: string }> {
+  const url = `${API_BASE_URL}/studies/share/details?study_id=${encodeURIComponent(studyId)}`
+  const res = await fetch(url, { method: 'GET', headers: { 'Content-Type': 'application/json' } })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(`Failed to fetch share details: ${res.status} ${text}`)
+  }
+  return res.json()
 }
 
 // Check if the logged-in user is the owner of a study and if study is active

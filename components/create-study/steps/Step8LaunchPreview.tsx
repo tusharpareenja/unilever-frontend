@@ -2,7 +2,8 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { createStudyFromLocalStorage, regenerateTasksForStudy, putUpdateStudy, updateStudyStatus } from "@/lib/api/StudyAPI"
+import { createStudyFromLocalStorage, fetchWithAuth } from "@/lib/api/StudyAPI"
+import { API_BASE_URL } from "@/lib/api/LoginApi"
 
 function get<T>(key: string, fallback: T): T {
   if (typeof window === 'undefined') return fallback
@@ -33,6 +34,7 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
       return
     }
 
+    // Show launching indicator during create call only
     setIsLaunching(true)
     setLaunchError(null)
 
@@ -40,31 +42,40 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
       const result = await createStudyFromLocalStorage()
       console.log('Study launched successfully:', result)
       const studyId = result?.id || result?.study_id || result?.data?.id
-      if (studyId) {
-        console.log('Regenerating tasks for study:', studyId)
-        await regenerateTasksForStudy(String(studyId))
-        console.log('Tasks regenerated successfully for study:', studyId)
-
-        // Ensure the study is activated immediately after launch
-        try {
-          await putUpdateStudy(String(studyId), { status: 'active' as any })
-        } catch (e1) {
-          try {
-            await updateStudyStatus(String(studyId), 'active')
-          } catch (e2) {
-            console.warn('Failed to set study active after launch:', e1, e2)
-          }
-        }
-      } else {
-        console.warn('Cannot regenerate tasks: study id missing in create response')
-      }
       
+      if (studyId) {
+        // Wait for study activation to complete before redirecting
+        try {
+          console.log('Activating study...')
+          await fetchWithAuth(`${API_BASE_URL}/studies/${studyId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'active' }),
+          })
+          console.log('Study activated successfully')
+        } catch (activateError) {
+          console.error('Failed to activate study:', activateError)
+          // Continue anyway - user can activate manually if needed
+        }
+
+        // Regenerate tasks in background (non-blocking)
+        try {
+          fetchWithAuth(`${API_BASE_URL}/studies/${studyId}/regenerate-tasks`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({}),
+            keepalive: true,
+          }).catch(() => {})
+        } catch {}
+      } else {
+        console.warn('Cannot activate study: study id missing in create response')
+      }
+
       // Clear all step data from localStorage (including cached step7 matrix)
       const keysToRemove = ['cs_step1', 'cs_step2', 'cs_step3', 'cs_step4', 'cs_step5_grid', 'cs_step5_layer', 'cs_step6', 'cs_step7', 'cs_step7_tasks', 'cs_step7_matrix']
       keysToRemove.forEach(key => localStorage.removeItem(key))
-      
-      // Redirect to study management page
-      // alert('Study launched successfully!')
+
+      // Redirect to study page after activation
       window.location.href = `/home/study/${studyId}`
     } catch (error: any) {
       console.error('Failed to launch study:', error)

@@ -25,6 +25,20 @@ export default function DashboardPage() {
     completed: 0
   })
 
+  // Hydrate studies list from cache for instant render on refresh
+  useEffect(() => {
+    try {
+      const cached = localStorage.getItem('home_studies_cache')
+      if (cached) {
+        const parsed = JSON.parse(cached)
+        if (Array.isArray(parsed)) {
+          setStudies(parsed as StudyListItem[])
+          setLoading(false)
+        }
+      }
+    } catch {}
+  }, [])
+
   // Hydrate cards from cache immediately for instant paint
   useEffect(() => {
     try {
@@ -48,13 +62,15 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchStudies = async () => {
       try {
-        setLoading(true)
+        setLoading((prev) => prev && studies.length === 0)
         setError(null)
         const studiesArray = await getStudies(1, 100) // Get more studies for filtering
         
         // Ensure we have an array
         const safeStudiesArray = Array.isArray(studiesArray) ? studiesArray : []
         setStudies(safeStudiesArray)
+        // Cache list for next load
+        try { localStorage.setItem('home_studies_cache', JSON.stringify(safeStudiesArray)) } catch {}
         
         // Calculate stats
         const total = safeStudiesArray.length

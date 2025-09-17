@@ -288,6 +288,13 @@ export default function TasksPage() {
 
   // Periodic/background flush using bulk endpoint
   useEffect(() => {
+    // Send-everything-at-end mode: skip periodic background flush
+    return () => {}
+  }, [])
+
+  // Periodic/background flush using bulk endpoint (disabled when sending all at end)
+  /*
+  useEffect(() => {
     const flush = async () => {
       try {
         const sessionRaw = localStorage.getItem('study_session')
@@ -299,14 +306,9 @@ export default function TasksPage() {
         const q: any[] = qRaw ? JSON.parse(qRaw) : []
         if (!Array.isArray(q) || q.length === 0) return
 
-        // Deduplicate by idempotency key and trim payload
-        const seen = new Set<string>()
-        const tasksToSend = q.filter((it) => {
-          const key = String(it._idemp || `${sessionId}:${it.task_id}`)
-          if (seen.has(key)) return false
-          seen.add(key)
-          return true
-        }).map((it) => ({
+        // Process queue in batches to avoid losing tasks
+        const batchSize = 10 // Send max 10 tasks per batch
+        const tasksToSend = q.slice(0, batchSize).map((it) => ({
           task_id: it.task_id,
           rating_given: it.rating_given,
           task_duration_seconds: it.task_duration_seconds,
@@ -329,11 +331,28 @@ export default function TasksPage() {
         } catch {}
 
         if (!sent) {
-          await submitTasksBulk(String(sessionId), tasksToSend)
+          try {
+            await submitTasksBulk(String(sessionId), tasksToSend)
+          } catch (e) {
+            console.error('submitTasksBulk failed, trying individual submissions:', e)
+            // Fallback: try submitting tasks individually
+            for (const task of tasksToSend) {
+              try {
+                await submitTaskResponse(String(sessionId), task)
+              } catch (individualError) {
+                console.error('Individual task submission failed:', individualError)
+              }
+            }
+          }
         }
 
-        // On success, clear queue
-        localStorage.removeItem('task_submit_queue')
+        // On success, remove only the sent tasks from queue
+        const remaining = q.slice(batchSize)
+        if (remaining.length > 0) {
+          localStorage.setItem('task_submit_queue', JSON.stringify(remaining))
+        } else {
+          localStorage.removeItem('task_submit_queue')
+        }
       } catch (e: any) {
         // Retry only on transient; keep queue
         const msg = String(e?.message || '')
@@ -342,7 +361,7 @@ export default function TasksPage() {
         } else {
           // drop malformed items to avoid permanent blockage
           console.warn('Dropping queue due to non-retryable error:', e)
-          // Optionally keep a few recent items
+          // Keep only the most recent 5 items on error
           try {
             const qRaw = localStorage.getItem('task_submit_queue')
             const q: any[] = qRaw ? JSON.parse(qRaw) : []
@@ -365,6 +384,7 @@ export default function TasksPage() {
       window.removeEventListener('beforeunload', onHide)
     }
   }, [])
+  */
 
   const submitSessionInBackground = () => {
     try {
@@ -428,7 +448,7 @@ export default function TasksPage() {
       setTimeout(() => setCurrentTaskIndex((i) => i + 1), 80)
     } else {
       setIsLoading(true)
-      // Final flush then quick navigate
+      // Final flush: send ALL tasks in one bulk call
       const doFinish = async () => {
         try {
           const sessionRaw = localStorage.getItem('study_session')
@@ -437,6 +457,7 @@ export default function TasksPage() {
             const qRaw = localStorage.getItem('task_submit_queue')
             const q: any[] = qRaw ? JSON.parse(qRaw) : []
             if (Array.isArray(q) && q.length) {
+              // Build single bulk payload with ALL remaining tasks
               const tasksToSend = q.map((it) => ({
                 task_id: it.task_id,
                 rating_given: it.rating_given,
@@ -445,23 +466,25 @@ export default function TasksPage() {
                 elements_shown_in_task: it.elements_shown_in_task || undefined,
                 elements_shown_content: it.elements_shown_content || undefined,
               }))
+              
+              console.log(`Final flush (single bulk): sending ${tasksToSend.length} tasks`)
+              
               try {
-                const url = `http://127.0.0.1:8000/api/v1/responses/submit-tasks-bulk?session_id=${encodeURIComponent(sessionId)}`
-                const data = JSON.stringify({ tasks: tasksToSend })
-                let sent = false
-                if (navigator.sendBeacon) {
-                  sent = navigator.sendBeacon(url, new Blob([data], { type: 'application/json' }))
-                }
-                if (!sent) await submitTasksBulk(String(sessionId), tasksToSend)
+                await submitTasksBulk(String(sessionId), tasksToSend)
                 localStorage.removeItem('task_submit_queue')
-              } catch {}
+                console.log('Final flush (single bulk) completed successfully')
+              } catch (e) {
+                console.error('Final flush failed:', e)
+                // Keep queue for retry on thank-you page
+              }
             }
           }
         } catch {}
         submitSessionInBackground()
-        setTimeout(() => router.push(`/participate/${params?.id}/thank-you`), 600)
       }
-      doFinish()
+      // Run final flush, but still navigate quickly
+      try { void doFinish() } catch {}
+      setTimeout(() => router.push(`/participate/${params?.id}/thank-you`), 200)
     }
   }
 
