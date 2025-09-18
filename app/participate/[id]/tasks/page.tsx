@@ -562,7 +562,7 @@ export default function TasksPage() {
                           {task?.gridUrls && task.gridUrls.length > 2 ? (
                             <div className="grid grid-cols-2 gap-3">
                               {task.gridUrls.slice(0, 4).map((url, i) => (
-                                <div key={i} className="aspect-square w-full overflow-hidden rounded-md border">
+                                <div key={i} className="aspect-square w-full overflow-hidden rounded-md">
                                   {/* eslint-disable-next-line @next/next/no-img-element */}
                                   <img
                                     src={url}
@@ -574,7 +574,7 @@ export default function TasksPage() {
                             </div>
                           ) : (
                             <div className="flex flex-col gap-4">
-                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md border">
+                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md">
                                 {task?.leftImageUrl ? (
                                   // eslint-disable-next-line @next/next/no-img-element
                                   <img
@@ -584,7 +584,7 @@ export default function TasksPage() {
                                   />
                                 ) : null}
                               </div>
-                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md border">
+                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md">
                                 {task?.rightImageUrl ? (
                                   // eslint-disable-next-line @next/next/no-img-element
                                   <img

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { buildTaskGenerationPayloadFromLocalStorage, generateTasks } from "@/lib/api/StudyAPI"
+import JSZip from "jszip"
 
 interface Step7TaskGenerationProps {
   onNext: () => void
@@ -14,6 +15,8 @@ interface Step7TaskGenerationProps {
 export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChange }: Step7TaskGenerationProps) {
   const [isGenerating, setIsGenerating] = useState(false)
   const [matrix, setMatrix] = useState<any | null>(null)
+  const [isStatsOpen, setIsStatsOpen] = useState(false)
+  const [isDownloadingAssets, setIsDownloadingAssets] = useState(false)
 
   const generateNow = async () => {
     try {
@@ -102,6 +105,160 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
       totalTasks = respondentBuckets.reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0)
     }
   }
+
+  // Compute additional derived statistics from preview data (first respondent only)
+  const previewTasksForStats = Array.isArray(respondentBuckets?.[0]) ? respondentBuckets[0] : []
+  const extractUrlsFromObject = (obj: any): string[] => {
+    const found: string[] = []
+    if (typeof obj === 'object' && obj !== null) {
+      Object.values(obj).forEach((value: any) => {
+        if (typeof value === 'string' && value.startsWith('http')) {
+          found.push(value)
+        } else if (typeof value === 'object' && value !== null) {
+          found.push(...extractUrlsFromObject(value))
+        }
+      })
+    }
+    return found
+  }
+  const perTaskUrlCounts: number[] = previewTasksForStats.map((t: any) => {
+    // Prefer explicit fields when available
+    if (studyType === 'layer') {
+      const elementsShown = t?.elements_shown || {}
+      const elementsContent = t?.elements_shown_content || {}
+      const visibleLayerKeys = Object.keys(elementsShown).filter((k) => elementsShown[k] === 1 && elementsContent[k])
+      return visibleLayerKeys.length
+    }
+    const urlsFromShown: string[] = []
+    const shown = t?.elements_shown || {}
+    Object.keys(shown).forEach((k) => {
+      if (k.endsWith('_content') && shown[k]) urlsFromShown.push(shown[k])
+      if (k.includes('url') && shown[k] && typeof shown[k] === 'string' && shown[k].startsWith('http')) urlsFromShown.push(shown[k])
+    })
+    if (urlsFromShown.length > 0) return urlsFromShown.length
+    if (Array.isArray(t?.elements)) {
+      const fromElements = t.elements.filter((e: any) => e?.content && typeof e.content === 'string' && e.content.startsWith('http'))
+      if (fromElements.length > 0) return fromElements.length
+    }
+    return extractUrlsFromObject(t).length
+  })
+  const totalUrlsInPreview = perTaskUrlCounts.reduce((a, b) => a + b, 0)
+  const avgElementsPerTaskPreview = perTaskUrlCounts.length ? (totalUrlsInPreview / perTaskUrlCounts.length) : 0
+  const uniqueAssetsInPreview = (() => {
+    const set = new Set<string>()
+    previewTasksForStats.forEach((t: any) => extractUrlsFromObject(t).forEach((u) => set.add(u)))
+    return set.size
+  })()
+  const estimatedTotalElementViews = (typeof numRespondents === 'number' && typeof tasksPerRespondent === 'number' && typeof elementsPerTask === 'number')
+    ? numRespondents * tasksPerRespondent * elementsPerTask
+    : '-'
+
+  // Download all uploaded assets (from Step 5) as a ZIP
+  const handleDownloadAssetsZip = async () => {
+    if (isDownloadingAssets) return
+    setIsDownloadingAssets(true)
+    try {
+      const grid = getFromLS<any[]>("cs_step5_grid", [])
+      const layer = getFromLS<any[]>("cs_step5_layer", [])
+
+      type Asset = { url: string; name: string }
+      const assets: Asset[] = []
+
+      // Collect grid assets
+      if (Array.isArray(grid) && grid.length > 0) {
+        grid.forEach((g: any, idx: number) => {
+          if (g?.secureUrl) {
+            const url: string = g.secureUrl
+            const fromPath = (() => {
+              try {
+                const u = new URL(url)
+                const last = u.pathname.split('/').filter(Boolean).pop() || `grid_${idx + 1}`
+                return last
+              } catch {
+                const parts = url.split('?')[0].split('/')
+                return parts[parts.length - 1] || `grid_${idx + 1}`
+              }
+            })()
+            const ext = fromPath.includes('.') ? fromPath.split('.').pop() : 'jpg'
+            assets.push({ url, name: g.name ? `${g.name}.${ext}` : fromPath })
+          }
+        })
+      }
+
+      // Collect layer assets
+      if (Array.isArray(layer) && layer.length > 0) {
+        layer.forEach((l: any, lIdx: number) => {
+          const images = Array.isArray(l?.images) ? l.images : []
+          images.forEach((img: any, iIdx: number) => {
+            if (img?.secureUrl) {
+              const url: string = img.secureUrl
+              const fromPath = (() => {
+                try {
+                  const u = new URL(url)
+                  const last = u.pathname.split('/').filter(Boolean).pop() || `layer_${lIdx + 1}_img_${iIdx + 1}`
+                  return last
+                } catch {
+                  const parts = url.split('?')[0].split('/')
+                  return parts[parts.length - 1] || `layer_${lIdx + 1}_img_${iIdx + 1}`
+                }
+              })()
+              const ext = fromPath.includes('.') ? fromPath.split('.').pop() : 'png'
+              const safeLayer = (l?.name || `Layer_${lIdx + 1}`).toString().replace(/[^a-z0-9_-]+/gi, '_')
+              const baseName = img?.name || `Image_${iIdx + 1}`
+              const safeBase = baseName.toString().replace(/[^a-z0-9_-]+/gi, '_')
+              assets.push({ url, name: `${safeLayer}/${safeBase}.${ext}` })
+            }
+          })
+        })
+      }
+
+      // Deduplicate by URL
+      const deduped: Asset[] = []
+      const seen = new Set<string>()
+      assets.forEach(a => { if (!seen.has(a.url)) { seen.add(a.url); deduped.push(a) } })
+
+      if (deduped.length === 0) {
+        alert('No uploaded assets found to download.')
+        return
+      }
+
+      const zip = new JSZip()
+      // Fetch all assets in parallel
+      const results = await Promise.allSettled(deduped.map(async (a) => {
+        const res = await fetch(a.url)
+        if (!res.ok) throw new Error(`Failed to fetch: ${a.url}`)
+        const blob = await res.blob()
+        zip.file(a.name, blob)
+      }))
+
+      const failed = results.filter(r => r.status === 'rejected')
+      if (failed.length > 0) {
+        console.warn(`${failed.length} assets failed to fetch and were skipped.`)
+      }
+
+      const zipBlob = await zip.generateAsync({ type: 'blob' })
+      const link = document.createElement('a')
+      const url = URL.createObjectURL(zipBlob)
+      link.href = url
+      link.download = 'study-assets.zip'
+      document.body.appendChild(link)
+      link.click()
+      setTimeout(() => {
+        document.body.removeChild(link)
+        URL.revokeObjectURL(url)
+      }, 0)
+    } catch (e) {
+      console.error('Download assets ZIP failed', e)
+      alert('Failed to prepare assets ZIP. Please try again.')
+    } finally {
+      setIsDownloadingAssets(false)
+    }
+  }
+
+  const handleRegenerateTasks = async () => {
+      await generateNow();
+    }
+    
 
   return (
     <div>
@@ -324,12 +481,78 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
         <div className="rounded-lg border bg-white p-4">
           <div className="text-sm font-semibold mb-3">Matrix Actions</div>
           <div className="flex flex-wrap gap-3">
-            <Button variant="outline">Download Matrix (CSV)</Button>
-            <Button variant="outline">View Matrix Statistics</Button>
-            <Button variant="outline">Download Assets (ZIP)</Button>
+            <Button onClick={handleRegenerateTasks} variant="outline">{isGenerating ? "Regenerating..." : "Regenerate Tasks"}</Button>
+            <Button variant="outline" onClick={() => setIsStatsOpen(true)}>View Matrix Statistics</Button>
+            <Button variant="outline" onClick={handleDownloadAssetsZip} disabled={isDownloadingAssets}>
+              {isDownloadingAssets ? 'Preparing Assets...' : 'Download Assets (ZIP)'}
+            </Button>
           </div>
         </div>
       </div>
+
+      {isStatsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setIsStatsOpen(false)} />
+          <div className="relative z-10 w-full max-w-2xl rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between px-5 py-4 border-b">
+              <div>
+                <div className="text-base font-semibold text-gray-900">Matrix Statistics</div>
+                <div className="text-xs text-gray-500">Overview of generated tasks and exposure</div>
+              </div>
+              <button className="text-gray-500 hover:text-gray-700" onClick={() => setIsStatsOpen(false)} aria-label="Close statistics">
+                ✕
+              </button>
+            </div>
+            <div className="px-5 py-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
+                <div className="rounded-lg border p-3 bg-white">
+                  <div className="text-xs text-gray-600">Total Tasks</div>
+                  <div className="text-xl font-semibold">{totalTasks}</div>
+                </div>
+                <div className="rounded-lg border p-3 bg-white">
+                  <div className="text-xs text-gray-600">Respondents</div>
+                  <div className="text-xl font-semibold">{numRespondents}</div>
+                </div>
+                <div className="rounded-lg border p-3 bg-white">
+                  <div className="text-xs text-gray-600">Tasks / Respondent</div>
+                  <div className="text-xl font-semibold">{tasksPerRespondent}</div>
+                </div>
+                <div className="rounded-lg border p-3 bg-white">
+                  <div className="text-xs text-gray-600">Elements / Task</div>
+                  <div className="text-xl font-semibold">{elementsPerTask}</div>
+                </div>
+                {/* <div className="rounded-lg border p-3 bg-white">
+                  <div className="text-xs text-gray-600">Avg Elements / Task (Preview)</div>
+                  <div className="text-xl font-semibold">{avgElementsPerTaskPreview.toFixed(2)}</div>
+                </div> */}
+                {/* <div className="rounded-lg border p-3 bg-white">
+                  <div className="text-xs text-gray-600">Unique Assets in Preview</div>
+                  <div className="text-xl font-semibold">{uniqueAssetsInPreview}</div>
+                </div> */}
+                <div className="rounded-lg border p-3 bg-white sm:col-span-2 lg:col-span-3">
+                  <div className="text-xs text-gray-600">Estimated Total Element Views</div>
+                  <div className="text-xl font-semibold">{estimatedTotalElementViews}</div>
+                </div>
+              </div>
+              <div className="rounded-lg border bg-slate-50 p-3">
+                <div className="text-xs text-gray-600 mb-2">Notes</div>
+                <ul className="text-xs text-gray-600 list-disc pl-5 space-y-1">
+                  <li>Preview shows data for the first respondent to optimize performance.</li>
+                  <li>All totals come from metadata where available; otherwise they are derived.</li>
+                  {studyType === 'layer' ? (
+                    <li>Layer study: average count uses number of visible layers per task.</li>
+                  ) : (
+                    <li>Grid study: average count uses number of image URLs detected per task.</li>
+                  )}
+                </ul>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 px-5 py-4 border-t">
+              <Button variant="outline" onClick={() => setIsStatsOpen(false)}>Close</Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mt-10">
         <Button variant="outline" className="rounded-full px-6 w-full sm:w-auto" onClick={onBack}>Back</Button>
