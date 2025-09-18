@@ -224,7 +224,7 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
                   </div>
                   <div className="md:col-span-2 space-y-4">
                     <div>
-                      <label className="block text-sm font-semibold text-gray-800 mb-2">Elements Name <span className="text-red-500">*</span></label>
+                      <label className="block text-sm font-semibold text-gray-800 mb-2">Element Name <span className="text-red-500">*</span></label>
                       <input
                         value={el.name}
                         onChange={(e) => updateElement(el.id, { name: e.target.value })}
@@ -232,7 +232,7 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-gray-800 mb-2">Elements Description</label>
+                      <label className="block text-sm font-semibold text-gray-800 mb-2">Element Description</label>
                       <textarea
                         value={el.description}
                         onChange={(e) => updateElement(el.id, { description: e.target.value })}

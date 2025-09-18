@@ -808,3 +808,23 @@ export async function getStudies(page: number = 1, per_page: number = 10): Promi
     return []
   }
 }
+
+export async function getStudyBasicDetails(studyId: string): Promise<any> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/studies/${studyId}/basic`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch study basic details: ${response.status}`)
+    }
+
+    return await response.json()
+  } catch (error) {
+    console.error('Error fetching study basic details:', error)
+    throw error
+  }
+}

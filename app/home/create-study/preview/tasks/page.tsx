@@ -75,12 +75,15 @@ export default function TasksPage() {
       const middle = (rs?.middleLabel ?? rs?.middle_label ?? rs?.middle ?? rs?.midLabel ?? rs?.mid_label) ?? ""
       setScaleLabels({ left: String(left ?? ''), right: String(right ?? ''), middle: String(middle ?? '') })
 
-      // Expect matrix to be an array OR an object with tasks buckets per respondent
+      // Use preview data (1 respondent only) for display
       let respondentTasks: any[] = []
       if (Array.isArray(matrix)) {
         respondentTasks = matrix
       } else if (matrix && typeof matrix === 'object') {
-        if (Array.isArray((matrix as any).tasks)) {
+        // Check for new preview format first
+        if (Array.isArray((matrix as any).preview_tasks)) {
+          respondentTasks = (matrix as any).preview_tasks
+        } else if (Array.isArray((matrix as any).tasks)) {
           respondentTasks = (matrix as any).tasks
         } else if ((matrix as any).tasks && typeof (matrix as any).tasks === 'object') {
           const buckets = (matrix as any).tasks as Record<string, any>

@@ -23,7 +23,23 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
       const data = await generateTasks(payload)
       console.log('Task generation response:', data)
       setMatrix(data)
-      try { localStorage.setItem('cs_step7_matrix', JSON.stringify(data)) } catch {}
+      
+      // Store only preview data (1 respondent) to avoid localStorage limit
+      try {
+        const previewData = {
+          metadata: data.metadata,
+          preview_tasks: data.tasks?.[0] || [], // Only first respondent's tasks
+          total_respondents: data.metadata?.number_of_respondents || 0,
+          total_tasks: data.metadata?.total_tasks || 0,
+          full_matrix_available: true // Flag to indicate we have full data on backend
+        }
+        localStorage.setItem('cs_step7_matrix', JSON.stringify(previewData))
+        console.log('Stored preview data (1 respondent only) to avoid storage limit')
+      } catch (storageError) {
+        console.warn('Failed to store preview data:', storageError)
+        // Still mark as completed even if storage fails
+      }
+      
       // Mark step 7 as completed
       localStorage.setItem('cs_step7_tasks', JSON.stringify({ completed: true, timestamp: Date.now() }))
       onDataChange?.()
@@ -68,13 +84,15 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
   const tasksPerRespondent = meta.tasks_per_consumer ?? '-'
   const elementsPerTask = meta.K ?? meta.elements_per_task ?? '-'
 
-  // normalize tasks into [[task, task], [task, task]] for first 2 respondents
-  const rawTasks = (matrix as any)?.tasks
+  // Use preview data (1 respondent only) for display
+  const rawTasks = (matrix as any)?.preview_tasks || (matrix as any)?.tasks
   let respondentBuckets: any[][] = []
   if (Array.isArray(rawTasks)) {
-    respondentBuckets = [rawTasks]
+    respondentBuckets = [rawTasks] // Show only first respondent
   } else if (rawTasks && typeof rawTasks === 'object') {
-    respondentBuckets = Object.keys(rawTasks).sort((a,b)=>Number(a)-Number(b)).map((k)=>rawTasks[k])
+    // If we have the old format, take only first respondent
+    const keys = Object.keys(rawTasks).sort((a,b)=>Number(a)-Number(b))
+    respondentBuckets = keys.slice(0, 1).map((k)=>rawTasks[k]) // Only first respondent
   }
 
   if (totalTasks == null) {

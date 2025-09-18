@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { DashboardHeader } from "../../components/dashboard-header"
 import { AuthGuard } from "@/components/auth/AuthGuard"
-import { getPrivateStudyDetails, updateStudyStatus, putUpdateStudy, StudyDetails } from "@/lib/api/StudyAPI"
+import { getPrivateStudyDetails, updateStudyStatus, putUpdateStudy, StudyDetails, getStudyBasicDetails } from "@/lib/api/StudyAPI"
 import { getStudyAnalytics, StudyAnalytics, downloadStudyResponsesCsv, subscribeStudyAnalytics } from "@/lib/api/ResponseAPI"
 import { Pause, Play, CheckCircle, Share, Eye, Download, BarChart3 } from "lucide-react"
 
@@ -64,7 +64,8 @@ export default function StudyManagementPage() {
     try {
       setLoading(true)
       setError(null)
-      const studyData = await getPrivateStudyDetails(studyId)
+      // Use the new basic API endpoint that doesn't require authentication
+      const studyData = await getStudyBasicDetails(studyId)
       setStudy(studyData)
       try { localStorage.setItem(STUDY_CACHE_KEY, JSON.stringify(studyData)) } catch {}
     } catch (err: any) {
@@ -198,8 +199,8 @@ export default function StudyManagementPage() {
     if (analytics) {
       return analytics.completion_rate.toFixed(1) + "%"
     }
-    if (!study || study.total_responses === 0) return "0.0%"
-    return ((study.completed_responses / study.total_responses) * 100).toFixed(1) + "%"
+    // New API doesn't include response counts, so show analytics only
+    return "0.0%"
   }
 
   const getAbandonmentRate = () => {
@@ -386,10 +387,10 @@ export default function StudyManagementPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Main Questions</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Main Question</label>
                 <input
                   type="text"
-                  value={study.main_question}
+                  value={study.main_question || ''}
                   readOnly
                   className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700"
                 />
@@ -420,7 +421,7 @@ export default function StudyManagementPage() {
                   {analyticsLoading ? (
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 mx-auto" style={{ borderColor: '#2674BA' }}></div>
                   ) : (
-                    analytics?.total_responses ?? study.total_responses
+                    analytics?.total_responses ?? 0
                   )}
                 </div>
                 <div className="text-sm text-gray-600">Total Responses</div>
@@ -430,7 +431,7 @@ export default function StudyManagementPage() {
                   {analyticsLoading ? (
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 mx-auto" style={{ borderColor: '#2674BA' }}></div>
                   ) : (
-                    analytics?.in_progress_responses ?? Math.max(0, (study.total_responses - study.completed_responses - study.abandoned_responses))
+                    analytics?.in_progress_responses ?? 0
                   )}
                 </div>
                 <div className="text-sm text-gray-600">In Progress</div>
@@ -440,7 +441,7 @@ export default function StudyManagementPage() {
                   {analyticsLoading ? (
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 mx-auto" style={{ borderColor: '#2674BA' }}></div>
                   ) : (
-                    analytics?.completed_responses ?? study.completed_responses
+                    analytics?.completed_responses ?? 0
                   )}
                 </div>
                 <div className="text-sm text-gray-600">Completed</div>
@@ -450,7 +451,7 @@ export default function StudyManagementPage() {
                   {analyticsLoading ? (
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 mx-auto" style={{ borderColor: '#2674BA' }}></div>
                   ) : (
-                    analytics?.abandoned_responses ?? study.abandoned_responses
+                    analytics?.abandoned_responses ?? 0
                   )}
                 </div>
                 <div className="text-sm text-gray-600">Abandoned</div>
@@ -497,10 +498,10 @@ export default function StudyManagementPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Main Questions</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Study Elements</label>
                 <input
                   type="text"
-                  value={`${study.elements?.length || study.study_layers?.length || 0} Elements ${study.study_type === "grid" ? "Grid" : "Layer"} Based`}
+                  value={`${(study as any).study_config?.number_of_respondents || 0} Respondents - ${study.study_type === "grid" ? "Grid" : "Layer"} Based Study`}
                   readOnly
                   className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700"
                 />
@@ -509,7 +510,7 @@ export default function StudyManagementPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Classification Questions</label>
                 <input
                   type="text"
-                  value="2 Questions"
+                  value={`${(study as any).classification_questions?.length || 0} Question${((study as any).classification_questions?.length || 0) !== 1 ? 's' : ''}`}
                   readOnly
                   className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700"
                 />
@@ -535,7 +536,7 @@ export default function StudyManagementPage() {
                   {analyticsLoading ? (
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                   ) : (
-                    analytics?.total_responses ?? study.total_responses
+                    analytics?.total_responses ?? 0
                   )}
                 </span>
               </div>
@@ -548,7 +549,7 @@ export default function StudyManagementPage() {
                   {analyticsLoading ? (
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                   ) : (
-                    analytics?.completed_responses ?? study.completed_responses
+                    analytics?.completed_responses ?? 0
                   )}
                 </span>
               </div>
@@ -561,7 +562,7 @@ export default function StudyManagementPage() {
                   {analyticsLoading ? (
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                   ) : (
-                    analytics?.abandoned_responses ?? study.abandoned_responses
+                    analytics?.abandoned_responses ?? 0
                   )}
                 </span>
               </div>
