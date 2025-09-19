@@ -35,7 +35,7 @@ export function LayerStudy() {
       </div>
 
       {/* Bottom dots */}
-      <div className="flex space-x-3 mt-4">
+      <div className="flex space-x-3 mt-10 sm:mt-6">
         {[...Array(6)].map((_, i) => (
           <div key={i} className="w-4 h-4 bg-blue-400/60 rounded-full"></div>
         ))}
