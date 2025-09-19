@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation"
 import { DashboardHeader } from "@/app/home/components/dashboard-header"
 import { AuthGuard } from "@/components/auth/AuthGuard"
 import { getPublicShareDetails } from "@/lib/api/StudyAPI"
-import { Copy, Download, Mail, X, Facebook, Share2 } from "lucide-react"
+import { Copy, Download, Mail, X, Facebook, Share2, ArrowLeft } from "lucide-react"
 
 const BRAND = "#2674BA"
 
@@ -112,10 +112,19 @@ export default function StudySharePage() {
 
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="bg-white rounded-xl shadow-sm border">
-            <div className="px-5 sm:px-8 py-5 border-b" style={{ borderColor: "#E5EEF6" }}>
+            <div className="px-5 sm:px-8 py-5 border-b flex items-center justify-between" style={{ borderColor: "#E5EEF6" }}>
               <h1 className="text-xl font-semibold" style={{ color: BRAND }}>
                 Share Study{shareDetails?.title ? `: ${shareDetails.title}` : ''}
               </h1>
+              <button
+                onClick={() => window.history.length > 1 ? window.history.back() : router.push('/home')}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm"
+                style={{ borderColor: BRAND, color: BRAND }}
+                aria-label="Go back"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back
+              </button>
             </div>
 
             {/* Study Link */}

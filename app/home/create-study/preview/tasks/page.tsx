@@ -273,7 +273,7 @@ export default function TasksPage() {
   const isFinished = totalTasks > 0 && currentTaskIndex >= totalTasks - 1 && lastSelected !== null
 
   return (
-    <div className="min-h-screen lg:bg-white" style={{ paddingTop: 'max(20px, env(safe-area-inset-top))' }}>
+    <div className="min-h-screen  lg:bg-white" style={{ paddingTop: 'max(20px, env(safe-area-inset-top))' }}>
       
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-12 md:pt-14 pb-16">
         {isFetching ? (
@@ -337,7 +337,7 @@ export default function TasksPage() {
                           {task?.gridUrls && task.gridUrls.length > 2 ? (
                             <div className="grid grid-cols-2 gap-3">
                               {task.gridUrls.slice(0, 4).map((url, i) => (
-                                <div key={i} className="aspect-square w-full overflow-hidden rounded-md border">
+                                <div key={i} className="aspect-square w-full overflow-hidden rounded-md">
                                   {/* eslint-disable-next-line @next/next/no-img-element */}
                                   <img
                                     src={url}
@@ -349,7 +349,7 @@ export default function TasksPage() {
                             </div>
                           ) : (
                             <div className="flex flex-col gap-4">
-                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md border">
+                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md">
                                 {task?.leftImageUrl ? (
                                   // eslint-disable-next-line @next/next/no-img-element
                                   <img
@@ -359,7 +359,7 @@ export default function TasksPage() {
                                   />
                                 ) : null}
                               </div>
-                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md border">
+                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md">
                                 {task?.rightImageUrl ? (
                                   // eslint-disable-next-line @next/next/no-img-element
                                   <img
@@ -470,15 +470,15 @@ export default function TasksPage() {
                       if (urls.length <= 2) {
                         return (
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="aspect-[4/3] w-full overflow-hidden rounded-md border">{urls[0] && (<img src={urls[0]} alt="left" className="h-full w-full object-contain" />)}</div>
-                            <div className="aspect-[4/3] w-full overflow-hidden rounded-md border">{urls[1] && (<img src={urls[1]} alt="right" className="h-full w-full object-contain" />)}</div>
+                            <div className="aspect-[4/3] w-full overflow-hidden rounded-md">{urls[0] && (<img src={urls[0]} alt="left" className="h-full w-full object-contain" />)}</div>
+                            <div className="aspect-[4/3] w-full overflow-hidden rounded-md">{urls[1] && (<img src={urls[1]} alt="right" className="h-full w-full object-contain" />)}</div>
                           </div>
                         )
                       }
                       return (
                         <div className={`grid grid-cols-2 gap-4`}>
                           {urls.slice(0,4).map((url, i) => (
-                            <div key={i} className="aspect-[4/3] w-full md:h-[24vh] lg:h-[26vh] overflow-hidden rounded-md border">
+                            <div key={i} className="aspect-[4/3] w-full md:h-[24vh] lg:h-[26vh] overflow-hidden rounded-md">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img src={url as string} alt={`element-${i+1}`} className="h-full w-full object-contain" />
                             </div>

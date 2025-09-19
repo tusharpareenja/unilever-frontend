@@ -61,11 +61,20 @@ export default function TasksPage() {
       const { respondentId } = JSON.parse(sessionRaw || '{}')
       const study = JSON.parse(detailsRaw || '{}')
 
-      setStudyType(study?.study_type)
-      setMainQuestion(String(study?.main_question || ""))
+      // Handle new API response format
+      const studyInfo = study?.study_info || study
+      const assignedTasks = study?.assigned_tasks || []
+      
+      console.log('Tasks page - assignedTasks length:', assignedTasks.length)
+      console.log('Tasks page - assignedTasks:', assignedTasks)
 
-      if (study?.rating_scale) {
-        const rs = study.rating_scale || {}
+      const detectedStudyType = studyInfo?.study_type || study?.study_type
+      console.log('Study type detection:', detectedStudyType)
+      setStudyType(detectedStudyType)
+      setMainQuestion(String(studyInfo?.main_question || study?.main_question || ""))
+
+      if (studyInfo?.rating_scale || study?.rating_scale) {
+        const rs = studyInfo?.rating_scale || study?.rating_scale || {}
         const left = rs.min_label ? `${rs.min_label}` : ""
         const right = rs.max_label ? `${rs.max_label}` : ""
         const middle = rs.middle_label ? `${rs.middle_label}` : ""
@@ -74,36 +83,64 @@ export default function TasksPage() {
         setScaleLabels({ left: "", right: "", middle: "" })
       }
 
-      // Derive respondent tasks from unified study details
-      const tasksObj = study?.tasks || study?.data?.tasks || study?.task_map || study?.task || {}
-      const respondentKey = String(respondentId ?? 0)
-      let respondentTasks: any[] = tasksObj?.[respondentKey] || tasksObj?.[Number(respondentKey)] || []
-      if (!Array.isArray(respondentTasks) || respondentTasks.length === 0) {
-        if (Array.isArray(tasksObj)) {
-          respondentTasks = tasksObj
-        } else if (tasksObj && typeof tasksObj === 'object') {
-          // Pick the first non-empty respondent bucket instead of flattening all
-          for (const [k, v] of Object.entries(tasksObj)) {
-            if (Array.isArray(v) && v.length) { respondentTasks = v as any[]; break }
+      // Use assigned_tasks directly from new API response
+      let userTasks: any[] = []
+      if (Array.isArray(assignedTasks) && assignedTasks.length > 0) {
+        userTasks = assignedTasks
+      } else {
+        // Fallback to old format for backward compatibility
+        const tasksObj = study?.tasks || study?.data?.tasks || study?.task_map || study?.task || {}
+        const respondentKey = String(respondentId ?? 0)
+        let respondentTasks: any[] = tasksObj?.[respondentKey] || tasksObj?.[Number(respondentKey)] || []
+        if (!Array.isArray(respondentTasks) || respondentTasks.length === 0) {
+          if (Array.isArray(tasksObj)) {
+            respondentTasks = tasksObj
+          } else if (tasksObj && typeof tasksObj === 'object') {
+            // Pick the first non-empty respondent bucket instead of flattening all
+            for (const [k, v] of Object.entries(tasksObj)) {
+              if (Array.isArray(v) && v.length) { respondentTasks = v as any[]; break }
+            }
           }
         }
+        userTasks = respondentTasks
       }
 
-      const parsed: Task[] = (Array.isArray(respondentTasks) ? respondentTasks : [])
+      const parsed: Task[] = (Array.isArray(userTasks) ? userTasks : [])
         .map((t: any) => {
-          if ((study?.study_type as string) === 'layer') {
+          if ((studyInfo?.study_type as string) === 'layer') {
             const shown = t?.elements_shown || {}
             const content = t?.elements_shown_content || {}
+            
+            console.log('Layer task parsing - shown:', shown)
+            console.log('Layer task parsing - content:', content)
+            
             const layers = Object.keys(shown)
-              .filter((k) => Number(shown[k]) === 1 && content?.[k]?.url)
-              .map((k) => ({ url: String(content[k].url), z: Number(content[k].z_index ?? 0) }))
+              .filter((k) => {
+                const isShown = Number(shown[k]) === 1
+                const hasContent = content?.[k] && content[k] !== null
+                const hasUrl = hasContent && content[k].url
+                console.log(`Layer ${k}: isShown=${isShown}, hasContent=${hasContent}, hasUrl=${hasUrl}`)
+                return isShown && hasContent && hasUrl
+              })
+              .map((k) => {
+                const layerData = content[k]
+                console.log(`Processing layer ${k}:`, layerData)
+                return { 
+                  url: String(layerData.url), 
+                  z: Number(layerData.z_index ?? 0) 
+                }
+              })
               .sort((a, b) => a.z - b.z)
-            return {
+              
+            console.log('Layer task parsing - layers:', layers)
+            const taskResult = {
               id: String(t?.task_id ?? t?.task_index ?? Math.random()),
               layeredImages: layers,
               _elements_shown: shown,
               _elements_shown_content: content,
             }
+            console.log('Layer task result:', taskResult)
+            return taskResult
           } else {
             const es = t?.elements_shown || {}
             const content = t?.elements_shown_content || {}
@@ -169,6 +206,15 @@ export default function TasksPage() {
           }
         })
 
+      console.log('Tasks page - parsed tasks length:', parsed.length)
+      console.log('Tasks page - parsed tasks:', parsed)
+      
+      // Debug layer tasks specifically
+      if (studyType === 'layer') {
+        console.log('Layer study - checking first task:', parsed[0])
+        console.log('Layer study - first task layeredImages:', parsed[0]?.layeredImages)
+      }
+      
       setTasks(parsed)
       // Preload all task images in background to avoid display jitter
       try {
@@ -498,9 +544,9 @@ export default function TasksPage() {
   const isFinished = totalTasks > 0 && currentTaskIndex >= totalTasks - 1 && lastSelected !== null
 
   return (
-    <div className="min-h-screen lg:bg-white" style={{ paddingTop: 'max(20px, env(safe-area-inset-top))' }}>
+    <div className="h-[100dvh] lg:min-h-screen lg:bg-white overflow-hidden lg:overflow-visible" style={{ paddingTop: 'max(10px, env(safe-area-inset-top))' }}>
       
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-12 md:pt-14 pb-16">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 sm:pt-12 md:pt-14 pb-16">
         {isFetching ? (
           <div className="p-10 text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[rgba(38,116,186,1)] mx-auto mb-4" />
@@ -513,9 +559,9 @@ export default function TasksPage() {
         ) : (
           <>
             {/* Mobile Layout - Exact copy of image */}
-            <div className="lg:hidden flex flex-col h-[calc(100vh-150px)]" style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}>
+            <div className="lg:hidden flex flex-col h-[calc(100vh-150px)] overflow-hidden" style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}>
               {/* Progress Section - Outside white card */}
-              <div className="mb-6">
+              <div className="mb-0">
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-base font-medium text-gray-800 truncate pr-3">{mainQuestion || `Question ${Math.min(currentTaskIndex + 1, totalTasks)}`}</div>
                   <div className="text-base font-semibold text-[rgba(38,116,186,1)]">
@@ -543,9 +589,9 @@ export default function TasksPage() {
                 ) : (
                   <>
                     {/* Image Section - Centered in middle */}
-                    <div className="flex-1 flex items-center justify-center">
+                    <div className="flex-1 flex items-center justify-center pb-2">
                       {studyType === 'layer' ? (
-                        <div className="relative w-full h-[65vh] max-w-none overflow-hidden rounded-md">
+                        <div className="relative w-full max-w-none overflow-hidden rounded-md h-[60vh]">
                           {task?.layeredImages?.map((img, idx) => (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
@@ -558,9 +604,9 @@ export default function TasksPage() {
                           ))}
                         </div>
                       ) : (
-                        <div className="w-full max-w-lg">
+                        <div className="w-full max-w-full overflow-hidden max-h-[60vh]">
                           {task?.gridUrls && task.gridUrls.length > 2 ? (
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-2 gap-3 w-full overflow-hidden place-items-center">
                               {task.gridUrls.slice(0, 4).map((url, i) => (
                                 <div key={i} className="aspect-square w-full overflow-hidden rounded-md">
                                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -573,8 +619,8 @@ export default function TasksPage() {
                               ))}
                             </div>
                           ) : (
-                            <div className="flex flex-col gap-4">
-                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md">
+                            <div className="flex flex-col gap-3">
+                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md max-h-[25vh]">
                                 {task?.leftImageUrl ? (
                                   // eslint-disable-next-line @next/next/no-img-element
                                   <img
@@ -584,7 +630,7 @@ export default function TasksPage() {
                                   />
                                 ) : null}
                               </div>
-                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md">
+                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md max-h-[30vh]">
                                 {task?.rightImageUrl ? (
                                   // eslint-disable-next-line @next/next/no-img-element
                                   <img
@@ -609,7 +655,7 @@ export default function TasksPage() {
                     )}
 
                     {/* Rating Scale - Bottom with iOS safe area padding */}
-                    <div className="mt-6 pb-6" style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}>
+                    <div className="mt-1 pb-4" style={{ paddingBottom: 'max(10px, env(safe-area-inset-bottom))' }}>
                       <div className="flex items-center justify-center">
                         <div className="flex items-center gap-5">
                           {[1, 2, 3, 4, 5].map((n) => {

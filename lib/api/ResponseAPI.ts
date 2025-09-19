@@ -171,6 +171,30 @@ export async function startStudy(studyId: string): Promise<StartStudyResponse> {
 }
 
 /**
+ * Get respondent-specific study details
+ * @param respondentId - The respondent ID
+ * @param studyId - The study ID
+ * @returns Promise with study details, tasks, and classification questions for the specific respondent
+ */
+export async function getRespondentStudyDetails(respondentId: string, studyId: string): Promise<any> {
+	const response = await fetch(`${API_BASE_URL}/responses/respondent/${respondentId}/study/${studyId}/info?limit=1000`, {
+		method: 'GET',
+		headers: {
+			'Content-Type': 'application/json',
+		},
+	})
+
+	if (!response.ok) {
+		const errorData = await response.json().catch(() => ({}))
+		throw new Error(`Failed to get respondent study details: ${response.status} ${JSON.stringify(errorData)}`)
+	}
+
+	const data = await response.json()
+	console.log('Respondent study details:', data)
+	return data
+}
+
+/**
  * Submit study responses
  * @param payload - Response data including session info and task responses
  * @returns Promise with submission result

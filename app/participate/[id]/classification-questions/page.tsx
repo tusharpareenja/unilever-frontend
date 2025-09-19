@@ -38,7 +38,7 @@ export default function ClassificationQuestionsPage() {
               text: q.question_text || q.text,
               options: q.answer_options?.map((opt: any) => ({ id: opt.id, text: opt.text })) || [],
               selected: null,
-              required: q.is_required !== false
+              required: q.is_required === "Y" || q.is_required === true || q.is_required === "true"
             }))
             setQuestions(formattedQuestions)
             const timers: Record<string, number> = {}

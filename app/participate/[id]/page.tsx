@@ -3,7 +3,7 @@
 import { useParams, useRouter } from "next/navigation"
 import { useMemo, useRef, useState, useEffect } from "react"
 import { DashboardHeader } from "@/app/home/components/dashboard-header"
-import { startStudy } from "@/lib/api/ResponseAPI"
+import { startStudy, getRespondentStudyDetails } from "@/lib/api/ResponseAPI"
 import { getStudyDetailsWithoutAuth, getStudyDetailsForStart } from "@/lib/api/StudyAPI"
 
 export default function ParticipateIntroPage() {
@@ -107,10 +107,26 @@ export default function ParticipateIntroPage() {
         totalTasks: response.total_tasks_assigned
       }))
 
-      // Store filtered study details containing only this respondent's tasks
+      // Get respondent-specific study details using the new API
       try {
+        const respondentDetails = await getRespondentStudyDetails(String(response.respondent_id), params.id)
+        console.log('Respondent study details received:', respondentDetails)
+        
+        // Store only the essential data to avoid localStorage quota issues
+        const essentialData = {
+          study_info: respondentDetails?.study_info || respondentDetails,
+          assigned_tasks: respondentDetails?.assigned_tasks || [],
+          classification_questions: respondentDetails?.classification_questions || []
+        }
+        
+        console.log('Participate intro - assigned_tasks length:', essentialData.assigned_tasks.length)
+        console.log('Participate intro - assigned_tasks:', essentialData.assigned_tasks)
+        
+        localStorage.setItem('current_study_details', JSON.stringify(essentialData))
+      } catch (e) {
+        console.error('Failed to get respondent study details:', e)
+        // Fallback to old method if new API fails
         if (studyDetails) {
-          const filtered = JSON.parse(JSON.stringify(studyDetails))
           const tasksSrc: any = studyDetails?.tasks || studyDetails?.data?.tasks || studyDetails?.task_map || studyDetails?.task || {}
           let userTasks: any[] = []
           if (Array.isArray(tasksSrc)) {
@@ -123,25 +139,29 @@ export default function ParticipateIntroPage() {
               for (const v of Object.values(tasksSrc)) { if (Array.isArray(v) && v.length) { userTasks = v; break } }
             }
           }
-          // Write back only into the same location the tasks were found
-          if (studyDetails?.tasks) {
-            filtered.tasks = userTasks
-          } else if (studyDetails?.data?.tasks) {
-            if (!filtered.data) filtered.data = {}
-            filtered.data.tasks = userTasks
-          } else if (studyDetails?.task_map) {
-            filtered.task_map = userTasks
-          } else if (studyDetails?.task) {
-            filtered.task = userTasks
+          
+          // Store only essential data to avoid localStorage quota issues
+          // Preserve existing classification_questions if they exist
+          const existingData = localStorage.getItem('current_study_details')
+          const existingClassificationQuestions = existingData ? JSON.parse(existingData)?.classification_questions || [] : []
+          
+          const essentialData = {
+            study_info: {
+              study_type: studyDetails?.study_type,
+              main_question: studyDetails?.main_question,
+              orientation_text: studyDetails?.orientation_text,
+              rating_scale: studyDetails?.rating_scale
+            },
+            assigned_tasks: userTasks,
+            classification_questions: existingClassificationQuestions
           }
+          
           try {
-            localStorage.setItem('current_study_details', JSON.stringify(filtered))
+            localStorage.setItem('current_study_details', JSON.stringify(essentialData))
           } catch (e) {
             console.warn('Failed to store filtered study details:', e)
           }
         }
-      } catch (e) {
-        console.warn('Post-start filtering failed:', e)
       }
 
       // Navigate only after session and (if present) details are stored
@@ -153,7 +173,6 @@ export default function ParticipateIntroPage() {
           const details: any = await getStudyDetailsForStart(params.id)
           if (!details) return
           
-          const filtered = JSON.parse(JSON.stringify(details))
           const tasksSrc: any = details?.tasks || details?.data?.tasks || details?.task_map || details?.task || {}
           let userTasks: any[] = []
           
@@ -172,19 +191,24 @@ export default function ParticipateIntroPage() {
             }
           }
           
-          if (details?.tasks) {
-            filtered.tasks = userTasks
-          } else if (details?.data?.tasks) {
-            if (!filtered.data) filtered.data = {}
-            filtered.data.tasks = userTasks
-          } else if (details?.task_map) {
-            filtered.task_map = userTasks
-          } else if (details?.task) {
-            filtered.task = userTasks
+          // Store only essential data to avoid localStorage quota issues
+          // Preserve existing classification_questions if they exist
+          const existingData = localStorage.getItem('current_study_details')
+          const existingClassificationQuestions = existingData ? JSON.parse(existingData)?.classification_questions || [] : []
+          
+          const essentialData = {
+            study_info: {
+              study_type: details?.study_type,
+              main_question: details?.main_question,
+              orientation_text: details?.orientation_text,
+              rating_scale: details?.rating_scale
+            },
+            assigned_tasks: userTasks,
+            classification_questions: existingClassificationQuestions
           }
           
           try {
-            localStorage.setItem('current_study_details', JSON.stringify(filtered))
+            localStorage.setItem('current_study_details', JSON.stringify(essentialData))
           } catch (e) {
             console.warn('Failed to store filtered study details:', e)
           }

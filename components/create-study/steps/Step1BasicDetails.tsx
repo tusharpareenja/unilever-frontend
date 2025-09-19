@@ -63,10 +63,11 @@ export function Step1BasicDetails({ onNext, onCancel, onDataChange }: Step1Basic
           <label className="block text-sm font-semibold text-gray-800 mb-2">Language <span className="text-red-500">*</span></label>
           <Input
             value={language}
-            onChange={(e) => setLanguage(e.target.value)}
+            readOnly
             className="rounded-lg"
           />
-          <p className="mt-2 text-xs text-gray-500">Provide context about your study (max 2000 characters)</p>
+
+          {/* <p className="mt-2 text-xs text-gray-500">Provide context about your study (max 2000 characters)</p> */}
         </div>
 
         <div className="flex items-start sm:items-center gap-2">

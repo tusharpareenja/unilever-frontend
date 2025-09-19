@@ -189,7 +189,7 @@ export default function ThankYouPage() {
               <li className="flex items-start">
                 <span className="text-gray-400 mr-2">•</span>
                 <span>
-                  We have successfully received your responses for the study "{studyName}". 
+                  We have successfully received your responses for the study. 
                   Your participation is greatly appreciated and will contribute valuable insights to our research.
                 </span>
               </li>

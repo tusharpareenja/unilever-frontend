@@ -67,7 +67,7 @@ export default function PreviewPersonalInformation() {
           <div className="mt-6">
             <div className="text-sm font-semibold text-gray-800 mb-2">Gender</div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {['male','female','other','na'].map(g => (
+              {['Male','Female','Other','Prefer not to say'].map(g => (
                 <button key={g} onClick={()=>setGender(g)} className={`w-full h-11 rounded-md border text-sm ${gender===g? 'bg-[rgba(38,116,186,1)] text-white border-[rgba(38,116,186,1)]':'bg-white text-gray-700 border-gray-200 hover:border-gray-300'}`}>{g}</button>
               ))}
             </div>

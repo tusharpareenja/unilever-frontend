@@ -37,17 +37,22 @@ export function DashboardHeader() {
       className="bg-white border-b border-[rgba(209,223,235,1)] px-4 sm:px-6 lg:px-8"
     >
       <div className="max-w-7xl mx-auto flex items-center justify-between h-16">
-        {/* Logo */}
-        <div className="flex items-center">
+
+        <Link href="/home">
+         {/* Logo */}
+         <div className="flex items-center">
           <motion.div whileHover={{ scale: 1.05 }} className="text-2xl font-bold">
             <span className="text-green-600">Ui</span>
             <span className="text-gray-800">Study</span>
           </motion.div>
         </div>
+        
+        </Link>
+       
 
         {/* Right side */}
         <div className="flex items-center space-x-4">
-          {showBackToHome && (
+          {/* {showBackToHome && (
             <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
               <Button variant="outline" className="px-3 py-2 rounded-lg flex items-center space-x-2">
                 <ArrowLeft className="w-4 h-4" />
@@ -57,7 +62,7 @@ export function DashboardHeader() {
                 </Link>
               </Button>
             </motion.div>
-          )}
+          )} */}
           <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
           <Link href="/home/create-study">
             <Button className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] text-white px-4 py-2 rounded-lg flex items-center space-x-2">

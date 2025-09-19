@@ -1,10 +1,11 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { AuthGuard } from "@/components/auth/AuthGuard"
 import { DashboardHeader } from "../../../components/dashboard-header"
 import { getStudyResponses, type StudyResponseItem, downloadStudyResponsesCsv } from "@/lib/api/ResponseAPI"
+import Link from "next/link"
 
 const PAGE_SIZE = 10
 
@@ -22,9 +23,12 @@ export default function StudyResponsesPage() {
   const [completionFilter, setCompletionFilter] = useState<string>("all")
   const [page, setPage] = useState<number>(Number(searchParams.get("page") || 1))
   const [exporting, setExporting] = useState(false)
+  const hasFetchedRef = useRef(false)
 
   useEffect(() => {
-    if (!studyId) return
+    if (!studyId || hasFetchedRef.current) return
+    hasFetchedRef.current = true
+
     let isCancelled = false
     const run = async () => {
       try {
@@ -128,7 +132,14 @@ export default function StudyResponsesPage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
-                <div className="text-sm text-blue-200">Dashboard / Studies / Grid Study</div>
+                <div className="text-sm text-blue-200">
+
+                  <Link href="/home" className="text-blue-200"><span className="text-blue-200">Dashboard</span></Link>
+                  <span className="mx-2">/</span>
+                  <Link href= {`/home/study/${studyId}`} className="text-blue-200"><span className="text-blue-200">Studies</span></Link>
+                  <span className="mx-2">/</span>
+                  <span className="text-white">Grid Study</span>
+                </div>
                 <h1 className="text-2xl font-bold">Study Responses</h1>
                 <p className="text-blue-100 text-sm">Analyze and export response data</p>
               </div>
