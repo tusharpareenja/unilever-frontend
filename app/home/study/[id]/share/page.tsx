@@ -36,9 +36,9 @@ export default function StudySharePage() {
           window.sessionStorage.setItem(`share_url_${studyId}`, details.share_url)
         }
         
-      } catch (e: any) {
+      } catch (e: unknown) {
         console.error("Error loading share page:", e)
-        setError(e?.message || "Failed to load study")
+        setError((e as Error)?.message || "Failed to load study")
       } finally {
         setLoading(false)
       }

@@ -25,8 +25,8 @@ export default function ResponseDetailsPage() {
         setError(null)
         const res = await getResponseSessionDetails(sessionId)
         if (!cancel) setData(res)
-      } catch (e: any) {
-        if (!cancel) setError(e?.message || "Failed to load session details")
+      } catch (e: unknown) {
+        if (!cancel) setError((e as Error)?.message || "Failed to load session details")
       } finally {
         if (!cancel) setLoading(false)
       }
@@ -139,7 +139,7 @@ export default function ResponseDetailsPage() {
                             {(t.task_type === 'grid' || (!!t.elements_shown_in_task || !!t.elements_shown || !!t.elements_shown_content)) && (
                               (() => {
                                 // Build list of URLs for grid tasks
-                                let list: Array<{ url: string; name?: string; alt_text?: string }> = []
+                                const list: Array<{ url: string; name?: string; alt_text?: string }> = []
 
                                 // Case 1: elements_shown_content is an object of strings or objects
                                 if (t.elements_shown_content && typeof t.elements_shown_content === 'object') {

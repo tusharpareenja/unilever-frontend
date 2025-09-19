@@ -66,26 +66,26 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
                 router.push('/home')
               }, 1000)
               
-            } catch (err: any) {
+            } catch (err: unknown) {
               let message = "Login failed."
               
-              if (err?.data?.detail) {
+              if ((err as any)?.data?.detail) {
                 // Handle different error formats
-                if (typeof err.data.detail === 'string') {
-                  message = err.data.detail
-                } else if (Array.isArray(err.data.detail)) {
+                if (typeof (err as any).data.detail === 'string') {
+                  message = (err as any).data.detail
+                } else if (Array.isArray((err as any).data.detail)) {
                   // Handle validation errors array
-                  message = err.data.detail.map((error: any) => {
+                  message = (err as any).data.detail.map((error: Record<string, unknown>) => {
                     if (typeof error === 'string') return error
                     if (typeof error === 'object') return error.msg || error.message || JSON.stringify(error)
                     return String(error)
                   }).join(', ')
-                } else if (typeof err.data.detail === 'object') {
+                } else if (typeof (err as any).data.detail === 'object') {
                   // Handle object errors
-                  message = err.data.detail.message || err.data.detail.msg || 'Validation error occurred'
+                  message = (err as any).data.detail.message || (err as any).data.detail.msg || 'Validation error occurred'
                 }
-              } else if (err?.message) {
-                message = err.message
+              } else if ((err as Error)?.message) {
+                message = (err as Error).message
               }
               
               setErrorMessage(message)
@@ -194,7 +194,7 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
           </div>
 
           <div className="text-center mt-6">
-            <span className="text-gray-600">Don't have an account ? </span>
+            <span className="text-gray-600">Don&apos;t have an account ? </span>
             <button type="button" onClick={onSwitchToRegister} className="text-blue-600 hover:underline font-medium">
               Sign up
             </button>

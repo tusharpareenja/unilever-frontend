@@ -18,7 +18,7 @@ type Task = {
 }
 
 export default function TasksPage() {
-  // const params = useParams<{ id: string }>()
+  const params = useParams<{ id: string }>()
   const router = useRouter()
 
   // Load tasks from localStorage study details using respondentId
@@ -235,15 +235,14 @@ export default function TasksPage() {
         unique.forEach((u) => preloadedUrlsRef.current.add(u))
         unique.forEach((src) => {
           const img = new Image()
-          img.decoding = 'async'
-          // @ts-ignore
-          img.referrerPolicy = 'no-referrer'
+          ;(img as any).decoding = 'async'
+          ;(img as any).referrerPolicy = 'no-referrer'
           img.src = src
         })
       } catch {}
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to load tasks from localStorage:', err)
-      setFetchError(err?.message || 'Failed to load tasks')
+      setFetchError((err as Error)?.message || 'Failed to load tasks')
     } finally {
       setIsFetching(false)
     }
@@ -530,7 +529,7 @@ export default function TasksPage() {
       }
       // Run final flush, but still navigate quickly
       try { void doFinish() } catch {}
-      setTimeout(() => router.push(`/participate/${useParams().id}/thank-you`), 200)
+      setTimeout(() => router.push(`/participate/${params.id}/thank-you`), 200)
     }
   }
 
@@ -541,7 +540,7 @@ export default function TasksPage() {
 
   const task = tasks[currentTaskIndex]
 
-  const isFinished = totalTasks > 0 && currentTaskIndex >= totalTasks - 1 && lastSelected !== null
+  // const isFinished = totalTasks > 0 && currentTaskIndex >= totalTasks - 1 && lastSelected !== null
 
   return (
     <div className="h-[100dvh] lg:min-h-screen lg:bg-white overflow-hidden lg:overflow-visible" style={{ paddingTop: 'max(10px, env(safe-area-inset-top))' }}>

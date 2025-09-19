@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from "next/navigation"
 import { useMemo, useRef, useState, useEffect } from "react"
-import { DashboardHeader } from "@/app/home/components/dashboard-header"
+// import { DashboardHeader } from "@/app/home/components/dashboard-header"
 import { startStudy, getRespondentStudyDetails } from "@/lib/api/ResponseAPI"
 import { getStudyDetailsWithoutAuth, getStudyDetailsForStart } from "@/lib/api/StudyAPI"
 
@@ -58,7 +58,7 @@ export default function ParticipateIntroPage() {
               })
             })
           }
-          Array.from(urls).forEach((src) => { try { const img = new Image(); img.decoding = 'async'; /* @ts-ignore */ img.referrerPolicy = 'no-referrer'; img.src = src } catch {} })
+          Array.from(urls).forEach((src) => { try { const img = new Image(); (img as any).decoding = 'async'; (img as any).referrerPolicy = 'no-referrer'; img.src = src } catch {} })
         } catch {}
       } catch (error) {
         console.error('Failed to fetch study details:', error)

@@ -137,9 +137,8 @@ export default function ClassificationQuestionsPage() {
       unique.forEach((u) => preloadedUrlsRef.current.add(u))
       unique.forEach((src) => {
         const img = new Image()
-        img.decoding = 'async'
-        // @ts-ignore
-        img.referrerPolicy = 'no-referrer'
+        ;(img as any).decoding = 'async'
+        ;(img as any).referrerPolicy = 'no-referrer'
         img.src = src
       })
     } catch (e) {

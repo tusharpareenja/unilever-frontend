@@ -31,8 +31,8 @@ export default function StudyResponsesPage() {
       setError(null)
       const res = await getStudyResponses(studyId, 100, 0)
       setItems(res.results || [])
-    } catch (e: any) {
-      setError(e?.message || "Failed to load responses")
+    } catch (e: unknown) {
+      setError((e as Error)?.message || "Failed to load responses")
     } finally {
       setLoading(false)
     }

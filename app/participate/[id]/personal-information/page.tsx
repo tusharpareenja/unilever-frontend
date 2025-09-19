@@ -1,13 +1,13 @@
 "use client"
 
 import { useParams, useRouter } from "next/navigation"
-import { DashboardHeader } from "@/app/home/components/dashboard-header"
+// import { DashboardHeader } from "@/app/home/components/dashboard-header"
 import { useState, useEffect, useRef } from "react"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
 import { CalendarIcon } from "lucide-react"
 import { format } from "date-fns"
-import Link from "next/link"
+// import Link from "next/link"
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import { DateCalendar } from '@mui/x-date-pickers/DateCalendar'
@@ -108,9 +108,8 @@ export default function PersonalInformationPage() {
       unique.forEach((u) => preloadedUrlsRef.current.add(u))
       unique.forEach((src) => {
         const img = new Image()
-        img.decoding = 'async'
-        // @ts-ignore
-        img.referrerPolicy = 'no-referrer'
+        ;(img as any).decoding = 'async'
+        ;(img as any).referrerPolicy = 'no-referrer'
         img.src = src
       })
     } catch (e) {
@@ -280,7 +279,7 @@ export default function PersonalInformationPage() {
               </Popover>
             </div>
             <p className="mt-2 text-xs text-gray-500">
-              Please enter your birth date. We'll calculate your age automatically.
+              Please enter your birth date. We&apos;ll calculate your age automatically.
             </p>
             {ageError && (
               <div className="mt-2 text-xs text-red-600">{ageError}</div>

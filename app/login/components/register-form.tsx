@@ -74,23 +74,23 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
                 router.push('/home')
               }, 1000)
               
-            } catch (err: any) {
+            } catch (err: unknown) {
               console.error('Registration error:', err)
               let message = "Registration failed."
               
-              if (err?.data?.detail) {
+              if ((err as any)?.data?.detail) {
                 // Handle different error formats
-                if (typeof err.data.detail === 'string') {
-                  message = err.data.detail
-                } else if (Array.isArray(err.data.detail)) {
+                if (typeof (err as any).data.detail === 'string') {
+                  message = (err as any).data.detail
+                } else if (Array.isArray((err as any).data.detail)) {
                   // Handle validation errors array
-                  message = err.data.detail.map((error: any) => error.msg || error.message || error).join(', ')
-                } else if (typeof err.data.detail === 'object') {
+                  message = (err as any).data.detail.map((error: Record<string, unknown>) => error.msg || error.message || error).join(', ')
+                } else if (typeof (err as any).data.detail === 'object') {
                   // Handle object errors
-                  message = err.data.detail.message || err.data.detail.msg || JSON.stringify(err.data.detail)
+                  message = (err as any).data.detail.message || (err as any).data.detail.msg || JSON.stringify((err as any).data.detail)
                 }
-              } else if (err?.message) {
-                message = err.message
+              } else if ((err as Error)?.message) {
+                message = (err as Error).message
               }
               
               setErrorMessage(message)

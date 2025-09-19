@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ChevronDown, Plus, LogOut } from "lucide-react"
 import { useAuth } from "@/lib/auth/AuthContext"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+// import { usePathname } from "next/navigation"
 
 export function DashboardHeader() {
   const { user, logout } = useAuth()

@@ -1,6 +1,6 @@
 "use client"
 
-import { useParams, useRouter } from "next/navigation"
+import { useRouter } from "next/navigation"
 // import { DashboardHeader } from "@/app/home/components/dashboard-header"
 import { useEffect, useState } from "react"
 import { CheckCircle, Home, X } from "lucide-react"

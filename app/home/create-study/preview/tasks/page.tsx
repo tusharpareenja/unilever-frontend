@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useRouter } from "next/navigation"
 // Preview mode: no API calls, no persistence
 
 type Task = {
@@ -198,15 +198,14 @@ export default function TasksPage() {
         unique.forEach((u) => preloadedUrlsRef.current.add(u))
         unique.forEach((src) => {
           const img = new Image()
-          img.decoding = 'async'
-          // @ts-ignore
-          img.referrerPolicy = 'no-referrer'
+          ;(img as any).decoding = 'async'
+          ;(img as any).referrerPolicy = 'no-referrer'
           img.src = src
         })
       } catch {}
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to load tasks from localStorage:', err)
-      setFetchError(err?.message || 'Failed to load tasks')
+      setFetchError((err as Error)?.message || 'Failed to load tasks')
     } finally {
       setIsFetching(false)
     }
@@ -214,7 +213,7 @@ export default function TasksPage() {
 
   const totalTasks = tasks.length
   const [currentTaskIndex, setCurrentTaskIndex] = useState(0)
-  const [responseTimesSec, setResponseTimesSec] = useState<number[]>([])
+  // const [responseTimesSec, setResponseTimesSec] = useState<number[]>([])
   const taskStartRef = useRef<number>(Date.now())
   const [lastSelected, setLastSelected] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -231,6 +230,7 @@ export default function TasksPage() {
   }, [currentTaskIndex])
 
   const enqueueTask = (_rating: number) => {
+    // Preview mode - no actual submission
     // Preview mode: no-op (do not store or send anything)
   }
 
@@ -243,11 +243,11 @@ export default function TasksPage() {
 
     const elapsedMs = Date.now() - taskStartRef.current
     const seconds = Number((elapsedMs / 1000).toFixed(3))
-    setResponseTimesSec((prev) => {
-      const next = [...prev]
-      next[currentTaskIndex] = seconds
-      return next
-    })
+    // setResponseTimesSec((prev) => {
+    //   const next = [...prev]
+    //   next[currentTaskIndex] = seconds
+    //   return next
+    // })
     setLastSelected(value)
 
     // Do not persist any timing info in preview
@@ -270,7 +270,7 @@ export default function TasksPage() {
 
   const task = tasks[currentTaskIndex]
 
-  const isFinished = totalTasks > 0 && currentTaskIndex >= totalTasks - 1 && lastSelected !== null
+  // const isFinished = totalTasks > 0 && currentTaskIndex >= totalTasks - 1 && lastSelected !== null
 
   return (
     <div className="h-[100dvh] lg:min-h-screen lg:bg-white overflow-hidden lg:overflow-visible" style={{ paddingTop: 'max(10px, env(safe-area-inset-top))' }}>

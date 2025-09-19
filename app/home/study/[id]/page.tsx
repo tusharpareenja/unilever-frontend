@@ -4,9 +4,9 @@ import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { DashboardHeader } from "../../components/dashboard-header"
 import { AuthGuard } from "@/components/auth/AuthGuard"
-import { getPrivateStudyDetails, updateStudyStatus, putUpdateStudy, StudyDetails, getStudyBasicDetails } from "@/lib/api/StudyAPI"
-import { getStudyAnalytics, StudyAnalytics, downloadStudyResponsesCsv, subscribeStudyAnalytics } from "@/lib/api/ResponseAPI"
-import { Pause, Play, CheckCircle, Share, Eye, Download, BarChart3, ArrowLeft } from "lucide-react"
+import { updateStudyStatus, putUpdateStudy, StudyDetails, getStudyBasicDetails } from "@/lib/api/StudyAPI"
+import { StudyAnalytics, downloadStudyResponsesCsv, subscribeStudyAnalytics } from "@/lib/api/ResponseAPI"
+import { Pause, Play, CheckCircle, Share, Download, BarChart3, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 
 export default function StudyManagementPage() {
@@ -69,31 +69,31 @@ export default function StudyManagementPage() {
       const studyData = await getStudyBasicDetails(studyId)
       setStudy(studyData)
       try { localStorage.setItem(STUDY_CACHE_KEY, JSON.stringify(studyData)) } catch {}
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to load study details:", err)
-      if (err.status === 403) {
+      if ((err as any)?.status === 403) {
         setError("You don't have permission to view this study")
         router.push('/home/studies')
       } else {
-        setError(err.message || "Failed to load study details")
+        setError((err as Error)?.message || "Failed to load study details")
       }
     } finally {
       setLoading(false)
     }
   }
 
-  const loadAnalytics = async () => {
-    try {
-      setAnalyticsLoading(true)
-      const analyticsData = await getStudyAnalytics(studyId)
-      setAnalytics(analyticsData)
-    } catch (err: any) {
-      console.error("Failed to load analytics:", err)
-      // Don't show error to user, analytics is optional
-    } finally {
-      setAnalyticsLoading(false)
-    }
-  }
+  // const loadAnalytics = async () => {
+  //   try {
+  //     setAnalyticsLoading(true)
+  //     const analyticsData = await getStudyAnalytics(studyId)
+  //     setAnalytics(analyticsData)
+  //   } catch (err: unknown) {
+  //     console.error("Failed to load analytics:", err)
+  //     // Don't show error to user, analytics is optional
+  //   } finally {
+  //     setAnalyticsLoading(false)
+  //   }
+  // }
 
   const handleStatusUpdate = async (newStatus: "active" | "paused" | "completed") => {
     if (!study) return
@@ -108,7 +108,7 @@ export default function StudyManagementPage() {
       try {
         const updatedStudy = await putUpdateStudy(studyId, { status: newStatus })
         setStudy(updatedStudy)
-      } catch (err: any) {
+      } catch (err: unknown) {
         // Fallback: some servers disallow PUT when active; try PATCH status update
         try {
           const patched = await updateStudyStatus(studyId, newStatus)
@@ -117,15 +117,15 @@ export default function StudyManagementPage() {
           console.error("PUT then PATCH status update failed:", err, err2)
           // Revert optimistic change on failure
           setStudy((prev) => (prev ? { ...prev, status: oldStatus } : prev))
-          setError((err2 && err2.message) || (err && err.message) || "Failed to update study status")
+          setError((err2 && (err2 as any).message) || ((err as any) && (err as any).message) || "Failed to update study status")
         }
         return
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to update study status:", err)
       // Revert optimistic change on failure
       setStudy((prev) => (prev ? { ...prev, status: study.status } : prev))
-      setError(err.message || "Failed to update study status")
+      setError((err as Error)?.message || "Failed to update study status")
     } finally {
       setUpdating(false)
     }
@@ -154,7 +154,7 @@ export default function StudyManagementPage() {
   const getActionButton = () => {
     if (!study) return null
 
-    const isDraftOrPaused = study.status === "draft" || study.status === "paused"
+    // const isDraftOrPaused = study.status === "draft" || study.status === "paused"
     const isActive = study.status === "active"
     const isCompleted = study.status === "completed"
 
@@ -204,12 +204,12 @@ export default function StudyManagementPage() {
     return "0.0%"
   }
 
-  const getAbandonmentRate = () => {
-    if (analytics) {
-      return analytics.abandonment_rate.toFixed(1) + "%"
-    }
-    return "0.0%"
-  }
+  // const getAbandonmentRate = () => {
+  //   if (analytics) {
+  //     return analytics.abandonment_rate.toFixed(1) + "%"
+  //   }
+  //   return "0.0%"
+  // }
 
   const getAverageDuration = () => {
     if (analytics && analytics.average_duration > 0) {

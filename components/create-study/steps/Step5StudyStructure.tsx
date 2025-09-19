@@ -674,7 +674,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
           ))}
 
           {layers.length === 0 && (
-            <div className="text-sm text-gray-500">No layers added yet. Click "Add New Layer" to begin.</div>
+            <div className="text-sm text-gray-500">No layers added yet. Click &quot;Add New Layer&quot; to begin.</div>
           )}
         </div>
       </div>

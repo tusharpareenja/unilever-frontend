@@ -1,12 +1,12 @@
 "use client"
 
-import { useParams, useRouter } from "next/navigation"
-import { DashboardHeader } from "@/app/home/components/dashboard-header"
+import { useRouter } from "next/navigation"
+// import { DashboardHeader } from "@/app/home/components/dashboard-header"
 import { useEffect, useState } from "react"
 import { CheckCircle, Home, X } from "lucide-react"
 
 export default function ThankYouPage() {
-  const params = useParams<{ id: string }>()
+  // const params = useParams<{ id: string }>()
   const router = useRouter()
   const [responseTimes, setResponseTimes] = useState<Record<string, number>>({})
   const [completionTime, setCompletionTime] = useState<string>("")
@@ -27,10 +27,10 @@ export default function ThankYouPage() {
         const queueRaw = localStorage.getItem('task_submit_queue')
         if (!sessionRaw || !queueRaw) return
         const { sessionId } = JSON.parse(sessionRaw)
-        const q: any[] = JSON.parse(queueRaw)
+        const q: unknown[] = JSON.parse(queueRaw)
         if (!sessionId || !Array.isArray(q) || q.length === 0) return
 
-        const tasks = q.map((it) => ({
+        const tasks = q.map((it: any) => ({
           task_id: it.task_id,
           rating_given: it.rating_given,
           task_duration_seconds: it.task_duration_seconds,
