@@ -25,26 +25,36 @@ export default function StudyResponsesPage() {
   const [exporting, setExporting] = useState(false)
   const hasFetchedRef = useRef(false)
 
+  const fetchResponses = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const res = await getStudyResponses(studyId, 100, 0)
+      setItems(res.results || [])
+    } catch (e: any) {
+      setError(e?.message || "Failed to load responses")
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
     if (!studyId || hasFetchedRef.current) return
     hasFetchedRef.current = true
-
-    let isCancelled = false
-    const run = async () => {
-      try {
-        setLoading(true)
-        setError(null)
-        const res = await getStudyResponses(studyId, 100, 0)
-        if (!isCancelled) setItems(res.results || [])
-      } catch (e: any) {
-        if (!isCancelled) setError(e?.message || "Failed to load responses")
-      } finally {
-        if (!isCancelled) setLoading(false)
-      }
-    }
-    run()
-    return () => { isCancelled = true }
+    fetchResponses()
   }, [studyId])
+
+  // Fallback: if first attempt loaded no items (e.g., auth not ready), retry once on visibility/focus
+  useEffect(() => {
+    const onFocus = () => { if (!loading && items.length === 0) fetchResponses() }
+    const onVisibility = () => { if (document.visibilityState === 'visible' && !loading && items.length === 0) fetchResponses() }
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [loading, items.length, studyId])
 
   // Filter + search in-memory for snappy UX
   const filtered = useMemo(() => {

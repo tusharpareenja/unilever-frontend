@@ -273,9 +273,9 @@ export default function TasksPage() {
   const isFinished = totalTasks > 0 && currentTaskIndex >= totalTasks - 1 && lastSelected !== null
 
   return (
-    <div className="min-h-screen  lg:bg-white" style={{ paddingTop: 'max(20px, env(safe-area-inset-top))' }}>
+    <div className="h-[100dvh] lg:min-h-screen lg:bg-white overflow-hidden lg:overflow-visible" style={{ paddingTop: 'max(10px, env(safe-area-inset-top))' }}>
       
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-12 md:pt-14 pb-16">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 sm:pt-12 md:pt-14 pb-16">
         {isFetching ? (
           <div className="p-10 text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[rgba(38,116,186,1)] mx-auto mb-4" />
@@ -288,9 +288,9 @@ export default function TasksPage() {
         ) : (
           <>
             {/* Mobile Layout - Exact copy of image */}
-            <div className="lg:hidden flex flex-col h-[calc(100vh-150px)]" style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}>
+            <div className="lg:hidden flex flex-col h-[calc(100vh-150px)] overflow-hidden" style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}>
               {/* Progress Section - Outside white card */}
-              <div className="mb-6">
+              <div className="mb-0">
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-base font-medium text-gray-800 truncate pr-3">{mainQuestion || `Question ${Math.min(currentTaskIndex + 1, totalTasks)}`}</div>
                   <div className="text-base font-semibold text-[rgba(38,116,186,1)]">
@@ -320,7 +320,7 @@ export default function TasksPage() {
                     {/* Image Section - Centered in middle */}
                     <div className="flex-1 flex items-center justify-center">
                       {studyType === 'layer' ? (
-                        <div className="relative w-full h-[65vh] max-w-none overflow-hidden rounded-md">
+                        <div className="relative w-full max-w-none overflow-hidden rounded-md h-[60vh]">
                           {task?.layeredImages?.map((img, idx) => (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
@@ -333,9 +333,9 @@ export default function TasksPage() {
                           ))}
                         </div>
                       ) : (
-                        <div className="w-full max-w-lg">
+                        <div className="w-full max-w-full overflow-hidden max-h-[60vh]">
                           {task?.gridUrls && task.gridUrls.length > 2 ? (
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-2 gap-3 w-full overflow-hidden">
                               {task.gridUrls.slice(0, 4).map((url, i) => (
                                 <div key={i} className="aspect-square w-full overflow-hidden rounded-md">
                                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -348,8 +348,8 @@ export default function TasksPage() {
                               ))}
                             </div>
                           ) : (
-                            <div className="flex flex-col gap-4">
-                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md">
+                            <div className="flex flex-col gap-3">
+                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md max-h-[25vh]">
                                 {task?.leftImageUrl ? (
                                   // eslint-disable-next-line @next/next/no-img-element
                                   <img
@@ -359,7 +359,7 @@ export default function TasksPage() {
                                   />
                                 ) : null}
                               </div>
-                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md">
+                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md max-h-[30vh]">
                                 {task?.rightImageUrl ? (
                                   // eslint-disable-next-line @next/next/no-img-element
                                   <img
@@ -384,7 +384,7 @@ export default function TasksPage() {
                     )}
 
                     {/* Rating Scale - Bottom with iOS safe area padding */}
-                    <div className="mt-6 pb-6" style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}>
+                    <div className="mt-1 pb-4" style={{ paddingBottom: 'max(10px, env(safe-area-inset-bottom))' }}>
                       <div className="flex items-center justify-center">
                         <div className="flex items-center gap-5">
                           {[1, 2, 3, 4, 5].map((n) => {

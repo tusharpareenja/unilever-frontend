@@ -18,6 +18,7 @@ export default function ClassificationQuestionsPage() {
   const router = useRouter()
   const [questions, setQuestions] = useState<ClassificationQuestion[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const preloadedUrlsRef = useRef<Set<string>>(new Set())
 
   // Track time spent on classification page
   const classStartRef = useRef<number>(Date.now())
@@ -59,6 +60,91 @@ export default function ClassificationQuestionsPage() {
     }
 
     loadQuestions()
+  }, [])
+
+  // Preload first task images while on classification page so tasks render instantly
+  useEffect(() => {
+    try {
+      const detailsRaw = localStorage.getItem('current_study_details')
+      const sessionRaw = localStorage.getItem('study_session')
+      if (!detailsRaw) return
+      const study = JSON.parse(detailsRaw || '{}')
+      const { respondentId } = sessionRaw ? JSON.parse(sessionRaw) : { respondentId: 0 }
+
+      const studyInfo = study?.study_info || study
+      const assignedTasks = study?.assigned_tasks || []
+
+      let userTasks: any[] = []
+      if (Array.isArray(assignedTasks) && assignedTasks.length > 0) {
+        userTasks = assignedTasks
+      } else {
+        const tasksObj = study?.tasks || study?.data?.tasks || study?.task_map || study?.task || {}
+        const respondentKey = String(respondentId ?? 0)
+        let respondentTasks: any[] = tasksObj?.[respondentKey] || tasksObj?.[Number(respondentKey)] || []
+        if (!Array.isArray(respondentTasks) || respondentTasks.length === 0) {
+          if (Array.isArray(tasksObj)) {
+            respondentTasks = tasksObj
+          } else if (tasksObj && typeof tasksObj === 'object') {
+            for (const [k, v] of Object.entries(tasksObj)) {
+              if (Array.isArray(v) && v.length) { respondentTasks = v as any[]; break }
+            }
+          }
+        }
+        userTasks = respondentTasks
+      }
+
+      const first = Array.isArray(userTasks) ? userTasks[0] : undefined
+      if (!first) return
+
+      const type = (studyInfo?.study_type || study?.study_type || '').toString()
+
+      const urls = new Set<string>()
+      if (type === 'layer') {
+        const shown = first?.elements_shown || {}
+        const content = first?.elements_shown_content || {}
+        Object.keys(shown).forEach((k) => {
+          if (Number(shown[k]) === 1) {
+            const c = content?.[k]
+            if (c && typeof c === 'object' && typeof c.url === 'string') urls.add(String(c.url))
+          }
+        })
+      } else {
+        const es = first?.elements_shown || {}
+        const content = first?.elements_shown_content || {}
+        const activeKeys = Object.keys(es).filter((k) => Number(es[k]) === 1)
+        const getUrlForKey = (k: string): string | undefined => {
+          const directUrl = (es as any)[`${k}_content`]
+          if (typeof directUrl === 'string' && directUrl) return directUrl
+          const c1: any = (content as any)[k]
+          if (c1 && typeof c1 === 'object' && typeof c1.url === 'string') return c1.url
+          const c2: any = (content as any)[`${k}_content`]
+          if (c2 && typeof c2 === 'object' && typeof c2.url === 'string') return c2.url
+          if (typeof c2 === 'string') return c2
+          const s2: any = (content as any)[k]
+          if (typeof s2 === 'string') return s2
+          return undefined
+        }
+        activeKeys.forEach((k) => { const u = getUrlForKey(k); if (u) urls.add(u) })
+        if (urls.size === 0 && content && typeof content === 'object') {
+          Object.values(content).forEach((v: any) => {
+            if (v && typeof v === 'object' && typeof v.url === 'string') urls.add(v.url)
+            if (typeof v === 'string') urls.add(v)
+          })
+        }
+      }
+
+      const unique = Array.from(urls).filter((u) => !preloadedUrlsRef.current.has(u))
+      unique.forEach((u) => preloadedUrlsRef.current.add(u))
+      unique.forEach((src) => {
+        const img = new Image()
+        img.decoding = 'async'
+        // @ts-ignore
+        img.referrerPolicy = 'no-referrer'
+        img.src = src
+      })
+    } catch (e) {
+      // best-effort preload
+    }
   }, [])
 
   const submitAnswerInBackground = (questionId: string, answerOptionId: string) => {
