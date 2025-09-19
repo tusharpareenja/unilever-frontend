@@ -52,6 +52,7 @@ export default function StudySharePage() {
     if (typeof window !== 'undefined') {
       const url = window.sessionStorage.getItem(`share_url_${studyId}`)
       if (url) return url
+      // Use current domain + study ID
       return `${window.location.origin}/participate/${studyId}`
     }
     return ""
