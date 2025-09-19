@@ -14,7 +14,7 @@ export default function StudySharePage() {
   const router = useRouter()
   const studyId = params.id as string
 
-  const [shareDetails, setShareDetails] = useState<{ id: string; title: string; study_type: string; status: string; share_url: string } | null>(null)
+  const [shareDetails, setShareDetails] = useState<{ id: string; title: string; study_type: string; status: string } | null>(null)
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState<"link" | "embed" | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -29,7 +29,9 @@ export default function StudySharePage() {
         
         // Fetch share details using the new public API
         const details = await getPublicShareDetails(studyId)
-        setShareDetails(details)
+        // Remove share_url from details if it exists to prevent localhost URLs
+        const { share_url, ...cleanDetails } = details as any
+        setShareDetails(cleanDetails)
         
         // Don't use backend share_url, we'll generate it dynamically from current domain
         
@@ -48,7 +50,9 @@ export default function StudySharePage() {
     if (!studyId) return ""
     if (typeof window !== 'undefined') {
       // Always use current domain + study ID (ignore backend share_url)
-      return `${window.location.origin}/participate/${studyId}`
+      const url = `${window.location.origin}/participate/${studyId}`
+      console.log('Generated share URL:', url, 'from origin:', window.location.origin)
+      return url
     }
     return ""
   }, [studyId])
