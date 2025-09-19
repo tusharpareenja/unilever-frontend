@@ -31,10 +31,7 @@ export default function StudySharePage() {
         const details = await getPublicShareDetails(studyId)
         setShareDetails(details)
         
-        // Store share_url in sessionStorage for use in shareUrl computation
-        if (details?.share_url && typeof window !== 'undefined') {
-          window.sessionStorage.setItem(`share_url_${studyId}`, details.share_url)
-        }
+        // Don't use backend share_url, we'll generate it dynamically from current domain
         
       } catch (e: unknown) {
         console.error("Error loading share page:", e)
@@ -50,9 +47,7 @@ export default function StudySharePage() {
   const shareUrl = useMemo(() => {
     if (!studyId) return ""
     if (typeof window !== 'undefined') {
-      const url = window.sessionStorage.getItem(`share_url_${studyId}`)
-      if (url) return url
-      // Use current domain + study ID
+      // Always use current domain + study ID (ignore backend share_url)
       return `${window.location.origin}/participate/${studyId}`
     }
     return ""
