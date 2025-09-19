@@ -99,10 +99,10 @@ export function StudyGrid({
     return Math.round((study.completed_responses / study.total_responses) * 100)
   }
 
-  const getAbandonmentRate = (study: StudyListItem) => {
-    if (study.total_responses === 0) return 0
-    return Math.round((study.abandoned_responses / study.total_responses) * 100)
-  }
+  // const getAbandonmentRate = (study: StudyListItem) => {
+  //   if (study.total_responses === 0) return 0
+  //   return Math.round((study.abandoned_responses / study.total_responses) * 100)
+  // }
 
   if (loading) {
     return (
@@ -148,7 +148,7 @@ export function StudyGrid({
               <div className="text-6xl mb-4">📊</div>
               <h3 className="text-lg font-semibold text-gray-700 mb-2">No Studies Yet</h3>
               <p className="text-sm text-gray-500 mb-6">
-                You haven't created any studies yet. Create your first study to get started with research and data collection.
+                You haven&apos;t created any studies yet. Create your first study to get started with research and data collection.
               </p>
             </div>
             <Button 
@@ -254,12 +254,12 @@ export function StudyGrid({
             </div>
 
             {/* Study Complete (%) using respondents_completed/respondents_target */}
-            {typeof (study as any).respondents_target !== 'undefined' && typeof (study as any).respondents_completed !== 'undefined' && (
+            {typeof (study as StudyListItem & { respondents_target?: number; respondents_completed?: number }).respondents_target !== 'undefined' && typeof (study as StudyListItem & { respondents_target?: number; respondents_completed?: number }).respondents_completed !== 'undefined' && (
               <div className="flex items-center space-x-2">
                 <div className="w-10 h-8 bg-[rgba(38,116,186,1)] rounded flex items-center justify-center text-white text-xs font-medium px-2">
                   {(() => {
-                    const target = Number((study as any).respondents_target || 0)
-                    const done = Number((study as any).respondents_completed || 0)
+                    const target = Number((study as StudyListItem & { respondents_target?: number; respondents_completed?: number }).respondents_target || 0)
+                    const done = Number((study as StudyListItem & { respondents_target?: number; respondents_completed?: number }).respondents_completed || 0)
                     if (target <= 0) return '0%'
                     const pct = Math.round((done / target) * 100)
                     return `${pct}%`

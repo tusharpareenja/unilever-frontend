@@ -1,16 +1,16 @@
 "use client"
 
 import { useParams, useRouter } from "next/navigation"
-import { DashboardHeader } from "@/app/home/components/dashboard-header"
+// import { DashboardHeader } from "@/app/home/components/dashboard-header"
 import { useEffect, useState } from "react"
 import { CheckCircle, Home, X } from "lucide-react"
 
 export default function ThankYouPage() {
-  const params = useParams<{ id: string }>()
+  // const params = useParams<{ id: string }>()
   const router = useRouter()
   const [responseTimes, setResponseTimes] = useState<Record<string, number>>({})
   const [completionTime, setCompletionTime] = useState<string>("")
-  const [studyName, setStudyName] = useState<string>("")
+  // const [studyName, setStudyName] = useState<string>("")
   const [responseId, setResponseId] = useState<string>("")
   const [isHydrated, setIsHydrated] = useState(false)
   const [redirecting, setRedirecting] = useState(false)
@@ -27,12 +27,8 @@ export default function ThankYouPage() {
     }
 
     // Get study name from create-study steps (preview mode)
-    try {
-      const step1 = JSON.parse(localStorage.getItem('cs_step1') || '{}')
-      setStudyName(step1?.title || 'Study')
-    } catch {
-      setStudyName('Study')
-    }
+    // const step1 = JSON.parse(localStorage.getItem('cs_step1') || '{}')
+    // setStudyName(step1?.title || 'Study')
 
     // Set completion time
     const now = new Date()
@@ -126,7 +122,7 @@ export default function ThankYouPage() {
               <li className="flex items-start">
                 <span className="text-gray-400 mr-2">•</span>
                 <span>
-                  We have successfully received your responses for the study "{studyName}". 
+                  We have successfully received your responses for the study. 
                   Your participation is greatly appreciated and will contribute valuable insights to our research.
                 </span>
               </li>

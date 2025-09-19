@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useRef, useState, useEffect } from "react"
+import { useState, useEffect } from "react"
 
 export default function ParticipateIntroPage() {
   const router = useRouter()
@@ -9,24 +9,24 @@ export default function ParticipateIntroPage() {
   const [isLoading, setIsLoading] = useState(true)
 
   // Track orientation page time
-  const orientStartRef = useRef<number>(Date.now())
+  // const orientStartRef = useRef<number>(Date.now())
 
   // Fetch study details on component mount
   useEffect(() => {
     try {
       // Build from Step localStorage only
-      const step1 = JSON.parse(localStorage.getItem('cs_step1') || '{}')
+      // const step1 = JSON.parse(localStorage.getItem('cs_step1') || '{}')
       const step2 = JSON.parse(localStorage.getItem('cs_step2') || '{}')
       const step5grid = JSON.parse(localStorage.getItem('cs_step5_grid') || '[]')
       const step5layer = JSON.parse(localStorage.getItem('cs_step5_layer') || '[]')
       // Preload some assets to smooth preview
       const urls = new Set<string>()
       if (step2?.type === 'grid') {
-        (Array.isArray(step5grid) ? step5grid : []).forEach((e: any) => e?.secureUrl && urls.add(String(e.secureUrl)))
+        (Array.isArray(step5grid) ? step5grid : []).forEach((e: Record<string, unknown>) => e?.secureUrl && urls.add(String(e.secureUrl)))
       } else if (step2?.type === 'layer') {
-        (Array.isArray(step5layer) ? step5layer : []).forEach((l: any) => (l?.images||[]).forEach((img: any) => img?.secureUrl && urls.add(String(img.secureUrl))))
+        (Array.isArray(step5layer) ? step5layer : []).forEach((l: Record<string, unknown>) => (Array.isArray(l?.images) ? l.images : []).forEach((img: Record<string, unknown>) => img?.secureUrl && urls.add(String(img.secureUrl))))
       }
-      Array.from(urls).forEach((src) => { try { const img = new Image(); img.decoding = 'async'; /* @ts-ignore */ img.referrerPolicy = 'no-referrer'; img.src = src } catch {} })
+      Array.from(urls).forEach((src) => { try { const img = new Image(); img.decoding = 'async'; (img as any).referrerPolicy = 'no-referrer'; img.src = src } catch {} })
     } catch {}
     setIsLoading(false)
   }, [])

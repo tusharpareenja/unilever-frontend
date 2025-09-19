@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { submitTaskResponse, submitTaskSession, submitTasksBulk } from "@/lib/api/ResponseAPI"
+import { submitTaskSession, submitTasksBulk } from "@/lib/api/ResponseAPI"
 
 type Task = {
   id: string
@@ -13,12 +13,12 @@ type Task = {
   layeredImages?: Array<{ url: string; z: number }>
   gridUrls?: string[]
   // Source maps from backend to echo on submit
-  _elements_shown?: Record<string, any>
-  _elements_shown_content?: Record<string, any>
+  _elements_shown?: Record<string, unknown>
+  _elements_shown_content?: Record<string, unknown>
 }
 
 export default function TasksPage() {
-  const params = useParams<{ id: string }>()
+  // const params = useParams<{ id: string }>()
   const router = useRouter()
 
   // Load tasks from localStorage study details using respondentId
@@ -530,7 +530,7 @@ export default function TasksPage() {
       }
       // Run final flush, but still navigate quickly
       try { void doFinish() } catch {}
-      setTimeout(() => router.push(`/participate/${params?.id}/thank-you`), 200)
+      setTimeout(() => router.push(`/participate/${useParams().id}/thank-you`), 200)
     }
   }
 

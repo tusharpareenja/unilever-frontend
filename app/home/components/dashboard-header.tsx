@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { ChevronDown, Plus, LogOut, ArrowLeft } from "lucide-react"
+import { ChevronDown, Plus, LogOut } from "lucide-react"
 import { useAuth } from "@/lib/auth/AuthContext"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -13,8 +13,8 @@ export function DashboardHeader() {
   const { user, logout } = useAuth()
   const [showDropdown, setShowDropdown] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
-  const pathname = usePathname()
-  const showBackToHome = pathname !== "/home"
+  // const pathname = usePathname()
+  // const showBackToHome = pathname !== "/home"
 
   // Close dropdown when clicking outside
   useEffect(() => {

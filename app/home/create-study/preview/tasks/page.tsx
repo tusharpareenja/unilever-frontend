@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 // Preview mode: no API calls, no persistence
 
@@ -13,12 +13,12 @@ type Task = {
   layeredImages?: Array<{ url: string; z: number }>
   gridUrls?: string[]
   // Source maps from backend to echo on submit
-  _elements_shown?: Record<string, any>
-  _elements_shown_content?: Record<string, any>
+  _elements_shown?: Record<string, unknown>
+  _elements_shown_content?: Record<string, unknown>
 }
 
 export default function TasksPage() {
-  const params = useParams<{ id: string }>()
+  // const params = useParams<{ id: string }>()
   const router = useRouter()
 
   // Load tasks from localStorage (preview-only) and DO NOT write anything back
