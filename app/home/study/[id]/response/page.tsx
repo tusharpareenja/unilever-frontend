@@ -163,28 +163,40 @@ export default function StudyResponsesPage() {
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {/* Toolbar */}
-          <div className="flex flex-wrap items-center gap-3 mb-4">
+          <div className="flex flex-col sm:flex-row gap-3 mb-4">
             <div className="flex items-center gap-2">
               <div className="text-sm text-gray-600">Total Responses</div>
               <span className="px-3 py-1 rounded-full text-white text-sm" style={{ backgroundColor: '#2674BA' }}>{items.length}</span>
             </div>
-            <div className="flex-1 min-w-[220px]">
-              <div className="flex">
-                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search responses" className="flex-1 px-3 py-2 border rounded-l-md bg-white" />
-                <button onClick={() => setPage(1)} className="px-4 rounded-r-md text-white" style={{ backgroundColor: '#2674BA' }}>Search</button>
+            <div className="flex-1 sm:relative">
+              <div className="relative">
+                <input
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Search responses"
+                  className="block w-full px-3 py-2 border rounded-md bg-white pr-4 sm:pr-28"
+                />
               </div>
+              <button
+                onClick={() => setPage(1)}
+                className="w-full sm:w-auto mt-2 sm:mt-0 sm:absolute sm:right-0 sm:top-1/2 sm:-translate-y-1/2 px-4 py-2 rounded-md text-white"
+                style={{ backgroundColor: '#2674BA' }}
+              >
+                Search
+              </button>
             </div>
-            <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1) }} className="px-3 py-2 border rounded-md bg-white">
-              <option value="all">All Status</option>
-              <option value="completed">Completed</option>
-              <option value="abandoned">Abandoned</option>
-            </select>
-            <select value={completionFilter} onChange={e => { setCompletionFilter(e.target.value); setPage(1) }} className="px-3 py-2 border rounded-md bg-white">
-              <option value="all">All Completion Level</option>
-              <option value="100">100%</option>
-              <option value="<100">Below 100%</option>
-            </select>
-            <button onClick={() => { setSearch(""); setStatusFilter("all"); setCompletionFilter("all"); setPage(1) }} className="px-3 py-2 border rounded-md">Clear Filters</button>
+            <div className="flex gap-2">
+              <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1) }} className="px-3 py-2 border rounded-md bg-white flex-1 sm:flex-none">
+                <option value="all">All Status</option>
+                <option value="completed">Completed</option>
+                <option value="abandoned">Abandoned</option>
+              </select>
+              <select value={completionFilter} onChange={e => { setCompletionFilter(e.target.value); setPage(1) }} className="px-3 py-2 border rounded-md bg-white flex-1 sm:flex-none">
+                <option value="all">All Completion Level</option>
+                <option value="100">100%</option>
+                <option value="<100">Below 100%</option>
+              </select>
+            </div>
           </div>
 
           {/* Table */}
