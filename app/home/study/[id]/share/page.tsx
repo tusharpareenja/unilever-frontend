@@ -229,7 +229,7 @@ export default function StudySharePage() {
                     </div>
                     <div>
                       <div className="text-xs text-gray-500 mb-1">Expected Duration</div>
-                      <div className="text-sm text-gray-800">08 - 20 Minutes</div>
+                      <div className="text-sm text-gray-800">1 - 2 Minutes</div>
                     </div>
                   </div>
                   <div className="px-4 sm:px-6 py-3 text-center text-xs text-blue-600" style={{ color: BRAND, background: "#F6FAFF" }}>
