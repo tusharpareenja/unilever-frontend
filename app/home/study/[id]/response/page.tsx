@@ -115,6 +115,24 @@ export default function StudyResponsesPage() {
     return `${m}m ${s}s`
   }
 
+  const calculateAge = (dateOfBirth?: string) => {
+    if (!dateOfBirth) return null
+    try {
+      const birthDate = new Date(dateOfBirth)
+      const today = new Date()
+      let age = today.getFullYear() - birthDate.getFullYear()
+      const monthDiff = today.getMonth() - birthDate.getMonth()
+      
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--
+      }
+      
+      return age
+    } catch {
+      return null
+    }
+  }
+
   const exportCsv = async () => {
     try {
       setExporting(true)
@@ -236,7 +254,16 @@ export default function StudyResponsesPage() {
                       <tr key={r.id} className="border-t">
                         <td className="px-4 py-3">
                           <div className="text-gray-900">{r.respondent_id}</div>
-                          <div className="text-xs text-gray-500">{(r.personal_info?.gender || '-').replace(/^./, c=>c.toUpperCase())}</div>
+                          <div className="text-xs text-gray-500">
+                            {(() => {
+                              const age = calculateAge(r.personal_info?.date_of_birth)
+                              const gender = r.personal_info?.gender
+                              if (age && gender) {
+                                return `${age}Y, ${gender.charAt(0).toUpperCase() + gender.slice(1)}`
+                              }
+                              return (gender || '-').replace(/^./, c=>c.toUpperCase())
+                            })()}
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-gray-700">{formatDate(r.session_start_time)}</td>
                         <td className="px-4 py-3 text-gray-700">{formatDate(r.session_end_time)}</td>

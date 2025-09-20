@@ -90,7 +90,7 @@ export default function TasksPage() {
           // Prefer bucket "0" if present; otherwise pick the first non-empty array
           if (Array.isArray((buckets as any)['0']) && (buckets as any)['0'].length) {
             respondentTasks = (buckets as any)['0']
-          } else {
+      } else {
             for (const v of Object.values(buckets)) {
               if (Array.isArray(v) && v.length) { respondentTasks = v; break }
             }
@@ -107,7 +107,7 @@ export default function TasksPage() {
               .filter((k) => Number(shown[k]) === 1 && content?.[k]?.url)
               .map((k) => ({ url: String(content[k].url), z: Number(content[k].z_index ?? 0) }))
               .sort((a, b) => a.z - b.z)
-            return {
+                return { 
               id: String(t?.task_id ?? t?.task_index ?? Math.random()),
               layeredImages: layers,
               _elements_shown: shown,
@@ -177,7 +177,7 @@ export default function TasksPage() {
             }
           }
         })
-
+      
       setTasks(parsed)
       // Preload all task images in background to avoid display jitter
       try {

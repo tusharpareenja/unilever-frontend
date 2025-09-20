@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Eye, EyeOff } from "lucide-react"
-import { login as loginApi } from "@/lib/api/LoginApi"
+import { login as loginApi, forgotPassword } from "@/lib/api/LoginApi"
 import { useAuth } from "@/lib/auth/AuthContext"
 
 interface LoginFormProps {
@@ -21,8 +21,56 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState("")
   const [successMessage, setSuccessMessage] = useState("")
+  const [showForgotPasswordDialog, setShowForgotPasswordDialog] = useState(false)
+  const [isSendingReset, setIsSendingReset] = useState(false)
   const { login } = useAuth()
   const router = useRouter()
+
+  const handleForgotPasswordSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const formData = new FormData(e.currentTarget)
+    const emailOrUsername = formData.get('emailOrUsername') as string
+    
+    if (!emailOrUsername.trim()) {
+      alert("Please enter your email or username.")
+      return
+    }
+
+    setIsSendingReset(true)
+    try {
+      console.log("Calling forgot password API with:", emailOrUsername.trim())
+      // Call the real forgot password API
+      const response = await forgotPassword({
+        username_or_email: emailOrUsername.trim()
+      })
+      console.log("API Response:", response)
+      alert("Password reset link has been sent to your email address")
+      setShowForgotPasswordDialog(false)
+    } catch (err: any) {
+      console.error("Forgot password API error:", err)
+      let message = "Failed to send reset email. Please try again."
+      
+      if (err?.data?.detail) {
+        if (typeof err.data.detail === 'string') {
+          message = err.data.detail
+        } else if (Array.isArray(err.data.detail)) {
+          message = err.data.detail.map((error: any) => {
+            if (typeof error === 'string') return error
+            if (typeof error === 'object') return error.msg || error.message || JSON.stringify(error)
+            return String(error)
+          }).join(', ')
+        } else if (typeof err.data.detail === 'object') {
+          message = err.data.detail.message || err.data.detail.msg || 'Validation error occurred'
+        }
+      } else if (err?.message) {
+        message = err.message
+      }
+      
+      alert(message)
+    } finally {
+      setIsSendingReset(false)
+    }
+  }
 
   return (
     <div className="w-full">
@@ -128,7 +176,7 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
               >
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
@@ -146,12 +194,19 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
                 Remember me
               </label>
             </div>
-            <a href="#" className="text-sm text-blue-600 hover:underline">
+            <button 
+              type="button" 
+              onClick={() => setShowForgotPasswordDialog(true)} 
+              className="text-sm text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+            >
               Forgot Password ?
-            </a>
+            </button>
           </div>
 
-          <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-full font-medium" disabled={isSubmitting}>
+          <Button 
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-full font-medium transition-colors" 
+            disabled={isSubmitting}
+          >
             {isSubmitting ? "Logging in..." : "Login"}
           </Button>
 
@@ -160,9 +215,10 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
           </div>
 
           <div className="flex justify-center space-x-4">
+            {/* Social login buttons can be uncommented and customized */}
             {/* <button
               type="button"
-              className="w-12 h-12 bg-white border border-gray-200 rounded-full flex items-center justify-center hover:bg-gray-50 shadow-sm"
+              className="w-12 h-12 bg-white border border-gray-200 rounded-full flex items-center justify-center hover:bg-gray-50 shadow-sm transition-colors"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path
@@ -183,24 +239,104 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
                 />
               </svg>
             </button> */}
-            {/* <button
-              type="button"
-              className="w-12 h-12 bg-black rounded-full flex items-center justify-center hover:bg-gray-800"
-            >
-              <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
-              </svg>
-            </button> */}
           </div>
 
           <div className="text-center mt-6">
             <span className="text-gray-600">Don&apos;t have an account ? </span>
-            <button type="button" onClick={onSwitchToRegister} className="text-blue-600 hover:underline font-medium">
+            <button 
+              type="button" 
+              onClick={onSwitchToRegister} 
+              className="text-blue-600 hover:text-blue-800 hover:underline font-medium transition-colors"
+            >
               Sign up
             </button>
           </div>
         </form>
       </div>
+      
+      {/* Enhanced Forgot Password Dialog with Blur Background */}
+      {showForgotPasswordDialog && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-lg flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 transform transition-all duration-300 scale-100 animate-slideIn">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-semibold text-gray-800">Forgot Password</h2>
+                <button
+                  onClick={() => setShowForgotPasswordDialog(false)}
+                  className="text-gray-400 hover:text-gray-600 text-2xl font-bold w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+                >
+                  ×
+                </button>
+              </div>
+              
+              <p className="text-gray-600 mb-6 leading-relaxed">
+                Enter your email address or username and we'll send you a link to reset your password.
+              </p>
+
+              <form onSubmit={handleForgotPasswordSubmit} className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Email or Username
+                  </label>
+                  <Input
+                    name="emailOrUsername"
+                    type="text"
+                    placeholder="Enter your email or username"
+                    className="w-full px-4 py-3 rounded-full border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+                    required
+                  />
+                </div>
+
+                <div className="flex space-x-3 pt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowForgotPasswordDialog(false)}
+                    className="flex-1 py-3 rounded-full border-gray-300 hover:bg-gray-50 transition-colors"
+                    disabled={isSendingReset}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-full font-medium transition-colors"
+                    disabled={isSendingReset}
+                  >
+                    {isSendingReset ? "Sending..." : "Send Reset Link"}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add custom animations */}
+      <style jsx>{`
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        
+        @keyframes slideIn {
+          from { 
+            opacity: 0;
+            transform: translateY(-20px) scale(0.95);
+          }
+          to { 
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+        
+        .animate-fadeIn {
+          animation: fadeIn 0.2s ease-out;
+        }
+        
+        .animate-slideIn {
+          animation: slideIn 0.3s ease-out;
+        }
+      `}</style>
     </div>
   )
 }

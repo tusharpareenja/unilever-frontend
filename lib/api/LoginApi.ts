@@ -110,3 +110,49 @@ export async function login(payload: LoginPayload): Promise<LoginResponse> {
 		throw new ApiError(err.message || "Network error");
 	}
 }
+
+// Forgot Password API for /auth/forgot-password
+// Forgot Password API for /auth/forgot-password
+export interface ForgotPasswordPayload {
+	username_or_email: string;  // ✅ Fixed field name
+}
+
+export interface ForgotPasswordResponse {
+	message: string;
+}
+
+export async function forgotPassword(payload: ForgotPasswordPayload): Promise<ForgotPasswordResponse> {
+	if (!payload.username_or_email) {  // ✅ Fixed field name
+		throw new ApiError("Username or email is required", 400);
+	}
+	
+	console.log("API_BASE_URL:", API_BASE_URL);
+	console.log("Making request to:", `${API_BASE_URL}/auth/forgot-password`);
+	console.log("Payload:", payload);
+	
+	try {
+		const res = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify(payload),
+		});
+
+		console.log("Response status:", res.status);
+		console.log("Response headers:", res.headers);
+
+		const data = await res.json();
+		console.log("Response data:", data);
+
+		if (!res.ok) {
+			throw new ApiError(data?.detail || "Failed to send reset email", res.status, data);
+		}
+
+		return data as ForgotPasswordResponse;
+	} catch (err: any) {
+		console.error("Fetch error:", err);
+		if (err instanceof ApiError) throw err;
+		throw new ApiError(err.message || "Network error");
+	}
+}

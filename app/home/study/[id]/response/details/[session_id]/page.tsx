@@ -56,6 +56,24 @@ export default function ResponseDetailsPage() {
     }
   }
 
+  const calculateAge = (dateOfBirth?: string) => {
+    if (!dateOfBirth) return null
+    try {
+      const birthDate = new Date(dateOfBirth)
+      const today = new Date()
+      let age = today.getFullYear() - birthDate.getFullYear()
+      const monthDiff = today.getMonth() - birthDate.getMonth()
+      
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--
+      }
+      
+      return age
+    } catch {
+      return null
+    }
+  }
+
   const fmtDur = (sec?: number) => {
     if (!sec || sec <= 0) return '-'
     const m = Math.floor(sec / 60)
@@ -135,8 +153,56 @@ export default function ResponseDetailsPage() {
                           </div>
 
                           {/* Right: images/elements */}
-                          <div className="grid grid-cols-2 gap-4 items-center">
-                            {(t.task_type === 'grid' || (!!t.elements_shown_in_task || !!t.elements_shown || !!t.elements_shown_content)) && (
+                          <div className={t.task_type === 'layer' ? "flex justify-center" : "grid grid-cols-2 gap-4 items-center"}>
+                            {t.task_type === 'layer' && t.elements_shown_content && (
+                              (() => {
+                                // Process layer elements from elements_shown_content
+                                const layerElements: Array<{url: string, z: number, alt: string}> = []
+                                
+                                // Get the shown elements from elements_shown_in_task
+                                const shownElements = t.elements_shown_in_task || {}
+                                const content = t.elements_shown_content || {}
+                                
+                                // Process each layer element
+                                Object.keys(shownElements).forEach(key => {
+                                  const element = shownElements[key]
+                                  
+                                  // Check if element is visible and has content
+                                  if (element && element.visible === 1 && content[key]) {
+                                    layerElements.push({
+                                      url: content[key],
+                                      z: element.z_index || 0, // Use actual z_index from backend
+                                      alt: key
+                                    })
+                                  }
+                                })
+                                
+                                // Sort by z-index (layer number) - higher z-index should be on top
+                                layerElements.sort((a, b) => b.z - a.z)
+
+                                if (layerElements.length === 0) {
+                                  return (
+                                    <div className="text-sm text-gray-500">No layer elements to display</div>
+                                  )
+                                }
+
+                                return (
+                                  <div className="relative w-full max-w-lg aspect-square overflow-hidden rounded-md bg-gray-100">
+                                    {layerElements.map((img, idx) => (
+                                      // eslint-disable-next-line @next/next/no-img-element
+                                      <img
+                                        key={`${img.url}-${idx}`}
+                                        src={img.url}
+                                        alt={img.alt}
+                                        className="absolute inset-0 m-auto h-full w-full object-contain"
+                                        style={{ zIndex: img.z }}
+                                      />
+                                    ))}
+                                  </div>
+                                )
+                              })()
+                            )}
+                            {t.task_type !== 'layer' && (t.task_type === 'grid' || (!!t.elements_shown_in_task || !!t.elements_shown || !!t.elements_shown_content)) && (
                               (() => {
                                 // Build list of URLs for grid tasks
                                 const list: Array<{ url: string; name?: string; alt_text?: string }> = []
@@ -200,14 +266,6 @@ export default function ResponseDetailsPage() {
                                   </div>
                                 ))
                               })()
-                            )}
-                            {t.task_type === 'layer' && t.elements_shown_content && (
-                              Object.values(t.elements_shown_content).filter((e: any) => e?.url).map((e: any, i) => (
-                                <div key={i} className="aspect-[4/5] bg-gray-100 rounded-md overflow-hidden flex items-center justify-center">
-                                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img src={e.url} alt={e?.alt_text || e?.name || ''} className="object-contain w-full h-full" />
-                                </div>
-                              ))
                             )}
                           </div>
                         </div>

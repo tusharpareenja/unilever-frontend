@@ -12,6 +12,7 @@ export default function ParticipateIntroPage() {
   const [isStarting, setIsStarting] = useState(false)
   const [studyDetails, setStudyDetails] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [statusError, setStatusError] = useState<string | null>(null)
 
   // Track orientation page time
   const orientStartRef = useRef<number>(Date.now())
@@ -60,8 +61,29 @@ export default function ParticipateIntroPage() {
           }
           Array.from(urls).forEach((src) => { try { const img = new Image(); (img as any).decoding = 'async'; (img as any).referrerPolicy = 'no-referrer'; img.src = src } catch {} })
         } catch {}
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('Failed to fetch study details:', error)
+        
+        // Handle specific error messages from backend
+        if (error && typeof error === 'object') {
+          const errorObj = error as any
+          const errorMessage = errorObj?.message || errorObj?.data?.detail || errorObj?.data?.message
+          
+          console.log('Error message from backend:', errorMessage)
+          
+          // Check for specific status error messages
+          if (errorMessage?.includes('paused') || errorMessage?.includes('draft')) {
+            setStatusError('Sorry, the study is paused. Please ask the owner to activate the study.')
+          } else if (errorMessage?.includes('completed')) {
+            setStatusError('Sorry, the study is completed.')
+          } else if (errorMessage?.includes('not found') || errorMessage?.includes('not publicly accessible')) {
+            setStatusError('Sorry, this study is not found or not publicly accessible.')
+          } else {
+            setStatusError('Sorry, there was an error loading the study. Please try again later.')
+          }
+        } else {
+          setStatusError('Sorry, there was an error loading the study. Please try again later.')
+        }
       } finally {
         setIsLoading(false)
       }
@@ -231,6 +253,33 @@ export default function ParticipateIntroPage() {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 sm:pt-14">
           <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[rgba(38,116,186,1)]"></div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Show status error message if study is not active
+  if (statusError) {
+    return (
+      <div className="min-h-screen bg-white pb-28 sm:pb-12">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 sm:pt-14">
+          <div className="text-center">
+            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+              <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4">Study Not Available</h1>
+            <p className="text-lg text-gray-600 mb-6">{statusError}</p>
+            <div className="mt-6">
+              <button
+                onClick={() => window.history.back()}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              >
+                Go Back
+              </button>
+            </div>
           </div>
         </div>
       </div>
