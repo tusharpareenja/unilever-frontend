@@ -76,9 +76,7 @@ export default function ResponseDetailsPage() {
 
   const fmtDur = (sec?: number) => {
     if (!sec || sec <= 0) return '-'
-    const m = Math.floor(sec / 60)
-    const s = Math.floor(sec % 60)
-    return `${m}m ${s.toString().padStart(2,'0')}s`
+    return `${sec.toFixed(1)}s`
   }
 
   return (
@@ -154,24 +152,31 @@ export default function ResponseDetailsPage() {
 
                           {/* Right: images/elements */}
                           <div className={t.task_type === 'layer' ? "flex justify-center" : "grid grid-cols-2 gap-4 items-center"}>
-                            {t.task_type === 'layer' && t.elements_shown_content && (
+                            {t.task_type === 'layer' && (t.elements_shown_content || t.elements_shown) && (
                               (() => {
                                 // Process layer elements from elements_shown_content
                                 const layerElements: Array<{url: string, z: number, alt: string}> = []
                                 
-                                // Get the shown elements from elements_shown_in_task
-                                const shownElements = t.elements_shown_in_task || {}
+                                // Try elements_shown first (preferred), fallback to elements_shown_in_task
+                                const shownElements = t.elements_shown || t.elements_shown_in_task || {}
                                 const content = t.elements_shown_content || {}
+                                
+                                console.log('Layer task processing - shown:', shownElements)
+                                console.log('Layer task processing - content:', content)
+                                console.log('Layer task processing - task data:', t)
                                 
                                 // Process each layer element
                                 Object.keys(shownElements).forEach(key => {
                                   const element = shownElements[key]
+                                  const isShown = element && element.visible === 1
+                                  const hasContent = content?.[key] && content[key] !== null
                                   
-                                  // Check if element is visible and has content
-                                  if (element && element.visible === 1 && content[key]) {
+                                  console.log(`Layer ${key}: isShown=${isShown}, hasContent=${hasContent}, element:`, element)
+                                  
+                                  if (isShown && hasContent) {
                                     layerElements.push({
-                                      url: content[key],
-                                      z: element.z_index || 0, // Use actual z_index from backend
+                                      url: String(content[key]), // content[key] is the URL string directly
+                                      z: Number(element.z_index ?? 0),
                                       alt: key
                                     })
                                   }
