@@ -122,10 +122,23 @@ export default function PersonalInformationPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [ageError, setAgeError] = useState<string>("")
   const [formError, setFormError] = useState<string>("")
+  const [calendarOpen, setCalendarOpen] = useState(false) // Add state to control calendar open/close
 
   const handleDateChange = (newValue: any) => {
     if (newValue) {
       setDob(newValue.toDate())
+    }
+  }
+
+  const handleCalendarClick = (event: React.MouseEvent) => {
+    const target = event.target as HTMLElement
+    
+    // Check if clicked on a day button
+    if (target.closest('.MuiPickersDay-root:not(.Mui-disabled)')) {
+      // Delay closing to allow the date change to process
+      setTimeout(() => {
+        setCalendarOpen(false)
+      }, 150)
     }
   }
 
@@ -229,7 +242,7 @@ export default function PersonalInformationPage() {
           <div className="mt-2">
             <label className="block text-sm font-semibold text-gray-800 mb-2">Date of Birth</label>
             <div className="flex items-center gap-2">
-              <Popover>
+              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
@@ -240,41 +253,43 @@ export default function PersonalInformationPage() {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="p-4 w-[90vw] max-w-[20rem] sm:w-auto" align="start">
-                  <LocalizationProvider dateAdapter={AdapterDayjs}>
-                    <DateCalendar
-                      value={dob ? dayjs(dob) : null}
-                      onChange={handleDateChange}
-                      maxDate={dayjs()}
-                      minDate={dayjs('1900-01-01')}
-                      sx={{
-                        '& .MuiPickersCalendarHeader-root': {
-                          paddingLeft: 1,
-                          paddingRight: 1,
-                          minHeight: '40px',
-                        },
-                        '& .MuiDayCalendar-root': {
-                          fontSize: '0.875rem',
-                        },
-                        '& .MuiPickersDay-root': {
-                          fontSize: '0.875rem',
-                          width: '32px',
-                          height: '32px',
-                          '&.Mui-selected': {
-                            backgroundColor: 'rgba(38,116,186,1)',
-                            '&:hover': {
-                              backgroundColor: 'rgba(38,116,186,0.9)',
+                  <div onClick={handleCalendarClick}>
+                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                      <DateCalendar
+                        value={dob ? dayjs(dob) : null}
+                        onChange={handleDateChange}
+                        maxDate={dayjs()}
+                        minDate={dayjs('1900-01-01')}
+                        sx={{
+                          '& .MuiPickersCalendarHeader-root': {
+                            paddingLeft: 1,
+                            paddingRight: 1,
+                            minHeight: '40px',
+                          },
+                          '& .MuiDayCalendar-root': {
+                            fontSize: '0.875rem',
+                          },
+                          '& .MuiPickersDay-root': {
+                            fontSize: '0.875rem',
+                            width: '32px',
+                            height: '32px',
+                            '&.Mui-selected': {
+                              backgroundColor: 'rgba(38,116,186,1)',
+                              '&:hover': {
+                                backgroundColor: 'rgba(38,116,186,0.9)',
+                              },
                             },
                           },
-                        },
-                        '& .MuiPickersCalendarHeader-switchViewButton': {
-                          fontSize: '0.875rem',
-                        },
-                        '& .MuiPickersArrowSwitcher-button': {
-                          fontSize: '0.875rem',
-                        },
-                      }}
-                    />
-                  </LocalizationProvider>
+                          '& .MuiPickersCalendarHeader-switchViewButton': {
+                            fontSize: '0.875rem',
+                          },
+                          '& .MuiPickersArrowSwitcher-button': {
+                            fontSize: '0.875rem',
+                          },
+                        }}
+                      />
+                    </LocalizationProvider>
+                  </div>
                 </PopoverContent>
               </Popover>
             </div>

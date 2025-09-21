@@ -580,7 +580,7 @@ export default function TasksPage() {
               {/* Progress Section - Outside white card */}
               <div className="mb-0">
                 <div className="flex items-start justify-between mb-2 gap-3">
-                  <div className="text-sm sm:text-base font-medium text-gray-800 flex-1 leading-tight text-balance">
+                  <div className="text-sm sm:text-base font-medium text-gray-800 flex-1 leading-tight break-words hyphens-auto max-w-[calc(100%-4rem)]">
                     {mainQuestion || `Question ${Math.min(currentTaskIndex + 1, totalTasks)}`}
                   </div>
                   <div className="text-base font-semibold text-[rgba(38,116,186,1)] flex-shrink-0">
@@ -720,7 +720,7 @@ export default function TasksPage() {
             {/* Desktop Layout */}
             <div className="hidden lg:block">
               <div className="flex items-start justify-between text-sm text-gray-600 mb-1 gap-4">
-                <div className="text-base font-medium text-gray-800 flex-1 leading-tight text-balance">
+                <div className="text-base font-medium text-gray-800 flex-1 leading-tight break-words hyphens-auto max-w-[calc(100%-5rem)]">
                   {mainQuestion || `Question ${Math.min(currentTaskIndex + 1, totalTasks)}`}
                 </div>
                 <span className="flex-shrink-0">
