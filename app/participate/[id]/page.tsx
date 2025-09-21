@@ -96,6 +96,7 @@ export default function ParticipateIntroPage() {
   const studyTitle = studyDetails?.title || "Study Title"
   const estimatedTime = "1-2 minutes" // Keep as requested
   const studyType = studyDetails?.study_type === "grid" ? "Grid Study" : "Layer Study"
+  const orientationText = studyDetails?.orientation_text || "Welcome to the study!"
   const totalVignettes = studyDetails?.respondents_target || 3
 
   const startHref = useMemo(() => `/participate/${params?.id}/personal-information`, [params?.id])
@@ -321,9 +322,9 @@ export default function ParticipateIntroPage() {
             </div>
 
             <div className="mt-8 border-t pt-6">
-              <Section title="Welcome to the Study!">
-                <p className="text-sm text-gray-700">
-                  You’re about to participate in an important research study. This study will help researchers understand how people evaluate different visual elements.
+              <Section title={orientationText}>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">
+                  You're about to participate in an important research study. This study will help researchers understand how people evaluate different visual elements.
                 </p>
               </Section>
 
@@ -369,7 +370,7 @@ function InfoCard({ label, value }: { label: string; value: string }) {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="mt-6">
-      <h3 className="text-sm sm:text-base font-semibold text-gray-800 mb-2 border-b pb-2 border-blue-200/70">{title}</h3>
+      <h3 className="text-sm sm:text-base font-semibold text-gray-800 mb-2 border-b pb-2 border-blue-200/70 whitespace-pre-wrap break-words">{title}</h3>
       {children}
     </div>
   )

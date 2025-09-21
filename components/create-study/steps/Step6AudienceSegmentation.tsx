@@ -141,11 +141,11 @@ export function Step6AudienceSegmentation({ onNext, onBack, onDataChange }: Step
 	}
 
 	const addCountry = (name: string) => {
-		if (!countries.includes(name)) setCountries((prev) => [...prev, name])
+		setCountries([name]) // Only allow one country
 		setCountryQuery("")
 	}
 
-	const removeCountry = (name: string) => setCountries((prev) => prev.filter((c) => c !== name))
+	const removeCountry = (name: string) => setCountries([])
 
 	const canProceed = typeof respondents === 'number' && respondents >= 1 && countries.length > 0
 
@@ -182,31 +182,40 @@ export function Step6AudienceSegmentation({ onNext, onBack, onDataChange }: Step
 
 				<div>
 					<label className="block text sm font-semibold text-gray-800 mb-2">Country Selection <span className="text-red-500">*</span></label>
-					<div className="relative">
-						<div className="flex flex-wrap gap-2 border rounded-lg p-2">
-							{countries.map((c) => (
-								<span key={c} className="px-2 py-1 bg-[rgba(38,116,186,0.1)] text-[rgba(38,116,186,1)] rounded-md text-xs flex items-center gap-1">
-									{c}
-									<button type="button" className="text-gray-500" onClick={() => removeCountry(c)}>×</button>
-								</span>
-							))}
-							<input
-								className="flex-1 min-w-[120px] outline-none px-2"
-								placeholder="Type a country..."
-								value={countryQuery}
-								onChange={(e) => setCountryQuery(e.target.value)}
-							/>
-						</div>
-						{suggestions.length > 0 && (
-							<div className="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-sm max-h-56 overflow-auto">
-								{suggestions.map((s) => (
-									<button type="button" key={s} onClick={() => addCountry(s)} className="w-full text-left px-3 py-2 hover:bg-slate-50">
-										{s}
-									</button>
-								))}
+					{countries.length === 0 ? (
+						<div className="relative">
+							<div className="flex flex-wrap gap-2 border rounded-lg p-2">
+								<input
+									className="flex-1 min-w-[120px] outline-none px-2"
+									placeholder="Type a country..."
+									value={countryQuery}
+									onChange={(e) => setCountryQuery(e.target.value)}
+								/>
 							</div>
-						)}
-					</div>
+							{suggestions.length > 0 && (
+								<div className="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-sm max-h-56 overflow-auto">
+									{suggestions.map((s) => (
+										<button type="button" key={s} onClick={() => addCountry(s)} className="w-full text-left px-3 py-2 hover:bg-slate-50">
+											{s}
+										</button>
+									))}
+								</div>
+							)}
+						</div>
+					) : (
+						<div className="flex items-center gap-2">
+							<div className="px-3 py-2 bg-[rgba(38,116,186,0.1)] text-[rgba(38,116,186,1)] rounded-md text-sm flex items-center gap-2">
+								{countries[0]}
+								<button 
+									type="button" 
+									className="text-gray-500 hover:text-gray-700" 
+									onClick={() => removeCountry(countries[0])}
+								>
+									×
+								</button>
+							</div>
+						</div>
+					)}
 				</div>
 
 				<div>

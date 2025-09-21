@@ -161,10 +161,6 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
   }
 
   const handleNext = async () => {
-    if (mode === 'grid' && elements.length < 4) {
-      alert('Please add at least 4 elements for a grid study.')
-      return
-    }
     setNextLoading(true)
     await ensureGridUploads()
     setNextLoading(false)
@@ -408,10 +404,6 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
   }
 
   const handleNext = async () => {
-    if (layers.length < 4) {
-      alert('Please add at least 4 layers for a layer study.')
-      return
-    }
     setNextLoading(true)
     await ensureLayerUploads()
     setNextLoading(false)
@@ -594,7 +586,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
                     <span className="truncate max-w-[40ch]">{layer.name || `Layer ${idx + 1}`}</span>
-                    <span className="text-xs text-gray-500">z-{layer.z}</span>
+                    
                   </div>
                   {layer.description ? (
                     <div className="text-xs text-gray-500 truncate max-w-[60ch]">{layer.description}</div>
@@ -639,7 +631,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                             onClick={() => selectImage(layer.id, img.id)}
                           >
                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={img.secureUrl || img.previewUrl} alt="layer" className="w-full h-full object-cover rounded-md" />
+                            <img src={img.secureUrl || img.previewUrl} alt="layer" className="w-full h-full object-contain rounded-md" />
                           </div>
                           <button
                             onClick={() => removeImageFromLayer(layer.id, img.id)}
@@ -665,7 +657,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                 </div>
               </div>
               )}
-              <div className="px-4 py-2 text-xs text-gray-500 border-t">Drag and drop layers to reorder; z updates automatically.</div>
+              <div className="px-4 py-2 text-xs text-gray-500 border-t">Drag and drop layers to reorder.</div>
             </div>
             {idx === layers.length - 1 && overIndex === layers.length && (
               <div className="h-2 rounded bg-[rgba(38,116,186,0.3)] border border-[rgba(38,116,186,0.5)] mt-2" />
@@ -718,7 +710,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                       <div key={img.id} className="relative group flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
                         <div className="w-20 h-20 border rounded-md overflow-hidden">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={img.previewUrl} alt="preview" className="w-full h-full object-cover" />
+                          <img src={img.previewUrl} alt="preview" className="w-full h-full object-contain" />
                         </div>
                         <button
                           onClick={(e) => { e.stopPropagation(); removeDraftImage(img.id) }}

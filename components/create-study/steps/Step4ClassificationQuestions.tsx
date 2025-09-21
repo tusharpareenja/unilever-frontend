@@ -140,13 +140,13 @@ export function Step4ClassificationQuestions({ onNext, onBack, onDataChange }: S
 								onChange={(e) => updateQuestionTitle(q.id, e.target.value)}
 							/>
 
-							<div className="mt-4">
+							{/* <div className="mt-4">
 								<div className="text-sm font-semibold text-gray-800 mb-1">Required <span className="text-red-500">*</span></div>
 								<label className="inline-flex items-center gap-2 text-sm text-gray-600">
 									<input type="checkbox" checked={q.required} onChange={() => toggleRequired(q.id)} />
 									The minimum value on your rating scale
 								</label>
-							</div>
+							</div> */}
 
 							<div className="mt-4">
 								<div className="text-sm font-semibold text-gray-800 mb-2">Answer Options <span className="text-red-500">*</span></div>

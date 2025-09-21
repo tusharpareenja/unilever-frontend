@@ -389,30 +389,21 @@ export default function StudyManagementPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Background</label>
-                <input
-                  type="text"
-                  value={study.background}
-                  readOnly
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700"
-                />
+                <div className="w-full px-3 py-2 bg-white text-gray-700 whitespace-pre-wrap break-words">
+                  {study.background}
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Main Question</label>
-                <input
-                  type="text"
-                  value={study.main_question || ''}
-                  readOnly
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700"
-                />
+                <div className="w-full px-3 py-2 bg-white text-gray-700 whitespace-pre-wrap break-words">
+                  {study.main_question || ''}
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Orientation Text</label>
-                <input
-                  type="text"
-                  value={study.orientation_text}
-                  readOnly
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700"
-                />
+                <div className="w-full px-3 py-2 bg-white text-gray-700 whitespace-pre-wrap break-words">
+                  {study.orientation_text}
+                </div>
               </div>
             </div>
           </div>
@@ -500,33 +491,129 @@ export default function StudyManagementPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Scale</label>
-                <input
-                  type="text"
-                  value={`${study.rating_scale.min_value} to ${study.rating_scale.max_value} ${study.rating_scale.min_label}-${study.rating_scale.max_label}`}
-                  readOnly
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700"
-                />
+                <div className="w-full px-3 py-2 bg-white text-gray-700 whitespace-pre-wrap break-words">
+                  {`${study.rating_scale.min_value} to ${study.rating_scale.max_value} ${study.rating_scale.min_label}-${study.rating_scale.max_label}`}
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Study Elements</label>
-                <input
-                  type="text"
-                  value={`${(study as any).study_config?.number_of_respondents || 0} Respondents - ${study.study_type === "grid" ? "Grid" : "Layer"} Based Study`}
-                  readOnly
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700"
-                />
+                <div className="w-full px-3 py-2 bg-white text-gray-700 whitespace-pre-wrap break-words">
+                  {`${(study as any).study_config?.number_of_respondents || 0} Respondents - ${study.study_type === "grid" ? "Grid" : "Layer"} Based Study`}
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Classification Questions</label>
-                <input
-                  type="text"
-                  value={`${(study as any).classification_questions?.length || 0} Question${((study as any).classification_questions?.length || 0) !== 1 ? 's' : ''}`}
-                  readOnly
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700"
-                />
+                <div className="w-full px-3 py-2 bg-white text-gray-700 whitespace-pre-wrap break-words">
+                  {`${(study as any).classification_questions?.length || 0} Question${((study as any).classification_questions?.length || 0) !== 1 ? 's' : ''}`}
+                </div>
               </div>
             </div>
           </div>
+
+          {/* Classification Questions */}
+          {(study as any).classification_questions && (study as any).classification_questions.length > 0 && (
+            <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
+              <h3 
+                className="text-lg font-semibold border-b pb-2 mb-4"
+                style={{ color: '#2674BA', borderColor: '#2674BA' }}
+              >
+                Classification Questions
+              </h3>
+              <div className="space-y-4">
+                {(study as any).classification_questions.map((question: any, index: number) => (
+                  <div key={question.id || index} className="border rounded-lg p-4 bg-white">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="text-sm font-medium text-gray-800">{question.question_text}</div>
+                      <div className="text-xs text-gray-500 ml-2">Q{index + 1}</div>
+                    </div>
+                    <div className="text-sm text-gray-600 mb-2">
+                      <div className="mb-1">Type: {question.question_type.replace('_', ' ').toUpperCase()}</div>
+                      <div className="mb-1">Required: {question.is_required ? 'Yes' : 'No'}</div>
+                    </div>
+                    {question.answer_options && question.answer_options.length > 0 && (
+                      <div>
+                        <div className="text-sm text-gray-500 mb-2">Answer Options:</div>
+                        <div className="flex flex-wrap gap-2">
+                          {question.answer_options.map((option: any, optIndex: number) => (
+                            <span key={option.id || optIndex} className="px-3 py-1 bg-white border rounded text-sm">
+                              {option.text}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Audience Segmentation */}
+          {(study as any).study_config && (
+            <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
+              <h3 
+                className="text-lg font-semibold border-b pb-2 mb-4"
+                style={{ color: '#2674BA', borderColor: '#2674BA' }}
+              >
+                Audience Segmentation
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Target Country</label>
+                  <div className="px-3 py-2 bg-white text-gray-700 whitespace-pre-wrap break-words">
+                    {(study as any).study_config.country || 'Not specified'}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Number of Respondents</label>
+                  <div className="px-3 py-2 bg-white text-gray-700 whitespace-pre-wrap break-words">
+                    {(study as any).study_config.number_of_respondents || 0}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Gender Distribution</label>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">Male</span>
+                      <span className="text-sm font-medium">{(study as any).study_config.gender_distribution?.male || 0}%</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">Female</span>
+                      <span className="text-sm font-medium">{(study as any).study_config.gender_distribution?.female || 0}%</span>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Age Distribution</label>
+                  <div className="space-y-1">
+                    {Object.entries((study as any).study_config.age_distribution || {}).map(([ageGroup, percentage]: [string, any]) => (
+                      percentage > 0 && (
+                        <div key={ageGroup} className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">{ageGroup}</span>
+                          <span className="text-sm font-medium">{percentage}%</span>
+                        </div>
+                      )
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Orientation Text */}
+          {study.orientation_text && (
+            <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
+              <h3 
+                className="text-lg font-semibold border-b pb-2 mb-4"
+                style={{ color: '#2674BA', borderColor: '#2674BA' }}
+              >
+                Orientation Text
+              </h3>
+              <div className="bg-white p-4">
+                <p className="text-gray-700 leading-relaxed whitespace-pre-wrap break-words">{study.orientation_text}</p>
+              </div>
+            </div>
+          )}
 
           {/* Study Response */}
           <div className="bg-white rounded-lg shadow-sm border p-6">

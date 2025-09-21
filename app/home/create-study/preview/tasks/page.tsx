@@ -273,8 +273,10 @@ export default function TasksPage() {
   // const isFinished = totalTasks > 0 && currentTaskIndex >= totalTasks - 1 && lastSelected !== null
 
   return (
-    <div className="h-[100dvh] lg:min-h-screen lg:bg-white overflow-hidden lg:overflow-visible" style={{ paddingTop: 'max(10px, env(safe-area-inset-top))' }}>
-      
+    <div
+      className="h-[100dvh] lg:min-h-screen lg:bg-white overflow-hidden lg:overflow-visible"
+      style={{ paddingTop: "max(10px, env(safe-area-inset-top))" }}
+    >
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 sm:pt-12 md:pt-14 pb-16">
         {isFetching ? (
           <div className="p-10 text-center">
@@ -288,17 +290,22 @@ export default function TasksPage() {
         ) : (
           <>
             {/* Mobile Layout - Exact copy of image */}
-            <div className="lg:hidden flex flex-col h-[calc(100vh-150px)] overflow-hidden" style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}>
+            <div
+              className="lg:hidden flex flex-col h-[calc(100vh-150px)] overflow-hidden"
+              style={{ paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}
+            >
               {/* Progress Section - Outside white card */}
               <div className="mb-0">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-base font-medium text-gray-800 truncate pr-3">{mainQuestion || `Question ${Math.min(currentTaskIndex + 1, totalTasks)}`}</div>
-                  <div className="text-base font-semibold text-[rgba(38,116,186,1)]">
+                <div className="flex items-start justify-between mb-2 gap-3">
+                  <div className="text-sm sm:text-base font-medium text-gray-800 flex-1 leading-tight text-balance">
+                    {mainQuestion || `Question ${Math.min(currentTaskIndex + 1, totalTasks)}`}
+                  </div>
+                  <div className="text-base font-semibold text-[rgba(38,116,186,1)] flex-shrink-0">
                     {Math.min(currentTaskIndex + 1, totalTasks)} / {totalTasks}
                   </div>
                 </div>
                 <div className="h-2 w-full bg-gray-200 rounded overflow-hidden">
-                  <div 
+                  <div
                     className="h-full bg-[rgba(38,116,186,1)] rounded transition-all duration-300"
                     style={{ width: `${progressPct}%` }}
                   ></div>
@@ -306,7 +313,7 @@ export default function TasksPage() {
               </div>
 
               {/* Main Content - Full height layout */}
-              <div className="flex-1 flex flex-col">
+              <div className="flex-1 flex flex-col min-h-0">
                 {isLoading ? (
                   <div className="flex-1 flex items-center justify-center">
                     <div className="text-center">
@@ -318,14 +325,14 @@ export default function TasksPage() {
                 ) : (
                   <>
                     {/* Image Section - Centered in middle */}
-                    <div className="flex-1 flex items-center justify-center">
-                      {studyType === 'layer' ? (
-                        <div className="relative w-full max-w-none overflow-hidden rounded-md h-[60vh]">
+                    <div className="flex-1 flex items-center justify-center pb-2 min-h-0">
+                      {studyType === "layer" ? (
+                        <div className="relative w-full max-w-none overflow-hidden rounded-md h-[50vh] max-h-[400px]">
                           {task?.layeredImages?.map((img, idx) => (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
                               key={`${img.url}-${idx}`}
-                              src={img.url}
+                              src={img.url || "/placeholder.svg"}
                               alt={String(img.z)}
                               className="absolute inset-0 m-auto h-full w-full object-contain"
                               style={{ zIndex: img.z }}
@@ -333,37 +340,37 @@ export default function TasksPage() {
                           ))}
                         </div>
                       ) : (
-                        <div className="w-full max-w-full overflow-hidden max-h-[60vh]">
+                        <div className="w-full max-w-full overflow-hidden max-h-[50vh]">
                           {task?.gridUrls && task.gridUrls.length > 2 ? (
-                            <div className="grid grid-cols-2 gap-3 w-full overflow-hidden">
+                            <div className="grid grid-cols-2 gap-2 sm:gap-3 w-full overflow-hidden place-items-center">
                               {task.gridUrls.slice(0, 4).map((url, i) => (
                                 <div key={i} className="aspect-square w-full overflow-hidden rounded-md">
                                   {/* eslint-disable-next-line @next/next/no-img-element */}
                                   <img
-                                    src={url}
-                                    alt={`element-${i+1}`}
+                                    src={url || "/placeholder.svg"}
+                                    alt={`element-${i + 1}`}
                                     className="h-full w-full object-contain"
                                   />
                                 </div>
                               ))}
                             </div>
                           ) : (
-                            <div className="flex flex-col gap-3">
-                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md max-h-[25vh]">
+                            <div className="flex flex-col gap-2 sm:gap-3">
+                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md max-h-[22vh]">
                                 {task?.leftImageUrl ? (
                                   // eslint-disable-next-line @next/next/no-img-element
                                   <img
-                                    src={task.leftImageUrl}
+                                    src={task.leftImageUrl || "/placeholder.svg"}
                                     alt="left"
                                     className="h-full w-full object-contain"
                                   />
                                 ) : null}
                               </div>
-                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md max-h-[30vh]">
+                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md max-h-[22vh]">
                                 {task?.rightImageUrl ? (
                                   // eslint-disable-next-line @next/next/no-img-element
                                   <img
-                                    src={task.rightImageUrl}
+                                    src={task.rightImageUrl || "/placeholder.svg"}
                                     alt="right"
                                     className="h-full w-full object-contain"
                                   />
@@ -376,17 +383,17 @@ export default function TasksPage() {
                     </div>
 
                     {/* Labels for grid study */}
-                    {studyType === 'grid' && (
-                      <div className="grid grid-cols-2 gap-4 text-sm font-semibold text-gray-800 mb-6">
-                        <div className="text-center">{task?.leftLabel ?? ""}</div>
-                        <div className="text-center">{task?.rightLabel ?? ""}</div>
+                    {studyType === "grid" && (
+                      <div className="grid grid-cols-2 gap-4 text-xs sm:text-sm font-semibold text-gray-800 mb-4 px-2">
+                        <div className="text-center text-balance">{task?.leftLabel ?? ""}</div>
+                        <div className="text-center text-balance">{task?.rightLabel ?? ""}</div>
                       </div>
                     )}
 
                     {/* Rating Scale - Bottom with iOS safe area padding */}
-                    <div className="mt-1 pb-4" style={{ paddingBottom: 'max(10px, env(safe-area-inset-bottom))' }}>
-                      <div className="flex items-center justify-center">
-                        <div className="flex items-center gap-5">
+                    <div className="mt-1 pb-4 px-2" style={{ paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}>
+                      <div className="flex items-end justify-center">
+                        <div className="flex items-end justify-between w-full max-w-sm">
                           {[1, 2, 3, 4, 5].map((n) => {
                             const selected = lastSelected === n
                             let labelText = ""
@@ -397,16 +404,18 @@ export default function TasksPage() {
                             return (
                               <div
                                 key={n}
-                                className="relative flex flex-col items-center pt-7"
+                                className="relative flex flex-col items-center w-[60px]"
                                 onMouseEnter={() => {
                                   hoverCountsRef.current[n] = (hoverCountsRef.current[n] || 0) + 1
                                   lastViewTimeRef.current = new Date().toISOString()
                                 }}
                               >
-                                <div className="absolute top-0 w-[120px] text-xs font-medium text-gray-800 text-center whitespace-nowrap truncate">{labelText}</div>
+                                <div className="mb-2 w-full text-[10px] sm:text-xs font-medium text-gray-800 text-center leading-tight text-balance px-1 min-h-[2.5rem] flex items-end justify-center">
+                                  <span className="break-words hyphens-auto">{labelText}</span>
+                                </div>
                                 <button
                                   onClick={() => handleSelect(n)}
-                                  className={`h-14 w-14 rounded-full border-2 transition-colors text-lg font-semibold ${
+                                  className={`h-12 w-12 sm:h-14 sm:w-14 rounded-full border-2 transition-colors text-base sm:text-lg font-semibold flex-shrink-0 ${
                                     selected
                                       ? "bg-white text-[rgba(38,116,186,1)] border-[rgba(38,116,186,1)]"
                                       : "bg-white text-gray-700 border-gray-300 hover:border-gray-400"
@@ -427,109 +436,139 @@ export default function TasksPage() {
 
             {/* Desktop Layout */}
             <div className="hidden lg:block">
-              <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
-                <div className="text-base font-medium text-gray-800 truncate pr-3">{mainQuestion || `Question ${Math.min(currentTaskIndex + 1, totalTasks)}`}</div>
-                <span>
+              <div className="flex items-start justify-between text-sm text-gray-600 mb-1 gap-4">
+                <div className="text-base font-medium text-gray-800 flex-1 leading-tight text-balance">
+                  {mainQuestion || `Question ${Math.min(currentTaskIndex + 1, totalTasks)}`}
+                </div>
+                <span className="flex-shrink-0">
                   {Math.min(currentTaskIndex + 1, totalTasks)} / {totalTasks}
                 </span>
               </div>
               <div className="h-1 rounded bg-gray-200 overflow-hidden">
-                <div
-                  className="h-full bg-[rgba(38,116,186,1)] transition-all"
-                  style={{ width: `${progressPct}%` }}
-                />
+                <div className="h-full bg-[rgba(38,116,186,1)] transition-all" style={{ width: `${progressPct}%` }} />
               </div>
 
               <div className="mt-4 bg-white border rounded-xl shadow-sm p-3 sm:p-4">
-              {isLoading ? (
-                <div className="p-6 sm:p-10 text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[rgba(38,116,186,1)] mx-auto mb-4"></div>
-                  <h2 className="text-xl sm:text-2xl font-semibold text-gray-900">Processing your responses...</h2>
-                  <p className="mt-2 text-sm text-gray-600">Please wait while we save your study data.</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {studyType === 'layer' ? (
-                    <div className="flex justify-center">
-                      <div className="relative w-full max-w-lg aspect-square overflow-hidden rounded-md">
-                        {task?.layeredImages?.map((img, idx) => (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            key={`${img.url}-${idx}`}
-                            src={img.url}
-                            alt={String(img.z)}
-                            className="absolute inset-0 m-auto h-full w-full object-contain"
-                            style={{ zIndex: img.z }}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    (() => {
-                      const urls = (task?.gridUrls && task.gridUrls.length ? task.gridUrls : [task?.leftImageUrl, task?.rightImageUrl].filter(Boolean)) as string[]
-                      if (urls.length <= 2) {
-                        return (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="aspect-[4/3] w-full overflow-hidden rounded-md">{urls[0] && (<img src={urls[0]} alt="left" className="h-full w-full object-contain" />)}</div>
-                            <div className="aspect-[4/3] w-full overflow-hidden rounded-md">{urls[1] && (<img src={urls[1]} alt="right" className="h-full w-full object-contain" />)}</div>
-                          </div>
-                        )
-                      }
-                      return (
-                        <div className={`grid grid-cols-2 gap-4`}>
-                          {urls.slice(0,4).map((url, i) => (
-                            <div key={i} className="aspect-[4/3] w-full md:h-[24vh] lg:h-[26vh] overflow-hidden rounded-md">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={url as string} alt={`element-${i+1}`} className="h-full w-full object-contain" />
-                            </div>
+                {isLoading ? (
+                  <div className="p-6 sm:p-10 text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[rgba(38,116,186,1)] mx-auto mb-4"></div>
+                    <h2 className="text-xl sm:text-2xl font-semibold text-gray-900">Processing your responses...</h2>
+                    <p className="mt-2 text-sm text-gray-600">Please wait while we save your study data.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {studyType === "layer" ? (
+                      <div className="flex justify-center">
+                        <div className="relative w-full max-w-lg aspect-square overflow-hidden rounded-md">
+                          {task?.layeredImages?.map((img, idx) => (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              key={`${img.url}-${idx}`}
+                              src={img.url || "/placeholder.svg"}
+                              alt={String(img.z)}
+                              className="absolute inset-0 m-auto h-full w-full object-contain"
+                              style={{ zIndex: img.z }}
+                            />
                           ))}
                         </div>
-                      )
-                    })()
-                  )}
-
-                  <div className="grid grid-cols-2 gap-4 text-sm font-semibold text-gray-800">
-                    <div className="text-center">{task?.leftLabel ?? ""}</div>
-                    <div className="text-center">{task?.rightLabel ?? ""}</div>
-                  </div>
-
-                  {/* Labels and rating scale - Larger for desktop */}
-                  <div className="w-fit mx-auto mt-6">
-                    <div className="flex items-center justify-center gap-4 lg:gap-6">
-                      {[1, 2, 3, 4, 5].map((n) => {
-                        const selected = lastSelected === n
-                        let labelText = ""
-                        if (n === 1) labelText = scaleLabels.left
-                        if (n === 3) labelText = scaleLabels.middle
-                        if (n === 5) labelText = scaleLabels.right
-
+                      </div>
+                    ) : (
+                      (() => {
+                        const urls = (
+                          task?.gridUrls && task.gridUrls.length
+                            ? task.gridUrls
+                            : [task?.leftImageUrl, task?.rightImageUrl].filter(Boolean)
+                        ) as string[]
+                        if (urls.length <= 2) {
+                          return (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md border">
+                                {urls[0] && (
+                                  <img
+                                    src={urls[0] || "/placeholder.svg"}
+                                    alt="left"
+                                    className="h-full w-full object-contain"
+                                  />
+                                )}
+                              </div>
+                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md border">
+                                {urls[1] && (
+                                  <img
+                                    src={urls[1] || "/placeholder.svg"}
+                                    alt="right"
+                                    className="h-full w-full object-contain"
+                                  />
+                                )}
+                              </div>
+                            </div>
+                          )
+                        }
                         return (
-                          <div
-                            key={n}
-                            className="relative flex flex-col items-center pt-7"
-                            onMouseEnter={() => {
-                              hoverCountsRef.current[n] = (hoverCountsRef.current[n] || 0) + 1
-                              lastViewTimeRef.current = new Date().toISOString()
-                            }}
-                          >
-                            <div className="absolute top-0 w-[160px] text-[11px] sm:text-xs lg:text-sm font-medium text-gray-900 text-center whitespace-nowrap truncate">{labelText}</div>
-                            <button
-                              onClick={() => handleSelect(n)}
-                              className={`h-10 w-10 sm:h-11 sm:w-11 lg:h-12 lg:w-12 rounded-full border-2 lg:border-2 transition-colors text-sm lg:text-base font-semibold ${
-                                selected
-                                  ? "border-[rgba(38,116,186,1)] text-[rgba(38,116,186,1)] bg-white"
-                                  : "border-gray-200 text-gray-700 hover:border-gray-300 bg-white"
-                              }`}
-                            >
-                              {n}
-                            </button>
+                          <div className={`grid grid-cols-2 gap-4`}>
+                            {urls.slice(0, 4).map((url, i) => (
+                              <div
+                                key={i}
+                                className="aspect-[4/3] w-full md:h-[24vh] lg:h-[26vh] overflow-hidden rounded-md border"
+                              >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={(url as string) || "/placeholder.svg"}
+                                  alt={`element-${i + 1}`}
+                                  className="h-full w-full object-contain"
+                                />
+                              </div>
+                            ))}
                           </div>
                         )
-                      })}
+                      })()
+                    )}
+
+                    <div className="grid grid-cols-2 gap-4 text-sm font-semibold text-gray-800">
+                      <div className="text-center text-balance">{task?.leftLabel ?? ""}</div>
+                      <div className="text-center text-balance">{task?.rightLabel ?? ""}</div>
+                    </div>
+
+                    {/* Labels and rating scale - Larger for desktop */}
+                    <div className="w-full max-w-2xl mx-auto mt-6">
+                      <div className="flex items-end justify-center">
+                        <div className="flex items-end justify-between w-full max-w-lg">
+                          {[1, 2, 3, 4, 5].map((n) => {
+                            const selected = lastSelected === n
+                            let labelText = ""
+                            if (n === 1) labelText = scaleLabels.left
+                            if (n === 3) labelText = scaleLabels.middle
+                            if (n === 5) labelText = scaleLabels.right
+
+                            return (
+                              <div
+                                key={n}
+                                className="relative flex flex-col items-center w-[90px]"
+                                onMouseEnter={() => {
+                                  hoverCountsRef.current[n] = (hoverCountsRef.current[n] || 0) + 1
+                                  lastViewTimeRef.current = new Date().toISOString()
+                                }}
+                              >
+                                <div className="mb-3 w-full text-xs lg:text-sm xl:text-base font-medium text-gray-900 text-center leading-tight text-balance px-1 min-h-[3rem] flex items-end justify-center">
+                                  <span className="break-words hyphens-auto">{labelText}</span>
+                                </div>
+                                <button
+                                  onClick={() => handleSelect(n)}
+                                  className={`h-10 w-10 sm:h-11 sm:w-11 lg:h-12 lg:w-12 xl:h-14 xl:w-14 rounded-full border-2 lg:border-2 transition-colors text-sm lg:text-base xl:text-lg font-semibold flex-shrink-0 ${
+                                    selected
+                                      ? "border-[rgba(38,116,186,1)] text-[rgba(38,116,186,1)] bg-white"
+                                      : "border-gray-200 text-gray-700 hover:border-gray-300 bg-white"
+                                  }`}
+                                >
+                                  {n}
+                                </button>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
               </div>
             </div>
           </>

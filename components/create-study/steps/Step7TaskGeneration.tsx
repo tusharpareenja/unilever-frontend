@@ -256,8 +256,123 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
   }
 
   const handleRegenerateTasks = async () => {
-      await generateNow();
+     await generateNow();
+  }
+
+  // Function to download CSV matrix
+  const downloadMatrixCSV = () => {
+    try {
+      if (!matrix) {
+        alert('No task generation data found. Please generate tasks first.')
+        return
+      }
+
+      const tasks = matrix.tasks
+      const metadata = matrix.metadata
+
+      if (!tasks || !metadata) {
+        alert('Invalid task generation data format.')
+        return
+      }
+
+      // Get study type and elements/layers
+      const studyType = metadata.study_type
+      let elementColumns: string[] = []
+      let elementKeyMapping: { [key: string]: string } = {}
+
+      if (studyType === 'grid') {
+        // For grid studies, get element names from step 5
+        const gridData = localStorage.getItem('cs_step5_grid')
+        if (gridData) {
+          const elements = JSON.parse(gridData)
+          elementColumns = elements.map((el: any) => el.name)
+          
+          // Create mapping from E1, E2, etc. to actual element names
+          elements.forEach((el: any, index: number) => {
+            elementKeyMapping[`E${index + 1}`] = el.name
+          })
+        }
+        
+        // If we couldn't get element names from localStorage, use E1, E2, etc.
+        if (elementColumns.length === 0 && Object.keys(tasks).length > 0) {
+          const firstTask = tasks[Object.keys(tasks)[0]][0]
+          if (firstTask && firstTask.elements_shown) {
+            // Extract element keys from the elements_shown keys (E1, E2, etc.)
+            const elementKeys = Object.keys(firstTask.elements_shown).filter(key => 
+              key.match(/^E\d+$/) && !key.includes('_content')
+            )
+            elementColumns = elementKeys.sort((a, b) => {
+              const numA = parseInt(a.substring(1))
+              const numB = parseInt(b.substring(1))
+              return numA - numB
+            })
+            // Use the keys as column names if we don't have actual names
+            elementKeyMapping = {}
+            elementColumns.forEach(key => {
+              elementKeyMapping[key] = key
+            })
+          }
+        }
+      } else if (studyType === 'layer_v2') {
+        // For layer studies, get layer names with image numbers
+        const layerData = localStorage.getItem('cs_step5_layer')
+        if (layerData) {
+          const layers = JSON.parse(layerData)
+          elementColumns = []
+          layers.forEach((layer: any) => {
+            layer.images.forEach((img: any, index: number) => {
+              elementColumns.push(`${layer.name}_${index + 1}`)
+            })
+          })
+        }
+      }
+
+      // Generate CSV content
+      const csvRows: string[] = []
+      
+      // Add header row
+      const headers = ['Responder', 'Task', ...elementColumns]
+      csvRows.push(headers.join(','))
+
+      // Add data rows
+      Object.keys(tasks).forEach(respondentId => {
+        const respondentTasks = tasks[respondentId]
+        respondentTasks.forEach((task: any, taskIndex: number) => {
+          const row = [
+            parseInt(respondentId) + 1, // Convert to 1-based numbering
+            taskIndex + 1,
+            ...elementColumns.map(col => {
+              // For grid studies, we need to find the corresponding E1, E2, etc. key
+              if (studyType === 'grid') {
+                // Find the E key that maps to this column name
+                const elementKey = Object.keys(elementKeyMapping).find(key => elementKeyMapping[key] === col)
+                return elementKey ? (task.elements_shown[elementKey] || 0) : 0
+              } else {
+                // For layer studies, use the column name directly
+                return task.elements_shown[col] || 0
+              }
+            })
+          ]
+          csvRows.push(row.join(','))
+        })
+      })
+
+      // Create and download CSV
+      const csvContent = csvRows.join('\n')
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const link = document.createElement('a')
+      const url = URL.createObjectURL(blob)
+      link.setAttribute('href', url)
+      link.setAttribute('download', `task_matrix_${new Date().toISOString().split('T')[0]}.csv`)
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    } catch (error) {
+      console.error('Error generating CSV:', error)
+      alert('Error generating CSV file. Please try again.')
     }
+  }
     
 
   return (
@@ -483,8 +598,8 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
           <div className="flex flex-wrap gap-3">
             <Button onClick={handleRegenerateTasks} variant="outline">{isGenerating ? "Regenerating..." : "Regenerate Tasks"}</Button>
             <Button variant="outline" onClick={() => setIsStatsOpen(true)}>View Matrix Statistics</Button>
-            <Button variant="outline" onClick={handleDownloadAssetsZip} disabled={isDownloadingAssets}>
-              {isDownloadingAssets ? 'Preparing Assets...' : 'Download Assets (ZIP)'}
+            <Button variant="outline" onClick={downloadMatrixCSV}>
+              📥 Download Matrix CSV
             </Button>
           </div>
         </div>

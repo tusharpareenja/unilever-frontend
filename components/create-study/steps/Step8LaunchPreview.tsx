@@ -18,6 +18,7 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
   const step1 = get('cs_step1', { title: '', description: '', language: '' })
   const step2 = get('cs_step2', { type: 'grid', mainQuestion: '', orientationText: '' })
   const step3 = get('cs_step3', { minValue: 1, maxValue: 5, minLabel: '', maxLabel: '', middleLabel: '' })
+  const step4 = get('cs_step4', [])
   const grid = get<any[]>('cs_step5_grid', [])
   const layer = get<any[]>('cs_step5_layer', [])
   const step6 = get('cs_step6', { respondents: 0, countries: [], genderMale: 0, genderFemale: 0, ageSelections: {} })
@@ -146,6 +147,34 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
           </div>
         </section>
 
+        {step4 && step4.length > 0 && (
+          <section className="rounded-lg border bg-white p-4">
+            <div className="text-sm font-semibold mb-2">Classification Questions</div>
+            <div className="space-y-3">
+              {step4.map((question: any, index: number) => (
+                <div key={question.id || index} className="border rounded-lg p-3 bg-gray-50">
+                  <div className="text-sm font-medium mb-2">{question.title}</div>
+                  <div className="text-sm text-gray-600">
+                    <div className="mb-1">Required: {question.required ? 'Yes' : 'No'}</div>
+                    {question.options && question.options.length > 0 && (
+                      <div>
+                        <div className="text-gray-500 mb-1">Options:</div>
+                        <div className="flex flex-wrap gap-2">
+                          {question.options.map((option: any, optIndex: number) => (
+                            <span key={option.id || optIndex} className="px-2 py-1 bg-white border rounded text-xs">
+                              {option.text}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         <section className="rounded-lg border bg-white p-4">
           <div className="text-sm font-semibold mb-2">Study Elements</div>
           {hasLayer ? (
@@ -191,7 +220,7 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
           <div className="text-sm font-semibold mb-2">Audience</div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
             <div><div className="text-gray-500">Respondents</div><div className="font-medium">{step6.respondents}</div></div>
-            <div><div className="text-gray-500">Countries</div><div className="font-medium">{step6.countries.join(', ') || '-'}</div></div>
+            <div><div className="text-gray-500">Countries</div><div className="font-medium">{step6.countries?.join(', ') || '-'}</div></div>
             <div><div className="text-gray-500">Gender Split</div><div className="font-medium">M {step6.genderMale}% / F {step6.genderFemale}%</div></div>
           </div>
         </section>

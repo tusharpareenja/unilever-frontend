@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface Step1BasicDetailsProps {
   onNext: () => void
@@ -61,13 +62,34 @@ export function Step1BasicDetails({ onNext, onCancel, onDataChange }: Step1Basic
 
         <div>
           <label className="block text-sm font-semibold text-gray-800 mb-2">Language <span className="text-red-500">*</span></label>
-          <Input
-            value={language}
-            readOnly
-            className="rounded-lg"
-          />
-
-          {/* <p className="mt-2 text-xs text-gray-500">Provide context about your study (max 2000 characters)</p> */}
+          <Select value={language} onValueChange={setLanguage}>
+            <SelectTrigger className="w-full rounded-lg">
+              <SelectValue placeholder="Select a language" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ENGLISH">English</SelectItem>
+              <SelectItem value="SPANISH">Spanish</SelectItem>
+              <SelectItem value="FRENCH">French</SelectItem>
+              <SelectItem value="GERMAN">German</SelectItem>
+              <SelectItem value="ITALIAN">Italian</SelectItem>
+              <SelectItem value="PORTUGUESE">Portuguese</SelectItem>
+              <SelectItem value="DUTCH">Dutch</SelectItem>
+              <SelectItem value="RUSSIAN">Russian</SelectItem>
+              <SelectItem value="CHINESE">Chinese</SelectItem>
+              <SelectItem value="JAPANESE">Japanese</SelectItem>
+              <SelectItem value="KOREAN">Korean</SelectItem>
+              <SelectItem value="ARABIC">Arabic</SelectItem>
+              <SelectItem value="HINDI">Hindi</SelectItem>
+              <SelectItem value="SWEDISH">Swedish</SelectItem>
+              <SelectItem value="NORWEGIAN">Norwegian</SelectItem>
+              <SelectItem value="DANISH">Danish</SelectItem>
+              <SelectItem value="FINNISH">Finnish</SelectItem>
+              <SelectItem value="POLISH">Polish</SelectItem>
+              <SelectItem value="CZECH">Czech</SelectItem>
+              <SelectItem value="HUNGARIAN">Hungarian</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="mt-2 text-xs text-gray-500">Choose the primary language for your study</p>
         </div>
 
         <div className="flex items-start sm:items-center gap-2">

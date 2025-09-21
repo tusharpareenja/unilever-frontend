@@ -11,9 +11,38 @@ interface Step3RatingScaleProps {
 }
 
 export function Step3RatingScale({ onNext, onBack, onDataChange }: Step3RatingScaleProps) {
-  const [minLabel, setMinLabel] = useState(() => { try { const v = localStorage.getItem('cs_step3'); if (v) { const o = JSON.parse(v); return o.minLabel || "" } } catch {}; return "" })
-  const [maxLabel, setMaxLabel] = useState(() => { try { const v = localStorage.getItem('cs_step3'); if (v) { const o = JSON.parse(v); return o.maxLabel || "" } } catch {}; return "" })
-  const [middleLabel, setMiddleLabel] = useState(() => { try { const v = localStorage.getItem('cs_step3'); if (v) { const o = JSON.parse(v); return o.middleLabel || "" } } catch {}; return "" })
+  const [minLabel, setMinLabel] = useState(() => {
+    try {
+      const v = localStorage.getItem("cs_step3")
+      if (v) {
+        const o = JSON.parse(v)
+        return o.minLabel || ""
+      }
+    } catch {}
+    return ""
+  })
+
+  const [maxLabel, setMaxLabel] = useState(() => {
+    try {
+      const v = localStorage.getItem("cs_step3")
+      if (v) {
+        const o = JSON.parse(v)
+        return o.maxLabel || ""
+      }
+    } catch {}
+    return ""
+  })
+
+  const [middleLabel, setMiddleLabel] = useState(() => {
+    try {
+      const v = localStorage.getItem("cs_step3")
+      if (v) {
+        const o = JSON.parse(v)
+        return o.middleLabel || ""
+      }
+    } catch {}
+    return ""
+  })
 
   // Fixed values - user cannot change these
   const minValue = 1
@@ -22,8 +51,8 @@ export function Step3RatingScale({ onNext, onBack, onDataChange }: Step3RatingSc
   useEffect(() => {}, [])
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    localStorage.setItem('cs_step3', JSON.stringify({ minValue, maxValue, minLabel, maxLabel, middleLabel }))
+    if (typeof window === "undefined") return
+    localStorage.setItem("cs_step3", JSON.stringify({ minValue, maxValue, minLabel, maxLabel, middleLabel }))
     onDataChange?.()
   }, [minLabel, maxLabel, middleLabel, onDataChange])
 
@@ -39,29 +68,37 @@ export function Step3RatingScale({ onNext, onBack, onDataChange }: Step3RatingSc
     <div>
       <div className="space-y-6">
         <h3 className="text-lg font-semibold text-gray-800">Rating Scale Configuration</h3>
-        <p className="text-sm text-gray-600">Configure the rating scale that respondents will use to evaluate elements.</p>
+        <p className="text-sm text-gray-600">
+          Configure the rating scale that respondents will use to evaluate elements.
+        </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-sm font-semibold text-gray-800 mb-2">Minimum Label (Value: 1) <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-semibold text-gray-800 mb-2">
+              Minimum Label (Value: 1) <span className="text-red-500">*</span>
+            </label>
             <Input
               placeholder="e.g., Not at all important"
               value={minLabel}
               onChange={(e) => setMinLabel(e.target.value)}
+              maxLength={15}
               className="rounded-lg"
             />
-            <p className="mt-2 text-xs text-gray-500">Label for the minimum value (1)</p>
+            <p className="mt-2 text-xs text-gray-500">Label for the minimum value (1) - Max 15 characters</p>
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-800 mb-2">Maximum Label (Value: 5) <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-semibold text-gray-800 mb-2">
+              Maximum Label (Value: 5) <span className="text-red-500">*</span>
+            </label>
             <Input
               placeholder="e.g., Very important"
               value={maxLabel}
               onChange={(e) => setMaxLabel(e.target.value)}
+              maxLength={15}
               className="rounded-lg"
             />
-            <p className="mt-2 text-xs text-gray-500">Label for the maximum value (5)</p>
+            <p className="mt-2 text-xs text-gray-500">Label for the maximum value (5) - Max 15 characters</p>
           </div>
 
           <div className="md:col-span-2">
@@ -70,35 +107,42 @@ export function Step3RatingScale({ onNext, onBack, onDataChange }: Step3RatingSc
               placeholder="e.g., Moderately important"
               value={middleLabel}
               onChange={(e) => setMiddleLabel(e.target.value)}
+              maxLength={15}
               className="rounded-lg"
             />
-            <p className="mt-2 text-xs text-gray-500">Optional label for the middle value (3)</p>
+            <p className="mt-2 text-xs text-gray-500">Optional label for the middle value (3) - Max 15 characters</p>
           </div>
         </div>
 
         <div className="border rounded-xl p-5 bg-slate-50">
           <div className="text-sm font-medium text-gray-700 mb-4">Scale Preview</div>
           <div className="flex items-start justify-center gap-7">
-            <div className="relative flex flex-col items-center gap-2 pt-7">
-              <div className="absolute top-0 text-xs text-gray-500 text-center whitespace-nowrap left-1/2 -translate-x-1/2 px-1">{minLabel || 'Lowest'}</div>
+            <div className="relative flex flex-col items-center gap-2 pt-16">
+              <div className="absolute top-0 text-xs text-gray-500 text-center max-w-20 left-1/2 -translate-x-1/2 px-1 leading-tight whitespace-pre-wrap break-words">
+                {minLabel || "Lowest"}
+              </div>
               <div className="w-10 h-10 rounded-full border-2 border-[rgba(38,116,186,1)] text-[rgba(38,116,186,1)] flex items-center justify-center font-medium">
                 1
               </div>
             </div>
-            
+
             <div className="flex items-center gap-7">
               {previewValues.slice(1, -1).map((v) => (
-                <div key={v} className="relative flex flex-col items-center gap-2 pt-7">
-                  <div className="absolute top-0 text-xs text-gray-500 text-center whitespace-nowrap left-1/2 -translate-x-1/2 px-1">{v === 3 && middleLabel ? middleLabel : ''}</div>
+                <div key={v} className="relative flex flex-col items-center gap-2 pt-16">
+                  <div className="absolute top-0 text-xs text-gray-500 text-center max-w-20 left-1/2 -translate-x-1/2 px-1 leading-tight whitespace-pre-wrap break-words">
+                    {v === 3 && middleLabel ? middleLabel : ""}
+                  </div>
                   <div className="w-10 h-10 rounded-full border-2 border-[rgba(38,116,186,1)] text-[rgba(38,116,186,1)] flex items-center justify-center font-medium">
                     {v}
                   </div>
                 </div>
               ))}
             </div>
-            
-            <div className="relative flex flex-col items-center gap-2 pt-7">
-              <div className="absolute top-0 text-xs text-gray-500 text-center whitespace-nowrap left-1/2 -translate-x-1/2 px-1">{maxLabel || 'Highest'}</div>
+
+            <div className="relative flex flex-col items-center gap-2 pt-16">
+              <div className="absolute top-0 text-xs text-gray-500 text-center max-w-20 left-1/2 -translate-x-1/2 px-1 leading-tight whitespace-pre-wrap break-words">
+                {maxLabel || "Highest"}
+              </div>
               <div className="w-10 h-10 rounded-full border-2 border-[rgba(38,116,186,1)] text-[rgba(38,116,186,1)] flex items-center justify-center font-medium">
                 5
               </div>
@@ -108,7 +152,9 @@ export function Step3RatingScale({ onNext, onBack, onDataChange }: Step3RatingSc
       </div>
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mt-10">
-        <Button variant="outline" className="rounded-full px-6 w-full sm:w-auto" onClick={onBack}>Back</Button>
+        <Button variant="outline" className="rounded-full px-6 w-full sm:w-auto bg-transparent" onClick={onBack}>
+          Back
+        </Button>
         <Button
           className="rounded-full px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] w-full sm:w-auto"
           onClick={onNext}
@@ -120,5 +166,3 @@ export function Step3RatingScale({ onNext, onBack, onDataChange }: Step3RatingSc
     </div>
   )
 }
-
-

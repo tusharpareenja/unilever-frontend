@@ -7,14 +7,14 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ChevronDown, Plus, LogOut } from "lucide-react"
 import { useAuth } from "@/lib/auth/AuthContext"
 import Link from "next/link"
-// import { usePathname } from "next/navigation"
+import { usePathname } from "next/navigation"
 
 export function DashboardHeader() {
   const { user, logout } = useAuth()
   const [showDropdown, setShowDropdown] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
-  // const pathname = usePathname()
-  // const showBackToHome = pathname !== "/home"
+  const pathname = usePathname()
+  const isCreateStudyRoute = pathname?.startsWith('/home/create-study')
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -63,19 +63,21 @@ export function DashboardHeader() {
               </Button>
             </motion.div>
           )} */}
-          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-          <Link href="/home/create-study">
-            <Button className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] text-white px-4 py-2 rounded-lg flex items-center space-x-2">
-              <Plus className="w-4 h-4" />
-              
-              <span className="hidden sm:inline">Create New Study</span>
-              <span className="sm:hidden">Create</span>
-              
-              
-              
-            </Button>
-            </Link>
-          </motion.div>
+          {!isCreateStudyRoute && (
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+              <Link href="/home/create-study">
+                <Button className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] text-white px-4 py-2 rounded-lg flex items-center space-x-2">
+                  <Plus className="w-4 h-4" />
+                  
+                  <span className="hidden sm:inline">Create New Study</span>
+                  <span className="sm:hidden">Create</span>
+                  
+                  
+                  
+                </Button>
+              </Link>
+            </motion.div>
+          )}
 
           <div className="relative" ref={dropdownRef}>
             <motion.div 

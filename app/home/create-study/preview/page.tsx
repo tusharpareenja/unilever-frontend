@@ -36,7 +36,8 @@ export default function ParticipateIntroPage() {
   const step2 = (()=>{ try{ return JSON.parse(localStorage.getItem('cs_step2')||'{}') }catch{return {}} })()
   const step6 = (()=>{ try{ return JSON.parse(localStorage.getItem('cs_step6')||'{}') }catch{return {}} })()
   const studyTitle = step1?.title || "Study Title"
-  const estimatedTime = "3-5 minutes"
+  const estimatedTime = "1-2 minutes"
+  const orientationText = step2?.orientationText || "Welcome to the study!"
   const studyType = step2?.type === "layer" ? "Layer Study" : "Grid Study"
   const totalVignettes = step6?.respondents || 3
   const startHref = '/home/create-study/preview/personal-information'
@@ -97,8 +98,8 @@ export default function ParticipateIntroPage() {
             </div>
 
             <div className="mt-8 border-t pt-6">
-              <Section title="Welcome to the Study!">
-                <p className="text-sm text-gray-700">
+              <Section title={orientationText}>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">
                   You’re about to participate in an important research study. This study will help researchers understand how people evaluate different visual elements.
                 </p>
               </Section>
