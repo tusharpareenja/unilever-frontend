@@ -225,7 +225,7 @@ export function StudyGrid({
           </div>
 
           {/* Description */}
-          <p className="text-sm text-gray-600 mb-4">this is to se what type...</p>
+          {/* <p className="text-sm text-gray-600 mb-4">this is to se what type...</p> */}
 
           {/* Three metric cards in a row */}
           <div className="flex gap-4 mb-6 flex-wrap">
