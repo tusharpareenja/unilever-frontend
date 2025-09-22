@@ -161,9 +161,9 @@ export default function ResponseDetailsPage() {
                                 const shownElements = t.elements_shown || t.elements_shown_in_task || {}
                                 const content = t.elements_shown_content || {}
                                 
-                                console.log('Layer task processing - shown:', shownElements)
-                                console.log('Layer task processing - content:', content)
-                                console.log('Layer task processing - task data:', t)
+                                // console.log('Layer task processing - shown:', shownElements)
+                                // console.log('Layer task processing - content:', content)
+                                // console.log('Layer task processing - task data:', t)
                                 
                                 // Process each layer element
                                 Object.keys(shownElements).forEach(key => {
@@ -171,7 +171,7 @@ export default function ResponseDetailsPage() {
                                   const isShown = element && element.visible === 1
                                   const hasContent = content?.[key] && content[key] !== null
                                   
-                                  console.log(`Layer ${key}: isShown=${isShown}, hasContent=${hasContent}, element:`, element)
+                                  // console.log(`Layer ${key}: isShown=${isShown}, hasContent=${hasContent}, element:`, element)
                                   
                                   if (isShown && hasContent) {
                                     layerElements.push({

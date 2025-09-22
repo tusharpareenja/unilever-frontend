@@ -176,11 +176,11 @@ export async function uploadImages(files: File[] | FileList): Promise<UploadImag
 
 // Create a new study using the backend API contract
 export async function createStudy(payload: CreateStudyPayload): Promise<{ id: string } & any> {
-  console.log('=== HTTP REQUEST TO /studIES ===')
-  console.log('URL:', `${API_BASE_URL}/studies`)
-  console.log('Method: POST')
-  console.log('Headers:', { "Content-Type": "application/json", ...getAuthHeader() })
-  console.log('Body size:', JSON.stringify(payload).length, 'characters')
+  // console.log('=== HTTP REQUEST TO /studIES ===')
+  // console.log('URL:', `${API_BASE_URL}/studies`)
+  // console.log('Method: POST')
+  // console.log('Headers:', { "Content-Type": "application/json", ...getAuthHeader() })
+  // console.log('Body size:', JSON.stringify(payload).length, 'characters')
 
   const res = await fetchWithAuth(`${API_BASE_URL}/studies`, {
     method: "POST",
@@ -188,39 +188,39 @@ export async function createStudy(payload: CreateStudyPayload): Promise<{ id: st
     body: JSON.stringify(payload),
   })
 
-  console.log('Response status:', res.status, res.statusText)
+  // console.log('Response status:', res.status, res.statusText)
   const data = await res.json().catch(() => ({}))
-  console.log('Response data:', data)
+  // console.log('Response data:', data)
   
   if (!res.ok) {
     const msg = (data && (data.detail || data.message)) || `Create study failed (${res.status})`
-    console.log('=== STUDY CREATION FAILED ===')
-    console.log('Error message:', msg)
-    console.log('Full error data:', data)
-    console.log('Response status:', res.status)
-    console.log('Response text:', await res.text().catch(() => 'Could not read response text'))
+    // console.log('=== STUDY CREATION FAILED ===')
+    // console.log('Error message:', msg)
+    // console.log('Full error data:', data)
+    // console.log('Response status:', res.status)
+    // console.log('Response text:', await res.text().catch(() => 'Could not read response text'))
     throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg))
   }
   
-  console.log('=== STUDY CREATION SUCCESS ===')
-  console.log('Created study:', data)
+  // console.log('=== STUDY CREATION SUCCESS ===')
+  // console.log('Created study:', data)
   return data
 }
 
 // Create a new study from localStorage data (uses already uploaded images)
 export async function createStudyFromLocalStorage(): Promise<{ id: string } & any> {
   const payload = buildStudyPayloadFromLocalStorage()
-  console.log('=== STUDY LAUNCH PAYLOAD ===')
-  console.log('Full payload being sent to /studies:', JSON.stringify(payload, null, 2))
-  console.log('Payload summary:', {
-    title: payload.title,
-    study_type: payload.study_type,
-    elements_count: payload.elements?.length || 0,
-    study_layers_count: payload.study_layers?.length || 0,
-    classification_questions_count: payload.classification_questions?.length || 0, // NEW
-    audience_respondents: payload.audience_segmentation?.number_of_respondents
-  })
-  console.log('=== END STUDY LAUNCH PAYLOAD ===')
+  // console.log('=== STUDY LAUNCH PAYLOAD ===')
+  // console.log('Full payload being sent to /studies:', JSON.stringify(payload, null, 2))
+  // console.log('Payload summary:', {
+  //   title: payload.title,
+  //   study_type: payload.study_type,
+  //   elements_count: payload.elements?.length || 0,
+  //   study_layers_count: payload.study_layers?.length || 0,
+  //   classification_questions_count: payload.classification_questions?.length || 0, // NEW
+  //   audience_respondents: payload.audience_segmentation?.number_of_respondents
+  // })
+  // console.log('=== END STUDY LAUNCH PAYLOAD ===')
   return createStudy(payload)
 }
 
@@ -237,7 +237,7 @@ function get<T>(key: string, fallback: T): T {
 
 // Build a CreateStudyPayload from data we persisted across steps
 export function buildStudyPayloadFromLocalStorage(): CreateStudyPayload {
-  console.log('=== BUILDING STUDY PAYLOAD FROM LOCALSTORAGE ===')
+  // console.log('=== BUILDING STUDY PAYLOAD FROM LOCALSTORAGE ===')
   
   const s1 = get("cs_step1", { title: "", description: "", language: "ENGLISH", agree: false }) as any
   const s2 = get("cs_step2", { type: "grid", mainQuestion: "", orientationText: "" }) as any
@@ -247,13 +247,13 @@ export function buildStudyPayloadFromLocalStorage(): CreateStudyPayload {
   const s6 = get("cs_step6", { respondents: 0, countries: [], genderMale: 0, genderFemale: 0, ageSelections: {} }) as any
   const classificationQuestions = get<any[]>("cs_step4", []) // Get classification questions from localStorage
   
-  console.log('Step 1 data:', s1)
-  console.log('Step 2 data:', s2)
-  console.log('Step 3 data:', s3)
-  console.log('Step 5 Grid data:', grid)
-  console.log('Step 5 Layer data:', layer)
-  console.log('Step 6 data:', s6)
-  console.log('Classification questions data:', classificationQuestions) // NEW
+  // console.log('Step 1 data:', s1)
+  // console.log('Step 2 data:', s2)
+  // console.log('Step 3 data:', s3)
+  // console.log('Step 5 Grid data:', grid)
+  // console.log('Step 5 Layer data:', layer)
+  // console.log('Step 6 data:', s6)
+  // console.log('Classification questions data:', classificationQuestions) // NEW
 
   const language = (s1.language || "en").toString().toLowerCase().startsWith("en") ? "en" : s1.language || "en"
 
@@ -265,7 +265,7 @@ export function buildStudyPayloadFromLocalStorage(): CreateStudyPayload {
     // For grid mode: use secure URLs directly (images already uploaded)
     const gridWithImages = grid.filter(e => e.secureUrl)
     elements = gridWithImages.map((item, idx) => {
-      console.log(`Grid Element ${idx}:`, { id: item.id, name: item.name, secureUrl: item.secureUrl })
+      // console.log(`Grid Element ${idx}:`, { id: item.id, name: item.name, secureUrl: item.secureUrl })
       return {
         element_id: String(item.id || `E${idx + 1}`).substring(0, 10),
         name: item.name || `Element ${idx + 1}`,
@@ -279,7 +279,7 @@ export function buildStudyPayloadFromLocalStorage(): CreateStudyPayload {
     // For layer mode: use secure URLs directly (images already uploaded)
     study_layers = layer.map((l: any, layerIdx: number) => {
       const imageObjects = l.images?.filter((img: any) => img.secureUrl).map((img: any, imgIdx: number) => {
-        console.log(`Layer ${layerIdx} Image ${imgIdx}:`, { id: img.id, name: img.name, secureUrl: img.secureUrl })
+        // console.log(`Layer ${layerIdx} Image ${imgIdx}:`, { id: img.id, name: img.name, secureUrl: img.secureUrl })
         return {
           image_id: img.id || crypto.randomUUID?.() || Math.random().toString(36).slice(2),
           name: img.name || `Image ${imgIdx + 1}`,
@@ -440,7 +440,7 @@ export function buildTaskGenerationPayloadFromLocalStorage(seed?: number): TaskG
     elements = grid
       .filter((e) => Boolean(e?.secureUrl))
       .map((e, idx) => {
-        console.log(`Task Generation - Grid Element ${idx}:`, { id: e.id, name: e.name, secureUrl: e.secureUrl })
+        // console.log(`Task Generation - Grid Element ${idx}:`, { id: e.id, name: e.name, secureUrl: e.secureUrl })
         return {
           element_id: String(e.id || `E${idx + 1}`).slice(0, 10),
           name: String(e.name || `E${idx + 1}`),
@@ -452,7 +452,7 @@ export function buildTaskGenerationPayloadFromLocalStorage(seed?: number): TaskG
     // Layer mode: use study_layers array
     study_layers = layer.map((l: any, layerIdx: number) => {
       const imageObjects = l.images?.filter((img: any) => img.secureUrl).map((img: any, imgIdx: number) => {
-        console.log(`Task Generation - Layer ${layerIdx} Image ${imgIdx}:`, { id: img.id, name: img.name, secureUrl: img.secureUrl })
+        // console.log(`Task Generation - Layer ${layerIdx} Image ${imgIdx}:`, { id: img.id, name: img.name, secureUrl: img.secureUrl })
         return {
           image_id: img.id || crypto.randomUUID?.() || Math.random().toString(36).slice(2),
           name: img.name || `Image ${imgIdx + 1}`,
@@ -480,7 +480,7 @@ export function buildTaskGenerationPayloadFromLocalStorage(seed?: number): TaskG
     seed,
   }
   
-  console.log('Task generation payload:', payload)
+  // console.log('Task generation payload:', payload)
   return payload
 }
 
@@ -515,7 +515,7 @@ export async function regenerateTasksForStudy(studyId: string): Promise<any> {
   try { data = text ? JSON.parse(text) : {} } catch { data = { detail: text } }
   if (!res.ok) {
     const msg = (data && (data.detail || data.message)) || text || `Regenerate tasks failed (${res.status})`
-    console.log('Regenerate tasks error:', msg, data)
+    // console.log('Regenerate tasks error:', msg, data)
     throw Object.assign(new Error(typeof msg === 'string' ? msg : JSON.stringify(msg)), { status: res.status, data })
   }
   console.log('Regenerate tasks success:', data)
@@ -582,8 +582,8 @@ export type UpdateStudyPutPayload = Partial<{
 
 // Fetch study details by ID
 export async function getStudyDetails(studyId: string): Promise<StudyDetails> {
-  console.log('=== HTTP REQUEST TO /studies/{id} ===')
-  console.log('URL:', `${API_BASE_URL}/studies/${studyId}`)
+  // console.log('=== HTTP REQUEST TO /studies/{id} ===')
+  // console.log('URL:', `${API_BASE_URL}/studies/${studyId}`)
   
   const res = await fetchWithAuth(`${API_BASE_URL}/studies/${studyId}`, {
     method: "GET",
@@ -596,11 +596,11 @@ export async function getStudyDetails(studyId: string): Promise<StudyDetails> {
   
   if (!res.ok) {
     const msg = (data && (data.detail || data.message)) || text || `Get study details failed (${res.status})`
-    console.log('Get study details error:', msg, data)
+    // console.log('Get study details error:', msg, data)
     throw Object.assign(new Error(typeof msg === 'string' ? msg : JSON.stringify(msg)), { status: res.status, data })
   }
   
-  console.log('Get study details success:', data)
+  // console.log('Get study details success:', data)
   return data
 }
 
@@ -624,19 +624,19 @@ export async function updateStudyStatus(studyId: string, status: "active" | "pau
   
   if (!res.ok) {
     const msg = (data && (data.detail || data.message)) || text || `Update study status failed (${res.status})`
-    console.log('Update study status error:', msg, data)
+    // console.log('Update study status error:', msg, data)
     throw Object.assign(new Error(typeof msg === 'string' ? msg : JSON.stringify(msg)), { status: res.status, data })
   }
   
-  console.log('Update study status success:', data)
+  // console.log('Update study status success:', data)
   return data
 }
 
 // PUT update study (e.g., activate via status change)
 export async function putUpdateStudy(studyId: string, payload: UpdateStudyPutPayload): Promise<StudyDetails> {
-  console.log('=== HTTP REQUEST TO /studies/{id} (PUT) ===')
-  console.log('URL:', `${API_BASE_URL}/studies/${studyId}`)
-  console.log('Payload keys:', Object.keys(payload))
+      // console.log('=== HTTP REQUEST TO /studies/{id} (PUT) ===')
+      // console.log('URL:', `${API_BASE_URL}/studies/${studyId}`)
+      // console.log('Payload keys:', Object.keys(payload))
   
   const res = await fetchWithAuth(`${API_BASE_URL}/studies/${studyId}`, {
     method: "PUT",
@@ -650,17 +650,17 @@ export async function putUpdateStudy(studyId: string, payload: UpdateStudyPutPay
   
   if (!res.ok) {
     const msg = (data && (data.detail || data.message)) || text || `PUT study update failed (${res.status})`
-    console.log('PUT study update error:', msg, data)
+    // console.log('PUT study update error:', msg, data)
     throw Object.assign(new Error(typeof msg === 'string' ? msg : JSON.stringify(msg)), { status: res.status, data })
   }
   
-  console.log('PUT study update success:', data)
+  // console.log('PUT study update success:', data)
   return data
 }
 
 export async function getStudyDetailsWithoutAuth(studyId: string): Promise<StudyDetails> {
-  console.log('=== HTTP REQUEST TO /studies/public/{id} ===')
-  console.log('URL:', `${API_BASE_URL}/studies/public/${studyId}`)
+  // console.log('=== HTTP REQUEST TO /studies/public/{id} ===')
+  // console.log('URL:', `${API_BASE_URL}/studies/public/${studyId}`)
   
   const res = await fetch(`${API_BASE_URL}/studies/public/${studyId}`, {
     method: "GET",
@@ -673,18 +673,18 @@ export async function getStudyDetailsWithoutAuth(studyId: string): Promise<Study
   
   if (!res.ok) {
     const msg = (data && (data.detail || data.message)) || text || `Get study details failed (${res.status})`
-    console.log('Get study details error:', msg, data)
+    // console.log('Get study details error:', msg, data)
     throw Object.assign(new Error(typeof msg === 'string' ? msg : JSON.stringify(msg)), { status: res.status, data })
   }
   
-  console.log('Get study details success:', data)
+  // console.log('Get study details success:', data)
   return data
 }
 
 // Get study details for start study flow (uses new endpoint)
 export async function getStudyDetailsForStart(studyId: string): Promise<StudyDetails> {
-  console.log('=== HTTP REQUEST TO /studies/public/{id}/details ===')
-  console.log('URL:', `${API_BASE_URL}/studies/public/${studyId}/details`)
+    // console.log('=== HTTP REQUEST TO /studies/public/{id}/details ===')
+    // console.log('URL:', `${API_BASE_URL}/studies/public/${studyId}/details`)
   
   const res = await fetch(`${API_BASE_URL}/studies/public/${studyId}/details`, {
     method: "GET",
@@ -697,7 +697,7 @@ export async function getStudyDetailsForStart(studyId: string): Promise<StudyDet
   
   if (!res.ok) {
     const msg = (data && (data.detail || data.message)) || text || `Get study details failed (${res.status})`
-    console.log('Get study details error:', msg, data)
+    // console.log('Get study details error:', msg, data)
     throw Object.assign(new Error(typeof msg === 'string' ? msg : JSON.stringify(msg)), { status: res.status, data })
   }
   
@@ -801,7 +801,7 @@ export async function getStudies(page: number = 1, per_page: number = 10): Promi
   } else if (data.studies && Array.isArray(data.studies)) {
     return data.studies
   } else if (data === null || data === undefined) {
-    console.log('API returned null/undefined, returning empty array')
+    // console.log('API returned null/undefined, returning empty array')
     return []
   } else {
     console.warn('Unexpected API response structure:', data)

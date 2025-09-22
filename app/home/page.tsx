@@ -85,7 +85,7 @@ export default function DashboardPage() {
         try { localStorage.setItem('home_stats_cache', JSON.stringify(nextStats)) } catch {}
         
         // Log for debugging
-        console.log(`Loaded ${total} studies: ${active} active, ${draft} draft, ${completed} completed`)
+        // console.log(`Loaded ${total} studies: ${active} active, ${draft} draft, ${completed} completed`)
       } catch (err) {
         console.error('Failed to fetch studies:', err)
         setError(err instanceof Error ? err.message : 'Failed to fetch studies')

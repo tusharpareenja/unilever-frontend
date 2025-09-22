@@ -38,12 +38,12 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
 
     setIsSendingReset(true)
     try {
-      console.log("Calling forgot password API with:", emailOrUsername.trim())
+      // console.log("Calling forgot password API with:", emailOrUsername.trim())
       // Call the real forgot password API
       const response = await forgotPassword({
         username_or_email: emailOrUsername.trim()
       })
-      console.log("API Response:", response)
+      // console.log("API Response:", response)
       alert("Password reset link has been sent to your email address")
       setShowForgotPasswordDialog(false)
     } catch (err: any) {

@@ -69,11 +69,11 @@ export default function TasksPage() {
       const studyInfo = study?.study_info || study
       const assignedTasks = study?.assigned_tasks || []
 
-      console.log("Tasks page - assignedTasks length:", assignedTasks.length)
-      console.log("Tasks page - assignedTasks:", assignedTasks)
+      // console.log("Tasks page - assignedTasks length:", assignedTasks.length)
+      // console.log("Tasks page - assignedTasks:", assignedTasks)
 
       const detectedStudyType = studyInfo?.study_type || study?.study_type
-      console.log("Study type detection:", detectedStudyType)
+      // console.log("Study type detection:", detectedStudyType)
       setStudyType(detectedStudyType)
       setMainQuestion(String(studyInfo?.main_question || study?.main_question || ""))
 
@@ -117,20 +117,20 @@ export default function TasksPage() {
           const shown = t?.elements_shown || {}
           const content = t?.elements_shown_content || {}
 
-          console.log("Layer task parsing - shown:", shown)
-          console.log("Layer task parsing - content:", content)
+          // console.log("Layer task parsing - shown:", shown)
+          // console.log("Layer task parsing - content:", content)
 
           const layers = Object.keys(shown)
             .filter((k) => {
               const isShown = Number(shown[k]) === 1
               const hasContent = content?.[k] && content[k] !== null
               const hasUrl = hasContent && content[k].url
-              console.log(`Layer ${k}: isShown=${isShown}, hasContent=${hasContent}, hasUrl=${hasUrl}`)
+              // console.log(`Layer ${k}: isShown=${isShown}, hasContent=${hasContent}, hasUrl=${hasUrl}`)
               return isShown && hasContent && hasUrl
             })
             .map((k) => {
               const layerData = content[k]
-              console.log(`Processing layer ${k}:`, layerData)
+              // console.log(`Processing layer ${k}:`, layerData)
               return {
                 url: String(layerData.url),
                 z: Number(layerData.z_index ?? 0),
@@ -138,14 +138,14 @@ export default function TasksPage() {
             })
             .sort((a, b) => a.z - b.z)
 
-          console.log("Layer task parsing - layers:", layers)
+          // console.log("Layer task parsing - layers:", layers)
           const taskResult = {
             id: String(t?.task_id ?? t?.task_index ?? Math.random()),
             layeredImages: layers,
             _elements_shown: shown,
             _elements_shown_content: content,
           }
-          console.log("Layer task result:", taskResult)
+          // console.log("Layer task result:", taskResult)
           return taskResult
         } else {
           const es = t?.elements_shown || {}
@@ -212,14 +212,10 @@ export default function TasksPage() {
         }
       })
 
-      console.log("Tasks page - parsed tasks length:", parsed.length)
-      console.log("Tasks page - parsed tasks:", parsed)
+
 
       // Debug layer tasks specifically
-      if (studyType === "layer") {
-        console.log("Layer study - checking first task:", parsed[0])
-        console.log("Layer study - first task layeredImages:", parsed[0]?.layeredImages)
-      }
+  
 
       setTasks(parsed)
       // Preload all task images in background to avoid display jitter
@@ -520,12 +516,11 @@ export default function TasksPage() {
                 elements_shown_content: it.elements_shown_content || undefined,
               }))
 
-              console.log(`Final flush (single bulk): sending ${tasksToSend.length} tasks`)
 
               try {
                 await submitTasksBulk(String(sessionId), tasksToSend)
                 localStorage.removeItem("task_submit_queue")
-                console.log("Final flush (single bulk) completed successfully")
+
               } catch (e) {
                 console.error("Final flush failed:", e)
                 // Keep queue for retry on thank-you page

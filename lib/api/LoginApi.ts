@@ -126,9 +126,9 @@ export async function forgotPassword(payload: ForgotPasswordPayload): Promise<Fo
 		throw new ApiError("Username or email is required", 400);
 	}
 	
-	console.log("API_BASE_URL:", API_BASE_URL);
-	console.log("Making request to:", `${API_BASE_URL}/auth/forgot-password`);
-	console.log("Payload:", payload);
+	// console.log("API_BASE_URL:", API_BASE_URL);
+	// console.log("Making request to:", `${API_BASE_URL}/auth/forgot-password`);
+	// console.log("Payload:", payload);
 	
 	try {
 		const res = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
@@ -139,11 +139,11 @@ export async function forgotPassword(payload: ForgotPasswordPayload): Promise<Fo
 			body: JSON.stringify(payload),
 		});
 
-		console.log("Response status:", res.status);
-		console.log("Response headers:", res.headers);
+		// console.log("Response status:", res.status);
+		// console.log("Response headers:", res.headers);
 
 		const data = await res.json();
-		console.log("Response data:", data);
+		// console.log("Response data:", data);
 
 		if (!res.ok) {
 			throw new ApiError(data?.detail || "Failed to send reset email", res.status, data);

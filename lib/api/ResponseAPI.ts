@@ -93,12 +93,12 @@ export async function submitTasksBulk(sessionId: string, tasks: SubmitTaskPayloa
 	const body = { tasks }
 	
 	// Use fallback URL if API_BASE_URL is undefined
-	const baseUrl = API_BASE_URL || 'http://127.0.0.1:8000/api/v1'
+	const baseUrl = API_BASE_URL
 	const url = `${baseUrl}/responses/submit-tasks-bulk?session_id=${q}`
 	
-	console.log(`submitTasksBulk: sending ${tasks.length} tasks for session ${sessionId}`)
-	console.log('API_BASE_URL:', API_BASE_URL)
-	console.log('Using URL:', url)
+	// console.log(`submitTasksBulk: sending ${tasks.length} tasks for session ${sessionId}`)
+	// console.log('API_BASE_URL:', API_BASE_URL)
+	// console.log('Using URL:', url)
 	
 	try {
 		const res = await fetch(url, {
@@ -107,7 +107,7 @@ export async function submitTasksBulk(sessionId: string, tasks: SubmitTaskPayloa
 			body: JSON.stringify(body),
 		})
 		
-		console.log('submitTasksBulk response status:', res.status, res.statusText)
+		// console.log('submitTasksBulk response status:', res.status, res.statusText)
 		
 		if (!res.ok) {
 			const text = await res.text().catch(() => '')
@@ -116,7 +116,7 @@ export async function submitTasksBulk(sessionId: string, tasks: SubmitTaskPayloa
 		}
 		
 		const result = await res.json().catch(() => ({}))
-		console.log('submitTasksBulk success:', result)
+		// console.log('submitTasksBulk success:', result)
 		return result
 	} catch (error) {
 		// Swallow network errors to avoid UI disruption; backend will still have prior tasks
@@ -166,7 +166,7 @@ export async function startStudy(studyId: string): Promise<StartStudyResponse> {
 	}
 
 	const data = await response.json()
-	console.log('Study started:', data)
+	// console.log('Study started:', data)
 	return data
 }
 
@@ -190,7 +190,7 @@ export async function getRespondentStudyDetails(respondentId: string, studyId: s
 	}
 
 	const data = await response.json()
-	console.log('Respondent study details:', data)
+	// console.log('Respondent study details:', data)
 	return data
 }
 
@@ -214,7 +214,7 @@ export async function submitStudyResponses(payload: SubmitResponsePayload): Prom
 	}
 
 	const data = await response.json()
-	console.log('Responses submitted:', data)
+	// console.log('Responses submitted:', data)
 	return data
 }
 
@@ -239,7 +239,7 @@ export async function updateUserPersonalInfo(sessionId: string, personalInfo: Pe
 	}
 
 	const data = await response.json()
-	console.log('Personal info updated:', data)
+	// console.log('Personal info updated:', data)
 	return data
 }
 
@@ -306,7 +306,7 @@ export async function getStudyTasks(sessionId: string): Promise<any> {
 	}
 
 	const data = await response.json()
-	console.log('Study tasks:', data)
+	// console.log('Study tasks:', data)
 	return data
 }
 

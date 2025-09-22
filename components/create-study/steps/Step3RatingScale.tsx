@@ -64,6 +64,23 @@ export function Step3RatingScale({ onNext, onBack, onDataChange }: Step3RatingSc
 
   const canProceed = minLabel && maxLabel
 
+  const formatLabel = (label: string, fallback: string) => {
+    const text = (label || "").trim()
+    if (!text) return fallback
+    if (text.includes(" ")) return text
+    if (text.length > 6) {
+      const mid = Math.ceil(text.length / 2)
+      return (
+        <>
+          {text.slice(0, mid)}
+          <wbr />
+          {text.slice(mid)}
+        </>
+      )
+    }
+    return text
+  }
+
   return (
     <div>
       <div className="space-y-6">
@@ -116,37 +133,23 @@ export function Step3RatingScale({ onNext, onBack, onDataChange }: Step3RatingSc
 
         <div className="border rounded-xl p-5 bg-slate-50">
           <div className="text-sm font-medium text-gray-700 mb-4">Scale Preview</div>
-          <div className="flex items-start justify-center gap-7">
-            <div className="relative flex flex-col items-center gap-2 pt-16">
-              <div className="absolute top-0 text-xs text-gray-500 text-center max-w-20 left-1/2 -translate-x-1/2 px-1 leading-tight whitespace-pre-wrap break-words">
-                {minLabel || "Lowest"}
-              </div>
-              <div className="w-10 h-10 rounded-full border-2 border-[rgba(38,116,186,1)] text-[rgba(38,116,186,1)] flex items-center justify-center font-medium">
-                1
-              </div>
-            </div>
-
-            <div className="flex items-center gap-7">
-              {previewValues.slice(1, -1).map((v) => (
-                <div key={v} className="relative flex flex-col items-center gap-2 pt-16">
-                  <div className="absolute top-0 text-xs text-gray-500 text-center max-w-20 left-1/2 -translate-x-1/2 px-1 leading-tight whitespace-pre-wrap break-words">
-                    {v === 3 && middleLabel ? middleLabel : ""}
-                  </div>
-                  <div className="w-10 h-10 rounded-full border-2 border-[rgba(38,116,186,1)] text-[rgba(38,116,186,1)] flex items-center justify-center font-medium">
-                    {v}
-                  </div>
+          <div className="flex items-start justify-center gap-4 px-2">
+            {[1, 2, 3, 4, 5].map((v) => (
+              <div key={v} className="relative flex flex-col items-center gap-2 pt-12 flex-1 max-w-[60px] sm:max-w-[80px]">
+                <div className="absolute top-0 text-xs text-gray-500 text-center w-full left-1/2 -translate-x-1/2 px-1 leading-tight whitespace-normal break-normal hyphens-none">
+                  {v === 1 ? (
+                    <div className="text-[10px] sm:text-xs">{formatLabel(minLabel, "Lowest")}</div>
+                  ) : v === 3 && middleLabel ? (
+                    <div className="text-[10px] sm:text-xs">{formatLabel(middleLabel, "")}</div>
+                  ) : v === 5 ? (
+                    <div className="text-[10px] sm:text-xs">{formatLabel(maxLabel, "Highest")}</div>
+                  ) : null}
                 </div>
-              ))}
-            </div>
-
-            <div className="relative flex flex-col items-center gap-2 pt-16">
-              <div className="absolute top-0 text-xs text-gray-500 text-center max-w-20 left-1/2 -translate-x-1/2 px-1 leading-tight whitespace-pre-wrap break-words">
-                {maxLabel || "Highest"}
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 border-[rgba(38,116,186,1)] text-[rgba(38,116,186,1)] flex items-center justify-center font-medium text-sm sm:text-base">
+                  {v}
+                </div>
               </div>
-              <div className="w-10 h-10 rounded-full border-2 border-[rgba(38,116,186,1)] text-[rgba(38,116,186,1)] flex items-center justify-center font-medium">
-                5
-              </div>
-            </div>
+            ))}
           </div>
         </div>
       </div>

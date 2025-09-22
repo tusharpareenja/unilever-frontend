@@ -51,7 +51,7 @@ export default function StudySharePage() {
     if (typeof window !== 'undefined') {
       // Always use current domain + study ID (ignore backend share_url)
       const url = `${window.location.origin}/participate/${studyId}`
-      console.log('Generated share URL:', url, 'from origin:', window.location.origin)
+      // console.log('Generated share URL:', url, 'from origin:', window.location.origin)
       return url
     }
     return ""
