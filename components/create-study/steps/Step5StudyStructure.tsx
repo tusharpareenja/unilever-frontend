@@ -21,6 +21,9 @@ interface Step5StudyStructureProps {
 }
 
 export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChange }: Step5StudyStructureProps) {
+  // Dynamic limits from env with sensible defaults
+  const GRID_MIN = Number.parseInt(process.env.NEXT_PUBLIC_GRID_MIN_ELEMENTS || '4') || 4
+  const GRID_MAX = Number.parseInt(process.env.NEXT_PUBLIC_GRID_MAX_ELEMENTS || '20') || 20
   const [elements, setElements] = useState<ElementItem[]>(() => {
     try {
       const raw = localStorage.getItem('cs_step5_grid')
@@ -50,7 +53,13 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
 
   const handleFiles = async (files: FileList | null) => {
     if (!files) return
-    const list = Array.from(files)
+    let list = Array.from(files)
+    // Enforce grid max limit
+    if (mode === 'grid') {
+      const remaining = Math.max(0, GRID_MAX - elements.length)
+      if (remaining <= 0) return
+      if (list.length > remaining) list = list.slice(0, remaining)
+    }
     // Add previews and remember ids in selection order
     const selectionIds: string[] = []
     list.forEach((file) => {
@@ -190,8 +199,9 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
         <div className="text-[10px] text-gray-500">Supports JPG, PNG, GIF (Max 10MB Each)</div>
         <div className="mt-4">
           <input ref={inputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleFiles(e.target.files)} />
-          <Button className="bg-amber-500 hover:bg-amber-600" onClick={() => inputRef.current?.click()}>Browse Files</Button>
+          <Button className="bg-amber-500 hover:bg-amber-600" onClick={() => inputRef.current?.click()} disabled={elements.length >= GRID_MAX}>Browse Files</Button>
         </div>
+        <div className="mt-2 text-xs text-gray-600">Min {GRID_MIN}, Max {GRID_MAX}. Current: {elements.length}</div>
       </div>
 
       {elements.length > 0 && (
@@ -248,9 +258,9 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
         <Button
           className="rounded-full px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] w-full sm:w-auto"
           onClick={handleNext}
-          disabled={nextLoading}
+          disabled={nextLoading || elements.length < GRID_MIN}
         >
-          {nextLoading ? 'Uploading...' : 'Next'}
+          {nextLoading ? 'Uploading...' : (elements.length < GRID_MIN ? `Add at least ${GRID_MIN}` : 'Next')}
         </Button>
       </div>
     </div>
@@ -270,6 +280,9 @@ type Layer = {
 }
 
 function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
+  // Dynamic limits from env with sensible defaults
+  const LAYER_MIN = Number.parseInt(process.env.NEXT_PUBLIC_LAYER_MIN_LAYERS || '2') || 2
+  const LAYER_MAX = Number.parseInt(process.env.NEXT_PUBLIC_LAYER_MAX_LAYERS || '10') || 10
   const [layers, setLayers] = useState<Layer[]>(() => {
     try {
       const raw = localStorage.getItem('cs_step5_layer')
@@ -306,7 +319,10 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
   const layerPendingRef = useRef<Record<string, Array<{ imageId: string; file: File }>>>({})
   const layerTimersRef = useRef<Record<string, ReturnType<typeof setTimeout> | null>>({})
 
-  const addLayer = () => setShowModal(true)
+  const addLayer = () => {
+    if (layers.length >= LAYER_MAX) return
+    setShowModal(true)
+  }
 
   const reindexLayers = (list: Layer[]): Layer[] => {
     // Only update z by order; keep user-provided names intact
@@ -541,7 +557,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
 
       <div className="flex items-center justify-between mt-4">
         <div className="text-sm font-semibold text-gray-800">Layer Management</div>
-        <Button className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)]" onClick={addLayer}>+ Add New Layer</Button>
+        <Button className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)]" onClick={addLayer} disabled={layers.length >= LAYER_MAX}>+ Add New Layer</Button>
       </div>
 
       <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -559,6 +575,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
           </div>
         </div>
         <div className="md:col-span-2">
+          <div className="text-xs text-gray-600 mb-2">Min {LAYER_MIN}, Max {LAYER_MAX}. Current: {layers.length}</div>
           {layers.map((layer, idx) => (
             <Fragment key={layer.id}>
               {overIndex === idx && (
@@ -742,8 +759,9 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
               <Button 
                 className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)]" 
                 onClick={saveLayer}
+                disabled={layers.length >= LAYER_MAX}
               >
-                Save Layer
+                {layers.length >= LAYER_MAX ? 'Max layers reached' : 'Save Layer'}
               </Button>
             </div>
           </div>
@@ -755,9 +773,9 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
         <Button 
           className="rounded-full px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] w-full sm:w-auto" 
           onClick={handleNext} 
-          disabled={nextLoading}
+          disabled={nextLoading || layers.length < LAYER_MIN}
         >
-          {nextLoading ? 'Uploading...' : 'Next'}
+          {nextLoading ? 'Uploading...' : (layers.length < LAYER_MIN ? `Add at least ${LAYER_MIN}` : 'Next')}
         </Button>
       </div>
     </div>
