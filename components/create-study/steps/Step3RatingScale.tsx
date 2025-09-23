@@ -98,10 +98,10 @@ export function Step3RatingScale({ onNext, onBack, onDataChange }: Step3RatingSc
               placeholder="e.g., Not at all important"
               value={minLabel}
               onChange={(e) => setMinLabel(e.target.value)}
-              maxLength={15}
+              maxLength={18}
               className="rounded-lg"
             />
-            <p className="mt-2 text-xs text-gray-500">Label for the minimum value (1) - Max 15 characters</p>
+            <p className="mt-2 text-xs text-gray-500">Label for the minimum value (1) - Max 18 characters</p>
           </div>
 
           <div>
@@ -112,22 +112,22 @@ export function Step3RatingScale({ onNext, onBack, onDataChange }: Step3RatingSc
               placeholder="e.g., Very important"
               value={maxLabel}
               onChange={(e) => setMaxLabel(e.target.value)}
-              maxLength={15}
+              maxLength={18}
               className="rounded-lg"
             />
-            <p className="mt-2 text-xs text-gray-500">Label for the maximum value (5) - Max 15 characters</p>
+            <p className="mt-2 text-xs text-gray-500">Label for the maximum value (5) - Max 18 characters</p>
           </div>
 
           <div className="md:col-span-2">
             <label className="block text-sm font-semibold text-gray-800 mb-2">Middle Label (Value: 3) - Optional</label>
             <Input
-              placeholder="e.g., Moderately important"
+              placeholder="e.g., Fairly important"
               value={middleLabel}
               onChange={(e) => setMiddleLabel(e.target.value)}
-              maxLength={15}
+              maxLength={18}
               className="rounded-lg"
             />
-            <p className="mt-2 text-xs text-gray-500">Optional label for the middle value (3) - Max 15 characters</p>
+            <p className="mt-2 text-xs text-gray-500">Optional label for the middle value (3) - Max 18 characters</p>
           </div>
         </div>
 
