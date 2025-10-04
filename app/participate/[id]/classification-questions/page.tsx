@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation"
 import { DashboardHeader } from "@/app/home/components/dashboard-header"
 import { useState, useEffect, useRef } from "react"
 import { submitClassificationAnswers } from "@/lib/api/ResponseAPI"
+import { imagePreloader, preloadTaskImages } from "@/lib/utils/imagePreloader"
 
 interface ClassificationQuestion {
   id: string
@@ -19,6 +20,8 @@ export default function ClassificationQuestionsPage() {
   const [questions, setQuestions] = useState<ClassificationQuestion[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const preloadedUrlsRef = useRef<Set<string>>(new Set())
+  const preloaderRunningRef = useRef(false)
+  const nextTaskToPreloadRef = useRef<number>(1)
 
   // Track time spent on classification page
   const classStartRef = useRef<number>(Date.now())
@@ -62,6 +65,90 @@ export default function ClassificationQuestionsPage() {
     loadQuestions()
   }, [])
 
+  // Helpers for sequential task image preloading
+  const getUrlsForTask = (task: any, studyType: string): string[] => {
+    if (!task) return []
+    const urls = new Set<string>()
+    if (studyType === 'layer') {
+      const shown = task?.elements_shown || {}
+      const content = task?.elements_shown_content || {}
+      Object.keys(shown).forEach((k) => {
+        if (Number(shown[k]) === 1) {
+          const c = content?.[k]
+          if (c && typeof c === 'object' && typeof c.url === 'string') urls.add(String(c.url))
+          const s2: any = content?.[`${k}_content`]
+          if (s2 && typeof s2 === 'object' && typeof s2.url === 'string') urls.add(String(s2.url))
+          if (typeof s2 === 'string') urls.add(String(s2))
+        }
+      })
+    } else {
+      const es = task?.elements_shown || {}
+      const content = task?.elements_shown_content || {}
+      const activeKeys = Object.keys(es).filter((k) => Number(es[k]) === 1)
+      const getUrlForKey = (k: string): string | undefined => {
+        const directUrl = (es as any)[`${k}_content`]
+        if (typeof directUrl === 'string' && directUrl) return directUrl
+        const c1: any = (content as any)[k]
+        if (c1 && typeof c1 === 'object' && typeof c1.url === 'string') return c1.url
+        const c2: any = (content as any)[`${k}_content`]
+        if (c2 && typeof c2 === 'object' && typeof c2.url === 'string') return c2.url
+        if (typeof c2 === 'string') return c2
+        const s2: any = (content as any)[k]
+        if (typeof s2 === 'string') return s2
+        return undefined
+      }
+      activeKeys.forEach((k) => { const u = getUrlForKey(k); if (u) urls.add(u) })
+      if (urls.size === 0 && content && typeof content === 'object') {
+        Object.values(content).forEach((v: any) => {
+          if (v && typeof v === 'object' && typeof v.url === 'string') urls.add(v.url)
+          if (typeof v === 'string') urls.add(v)
+        })
+      }
+    }
+    return Array.from(urls)
+  }
+
+  const loadImage = (src: string): Promise<void> => {
+    return new Promise((resolve) => {
+      try {
+        const img = new Image()
+        ;(img as any).decoding = 'async'
+        ;(img as any).referrerPolicy = 'no-referrer'
+        img.onload = () => resolve()
+        img.onerror = () => resolve()
+        img.src = src
+      } catch { resolve() }
+    })
+  }
+
+  const startSequentialPreload = (tasksList: any[], studyType: string) => {
+    if (preloaderRunningRef.current) return
+    preloaderRunningRef.current = true
+    const step = () => {
+      if (nextTaskToPreloadRef.current >= tasksList.length) {
+        preloaderRunningRef.current = false
+        return
+      }
+      const idx = nextTaskToPreloadRef.current
+      const urls = getUrlsForTask(tasksList[idx], studyType)
+      const toLoad = urls.filter(u => !preloadedUrlsRef.current.has(u))
+      if (toLoad.length > 0) {
+        Promise.all(toLoad.map(loadImage)).then(() => {
+          toLoad.forEach(u => preloadedUrlsRef.current.add(u))
+          nextTaskToPreloadRef.current = idx + 1
+          setTimeout(step, 0)
+        }).catch(() => {
+          nextTaskToPreloadRef.current = idx + 1
+          setTimeout(step, 0)
+        })
+      } else {
+        nextTaskToPreloadRef.current = idx + 1
+        setTimeout(step, 0)
+      }
+    }
+    setTimeout(step, 0)
+  }
+
   // Preload first task images while on classification page so tasks render instantly
   useEffect(() => {
     try {
@@ -98,49 +185,37 @@ export default function ClassificationQuestionsPage() {
 
       const type = (studyInfo?.study_type || study?.study_type || '').toString()
 
-      const urls = new Set<string>()
-      if (type === 'layer') {
-        const shown = first?.elements_shown || {}
-        const content = first?.elements_shown_content || {}
-        Object.keys(shown).forEach((k) => {
-          if (Number(shown[k]) === 1) {
-            const c = content?.[k]
-            if (c && typeof c === 'object' && typeof c.url === 'string') urls.add(String(c.url))
-          }
-        })
-      } else {
-        const es = first?.elements_shown || {}
-        const content = first?.elements_shown_content || {}
-        const activeKeys = Object.keys(es).filter((k) => Number(es[k]) === 1)
-        const getUrlForKey = (k: string): string | undefined => {
-          const directUrl = (es as any)[`${k}_content`]
-          if (typeof directUrl === 'string' && directUrl) return directUrl
-          const c1: any = (content as any)[k]
-          if (c1 && typeof c1 === 'object' && typeof c1.url === 'string') return c1.url
-          const c2: any = (content as any)[`${k}_content`]
-          if (c2 && typeof c2 === 'object' && typeof c2.url === 'string') return c2.url
-          if (typeof c2 === 'string') return c2
-          const s2: any = (content as any)[k]
-          if (typeof s2 === 'string') return s2
-          return undefined
-        }
-        activeKeys.forEach((k) => { const u = getUrlForKey(k); if (u) urls.add(u) })
-        if (urls.size === 0 && content && typeof content === 'object') {
-          Object.values(content).forEach((v: any) => {
-            if (v && typeof v === 'object' && typeof v.url === 'string') urls.add(v.url)
-            if (typeof v === 'string') urls.add(v)
+          // Preload first 10 tasks aggressively (more than before)
+      const allUrls: string[] = []
+
+      // Extract ALL image URLs from first 10 tasks
+      const tasksToPreload = userTasks.slice(0, 10)
+      tasksToPreload.forEach(task => {
+        if (task.layeredImages) {
+          task.layeredImages.forEach((img: any) => {
+            if (img.url) allUrls.push(img.url)
           })
         }
-      }
-
-      const unique = Array.from(urls).filter((u) => !preloadedUrlsRef.current.has(u))
-      unique.forEach((u) => preloadedUrlsRef.current.add(u))
-      unique.forEach((src) => {
-        const img = new Image()
-        ;(img as any).decoding = 'async'
-        ;(img as any).referrerPolicy = 'no-referrer'
-        img.src = src
+        if (task.gridUrls) {
+          allUrls.push(...task.gridUrls.filter(Boolean))
+        }
+        if (task.leftImageUrl) allUrls.push(task.leftImageUrl)
+        if (task.rightImageUrl) allUrls.push(task.rightImageUrl)
       })
+
+      // Remove duplicates and preload ALL images in parallel
+      const uniqueUrls = [...new Set(allUrls)]
+      console.log(`Preloading ${uniqueUrls.length} images for first 10 tasks`)
+
+      // Preload all URLs immediately in parallel
+      uniqueUrls.forEach(url => {
+        const img = document.createElement('img') as HTMLImageElement
+        img.decoding = 'async'
+        img.referrerPolicy = 'no-referrer-when-downgrade'
+        img.src = url
+      })
+
+      console.log('Classification page preloading completed')
     } catch (e) {
       // best-effort preload
     }

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
+import Image from "next/image"
 import { submitTaskSession, submitTasksBulk } from "@/lib/api/ResponseAPI"
 
 type Task = {
@@ -12,6 +13,7 @@ type Task = {
   rightLabel?: string
   layeredImages?: Array<{ url: string; z: number }>
   gridUrls?: string[]
+  compositeLayerUrl?: string
   // Source maps from backend to echo on submit
   _elements_shown?: Record<string, unknown>
   _elements_shown_content?: Record<string, unknown>
@@ -25,6 +27,7 @@ export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [isFetching, setIsFetching] = useState<boolean>(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
+
   const [scaleLabels, setScaleLabels] = useState<{ left: string; right: string; middle: string }>({
     left: "",
     right: "",
@@ -41,6 +44,33 @@ export default function TasksPage() {
 
   useEffect(() => {
     firstViewTimeRef.current = new Date().toISOString()
+  }, [])
+
+  // Cleanup object URLs on unmount
+  useEffect(() => {
+    return () => {
+      try {
+        // Clean up any blob URLs that might exist
+        try {
+          const cached = sessionStorage.getItem('task_img_cache')
+          if (cached) {
+            const cache = JSON.parse(cached)
+        Object.values(cache).forEach(url => {
+          if (typeof url === 'string' && url.startsWith('blob:')) {
+            URL.revokeObjectURL(url)
+          }
+        })
+          }
+        sessionStorage.removeItem('task_img_cache')
+        } catch {
+          // best-effort cleanup
+        }
+
+        // Clean up completed
+      } catch {
+        // best-effort cleanup
+      }
+    }
   }, [])
 
   useEffect(() => {
@@ -217,31 +247,44 @@ export default function TasksPage() {
       // Debug layer tasks specifically
   
 
+      // Set tasks immediately - image preloading is handled by the hook
       setTasks(parsed)
-      // Preload all task images in background to avoid display jitter
+
+      // Aggressively preload ALL task images in parallel
       try {
-        const urls = new Set<string>()
-        parsed.forEach((t) => {
-          if (t.layeredImages && t.layeredImages.length > 0) {
-            t.layeredImages.forEach((li) => li.url && urls.add(li.url))
-          } else {
-            if (t.gridUrls) {
-              t.gridUrls.forEach((url) => urls.add(url))
-            } else {
-              if (t.leftImageUrl) urls.add(t.leftImageUrl)
-              if (t.rightImageUrl) urls.add(t.rightImageUrl)
-            }
+        const allUrls: string[] = []
+
+        parsed.forEach(task => {
+          if (task.layeredImages) {
+            task.layeredImages.forEach((img: any) => {
+              if (img.url) allUrls.push(img.url)
+            })
           }
+          if (task.gridUrls) {
+            allUrls.push(...task.gridUrls.filter(Boolean))
+          }
+          if (task.leftImageUrl) allUrls.push(task.leftImageUrl)
+          if (task.rightImageUrl) allUrls.push(task.rightImageUrl)
         })
-        const unique = Array.from(urls).filter((u) => !preloadedUrlsRef.current.has(u))
-        unique.forEach((u) => preloadedUrlsRef.current.add(u))
-        unique.forEach((src) => {
-          const img = new Image()
-          ;(img as any).decoding = "async"
-          ;(img as any).referrerPolicy = "no-referrer"
-          img.src = src
+
+        // Remove duplicates and preload ALL images in parallel
+        const uniqueUrls = [...new Set(allUrls)]
+        console.log(`Preloading ${uniqueUrls.length} images for all ${parsed.length} tasks`)
+
+        // Preload all URLs immediately in parallel
+        uniqueUrls.forEach(url => {
+          const img = document.createElement('img') as HTMLImageElement
+          img.decoding = 'async'
+          img.referrerPolicy = 'no-referrer-when-downgrade'
+          img.src = url
         })
-      } catch {}
+
+        console.log('Tasks page preloading completed')
+      } catch (error) {
+        console.error('Tasks page preloading failed:', error)
+      }
+
+      // No mobile composite creation needed - always use individual layers
     } catch (err: unknown) {
       console.error("Failed to load tasks from localStorage:", err)
       setFetchError((err as Error)?.message || "Failed to load tasks")
@@ -250,13 +293,151 @@ export default function TasksPage() {
     }
   }, [])
 
-  const totalTasks = tasks.length
   const [currentTaskIndex, setCurrentTaskIndex] = useState(0)
   const [responseTimesSec, setResponseTimesSec] = useState<number[]>([])
   const taskStartRef = useRef<number>(Date.now())
   const [lastSelected, setLastSelected] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const preloadedUrlsRef = useRef<Set<string>>(new Set())
+  const [isInitialLoading, setIsInitialLoading] = useState(true)
+
+  const totalTasks = tasks.length
+
+  // Mobile detection
+  const isMobile = typeof window !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+
+  // Hide initial loading after 5 seconds
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsInitialLoading(false)
+    }, 5000)
+
+    return () => clearTimeout(timer)
+  }, [])
+
+  // Handle task transitions for smooth image switching (no loading screen)
+  useEffect(() => {
+    if (tasks.length === 0) return
+
+    const currentTask = tasks[currentTaskIndex]
+    if (!currentTask) return
+
+    // Preload current task images silently in background
+    const preloadCurrentTask = async () => {
+      const urls: string[] = []
+      
+      if (currentTask.layeredImages) {
+        currentTask.layeredImages.forEach((img: any) => {
+          if (img.url) urls.push(img.url)
+        })
+      }
+      if (currentTask.gridUrls) {
+        urls.push(...currentTask.gridUrls.filter(Boolean))
+      }
+      if (currentTask.leftImageUrl) urls.push(currentTask.leftImageUrl)
+      if (currentTask.rightImageUrl) urls.push(currentTask.rightImageUrl)
+
+      // Preload current task images silently
+      urls.forEach(url => {
+        const img = document.createElement('img') as HTMLImageElement
+        img.src = url
+      })
+    }
+
+    preloadCurrentTask()
+  }, [currentTaskIndex, tasks])
+
+  // Task image cache for composites (sessionStorage based)
+  function getTaskImageCache() {
+    try {
+      const cached = sessionStorage.getItem('task_img_cache')
+      return cached ? JSON.parse(cached) : {}
+    } catch {
+      return {}
+    }
+  }
+
+  function setTaskImageCache(cache: Record<string, string>) {
+    try {
+      sessionStorage.setItem('task_img_cache', JSON.stringify(cache))
+    } catch {
+      // best-effort caching
+    }
+  }
+
+  // Composite layer images for mobile - NO CANVAS APPROACH (ASYNC)
+  const createLayerComposite = async (task: Task): Promise<string | null> => {
+    if (!task.layeredImages || task.layeredImages.length === 0) {
+      console.log('No layered images for task:', task.id)
+      return null
+    }
+    
+    try {
+      // NO CANVAS APPROACH: Completely avoid canvas operations that cause security errors
+      
+      // Sort layers by z-index
+      const sortedLayers = [...task.layeredImages].sort((a, b) => a.z - b.z)
+      console.log('Creating composite for task:', task.id, 'with layers:', sortedLayers.length)
+      
+      // For mobile, we'll use a much simpler approach:
+      // 1. If only one layer, return it directly
+      if (sortedLayers.length === 1) {
+        console.log('Single layer, returning URL:', sortedLayers[0].url)
+        return sortedLayers[0].url
+      }
+
+      // 2. For multiple layers, return the top layer (highest z-index)
+      // This avoids canvas security issues entirely
+      const topLayer = sortedLayers[sortedLayers.length - 1]
+      console.log(`Mobile composite: Using top layer for task ${task.id} (avoiding canvas):`, topLayer.url)
+      return topLayer.url
+
+      // Note: This approach sacrifices perfect layering for mobile compatibility
+      // The trade-off is worth it to avoid security errors
+    } catch (error) {
+      console.error('Failed to create layer composite:', error)
+      // Ultimate fallback: return the first layer URL
+      return task.layeredImages?.[0]?.url || null
+    }
+  }
+
+  // Composite layer images for mobile - NO CANVAS APPROACH (SYNC)
+  const createLayerCompositeSync = (task: Task): string | null => {
+    if (!task.layeredImages || task.layeredImages.length === 0) {
+      console.log('No layered images for task:', task.id)
+      return null
+    }
+    
+    try {
+      // NO CANVAS APPROACH: Completely avoid canvas operations that cause security errors
+      
+      // Sort layers by z-index
+      const sortedLayers = [...task.layeredImages].sort((a, b) => a.z - b.z)
+      console.log('Creating composite SYNC for task:', task.id, 'with layers:', sortedLayers.length)
+      
+      // For mobile, we'll use a much simpler approach:
+      // 1. If only one layer, return it directly
+      if (sortedLayers.length === 1) {
+        console.log('Single layer, returning URL:', sortedLayers[0].url)
+        return sortedLayers[0].url
+      }
+
+      // 2. For multiple layers, return the top layer (highest z-index)
+      // This avoids canvas security issues entirely
+      const topLayer = sortedLayers[sortedLayers.length - 1]
+      console.log(`Mobile composite SYNC: Using top layer for task ${task.id} (avoiding canvas):`, topLayer.url)
+      return topLayer.url
+
+      // Note: This approach sacrifices perfect layering for mobile compatibility
+      // The trade-off is worth it to avoid security errors
+    } catch (error) {
+      console.error('Failed to create layer composite SYNC:', error)
+      // Ultimate fallback: return the first layer URL
+      return task.layeredImages?.[0]?.url || null
+    }
+  }
+
+
+
 
   // Reset timer when task changes
   useEffect(() => {
@@ -378,19 +559,15 @@ export default function TasksPage() {
         } catch {}
 
         if (!sent) {
-          try {
-            await submitTasksBulk(String(sessionId), tasksToSend)
-          } catch (e) {
+          submitTasksBulk(String(sessionId), tasksToSend).catch((e) => {
             console.error('submitTasksBulk failed, trying individual submissions:', e)
             // Fallback: try submitting tasks individually
             for (const task of tasksToSend) {
-              try {
-                await submitTaskResponse(String(sessionId), task)
-              } catch (individualError) {
+              submitTaskResponse(String(sessionId), task).catch((individualError) => {
                 console.error('Individual task submission failed:', individualError)
-              }
+              })
             }
-          }
+          })
         }
 
         // On success, remove only the sent tasks from queue
@@ -517,14 +694,12 @@ export default function TasksPage() {
               }))
 
 
-              try {
-                await submitTasksBulk(String(sessionId), tasksToSend)
+              submitTasksBulk(String(sessionId), tasksToSend).then(() => {
                 localStorage.removeItem("task_submit_queue")
-
-              } catch (e) {
+              }).catch((e) => {
                 console.error("Final flush failed:", e)
                 // Keep queue for retry on thank-you page
-              }
+              })
             }
           }
         } catch {}
@@ -548,7 +723,22 @@ export default function TasksPage() {
 
   const task = tasks[currentTaskIndex]
 
+  // Check if we have a cached composite for this task
+  const cache = getTaskImageCache()
+  const compositeKey = `composite_${task?.id}`
+  const compositeUrl = cache[compositeKey]
+
+  // Debug logging
+  console.log('Task debug:', {
+    taskId: task?.id,
+    hasLayeredImages: !!task?.layeredImages,
+    layeredImagesCount: task?.layeredImages?.length,
+    isMobile,
+    studyType
+  })
+
   // const isFinished = totalTasks > 0 && currentTaskIndex >= totalTasks - 1 && lastSelected !== null
+
 
   return (
     <div
@@ -556,6 +746,7 @@ export default function TasksPage() {
       style={{ paddingTop: "max(10px, env(safe-area-inset-top))" }}
     >
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 sm:pt-12 md:pt-14 pb-16">
+
         {isFetching ? (
           <div className="p-10 text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[rgba(38,116,186,1)] mx-auto mb-4" />
@@ -600,34 +791,53 @@ export default function TasksPage() {
                       <p className="mt-2 text-sm text-gray-600">Please wait while we save your study data.</p>
                     </div>
                   </div>
+                ) : isInitialLoading ? (
+                  <div className="flex-1 flex items-center justify-center pb-2 min-h-0">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[rgba(38,116,186,1)] mx-auto mb-4"></div>
+                      <h2 className="text-xl font-semibold text-gray-900">Loading images...</h2>
+                      <p className="mt-2 text-sm text-gray-600">Preparing task images for optimal display.</p>
+                    </div>
+                  </div>
                 ) : (
                   <>
                     {/* Image Section - Centered in middle */}
                     <div className="flex-1 flex items-center justify-center pb-2 min-h-0">
                       {studyType === "layer" ? (
                         <div className="relative w-full max-w-none overflow-hidden rounded-md h-[50vh] max-h-[400px]">
-                          {task?.layeredImages?.map((img, idx) => (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              key={`${img.url}-${idx}`}
-                              src={img.url || "/placeholder.svg"}
-                              alt={String(img.z)}
-                              className="absolute inset-0 m-auto h-full w-full object-contain"
-                              style={{ zIndex: img.z }}
-                            />
-                          ))}
+                          {/* Always use individual layers for both mobile and desktop */}
+                          <div className="relative w-full h-full">
+                            {task?.layeredImages?.map((img: any, idx: number) => (
+                              <Image
+                                key={`${img.url}-${idx}`}
+                                src={img.url || "/placeholder.svg"}
+                                width={600}
+                                height={600}
+                                alt={String(img.z)}
+                                className="absolute inset-0 m-auto h-full w-full object-contain"
+                                style={{ zIndex: img.z }}
+                                priority
+                                unoptimized={img.url?.includes('blob.core.windows.net')}
+                                onError={(e) => {
+                                  console.error('Layer image failed to load:', img.url)
+                                }}
+                              />
+                            ))}
+                          </div>
                         </div>
                       ) : (
                         <div className="w-full max-w-full overflow-hidden max-h-[50vh]">
                           {task?.gridUrls && task.gridUrls.length > 2 ? (
                             <div className="grid grid-cols-2 gap-2 sm:gap-3 w-full overflow-hidden place-items-center">
-                              {task.gridUrls.slice(0, 4).map((url, i) => (
+                              {task.gridUrls.slice(0, 4).map((url: string, i: number) => (
                                 <div key={i} className="aspect-square w-full overflow-hidden rounded-md">
-                                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img
+                                  <Image
                                     src={url || "/placeholder.svg"}
                                     alt={`element-${i + 1}`}
+                                    width={300}
+                                    height={300}
                                     className="h-full w-full object-contain"
+                                    unoptimized={url?.includes('blob.core.windows.net')}
                                   />
                                 </div>
                               ))}
@@ -636,21 +846,25 @@ export default function TasksPage() {
                             <div className="flex flex-col gap-2 sm:gap-3">
                               <div className="aspect-[4/3] w-full overflow-hidden rounded-md max-h-[22vh]">
                                 {task?.leftImageUrl ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
+                                  <Image
                                     src={task.leftImageUrl || "/placeholder.svg"}
                                     alt="left"
+                                    width={400}
+                                    height={300}
                                     className="h-full w-full object-contain"
+                                    unoptimized={task.leftImageUrl?.includes('blob.core.windows.net')}
                                   />
                                 ) : null}
                               </div>
                               <div className="aspect-[4/3] w-full overflow-hidden rounded-md max-h-[22vh]">
                                 {task?.rightImageUrl ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
+                                  <Image
                                     src={task.rightImageUrl || "/placeholder.svg"}
                                     alt="right"
+                                    width={400}
+                                    height={300}
                                     className="h-full w-full object-contain"
+                                    unoptimized={task.rightImageUrl?.includes('blob.core.windows.net')}
                                   />
                                 ) : null}
                               </div>
@@ -738,16 +952,22 @@ export default function TasksPage() {
                     {studyType === "layer" ? (
                       <div className="flex justify-center">
                         <div className="relative w-full max-w-lg aspect-square overflow-hidden rounded-md">
-                          {task?.layeredImages?.map((img, idx) => (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              key={`${img.url}-${idx}`}
-                              src={img.url || "/placeholder.svg"}
-                              alt={String(img.z)}
-                              className="absolute inset-0 m-auto h-full w-full object-contain"
-                              style={{ zIndex: img.z }}
-                            />
-                          ))}
+                          {/* Always use individual layers for both mobile and desktop */}
+                          <div className="relative w-full h-full">
+                            {task?.layeredImages?.map((img: any, idx: number) => (
+                              <Image
+                                key={`${img.url}-${idx}`}
+                                src={img.url || "/placeholder.svg"}
+                                width={600}
+                                height={600}
+                                alt={String(img.z)}
+                                className="absolute inset-0 m-auto h-full w-full object-contain"
+                                style={{ zIndex: img.z }}
+                                priority
+                                unoptimized={img.url?.includes('blob.core.windows.net')}
+                              />
+                            ))}
+                          </div>
                         </div>
                       </div>
                     ) : (
@@ -762,19 +982,25 @@ export default function TasksPage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               <div className="aspect-[4/3] w-full overflow-hidden rounded-md border">
                                 {urls[0] && (
-                                  <img
+                                  <Image
                                     src={urls[0] || "/placeholder.svg"}
                                     alt="left"
+                                    width={400}
+                                    height={300}
                                     className="h-full w-full object-contain"
+                                    unoptimized={urls[0]?.includes('blob.core.windows.net')}
                                   />
                                 )}
                               </div>
                               <div className="aspect-[4/3] w-full overflow-hidden rounded-md border">
                                 {urls[1] && (
-                                  <img
+                                  <Image
                                     src={urls[1] || "/placeholder.svg"}
                                     alt="right"
+                                    width={400}
+                                    height={300}
                                     className="h-full w-full object-contain"
+                                    unoptimized={urls[1]?.includes('blob.core.windows.net')}
                                   />
                                 )}
                               </div>
@@ -788,11 +1014,13 @@ export default function TasksPage() {
                                 key={i}
                                 className="aspect-[4/3] w-full md:h-[24vh] lg:h-[26vh] overflow-hidden rounded-md border"
                               >
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
+                                <Image
                                   src={(url as string) || "/placeholder.svg"}
                                   alt={`element-${i + 1}`}
+                                  width={400}
+                                  height={300}
                                   className="h-full w-full object-contain"
+                                  unoptimized={(url as string)?.includes('blob.core.windows.net')}
                                 />
                               </div>
                             ))}

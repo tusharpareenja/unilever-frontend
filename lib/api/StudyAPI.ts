@@ -106,6 +106,19 @@ function writeTokens(tokens: any) {
   }
 }
 
+function clearTokensAndRedirect() {
+  try {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('tokens')
+      localStorage.removeItem('user')
+      // Force navigation to login
+      window.location.assign('/login')
+    }
+  } catch {
+    // no-op
+  }
+}
+
 async function refreshTokens(): Promise<boolean> {
   try {
     const tokens = readTokens()
@@ -141,13 +154,24 @@ export async function fetchWithAuth(input: RequestInfo | URL, init: RequestInit 
 
   const res = await fetch(input, { ...init, headers })
   if (res.status === 401 || res.status === 403) {
-    if (!retry) return res
+    if (!retry) {
+      // On final 401, clear tokens and redirect client-side
+      clearTokensAndRedirect()
+      return res
+    }
     const ok = await refreshTokens()
-    if (!ok) return res
+    if (!ok) {
+      clearTokensAndRedirect()
+      return res
+    }
     const tokens2 = readTokens()
     const headers2 = new Headers(init.headers || {})
     if (tokens2?.access_token) headers2.set('Authorization', `Bearer ${tokens2.access_token}`)
-    return fetch(input, { ...init, headers: headers2 })
+    const res2 = await fetch(input, { ...init, headers: headers2 })
+    if (res2.status === 401 || res2.status === 403) {
+      clearTokensAndRedirect()
+    }
+    return res2
   }
   return res
 }
