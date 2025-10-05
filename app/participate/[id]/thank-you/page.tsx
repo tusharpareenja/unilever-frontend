@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation"
 // import { DashboardHeader } from "@/app/home/components/dashboard-header"
 import { useEffect, useState } from "react"
 import { CheckCircle, Home, X } from "lucide-react"
+import { imageCacheManager } from "@/lib/utils/imageCacheManager"
 
 export default function ThankYouPage() {
   // const params = useParams<{ id: string }>()
@@ -19,6 +20,10 @@ export default function ThankYouPage() {
   useEffect(() => {
     // Mark as hydrated to prevent hydration mismatches
     setIsHydrated(true)
+
+    // Clear image cache on thank-you page
+    imageCacheManager.clearCache()
+    
 
     // Background: attempt to flush any remaining queued task submissions (non-blocking)
     const flushOnce = async () => {

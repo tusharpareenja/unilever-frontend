@@ -4,6 +4,19 @@ import { useEffect, useRef, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Image from "next/image"
 import { submitTaskSession, submitTasksBulk } from "@/lib/api/ResponseAPI"
+import { imageCacheManager } from "@/lib/utils/imageCacheManager"
+
+// Helper function to get cached URLs for display
+const getCachedUrl = (url: string | undefined): string => {
+  if (!url) {
+    return '/placeholder.svg'
+  }
+  
+  const cachedUrl = imageCacheManager.getCachedUrl(url)
+  // Log when we're using cached vs original URLs
+  
+  return cachedUrl
+}
 
 type Task = {
   id: string
@@ -99,11 +112,10 @@ export default function TasksPage() {
       const studyInfo = study?.study_info || study
       const assignedTasks = study?.assigned_tasks || []
 
-      // console.log("Tasks page - assignedTasks length:", assignedTasks.length)
-      // console.log("Tasks page - assignedTasks:", assignedTasks)
+      
 
       const detectedStudyType = studyInfo?.study_type || study?.study_type
-      // console.log("Study type detection:", detectedStudyType)
+      
       setStudyType(detectedStudyType)
       setMainQuestion(String(studyInfo?.main_question || study?.main_question || ""))
 
@@ -147,20 +159,19 @@ export default function TasksPage() {
           const shown = t?.elements_shown || {}
           const content = t?.elements_shown_content || {}
 
-          // console.log("Layer task parsing - shown:", shown)
-          // console.log("Layer task parsing - content:", content)
+          
 
           const layers = Object.keys(shown)
             .filter((k) => {
               const isShown = Number(shown[k]) === 1
               const hasContent = content?.[k] && content[k] !== null
               const hasUrl = hasContent && content[k].url
-              // console.log(`Layer ${k}: isShown=${isShown}, hasContent=${hasContent}, hasUrl=${hasUrl}`)
+              
               return isShown && hasContent && hasUrl
             })
             .map((k) => {
               const layerData = content[k]
-              // console.log(`Processing layer ${k}:`, layerData)
+              
               return {
                 url: String(layerData.url),
                 z: Number(layerData.z_index ?? 0),
@@ -168,14 +179,14 @@ export default function TasksPage() {
             })
             .sort((a, b) => a.z - b.z)
 
-          // console.log("Layer task parsing - layers:", layers)
+          
           const taskResult = {
             id: String(t?.task_id ?? t?.task_index ?? Math.random()),
             layeredImages: layers,
             _elements_shown: shown,
             _elements_shown_content: content,
           }
-          // console.log("Layer task result:", taskResult)
+          
           return taskResult
         } else {
           const es = t?.elements_shown || {}
@@ -247,46 +258,14 @@ export default function TasksPage() {
       // Debug layer tasks specifically
   
 
-      // Set tasks immediately - image preloading is handled by the hook
+      // Set tasks immediately - images should already be preloaded from previous pages
       setTasks(parsed)
 
-      // Aggressively preload ALL task images in parallel
-      try {
-        const allUrls: string[] = []
-
-        parsed.forEach(task => {
-          if (task.layeredImages) {
-            task.layeredImages.forEach((img: any) => {
-              if (img.url) allUrls.push(img.url)
-            })
-          }
-          if (task.gridUrls) {
-            allUrls.push(...task.gridUrls.filter(Boolean))
-          }
-          if (task.leftImageUrl) allUrls.push(task.leftImageUrl)
-          if (task.rightImageUrl) allUrls.push(task.rightImageUrl)
-        })
-
-        // Remove duplicates and preload ALL images in parallel
-        const uniqueUrls = [...new Set(allUrls)]
-        console.log(`Preloading ${uniqueUrls.length} images for all ${parsed.length} tasks`)
-
-        // Preload all URLs immediately in parallel
-        uniqueUrls.forEach(url => {
-          const img = document.createElement('img') as HTMLImageElement
-          img.decoding = 'async'
-          img.referrerPolicy = 'no-referrer-when-downgrade'
-          img.src = url
-        })
-
-        console.log('Tasks page preloading completed')
-      } catch (error) {
-        console.error('Tasks page preloading failed:', error)
-      }
+      // Check if images are already cached
+      const cacheStats = imageCacheManager.getCacheStats()
 
       // No mobile composite creation needed - always use individual layers
     } catch (err: unknown) {
-      console.error("Failed to load tasks from localStorage:", err)
       setFetchError((err as Error)?.message || "Failed to load tasks")
     } finally {
       setIsFetching(false)
@@ -307,12 +286,27 @@ export default function TasksPage() {
 
   // Hide initial loading after 5 seconds
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsInitialLoading(false)
-    }, 5000)
-
-    return () => clearTimeout(timer)
+    // Remove artificial delay so cached images can show instantly
+    setIsInitialLoading(false)
   }, [])
+
+  // Mount-time: prewarm ALL layered images across study to eliminate first-view lag
+  useEffect(() => {
+    if (!Array.isArray(tasks) || tasks.length === 0) return
+    try {
+      const allLayerUrls: string[] = Array.from(
+        new Set(
+          tasks
+            .flatMap((t: any) => (Array.isArray(t?.layeredImages) ? t.layeredImages : []))
+            .map((li: any) => li?.url)
+            .filter(Boolean)
+        )
+      ) as string[]
+      if (allLayerUrls.length > 0) {
+        imageCacheManager.prewarmUrls(allLayerUrls, 'high')
+      }
+    } catch {}
+  }, [totalTasks])
 
   // Handle task transitions for smooth image switching (no loading screen)
   useEffect(() => {
@@ -321,7 +315,7 @@ export default function TasksPage() {
     const currentTask = tasks[currentTaskIndex]
     if (!currentTask) return
 
-    // Preload current task images silently in background
+    // Preload + warm-decode current task images silently in background
     const preloadCurrentTask = async () => {
       const urls: string[] = []
       
@@ -336,11 +330,8 @@ export default function TasksPage() {
       if (currentTask.leftImageUrl) urls.push(currentTask.leftImageUrl)
       if (currentTask.rightImageUrl) urls.push(currentTask.rightImageUrl)
 
-      // Preload current task images silently
-      urls.forEach(url => {
-        const img = document.createElement('img') as HTMLImageElement
-        img.src = url
-      })
+      // Warm-decode using the cache manager so switch feels instant
+      await imageCacheManager.prewarmUrls(urls, 'critical')
     }
 
     preloadCurrentTask()
@@ -367,7 +358,7 @@ export default function TasksPage() {
   // Composite layer images for mobile - NO CANVAS APPROACH (ASYNC)
   const createLayerComposite = async (task: Task): Promise<string | null> => {
     if (!task.layeredImages || task.layeredImages.length === 0) {
-      console.log('No layered images for task:', task.id)
+      
       return null
     }
     
@@ -376,25 +367,25 @@ export default function TasksPage() {
       
       // Sort layers by z-index
       const sortedLayers = [...task.layeredImages].sort((a, b) => a.z - b.z)
-      console.log('Creating composite for task:', task.id, 'with layers:', sortedLayers.length)
+      
       
       // For mobile, we'll use a much simpler approach:
       // 1. If only one layer, return it directly
       if (sortedLayers.length === 1) {
-        console.log('Single layer, returning URL:', sortedLayers[0].url)
+        
         return sortedLayers[0].url
       }
 
       // 2. For multiple layers, return the top layer (highest z-index)
       // This avoids canvas security issues entirely
       const topLayer = sortedLayers[sortedLayers.length - 1]
-      console.log(`Mobile composite: Using top layer for task ${task.id} (avoiding canvas):`, topLayer.url)
+      
       return topLayer.url
 
       // Note: This approach sacrifices perfect layering for mobile compatibility
       // The trade-off is worth it to avoid security errors
     } catch (error) {
-      console.error('Failed to create layer composite:', error)
+      
       // Ultimate fallback: return the first layer URL
       return task.layeredImages?.[0]?.url || null
     }
@@ -403,7 +394,7 @@ export default function TasksPage() {
   // Composite layer images for mobile - NO CANVAS APPROACH (SYNC)
   const createLayerCompositeSync = (task: Task): string | null => {
     if (!task.layeredImages || task.layeredImages.length === 0) {
-      console.log('No layered images for task:', task.id)
+      
       return null
     }
     
@@ -412,25 +403,25 @@ export default function TasksPage() {
       
       // Sort layers by z-index
       const sortedLayers = [...task.layeredImages].sort((a, b) => a.z - b.z)
-      console.log('Creating composite SYNC for task:', task.id, 'with layers:', sortedLayers.length)
+      
       
       // For mobile, we'll use a much simpler approach:
       // 1. If only one layer, return it directly
       if (sortedLayers.length === 1) {
-        console.log('Single layer, returning URL:', sortedLayers[0].url)
+        
         return sortedLayers[0].url
       }
 
       // 2. For multiple layers, return the top layer (highest z-index)
       // This avoids canvas security issues entirely
       const topLayer = sortedLayers[sortedLayers.length - 1]
-      console.log(`Mobile composite SYNC: Using top layer for task ${task.id} (avoiding canvas):`, topLayer.url)
+      
       return topLayer.url
 
       // Note: This approach sacrifices perfect layering for mobile compatibility
       // The trade-off is worth it to avoid security errors
     } catch (error) {
-      console.error('Failed to create layer composite SYNC:', error)
+      
       // Ultimate fallback: return the first layer URL
       return task.layeredImages?.[0]?.url || null
     }
@@ -807,22 +798,41 @@ export default function TasksPage() {
                         <div className="relative w-full max-w-none overflow-hidden rounded-md h-[50vh] max-h-[400px]">
                           {/* Always use individual layers for both mobile and desktop */}
                           <div className="relative w-full h-full">
-                            {task?.layeredImages?.map((img: any, idx: number) => (
-                              <Image
-                                key={`${img.url}-${idx}`}
-                                src={img.url || "/placeholder.svg"}
-                                width={600}
-                                height={600}
-                                alt={String(img.z)}
-                                className="absolute inset-0 m-auto h-full w-full object-contain"
-                                style={{ zIndex: img.z }}
-                                priority
-                                unoptimized={img.url?.includes('blob.core.windows.net')}
-                                onError={(e) => {
-                                  console.error('Layer image failed to load:', img.url)
-                                }}
-                              />
-                            ))}
+                            {task?.layeredImages?.map((img: any, idx: number) => {
+                              const resolved = getCachedUrl(img.url) || "/placeholder.svg"
+                              return (
+                                <img
+                                  key={`${img.url}-${idx}`}
+                                  src={resolved}
+                                  alt={String(img.z)}
+                                  decoding="async"
+                                  loading="eager"
+                                  fetchPriority="high"
+                                  width={600}
+                                  height={600}
+                                  className="absolute inset-0 m-auto h-full w-full object-contain"
+                                  style={{ zIndex: img.z }}
+                                  onError={() => {
+                                    console.error('Layer image failed to load:', img.url)
+                                  }}
+                                />
+                              )
+                            })}
+                            {/* Pre-render next task layers offscreen to avoid flash on navigation */}
+                            {(tasks[currentTaskIndex + 1]?.layeredImages || []).map((img: any, idx: number) => {
+                              const resolved = getCachedUrl(img.url) || "/placeholder.svg"
+                              return (
+                                <img
+                                  key={`next-${img.url}-${idx}`}
+                                  src={resolved}
+                                  alt={String(img.z)}
+                                  decoding="async"
+                                  loading="eager"
+                                  fetchPriority="high"
+                                  style={{ position: 'absolute', top: -99999, left: -99999, width: 1, height: 1, visibility: 'hidden' }}
+                                />
+                              )
+                            })}
                           </div>
                         </div>
                       ) : (
@@ -832,11 +842,13 @@ export default function TasksPage() {
                               {task.gridUrls.slice(0, 4).map((url: string, i: number) => (
                                 <div key={i} className="aspect-square w-full overflow-hidden rounded-md">
                                   <Image
-                                    src={url || "/placeholder.svg"}
+                                    src={getCachedUrl(url) || "/placeholder.svg"}
                                     alt={`element-${i + 1}`}
                                     width={300}
                                     height={300}
                                     className="h-full w-full object-contain"
+                                    loading="eager"
+                                    fetchPriority="high"
                                     unoptimized={url?.includes('blob.core.windows.net')}
                                   />
                                 </div>
@@ -847,11 +859,13 @@ export default function TasksPage() {
                               <div className="aspect-[4/3] w-full overflow-hidden rounded-md max-h-[22vh]">
                                 {task?.leftImageUrl ? (
                                   <Image
-                                    src={task.leftImageUrl || "/placeholder.svg"}
+                                    src={getCachedUrl(task.leftImageUrl) || "/placeholder.svg"}
                                     alt="left"
                                     width={400}
                                     height={300}
                                     className="h-full w-full object-contain"
+                                    loading="eager"
+                                    fetchPriority="high"
                                     unoptimized={task.leftImageUrl?.includes('blob.core.windows.net')}
                                   />
                                 ) : null}
@@ -859,11 +873,13 @@ export default function TasksPage() {
                               <div className="aspect-[4/3] w-full overflow-hidden rounded-md max-h-[22vh]">
                                 {task?.rightImageUrl ? (
                                   <Image
-                                    src={task.rightImageUrl || "/placeholder.svg"}
+                                    src={getCachedUrl(task.rightImageUrl) || "/placeholder.svg"}
                                     alt="right"
                                     width={400}
                                     height={300}
                                     className="h-full w-full object-contain"
+                                    loading="eager"
+                                    fetchPriority="high"
                                     unoptimized={task.rightImageUrl?.includes('blob.core.windows.net')}
                                   />
                                 ) : null}
@@ -954,19 +970,38 @@ export default function TasksPage() {
                         <div className="relative w-full max-w-lg aspect-square overflow-hidden rounded-md">
                           {/* Always use individual layers for both mobile and desktop */}
                           <div className="relative w-full h-full">
-                            {task?.layeredImages?.map((img: any, idx: number) => (
-                              <Image
-                                key={`${img.url}-${idx}`}
-                                src={img.url || "/placeholder.svg"}
-                                width={600}
-                                height={600}
-                                alt={String(img.z)}
-                                className="absolute inset-0 m-auto h-full w-full object-contain"
-                                style={{ zIndex: img.z }}
-                                priority
-                                unoptimized={img.url?.includes('blob.core.windows.net')}
-                              />
-                            ))}
+                            {task?.layeredImages?.map((img: any, idx: number) => {
+                              const resolved = getCachedUrl(img.url) || "/placeholder.svg"
+                              return (
+                                <img
+                                  key={`${img.url}-${idx}`}
+                                  src={resolved}
+                                  alt={String(img.z)}
+                                  decoding="async"
+                                  loading="eager"
+                                  fetchPriority="high"
+                                  width={600}
+                                  height={600}
+                                  className="absolute inset-0 m-auto h-full w-full object-contain"
+                                  style={{ zIndex: img.z }}
+                                />
+                              )
+                            })}
+                            {/* Pre-render next task layers offscreen to avoid flash on navigation */}
+                            {(tasks[currentTaskIndex + 1]?.layeredImages || []).map((img: any, idx: number) => {
+                              const resolved = getCachedUrl(img.url) || "/placeholder.svg"
+                              return (
+                                <img
+                                  key={`next-desktop-${img.url}-${idx}`}
+                                  src={resolved}
+                                  alt={String(img.z)}
+                                  decoding="async"
+                                  loading="eager"
+                                  fetchPriority="high"
+                                  style={{ position: 'absolute', top: -99999, left: -99999, width: 1, height: 1, visibility: 'hidden' }}
+                                />
+                              )
+                            })}
                           </div>
                         </div>
                       </div>
@@ -983,11 +1018,12 @@ export default function TasksPage() {
                               <div className="aspect-[4/3] w-full overflow-hidden rounded-md border">
                                 {urls[0] && (
                                   <Image
-                                    src={urls[0] || "/placeholder.svg"}
+                                    src={getCachedUrl(urls[0]) || "/placeholder.svg"}
                                     alt="left"
                                     width={400}
                                     height={300}
                                     className="h-full w-full object-contain"
+                                    loading="eager"
                                     unoptimized={urls[0]?.includes('blob.core.windows.net')}
                                   />
                                 )}
@@ -995,11 +1031,12 @@ export default function TasksPage() {
                               <div className="aspect-[4/3] w-full overflow-hidden rounded-md border">
                                 {urls[1] && (
                                   <Image
-                                    src={urls[1] || "/placeholder.svg"}
+                                    src={getCachedUrl(urls[1]) || "/placeholder.svg"}
                                     alt="right"
                                     width={400}
                                     height={300}
                                     className="h-full w-full object-contain"
+                                    loading="eager"
                                     unoptimized={urls[1]?.includes('blob.core.windows.net')}
                                   />
                                 )}
@@ -1015,7 +1052,7 @@ export default function TasksPage() {
                                 className="aspect-[4/3] w-full md:h-[24vh] lg:h-[26vh] overflow-hidden rounded-md border"
                               >
                                 <Image
-                                  src={(url as string) || "/placeholder.svg"}
+                                  src={getCachedUrl(url as string) || "/placeholder.svg"}
                                   alt={`element-${i + 1}`}
                                   width={400}
                                   height={300}

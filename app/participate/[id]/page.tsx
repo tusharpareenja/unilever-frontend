@@ -120,7 +120,7 @@ export default function ParticipateIntroPage() {
       }
 
       const response = await startStudy(params.id)
-      // console.log('Study session started:', response)
+      
 
       // Store session data
       localStorage.setItem('study_session', JSON.stringify({
@@ -133,7 +133,7 @@ export default function ParticipateIntroPage() {
       // Get respondent-specific study details using the new API
       try {
         const respondentDetails = await getRespondentStudyDetails(String(response.respondent_id), params.id)
-        // console.log('Respondent study details received:', respondentDetails)
+        
         
         // Store only the essential data to avoid localStorage quota issues
         const essentialData = {
@@ -142,12 +142,11 @@ export default function ParticipateIntroPage() {
           classification_questions: respondentDetails?.classification_questions || []
         }
         
-        // console.log('Participate intro - assigned_tasks length:', essentialData.assigned_tasks.length)
-        // console.log('Participate intro - assigned_tasks:', essentialData.assigned_tasks)
+          
         
         localStorage.setItem('current_study_details', JSON.stringify(essentialData))
       } catch (e) {
-        console.error('Failed to get respondent study details:', e)
+      
         // Fallback to old method if new API fails
         if (studyDetails) {
           const tasksSrc: any = studyDetails?.tasks || studyDetails?.data?.tasks || studyDetails?.task_map || studyDetails?.task || {}
@@ -182,7 +181,7 @@ export default function ParticipateIntroPage() {
           try {
             localStorage.setItem('current_study_details', JSON.stringify(essentialData))
           } catch (e) {
-            console.warn('Failed to store filtered study details:', e)
+            
           }
         }
       }
@@ -233,14 +232,14 @@ export default function ParticipateIntroPage() {
           try {
             localStorage.setItem('current_study_details', JSON.stringify(essentialData))
           } catch (e) {
-            console.warn('Failed to store filtered study details:', e)
+            
           }
         } catch (e) {
-          console.warn('Background study details fetch failed:', e)
+          
         }
       })()
     } catch (error) {
-      console.error('Failed to start study:', error)
+      
       alert('Failed to start the study. Please try again in a moment.')
     } finally {
       setIsStarting(false)

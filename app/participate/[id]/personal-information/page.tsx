@@ -3,7 +3,7 @@
 import { useParams, useRouter } from "next/navigation"
 // import { DashboardHeader } from "@/app/home/components/dashboard-header"
 import { useState, useEffect, useRef } from "react"
-import { imagePreloader, preloadTaskImages } from "@/lib/utils/imagePreloader"
+import { imageCacheManager } from "@/lib/utils/imageCacheManager"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
 import { CalendarIcon } from "lucide-react"
@@ -22,87 +22,39 @@ export default function PersonalInformationPage() {
   // Guard: ensure session exists before allowing input
   const [sessionReady, setSessionReady] = useState<boolean>(false)
   const [guardChecked, setGuardChecked] = useState<boolean>(false)
-  const preloadedUrlsRef = useRef<Set<string>>(new Set())
-  const preloaderRunningRef = useRef(false)
-  const nextTaskToPreloadRef = useRef<number>(1)
+  const [preloadProgress, setPreloadProgress] = useState({ total: 0, loaded: 0, failed: 0 })
+  const [isPreloading, setIsPreloading] = useState(false)
 
-  const getUrlsForTask = (task: any, studyType: string): string[] => {
-    if (!task) return []
-    const urls = new Set<string>()
-    if (studyType === 'layer') {
-      const shown = task?.elements_shown || {}
-      const content = task?.elements_shown_content || {}
-      Object.keys(shown).forEach((k) => {
-        if (Number(shown[k]) === 1) {
-          const c = content?.[k]
-          if (c && typeof c === 'object' && typeof c.url === 'string') urls.add(String(c.url))
-          const s2: any = content?.[`${k}_content`]
-          if (s2 && typeof s2 === 'object' && typeof s2.url === 'string') urls.add(String(s2.url))
-          if (typeof s2 === 'string') urls.add(String(s2))
-        }
-      })
-    } else {
-      const es = task?.elements_shown || {}
-      const content = task?.elements_shown_content || {}
-      const activeKeys = Object.keys(es).filter((k) => Number(es[k]) === 1)
-      const getUrlForKey = (k: string): string | undefined => {
-        const directUrl = (es as any)[`${k}_content`]
-        if (typeof directUrl === 'string' && directUrl) return directUrl
-        const c1: any = (content as any)[k]
-        if (c1 && typeof c1 === 'object' && typeof c1.url === 'string') return c1.url
-        const c2: any = (content as any)[`${k}_content`]
-        if (c2 && typeof c2 === 'object' && typeof c2.url === 'string') return c2.url
-        if (typeof c2 === 'string') return c2
-        const s2: any = (content as any)[k]
-        if (typeof s2 === 'string') return s2
-        return undefined
-      }
-      activeKeys.forEach((k) => { const u = getUrlForKey(k); if (u) urls.add(u) })
-      if (urls.size === 0 && content && typeof content === 'object') {
-        Object.values(content).forEach((v: any) => {
-          if (v && typeof v === 'object' && typeof v.url === 'string') urls.add(v.url)
-          if (typeof v === 'string') urls.add(v)
-        })
-      }
+  // Smart preloading with cache management and CORS handling
+  const startSmartPreload = async (tasks: any[]) => {
+    if (imageCacheManager.isPreloadingInProgress()) {
+      return
     }
-    return Array.from(urls)
-  }
 
-  const loadImage = (src: string): Promise<void> => {
-    return new Promise((resolve) => {
-      try {
-        const img = new Image()
-        ;(img as any).decoding = 'async'
-        ;(img as any).referrerPolicy = 'no-referrer'
-        img.onload = () => resolve()
-        img.onerror = () => resolve()
-        img.src = src
-      } catch { resolve() }
-    })
-  }
-
-  const startSequentialPreload = (tasksList: any[], studyType: string) => {
-    if (preloaderRunningRef.current) return
-    preloaderRunningRef.current = true
-    const step = async () => {
-      if (nextTaskToPreloadRef.current >= tasksList.length) {
-        preloaderRunningRef.current = false
-        return
+    setIsPreloading(true)
+    try {
+      await imageCacheManager.preloadAllTaskImages(tasks)
+      const progress = imageCacheManager.getPreloadProgress()
+      setPreloadProgress(progress)
+      
+      // Check for CORS issues and provide feedback
+      const errorDetails = imageCacheManager.getErrorDetails()
+      const corsErrors = errorDetails.filter(error => 
+        error.error.includes('CORS') || 
+        error.error.includes('Failed to fetch') ||
+        error.error.includes('blocked by CORS policy')
+      )
+      
+      if (corsErrors.length > 0) {
+        // dev-only info suppressed
       }
-      const idx = nextTaskToPreloadRef.current
-      const urls = getUrlsForTask(tasksList[idx], studyType)
-      const toLoad = urls.filter(u => !preloadedUrlsRef.current.has(u))
-      if (toLoad.length > 0) {
-        Promise.all(toLoad.map(loadImage)).then(() => {
-          toLoad.forEach(u => preloadedUrlsRef.current.add(u))
-        }).catch(() => {
-          // best-effort preload
-        })
-      }
-      nextTaskToPreloadRef.current = idx + 1
-      setTimeout(step, 0)
+      
+      imageCacheManager.logCacheStatus()
+    } catch (error) {
+      // preload failure suppressed in UI
+    } finally {
+      setIsPreloading(false)
     }
-    setTimeout(step, 0)
   }
 
   useEffect(() => {
@@ -116,72 +68,49 @@ export default function PersonalInformationPage() {
     setGuardChecked(true)
   }, [])
 
+  // Smart preloading: preload all task images with cache management
   useEffect(() => {
-    try {
-      const detailsRaw = localStorage.getItem('current_study_details')
-      const sessionRaw = localStorage.getItem('study_session')
-      if (!detailsRaw) return
-      const study = JSON.parse(detailsRaw || '{}')
-      const { respondentId } = sessionRaw ? JSON.parse(sessionRaw) : { respondentId: 0 }
+    const preloadTaskImages = async () => {
+      try {
+        const detailsRaw = localStorage.getItem('current_study_details')
+        const sessionRaw = localStorage.getItem('study_session')
+        if (!detailsRaw) return
 
-      const studyInfo = study?.study_info || study
-      const assignedTasks = study?.assigned_tasks || []
+        const study = JSON.parse(detailsRaw || '{}')
+        const { respondentId } = sessionRaw ? JSON.parse(sessionRaw) : { respondentId: 0 }
 
-      let userTasks: any[] = []
-      if (Array.isArray(assignedTasks) && assignedTasks.length > 0) {
-        userTasks = assignedTasks
-      } else {
-        const tasksObj = study?.tasks || study?.data?.tasks || study?.task_map || study?.task || {}
-        const respondentKey = String(respondentId ?? 0)
-        let respondentTasks: any[] = tasksObj?.[respondentKey] || tasksObj?.[Number(respondentKey)] || []
-        if (!Array.isArray(respondentTasks) || respondentTasks.length === 0) {
-          if (Array.isArray(tasksObj)) {
-            respondentTasks = tasksObj
-          } else if (tasksObj && typeof tasksObj === 'object') {
-            for (const [k, v] of Object.entries(tasksObj)) {
-              if (Array.isArray(v) && v.length) { respondentTasks = v as any[]; break }
+        const studyInfo = study?.study_info || study
+        const assignedTasks = study?.assigned_tasks || []
+
+        let userTasks: any[] = []
+        if (Array.isArray(assignedTasks) && assignedTasks.length > 0) {
+          userTasks = assignedTasks
+        } else {
+          const tasksObj = study?.tasks || study?.data?.tasks || study?.task_map || study?.task || {}
+          const respondentKey = String(respondentId ?? 0)
+          let respondentTasks: any[] = tasksObj?.[respondentKey] || tasksObj?.[Number(respondentKey)] || []
+          if (!Array.isArray(respondentTasks) || respondentTasks.length === 0) {
+            if (Array.isArray(tasksObj)) {
+              respondentTasks = tasksObj
+            } else if (tasksObj && typeof tasksObj === 'object') {
+              for (const [k, v] of Object.entries(tasksObj)) {
+                if (Array.isArray(v) && v.length) { respondentTasks = v as any[]; break }
+              }
             }
           }
+          userTasks = respondentTasks
         }
-        userTasks = respondentTasks
+
+        if (userTasks.length === 0) return
+
+        // Use smart preloading with cache management
+        await startSmartPreload(userTasks)
+      } catch (error) {
+        // preload failure suppressed
       }
-
-      const type = (studyInfo?.study_type || study?.study_type || '').toString()
-
-      // Preload first 10 tasks aggressively (more than before)
-      const allUrls: string[] = []
-
-      // Extract ALL image URLs from first 10 tasks
-      const tasksToPreload = userTasks.slice(0, 10)
-      tasksToPreload.forEach(task => {
-        if (task.layeredImages) {
-          task.layeredImages.forEach((img: any) => {
-            if (img.url) allUrls.push(img.url)
-          })
-        }
-        if (task.gridUrls) {
-          allUrls.push(...task.gridUrls.filter(Boolean))
-        }
-        if (task.leftImageUrl) allUrls.push(task.leftImageUrl)
-        if (task.rightImageUrl) allUrls.push(task.rightImageUrl)
-      })
-
-      // Remove duplicates and preload ALL images in parallel
-      const uniqueUrls = [...new Set(allUrls)]
-      console.log(`Preloading ${uniqueUrls.length} images for first 10 tasks`)
-
-      // Preload all URLs immediately in parallel
-      uniqueUrls.forEach(url => {
-        const img = document.createElement('img') as HTMLImageElement
-        img.decoding = 'async'
-        img.referrerPolicy = 'no-referrer-when-downgrade'
-        img.src = url
-      })
-
-      console.log('Personal information page preloading completed')
-    } catch (e) {
-      // best-effort preload
     }
+
+    preloadTaskImages()
   }, [])
 
   const [dob, setDob] = useState<Date>()
@@ -238,17 +167,17 @@ export default function PersonalInformationPage() {
     try {
       // Get session data from localStorage
       const sessionData = localStorage.getItem('study_session')
-      // console.log('Session data from localStorage:', sessionData)
+      
       if (!sessionData) {
         throw new Error('Session data not found')
       }
       
       const { sessionId } = JSON.parse(sessionData)
-      // console.log('Session ID:', sessionId)
+      
       
       // Check if study details are available
       const studyDetails = localStorage.getItem('current_study_details')
-      // console.log('Study details from localStorage:', studyDetails)
+      
       
       // Prepare personal info payload
       const personalInfo = {
@@ -262,14 +191,12 @@ export default function PersonalInformationPage() {
       localStorage.setItem('personal_info', JSON.stringify(personalInfo))
       
       // Update user personal info via API
-      updateUserPersonalInfo(sessionId, personalInfo).catch((error) => {
-        console.error('Failed to update personal info:', error)
-      })
+      updateUserPersonalInfo(sessionId, personalInfo).catch(() => {})
       
       // Navigate to next page
       router.push(`/participate/${params?.id}/classification-questions`)
     } catch (error) {
-      console.error('Failed to update personal info:', error)
+      
       alert('Failed to save personal information. Please try again.')
     } finally {
       setIsSubmitting(false)
@@ -307,6 +234,8 @@ export default function PersonalInformationPage() {
 
         <div className="mt-8 bg-white border rounded-xl shadow-sm p-4 sm:p-6">
           {/* <div className="text-right text-xs text-gray-500">1 / 4</div> */}
+
+          {/* Preloading indicator removed per request */}
 
           <div className="mt-2">
             <label className="block text-sm font-semibold text-gray-800 mb-2">Date of Birth</label>
