@@ -17,6 +17,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
   const [matrix, setMatrix] = useState<any | null>(null)
   const [isStatsOpen, setIsStatsOpen] = useState(false)
   const [isDownloadingAssets, setIsDownloadingAssets] = useState(false)
+  const [countdownSeconds, setCountdownSeconds] = useState(600) // 10 minutes
 
   const generateNow = async () => {
     try {
@@ -50,7 +51,22 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
       console.error('Task generation error:', e)
       const err: any = e
       const message = err?.data?.detail || err?.message || 'Task generation failed.'
-      alert(typeof message === 'string' ? message : JSON.stringify(message))
+      const textMsg = typeof message === 'string' ? message : JSON.stringify(message)
+      alert(textMsg)
+      try {
+        const lower = String(textMsg).toLowerCase()
+        // Heuristics for T/E or capacity errors indicating insufficient elements
+        const isCapacityError = /t\s*\/?\s*e|preflight|not enough|insufficient|a_min|absence|capacity|unable to lock t/i.test(lower)
+        if (isCapacityError) {
+          // Persist a flash message for Step 5 and redirect there
+          localStorage.setItem('cs_flash_message', JSON.stringify({
+            type: 'error',
+            message: 'Task generation could not complete. Please add more elements/categories in Step 5 and try again.'
+          }))
+          localStorage.setItem('cs_current_step', '5')
+          window.location.href = '/home/create-study'
+        }
+      } catch {}
     } finally {
       setIsGenerating(false)
     }
@@ -64,12 +80,30 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
       const cached = localStorage.getItem('cs_step7_matrix')
       if (cached) {
         setMatrix(JSON.parse(cached))
-        return
+        // continue timer even if matrix exists
+      } else {
+        generateNow()
       }
     } catch {}
-    generateNow()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active])
+
+  // Countdown timer logic: always runs when active; restarts every 10 minutes if tasks not ready
+  useEffect(() => {
+    if (!active) return
+    setCountdownSeconds(600)
+    const id = window.setInterval(() => {
+      setCountdownSeconds((prev) => {
+        if (prev > 0) return prev - 1
+        // When reaches zero and tasks are still not generated, restart timer
+        if (!matrix) return 600
+        // If tasks are ready, keep cycling the timer (continue as requested)
+        return 600
+      })
+    }, 1000)
+    return () => window.clearInterval(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, !!matrix])
 
   function getFromLS<T>(key: string, fallback: T): T {
     if (typeof window === 'undefined') return fallback
@@ -86,6 +120,8 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
   const numRespondents = meta.number_of_respondents ?? respondentsFromLS ?? '-'
   const tasksPerRespondent = meta.tasks_per_consumer ?? '-'
   const elementsPerTask = meta.K ?? meta.elements_per_task ?? '-'
+
+  const formattedCountdown = `${Math.floor(countdownSeconds / 60)}:${String(countdownSeconds % 60).padStart(2, '0')}`
 
   // Use preview data (1 respondent only) for display
   const rawTasks = (matrix as any)?.preview_tasks || (matrix as any)?.tasks
@@ -129,18 +165,30 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
       const visibleLayerKeys = Object.keys(elementsShown).filter((k) => elementsShown[k] === 1 && elementsContent[k])
       return visibleLayerKeys.length
     }
-    const urlsFromShown: string[] = []
-    const shown = t?.elements_shown || {}
-    Object.keys(shown).forEach((k) => {
-      if (k.endsWith('_content') && shown[k]) urlsFromShown.push(shown[k])
-      if (k.includes('url') && shown[k] && typeof shown[k] === 'string' && shown[k].startsWith('http')) urlsFromShown.push(shown[k])
-    })
-    if (urlsFromShown.length > 0) return urlsFromShown.length
-    if (Array.isArray(t?.elements)) {
-      const fromElements = t.elements.filter((e: any) => e?.content && typeof e.content === 'string' && e.content.startsWith('http'))
-      if (fromElements.length > 0) return fromElements.length
+    
+    // For grid studies, check if using new category format
+    const gridData = localStorage.getItem('cs_step5_grid')
+    const isCategoryFormat = gridData && JSON.parse(gridData).length > 0 && JSON.parse(gridData)[0].title
+    
+    if (isCategoryFormat) {
+      // New category format: count visible elements from elements_shown
+      const shown = t?.elements_shown || {}
+      return Object.keys(shown).filter(key => shown[key] === 1).length
+    } else {
+      // Legacy format: extract URLs as before
+      const urlsFromShown: string[] = []
+      const shown = t?.elements_shown || {}
+      Object.keys(shown).forEach((k) => {
+        if (k.endsWith('_content') && shown[k]) urlsFromShown.push(shown[k])
+        if (k.includes('url') && shown[k] && typeof shown[k] === 'string' && shown[k].startsWith('http')) urlsFromShown.push(shown[k])
+      })
+      if (urlsFromShown.length > 0) return urlsFromShown.length
+      if (Array.isArray(t?.elements)) {
+        const fromElements = t.elements.filter((e: any) => e?.content && typeof e.content === 'string' && e.content.startsWith('http'))
+        if (fromElements.length > 0) return fromElements.length
+      }
+      return extractUrlsFromObject(t).length
     }
-    return extractUrlsFromObject(t).length
   })
   const totalUrlsInPreview = perTaskUrlCounts.reduce((a, b) => a + b, 0)
   const avgElementsPerTaskPreview = perTaskUrlCounts.length ? (totalUrlsInPreview / perTaskUrlCounts.length) : 0
@@ -267,51 +315,72 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
         return
       }
 
-      const tasks = matrix.tasks
-      const metadata = matrix.metadata
+      // Handle both full response format and cached preview format
+      let tasks = matrix.tasks
+      let metadata = matrix.metadata
+      
+      // If it's cached preview data, reconstruct the tasks format
+      if (matrix.preview_tasks && !matrix.tasks) {
+        tasks = { "0": matrix.preview_tasks }
+        metadata = matrix.metadata || {}
+      }
 
-      if (!tasks || !metadata) {
+      console.log('Matrix structure:', {
+        hasTasks: !!tasks,
+        hasMetadata: !!metadata,
+        tasksKeys: tasks ? Object.keys(tasks) : [],
+        matrixKeys: Object.keys(matrix),
+        isPreviewData: !!matrix.preview_tasks
+      })
+
+      if (!tasks) {
         alert('Invalid task generation data format.')
         return
       }
 
-      // Get study type and elements/layers
-      const studyType = metadata.study_type
+      // Get study type from metadata or determine from localStorage
+      let studyType = 'grid' // default
+      if (metadata && metadata.study_type) {
+        studyType = metadata.study_type
+      } else {
+        // Fallback: determine from localStorage
+        const step2Data = localStorage.getItem('cs_step2')
+        if (step2Data) {
+          const step2 = JSON.parse(step2Data)
+          studyType = step2.type || 'grid'
+        }
+      }
       let elementColumns: string[] = []
       let elementKeyMapping: { [key: string]: string } = {}
 
       if (studyType === 'grid') {
-        // For grid studies, get element names from step 5
-        const gridData = localStorage.getItem('cs_step5_grid')
-        if (gridData) {
-          const elements = JSON.parse(gridData)
-          elementColumns = elements.map((el: any) => el.name)
-          
-          // Create mapping from E1, E2, etc. to actual element names
-          elements.forEach((el: any, index: number) => {
-            elementKeyMapping[`E${index + 1}`] = el.name
-          })
-        }
+        // For grid studies, always use task data to build columns since it's the most reliable source
+        console.log('Building columns from task data for grid study')
         
-        // If we couldn't get element names from localStorage, use E1, E2, etc.
-        if (elementColumns.length === 0 && Object.keys(tasks).length > 0) {
+        if (Object.keys(tasks).length > 0) {
           const firstTask = tasks[Object.keys(tasks)[0]][0]
+          console.log('First task structure:', firstTask)
+          console.log('First task elements_shown:', firstTask?.elements_shown)
+          
           if (firstTask && firstTask.elements_shown) {
-            // Extract element keys from the elements_shown keys (E1, E2, etc.)
             const elementKeys = Object.keys(firstTask.elements_shown).filter(key => 
-              key.match(/^E\d+$/) && !key.includes('_content')
+              !key.includes('_content')
             )
-            elementColumns = elementKeys.sort((a, b) => {
-              const numA = parseInt(a.substring(1))
-              const numB = parseInt(b.substring(1))
-              return numA - numB
-            })
-            // Use the keys as column names if we don't have actual names
+            console.log('Element keys from task data:', elementKeys)
+            
+            // Use the keys directly as column names
+            elementColumns = elementKeys.sort()
             elementKeyMapping = {}
             elementColumns.forEach(key => {
               elementKeyMapping[key] = key
             })
+            console.log('Element columns from task data:', elementColumns)
+            console.log('Element key mapping from task data:', elementKeyMapping)
+          } else {
+            console.log('No elements_shown in first task or first task is missing')
           }
+        } else {
+          console.log('No tasks available for column generation')
         }
       } else if (studyType === 'layer_v2') {
         // For layer studies, get layer names with image numbers
@@ -326,6 +395,75 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
           })
         }
       }
+
+      // Force debug: if no columns, try to get them from any task BEFORE generating CSV
+      if (elementColumns.length === 0) {
+        console.log('No element columns found, trying to extract from any available task...')
+        for (const respondentId of Object.keys(tasks)) {
+          const respondentTasks = tasks[respondentId]
+          if (respondentTasks && respondentTasks.length > 0) {
+            const firstTask = respondentTasks[0]
+            if (firstTask && firstTask.elements_shown) {
+              const elementKeys = Object.keys(firstTask.elements_shown).filter(key => 
+                !key.includes('_content')
+              )
+              console.log('Found element keys in respondent', respondentId, ':', elementKeys)
+              if (elementKeys.length > 0) {
+                // Try to get element names from localStorage first
+                const gridData = localStorage.getItem('cs_step5_grid')
+                if (gridData) {
+                  try {
+                    const categories = JSON.parse(gridData)
+                    console.log('Building columns from localStorage categories:', categories)
+                    
+                    // Build columns with proper names and category order
+                    elementColumns = []
+                    elementKeyMapping = {}
+                    
+                    categories.forEach((category: any, catIdx: number) => {
+                      if (category.elements && Array.isArray(category.elements)) {
+                        category.elements.forEach((element: any, elIdx: number) => {
+                          const categoryName = category.title || `Category_${catIdx + 1}`
+                          const elementName = element.name || `Element_${elIdx + 1}`
+                          const columnName = `${categoryName}_${elementName}`
+                          elementColumns.push(columnName)
+                          
+                          // Map the API response key to our column name
+                          const apiKey = `${categoryName}_${elIdx + 1}`
+                          elementKeyMapping[apiKey] = columnName
+                        })
+                      }
+                    })
+                    
+                    console.log('Built columns from localStorage:', elementColumns)
+                    console.log('Built key mapping from localStorage:', elementKeyMapping)
+                  } catch (e) {
+                    console.log('Failed to parse localStorage data, using task keys directly')
+                    elementColumns = elementKeys.sort()
+                    elementKeyMapping = {}
+                    elementColumns.forEach(key => {
+                      elementKeyMapping[key] = key
+                    })
+                  }
+                } else {
+                  // Fallback to using task keys directly
+                  elementColumns = elementKeys.sort()
+                  elementKeyMapping = {}
+                  elementColumns.forEach(key => {
+                    elementKeyMapping[key] = key
+                  })
+                }
+                console.log('Forced element columns:', elementColumns)
+                break
+              }
+            }
+          }
+        }
+      }
+
+      console.log('Element columns generated:', elementColumns)
+      console.log('Element key mapping:', elementKeyMapping)
+      console.log('Tasks structure:', Object.keys(tasks).map(id => ({ respondent: id, taskCount: tasks[id]?.length })))
 
       // Generate CSV content
       const csvRows: string[] = []
@@ -342,13 +480,12 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
             parseInt(respondentId) + 1, // Convert to 1-based numbering
             taskIndex + 1,
             ...elementColumns.map(col => {
-              // For grid studies, we need to find the corresponding E1, E2, etc. key
-              if (studyType === 'grid') {
-                // Find the E key that maps to this column name
-                const elementKey = Object.keys(elementKeyMapping).find(key => elementKeyMapping[key] === col)
-                return elementKey ? (task.elements_shown[elementKey] || 0) : 0
+              // Find the corresponding API key for this column
+              const apiKey = Object.keys(elementKeyMapping).find(key => elementKeyMapping[key] === col)
+              if (apiKey) {
+                return task.elements_shown[apiKey] || 0
               } else {
-                // For layer studies, use the column name directly
+                // Fallback: try using the column name directly
                 return task.elements_shown[col] || 0
               }
             })
@@ -359,6 +496,10 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
 
       // Create and download CSV
       const csvContent = csvRows.join('\n')
+      console.log('Final CSV content preview:', csvContent.split('\n').slice(0, 3).join('\n'))
+      console.log('Total CSV rows:', csvRows.length)
+      console.log('Element columns count:', elementColumns.length)
+      
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
       const link = document.createElement('a')
       const url = URL.createObjectURL(blob)
@@ -395,10 +536,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
               <div className="text-xs text-gray-600">Tasks / Respondent</div>
               <div className="text-xl font-semibold">{tasksPerRespondent}</div>
             </div>
-            <div className="rounded-lg border p-3 bg-white">
-              <div className="text-xs text-gray-600">Elements / Task</div>
-              <div className="text-xl font-semibold">{elementsPerTask}</div>
-            </div>
+       
           </div>
         )}
 
@@ -429,11 +567,19 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
             {studyType === 'layer' ? 'Layer Study Preview' : 'Elements Preview'}
           </div>
           {!matrix ? (
-            <div className="text-center py-6">
-              <p className="text-sm text-gray-500 mb-4">Click generate to simulate a task matrix preview for 2 tasks.</p>
-              <Button className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)]" onClick={generateNow} disabled={isGenerating}>
-                {isGenerating ? 'Generating...' : 'Generate Example Matrix'}
-              </Button>
+            <div className="flex items-center justify-center py-10 sm:py-14 md:py-16 min-h-[220px] sm:min-h-[260px] md:min-h-[300px]">
+              <div className="text-center">
+                <div className="text-4xl sm:text-5xl md:text-6xl font-mono font-bold tracking-widest text-gray-900">
+                  {formattedCountdown}
+                </div>
+                <div className="mt-2 text-xs sm:text-sm text-gray-500">Auto-refresh timer</div>
+                {isGenerating && (
+                  <div className="mt-4 inline-flex items-center gap-2 text-sm text-gray-600">
+                    <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-400"></span>
+                    Generating...
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             <div className="space-y-6">
@@ -463,6 +609,16 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                           }
                         })
                         
+                        // Optional background from Step 5 (render behind all layers)
+                        let backgroundUrl: string | null = null
+                        try {
+                          const bgRaw = localStorage.getItem('cs_step5_layer_background')
+                          if (bgRaw) {
+                            const bg = JSON.parse(bgRaw)
+                            backgroundUrl = bg?.secureUrl || bg?.previewUrl || null
+                          }
+                        } catch {}
+
                         // Sort by z-index (ascending - lower z-index renders first/behind)
                         visibleLayers.sort((a, b) => a.z_index - b.z_index)
                         
@@ -477,6 +633,23 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                             <div className="relative bg-gray-100 min-h-[300px] overflow-hidden">
                               {visibleLayers.length > 0 ? (
                                 <div className="relative w-full h-[300px]">
+                                  {backgroundUrl && (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img 
+                                      src={backgroundUrl}
+                                      alt="Background"
+                                      className="absolute inset-0 w-full h-full object-cover"
+                                      style={{ 
+                                        zIndex: 0,
+                                        position: 'absolute',
+                                        top: 0,
+                                        left: 0,
+                                        width: '100%',
+                                        height: '100%'
+                                      }}
+                                      onError={(e) => { e.currentTarget.style.display = 'none' }}
+                                    />
+                                  )}
                                   {visibleLayers.map((layer, layerIdx) => (
                                     // eslint-disable-next-line @next/next/no-img-element
                                     <img 
@@ -485,7 +658,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                                       alt={layer.layer_name}
                                       className="absolute inset-0 w-full h-full object-contain"
                                       style={{ 
-                                        zIndex: layer.z_index + 10, // Add offset to ensure proper stacking
+                                        zIndex: layer.z_index + 10, // Add offset to ensure proper stacking; background uses zIndex 0
                                         position: 'absolute',
                                         top: 0,
                                         left: 0,
@@ -511,17 +684,32 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                           </div>
                         )
                       } else {
-                        // Handle grid study - existing logic
+                        // Handle grid study - updated for category-based format
                         const shown = task?.elements_shown || {}
+                        const shownContent = task?.elements_shown_content || {}
                         console.log('Task elements_shown:', shown)
+                        console.log('Task elements_shown_content:', shownContent)
+                        
                         const urls: string[] = []
                         
-                        // Try different ways to extract URLs based on API response structure
-                        Object.keys(shown).forEach((k) => {
-                          if (k.endsWith('_content') && shown[k]) {
-                            urls.push(shown[k])
+                        // New category-based format: extract URLs from elements_shown_content
+                        Object.keys(shown).forEach((key) => {
+                          if (shown[key] === 1 && shownContent[key]) {
+                            const content = shownContent[key]
+                            if (content.content && typeof content.content === 'string' && content.content.startsWith('http')) {
+                              urls.push(content.content)
+                            }
                           }
                         })
+                        
+                        // Fallback: Try different ways to extract URLs based on API response structure
+                        if (urls.length === 0) {
+                          Object.keys(shown).forEach((k) => {
+                            if (k.endsWith('_content') && shown[k]) {
+                              urls.push(shown[k])
+                            }
+                          })
+                        }
                         
                         // If no URLs found with _content pattern, try direct URL fields
                         if (urls.length === 0) {

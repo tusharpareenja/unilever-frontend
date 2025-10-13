@@ -106,6 +106,21 @@ export default function CreateStudyPage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="bg-white rounded-xl shadow-sm border border-[rgba(209,223,235,1)]">
             <div className="px-4 sm:px-6 lg:px-8 py-5 border-b border-[rgba(209,223,235,1)] sticky top-0 z-50 bg-white">
+              {/* Flash message from step redirects */}
+              {typeof window !== 'undefined' && (() => {
+                try {
+                  const raw = localStorage.getItem('cs_flash_message')
+                  if (!raw) return null
+                  const msg = JSON.parse(raw)
+                  // Clear immediately so it only shows once
+                  localStorage.removeItem('cs_flash_message')
+                  return (
+                    <div className={`mb-3 rounded-md px-3 py-2 text-sm ${msg?.type === 'error' ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
+                      {String(msg?.message || '')}
+                    </div>
+                  )
+                } catch { return null }
+              })()}
               <Stepper currentStep={currentStep} onStepChange={setCurrentStep} />
             </div>
 

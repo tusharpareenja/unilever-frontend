@@ -28,6 +28,7 @@ export default function TasksPage() {
   const [scaleLabels, setScaleLabels] = useState<{ left: string; right: string; middle: string }>({ left: "", right: "", middle: "" })
   const [studyType, setStudyType] = useState<'grid' | 'layer' | undefined>(undefined)
   const [mainQuestion, setMainQuestion] = useState<string>("")
+  const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null)
 
   // Interaction tracking
   const hoverCountsRef = useRef<Record<number, number>>({})
@@ -54,18 +55,28 @@ export default function TasksPage() {
       const step2Raw = typeof window !== 'undefined' ? localStorage.getItem('cs_step2') : null
       const step3Raw = typeof window !== 'undefined' ? localStorage.getItem('cs_step3') : null
       const matrixRaw = typeof window !== 'undefined' ? localStorage.getItem('cs_step7_matrix') : null
+      const layerBgRaw = typeof window !== 'undefined' ? localStorage.getItem('cs_step5_layer_background') : null
 
       if (!matrixRaw) throw new Error('Missing tasks in localStorage (cs_step7_matrix)')
 
       const s2 = step2Raw ? JSON.parse(step2Raw) : {}
       const s3 = step3Raw ? JSON.parse(step3Raw) : {}
       const matrix = JSON.parse(matrixRaw)
+      const layerBg = layerBgRaw ? JSON.parse(layerBgRaw) : null
 
-      const typeNorm = (s2?.study_type || s2?.metadata?.study_type || s2?.type || '').toString().toLowerCase()
+      const typeNorm = (matrix?.metadata?.study_type || s2?.study_type || s2?.metadata?.study_type || s2?.type || '')
+        .toString()
+        .toLowerCase()
       const normalizedType: 'grid' | 'layer' | undefined = typeNorm.includes('layer') ? 'layer' : (typeNorm.includes('grid') ? 'grid' : undefined)
       setStudyType(normalizedType)
 
       setMainQuestion(String(s2?.main_question || s2?.question || ''))
+
+      // Background for layer preview (optional)
+      try {
+        const bg = layerBg?.secureUrl || layerBg?.previewUrl || null
+        setBackgroundUrl(bg || null)
+      } catch { setBackgroundUrl(null) }
 
       // Rating labels can live in various shapes in cs_step3
       const rsSrc = (s3 && typeof s3 === 'object') ? s3 : {}
@@ -119,16 +130,22 @@ export default function TasksPage() {
             const activeKeys = Object.keys(es).filter((k) => Number(es[k]) === 1)
 
             const getUrlForKey = (k: string): string | undefined => {
-              // FIRST: Check directly in elements_shown for k_content (this is where your URLs are!)
+              // 1) elements_shown may embed direct URL under k_content
               const directUrl = (es as any)[`${k}_content`]
               if (typeof directUrl === 'string' && directUrl) return directUrl
               
-              // Then check the content object if it exists
+              // 2) content object: prefer url, then content
               const c1: any = (content as any)[k]
-              if (c1 && typeof c1 === 'object' && typeof c1.url === 'string') return c1.url
+              if (c1 && typeof c1 === 'object') {
+                if (typeof c1.url === 'string' && c1.url) return c1.url
+                if (typeof c1.content === 'string' && c1.content) return c1.content
+              }
               
               const c2: any = (content as any)[`${k}_content`]
-              if (c2 && typeof c2 === 'object' && typeof c2.url === 'string') return c2.url
+              if (c2 && typeof c2 === 'object') {
+                if (typeof c2.url === 'string' && c2.url) return c2.url
+                if (typeof c2.content === 'string' && c2.content) return c2.content
+              }
               if (typeof c2 === 'string') return c2
               
               const s2: any = (content as any)[k]
@@ -146,7 +163,10 @@ export default function TasksPage() {
             // As a last resort, scan content object for any url fields when no activeKeys resolved
             if (list.length === 0 && content && typeof content === 'object') {
               Object.values(content).forEach((v: any) => {
-                if (v && typeof v === 'object' && typeof v.url === 'string') list.push(v.url)
+                if (v && typeof v === 'object') {
+                  if (typeof v.url === 'string' && v.url) list.push(v.url)
+                  if (typeof v.content === 'string' && v.content) list.push(v.content)
+                }
                 if (typeof v === 'string') list.push(v)
               })
             }
@@ -328,6 +348,15 @@ export default function TasksPage() {
                     <div className="flex-1 flex items-center justify-center pb-2 min-h-0">
                       {studyType === "layer" ? (
                         <div className="relative w-full max-w-none overflow-hidden rounded-md h-[50vh] max-h-[400px]">
+                          {backgroundUrl && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={backgroundUrl}
+                              alt="Background"
+                              className="absolute inset-0 m-auto h-full w-full object-cover"
+                              style={{ zIndex: 0 }}
+                            />
+                          )}
                           {task?.layeredImages?.map((img, idx) => (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
@@ -335,7 +364,7 @@ export default function TasksPage() {
                               src={img.url || "/placeholder.svg"}
                               alt={String(img.z)}
                               className="absolute inset-0 m-auto h-full w-full object-contain"
-                              style={{ zIndex: img.z }}
+                              style={{ zIndex: (img.z ?? 0) + 1 }}
                             />
                           ))}
                         </div>
@@ -460,6 +489,15 @@ export default function TasksPage() {
                     {studyType === "layer" ? (
                       <div className="flex justify-center">
                         <div className="relative w-full max-w-lg aspect-square overflow-hidden rounded-md">
+                          {backgroundUrl && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={backgroundUrl}
+                              alt="Background"
+                              className="absolute inset-0 m-auto h-full w-full object-cover"
+                              style={{ zIndex: 0 }}
+                            />
+                          )}
                           {task?.layeredImages?.map((img, idx) => (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
@@ -467,7 +505,7 @@ export default function TasksPage() {
                               src={img.url || "/placeholder.svg"}
                               alt={String(img.z)}
                               className="absolute inset-0 m-auto h-full w-full object-contain"
-                              style={{ zIndex: img.z }}
+                              style={{ zIndex: (img.z ?? 0) + 1 }}
                             />
                           ))}
                         </div>

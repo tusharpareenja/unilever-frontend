@@ -59,21 +59,13 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
           // Continue anyway - user can activate manually if needed
         }
 
-        // Regenerate tasks in background (non-blocking)
-        try {
-          fetchWithAuth(`${API_BASE_URL}/studies/${studyId}/regenerate-tasks`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({}),
-            keepalive: true,
-          }).catch(() => {})
-        } catch {}
+        // Do not regenerate tasks on launch; heavy generation happens in Step 7 only.
       } else {
         console.warn('Cannot activate study: study id missing in create response')
       }
 
       // Clear all step data from localStorage (including cached step7 matrix)
-      const keysToRemove = ['cs_step1', 'cs_step2', 'cs_step3', 'cs_step4', 'cs_step5_grid', 'cs_step5_layer', 'cs_step6', 'cs_step7', 'cs_step7_tasks', 'cs_step7_matrix']
+      const keysToRemove = ['cs_step1', 'cs_step2', 'cs_step3', 'cs_step4', 'cs_step5_grid', 'cs_step5_layer', 'cs_step5_layer_background', 'cs_step6', 'cs_step7', 'cs_step7_tasks', 'cs_step7_matrix', 'cs_step7_meta', 'cs_step7_signature']
       keysToRemove.forEach(key => localStorage.removeItem(key))
 
       // Redirect to study page after activation
@@ -205,13 +197,62 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {grid.map((e, idx) => (
-                <div key={e.id || idx} className="aspect-square bg-gray-100 flex items-center justify-center p-2 rounded-md border">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={e.secureUrl || e.previewUrl} alt={e.name} className="max-w-full max-h-full object-contain" />
-                </div>
-              ))}
+            <div className="space-y-4">
+              {/* Check if using new category format or legacy format */}
+              {grid.length > 0 && grid[0].title && grid[0].elements ? (
+                <>
+                  <div className="text-sm text-gray-600 mb-3">Categories Configuration ({grid.length} categories)</div>
+                  {grid.map((category: any, catIdx: number) => (
+                    <div key={category.id || catIdx} className="border rounded-lg bg-gray-50 p-4">
+                      <div className="text-sm font-medium mb-3">
+                        {category.title} 
+                        {category.description && (
+                          <span className="text-gray-500 ml-2">- {category.description}</span>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {category.elements?.map((element: any, elIdx: number) => (
+                          <div key={element.id || elIdx} className="aspect-square bg-gray-100 flex items-center justify-center p-2 rounded-md border">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img 
+                              src={element.secureUrl || element.previewUrl} 
+                              alt={element.name} 
+                              className="max-w-full max-h-full object-contain"
+                              onError={(e) => {
+                                console.error('Failed to load image:', element)
+                                e.currentTarget.style.display = 'none'
+                              }}
+                            />
+                          </div>
+                        )) || <div className="text-sm text-gray-500">No elements in this category</div>}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-2">
+                        {category.elements?.length || 0} elements
+                      </div>
+                    </div>
+                  ))}
+                </>
+              ) : (
+                <>
+                  <div className="text-sm text-gray-600 mb-3">Elements Configuration ({grid.length} elements)</div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {grid.map((e, idx) => (
+                      <div key={e.id || idx} className="aspect-square bg-gray-100 flex items-center justify-center p-2 rounded-md border">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img 
+                          src={e.secureUrl || e.previewUrl} 
+                          alt={e.name} 
+                          className="max-w-full max-h-full object-contain"
+                          onError={(e) => {
+                            console.error('Failed to load image:', e)
+                            e.currentTarget.style.display = 'none'
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           )}
         </section>

@@ -48,6 +48,7 @@ export default function TasksPage() {
   })
   const [studyType, setStudyType] = useState<"grid" | "layer" | undefined>(undefined)
   const [mainQuestion, setMainQuestion] = useState<string>("")
+  const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null)
 
   // Interaction tracking
   const hoverCountsRef = useRef<Record<number, number>>({})
@@ -111,6 +112,16 @@ export default function TasksPage() {
       // Handle new API response format
       const studyInfo = study?.study_info || study
       const assignedTasks = study?.assigned_tasks || []
+
+      // Extract optional background image URL from metadata
+      try {
+        const bg = studyInfo?.metadata?.background_image_url || study?.metadata?.background_image_url || studyInfo?.background_image_url
+        if (typeof bg === 'string' && bg) {
+          setBackgroundUrl(String(bg))
+        } else {
+          setBackgroundUrl(null)
+        }
+      } catch { setBackgroundUrl(null) }
 
       
 
@@ -194,11 +205,16 @@ export default function TasksPage() {
           const activeKeys = Object.keys(es).filter((k) => Number(es[k]) === 1)
 
           const getUrlForKey = (k: string): string | undefined => {
-            // FIRST: Check directly in elements_shown for k_content (this is where your URLs are!)
+            // Check the new category-based format first
+            const elementContent = (content as any)[k]
+            if (elementContent && typeof elementContent === "object" && elementContent.content) {
+              return elementContent.content
+            }
+
+            // Fallback to old format checks
             const directUrl = (es as any)[`${k}_content`]
             if (typeof directUrl === "string" && directUrl) return directUrl
 
-            // Then check the content object if it exists
             const c1: any = (content as any)[k]
             if (c1 && typeof c1 === "object" && typeof c1.url === "string") return c1.url
 
@@ -222,6 +238,7 @@ export default function TasksPage() {
           if (list.length === 0 && content && typeof content === "object") {
             Object.values(content).forEach((v: any) => {
               if (v && typeof v === "object" && typeof v.url === "string") list.push(v.url)
+              if (v && typeof v === "object" && v.content) list.push(v.content)
               if (typeof v === "string") list.push(v)
             })
           }
@@ -302,11 +319,12 @@ export default function TasksPage() {
             .filter(Boolean)
         )
       ) as string[]
-      if (allLayerUrls.length > 0) {
-        imageCacheManager.prewarmUrls(allLayerUrls, 'high')
+      const allWithBg = backgroundUrl ? [...allLayerUrls, backgroundUrl] : allLayerUrls
+      if (allWithBg.length > 0) {
+        imageCacheManager.prewarmUrls(allWithBg, 'high')
       }
     } catch {}
-  }, [totalTasks])
+  }, [totalTasks, backgroundUrl])
 
   // Handle task transitions for smooth image switching (no loading screen)
   useEffect(() => {
@@ -798,6 +816,19 @@ export default function TasksPage() {
                         <div className="relative w-full max-w-none overflow-hidden rounded-md h-[50vh] max-h-[400px]">
                           {/* Always use individual layers for both mobile and desktop */}
                           <div className="relative w-full h-full">
+                            {backgroundUrl && (
+                              <img
+                                src={getCachedUrl(backgroundUrl)}
+                                alt="Background"
+                                decoding="async"
+                                loading="eager"
+                                fetchPriority="high"
+                                width={600}
+                                height={600}
+                                className="absolute inset-0 m-auto h-full w-full object-cover"
+                                style={{ zIndex: 0 }}
+                              />
+                            )}
                             {task?.layeredImages?.map((img: any, idx: number) => {
                               const resolved = getCachedUrl(img.url) || "/placeholder.svg"
                               return (
@@ -811,7 +842,7 @@ export default function TasksPage() {
                                   width={600}
                                   height={600}
                                   className="absolute inset-0 m-auto h-full w-full object-contain"
-                                  style={{ zIndex: img.z }}
+                                  style={{ zIndex: (img.z ?? 0) + 1 }}
                                   onError={() => {
                                     console.error('Layer image failed to load:', img.url)
                                   }}
@@ -836,9 +867,20 @@ export default function TasksPage() {
                           </div>
                         </div>
                       ) : (
-                        <div className="w-full max-w-full overflow-hidden max-h-[50vh]">
+                        <div className="w-full max-w-full overflow-hidden max-h-[50vh] relative">
+                          {backgroundUrl && (
+                            <img
+                              src={getCachedUrl(backgroundUrl)}
+                              alt="Background"
+                              decoding="async"
+                              loading="eager"
+                              fetchPriority="high"
+                              className="absolute inset-0 w-full h-full object-cover"
+                              style={{ zIndex: 0 }}
+                            />
+                          )}
                           {task?.gridUrls && task.gridUrls.length > 2 ? (
-                            <div className="grid grid-cols-2 gap-2 sm:gap-3 w-full overflow-hidden place-items-center">
+                            <div className="grid grid-cols-2 gap-2 sm:gap-3 w-full overflow-hidden place-items-center relative" style={{ zIndex: 1 }}>
                               {task.gridUrls.slice(0, 4).map((url: string, i: number) => (
                                 <div key={i} className="aspect-square w-full overflow-hidden rounded-md">
                                   <Image
@@ -855,7 +897,7 @@ export default function TasksPage() {
                               ))}
                             </div>
                           ) : (
-                            <div className="flex flex-col gap-2 sm:gap-3">
+                            <div className="flex flex-col gap-2 sm:gap-3 relative" style={{ zIndex: 1 }}>
                               <div className="aspect-[4/3] w-full overflow-hidden rounded-md max-h-[22vh]">
                                 {task?.leftImageUrl ? (
                                   <Image
@@ -970,6 +1012,19 @@ export default function TasksPage() {
                         <div className="relative w-full max-w-lg aspect-square overflow-hidden rounded-md">
                           {/* Always use individual layers for both mobile and desktop */}
                           <div className="relative w-full h-full">
+                            {backgroundUrl && (
+                              <img
+                                src={getCachedUrl(backgroundUrl)}
+                                alt="Background"
+                                decoding="async"
+                                loading="eager"
+                                fetchPriority="high"
+                                width={800}
+                                height={800}
+                                className="absolute inset-0 m-auto h-full w-full object-cover"
+                                style={{ zIndex: 0 }}
+                              />
+                            )}
                             {task?.layeredImages?.map((img: any, idx: number) => {
                               const resolved = getCachedUrl(img.url) || "/placeholder.svg"
                               return (
@@ -983,7 +1038,7 @@ export default function TasksPage() {
                                   width={600}
                                   height={600}
                                   className="absolute inset-0 m-auto h-full w-full object-contain"
-                                  style={{ zIndex: img.z }}
+                                  style={{ zIndex: (img.z ?? 0) + 1 }}
                                 />
                               )
                             })}
@@ -1014,8 +1069,19 @@ export default function TasksPage() {
                         ) as string[]
                         if (urls.length <= 2) {
                           return (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md border">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative">
+                              {backgroundUrl && (
+                                <img
+                                  src={getCachedUrl(backgroundUrl)}
+                                  alt="Background"
+                                  decoding="async"
+                                  loading="eager"
+                                  fetchPriority="high"
+                                  className="absolute inset-0 w-full h-full object-cover rounded-md"
+                                  style={{ zIndex: 0 }}
+                                />
+                              )}
+                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md border" style={{ zIndex: 1 }}>
                                 {urls[0] && (
                                   <Image
                                     src={getCachedUrl(urls[0]) || "/placeholder.svg"}
@@ -1028,7 +1094,7 @@ export default function TasksPage() {
                                   />
                                 )}
                               </div>
-                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md border">
+                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md border" style={{ zIndex: 1 }}>
                                 {urls[1] && (
                                   <Image
                                     src={getCachedUrl(urls[1]) || "/placeholder.svg"}
@@ -1045,11 +1111,23 @@ export default function TasksPage() {
                           )
                         }
                         return (
-                          <div className={`grid grid-cols-2 gap-4`}>
+                          <div className={`grid grid-cols-2 gap-4 relative`}>
+                            {backgroundUrl && (
+                              <img
+                                src={getCachedUrl(backgroundUrl)}
+                                alt="Background"
+                                decoding="async"
+                                loading="eager"
+                                fetchPriority="high"
+                                className="absolute inset-0 w-full h-full object-cover rounded-md"
+                                style={{ zIndex: 0 }}
+                              />
+                            )}
                             {urls.slice(0, 4).map((url, i) => (
                               <div
                                 key={i}
                                 className="aspect-[4/3] w-full md:h-[24vh] lg:h-[26vh] overflow-hidden rounded-md border"
+                                style={{ zIndex: 1 }}
                               >
                                 <Image
                                   src={getCachedUrl(url as string) || "/placeholder.svg"}

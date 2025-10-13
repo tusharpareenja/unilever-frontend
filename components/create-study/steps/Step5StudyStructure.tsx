@@ -13,6 +13,13 @@ interface ElementItem {
   secureUrl?: string
 }
 
+interface CategoryItem {
+  id: string
+  title: string
+  description?: string
+  elements: ElementItem[]
+}
+
 interface Step5StudyStructureProps {
   onNext: () => void
   onBack: () => void
@@ -24,18 +31,47 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
   // Dynamic limits from env with sensible defaults
   const GRID_MIN = Number.parseInt(process.env.NEXT_PUBLIC_GRID_MIN_ELEMENTS || '4') || 4
   const GRID_MAX = Number.parseInt(process.env.NEXT_PUBLIC_GRID_MAX_ELEMENTS || '20') || 20
+const CATEGORY_MIN = 3
+const CATEGORY_MAX = 10
+  
+  const [categories, setCategories] = useState<CategoryItem[]>(() => {
+    try {
+      const raw = localStorage.getItem('cs_step5_grid')
+      if (raw) {
+        const arr = JSON.parse(raw) as Array<Partial<CategoryItem>>
+        return (arr || []).map((c, idx) => ({
+          id: c.id || crypto.randomUUID(),
+          title: c.title || `Category ${idx + 1}`,
+          description: c.description || "",
+          elements: (c.elements || []).map((e, eIdx) => ({
+            id: e.id || crypto.randomUUID(),
+            name: e.name || `Element ${eIdx + 1}`,
+            description: e.description || "",
+            previewUrl: e.previewUrl,
+            secureUrl: e.secureUrl,
+          }))
+        }))
+      }
+    } catch {}
+    return []
+  })
+  
+  // Legacy support for old format
   const [elements, setElements] = useState<ElementItem[]>(() => {
     try {
       const raw = localStorage.getItem('cs_step5_grid')
       if (raw) {
         const arr = JSON.parse(raw) as Array<Partial<ElementItem>>
-        return (arr || []).map((e, idx) => ({
-          id: e.id || crypto.randomUUID(),
-          name: e.name || `Element ${idx + 1}`,
-          description: e.description || "",
-          previewUrl: e.previewUrl,
-          secureUrl: e.secureUrl,
-        }))
+        // Check if it's the old format (direct elements)
+        if (arr.length > 0 && !(arr[0] as any).title && !(arr[0] as any).elements) {
+          return (arr || []).map((e, idx) => ({
+            id: e.id || crypto.randomUUID(),
+            name: e.name || `Element ${idx + 1}`,
+            description: e.description || "",
+            previewUrl: e.previewUrl,
+            secureUrl: e.secureUrl,
+          }))
+        }
       }
     } catch {}
     return []
@@ -44,6 +80,42 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
   const [nextLoading, setNextLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement | null>(null)
   const gridHasHydratedRef = useRef(false)
+  
+  // Track which categories are collapsed
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set())
+
+  const toggleCategoryCollapse = (categoryId: string) => {
+    setCollapsedCategories(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(categoryId)) {
+        newSet.delete(categoryId)
+      } else {
+        newSet.add(categoryId)
+      }
+      return newSet
+    })
+  }
+
+  // Validation functions
+  const areCategoriesValid = () => {
+    if (categories.length < CATEGORY_MIN) return false
+    return categories.every(category => 
+      category.title && category.title.trim().length > 0
+    )
+  }
+
+  const getNextButtonText = () => {
+    if (categories.length < CATEGORY_MIN) {
+      return `Add at least ${CATEGORY_MIN} categories`
+    }
+    const invalidCategories = categories.filter(category => 
+      !category.title || category.title.trim().length === 0
+    )
+    if (invalidCategories.length > 0) {
+      return 'Complete category titles'
+    }
+    return 'Next'
+  }
   // Hybrid uploader (grid): accumulate single-file adds for 2s, batch upload
   const gridPendingRef = useRef<Array<{ id: string; file: File }>>([])
   const gridTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -133,21 +205,36 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
     return () => window.removeEventListener('beforeunload', handler)
   }, [mode, elements])
 
-  // persist grid elements
+  // persist categories
   useEffect(() => {
     if (mode !== 'grid') return
     if (typeof window === 'undefined') return
     if (!gridHasHydratedRef.current) return
-    const minimal = elements.map(e => ({ 
-      id: e.id, 
-      name: e.name, 
-      description: e.description, 
-      previewUrl: e.previewUrl,
-      secureUrl: e.secureUrl 
+    
+    console.log('=== SAVING CATEGORIES TO LOCALSTORAGE ===')
+    console.log('Categories to save:', categories.map(c => ({
+      id: c.id,
+      title: c.title,
+      elements_count: c.elements.length
+    })))
+    
+    const minimal = categories.map(c => ({ 
+      id: c.id, 
+      title: c.title,
+      description: c.description,
+      elements: c.elements.map(e => ({ 
+        id: e.id, 
+        name: e.name, 
+        description: e.description, 
+        previewUrl: e.previewUrl,
+        secureUrl: e.secureUrl 
+      }))
     }))
+    
+    console.log('Minimal data to save:', JSON.stringify(minimal, null, 2))
     localStorage.setItem('cs_step5_grid', JSON.stringify(minimal))
     onDataChange?.()
-  }, [elements, mode, onDataChange])
+  }, [categories, mode, onDataChange])
 
   // Ensure all grid elements have secureUrl (upload pending ones)
   const ensureGridUploads = async () => {
@@ -169,11 +256,150 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
     }
   }
 
+  // Category management functions
+  const handleCategoryFiles = async (categoryId: string, files: FileList) => {
+    console.log('=== ADDING ELEMENTS TO CATEGORY ===')
+    console.log('Category ID:', categoryId)
+    console.log('Files count:', files.length)
+    
+    const list = Array.from(files)
+    const selectionIds: string[] = []
+    
+    list.forEach((file) => {
+      const tempId = crypto.randomUUID()
+      const url = URL.createObjectURL(file)
+      const fileName = file.name.replace(/\.[^/.]+$/, "")
+      const newElement: ElementItem = { 
+        id: tempId, 
+        name: fileName, 
+        description: "", 
+        file, 
+        previewUrl: url 
+      }
+      selectionIds.push(tempId)
+      
+      console.log(`Adding element ${tempId} (${fileName}) to category ${categoryId}`)
+      
+      setCategories(prev => {
+        const updated = prev.map(c => 
+          c.id === categoryId 
+            ? { ...c, elements: [...c.elements, newElement] }
+            : c
+        )
+        console.log('Updated categories:', updated.map(c => ({
+          id: c.id,
+          title: c.title,
+          elements_count: c.elements.length
+        })))
+        return updated
+      })
+    })
+
+    // Upload files
+    if (list.length > 1) {
+      try {
+        const results = await uploadImages(list)
+        setCategories(prev => prev.map(c => 
+          c.id === categoryId 
+            ? { 
+                ...c, 
+                elements: c.elements.map((e) => {
+                  const idx = selectionIds.indexOf(e.id)
+                  if (idx !== -1) return { ...e, secureUrl: results[idx]?.secure_url || e.secureUrl }
+                  return e
+                })
+              }
+            : c
+        ))
+      } catch (e) {
+        console.error('Category batch upload failed', e)
+      }
+      return
+    }
+
+    // Single file: debounce
+    gridPendingRef.current.push({ id: selectionIds[0], file: list[0] })
+    if (gridTimerRef.current) clearTimeout(gridTimerRef.current)
+    gridTimerRef.current = setTimeout(async () => {
+      const pending = gridPendingRef.current.splice(0)
+      gridTimerRef.current = null
+      if (pending.length === 0) return
+      try {
+        const results = await uploadImages(pending.map(p => p.file))
+        setCategories(prev => prev.map(c => 
+          c.id === categoryId 
+            ? { 
+                ...c, 
+                elements: c.elements.map((e) => {
+                  const idx = pending.findIndex(p => p.id === e.id)
+                  if (idx !== -1) return { ...e, secureUrl: results[idx]?.secure_url || e.secureUrl }
+                  return e
+                })
+              }
+            : c
+        ))
+      } catch (e) {
+        console.error('Category debounced upload failed', e)
+      }
+    }, 1000)
+  }
+
+  const updateCategoryElement = (categoryId: string, elementId: string, patch: Partial<ElementItem>) => {
+    setCategories(prev => prev.map(c => 
+      c.id === categoryId 
+        ? { 
+            ...c, 
+            elements: c.elements.map(e => e.id === elementId ? { ...e, ...patch } : e)
+          }
+        : c
+    ))
+  }
+
+  const removeCategoryElement = (categoryId: string, elementId: string) => {
+    setCategories(prev => prev.map(c => 
+      c.id === categoryId 
+        ? { ...c, elements: c.elements.filter(e => e.id !== elementId) }
+        : c
+    ))
+  }
+
   const handleNext = async () => {
     setNextLoading(true)
-    await ensureGridUploads()
+    await ensureCategoryUploads()
     setNextLoading(false)
     onNext()
+  }
+
+  // Ensure all category elements have secureUrl (upload pending ones)
+  const ensureCategoryUploads = async () => {
+    const pending: Array<{ categoryId: string; elementId: string; file: File }> = []
+    categories.forEach(c => 
+      c.elements.forEach(e => { 
+        if (!e.secureUrl && e.file) {
+          pending.push({ categoryId: c.id, elementId: e.id, file: e.file })
+        }
+      })
+    )
+    if (pending.length === 0) return
+    
+    const files = pending.map(p => p.file)
+    
+    try {
+      const results = await uploadImages(files)
+      
+      setCategories(prev => prev.map(category => {
+        const updatedElements = category.elements.map(element => {
+          const pendingIndex = pending.findIndex(p => p.categoryId === category.id && p.elementId === element.id)
+          if (pendingIndex !== -1) {
+            return { ...element, secureUrl: results[pendingIndex]?.secure_url || element.secureUrl }
+          }
+          return element
+        })
+        return { ...category, elements: updatedElements }
+      }))
+    } catch (e) {
+      console.error('ensureCategoryUploads error', e)
+    }
   }
 
   if (mode === "layer") {
@@ -185,82 +411,186 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
   return (
     <div>
       <div>
-        <h3 className="text-lg font-semibold text-gray-800">Study Elements</h3>
-        <p className="text-sm text-gray-600">Configure the elements that respondents will evaluate in your study.</p>
+        <h3 className="text-lg font-semibold text-gray-800">Study Categories</h3>
+        <p className="text-sm text-gray-600">Organize your study elements into categories. Each category can contain multiple elements.</p>
       </div>
 
-      <div
-        className="mt-5 border-2 border-dashed rounded-xl p-8 text-center bg-slate-50"
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={onDrop}
-      >
-        <div className="mx-auto w-12 h-12 rounded-full border flex items-center justify-center text-gray-500">📁</div>
-        <div className="mt-3 text-sm text-[rgba(38,116,186,1)] font-medium">Drag And Drop</div>
-        <div className="text-[10px] text-gray-500">Supports JPG, PNG, GIF (Max 10MB Each)</div>
-        <div className="mt-4">
-          <input ref={inputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleFiles(e.target.files)} />
-          <Button className="bg-amber-500 hover:bg-amber-600" onClick={() => inputRef.current?.click()} disabled={elements.length >= GRID_MAX}>Browse Files</Button>
+      <div className="mt-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="text-sm font-semibold text-gray-800">Category Management</div>
+          <Button 
+            className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)]" 
+            onClick={() => {
+              if (categories.length >= CATEGORY_MAX) return
+              const newCategory: CategoryItem = {
+                id: crypto.randomUUID(),
+                title: `Category ${categories.length + 1}`,
+                description: "",
+                elements: []
+              }
+              setCategories(prev => [...prev, newCategory])
+              
+              // Auto-collapse all other categories when adding a new one
+              setCollapsedCategories(new Set(categories.map(c => c.id)))
+            }}
+            disabled={categories.length >= CATEGORY_MAX}
+          >
+            + Add Category
+          </Button>
         </div>
-        <div className="mt-2 text-xs text-gray-600">Min {GRID_MIN}, Max {GRID_MAX}. Current: {elements.length}</div>
-      </div>
 
-      {elements.length > 0 && (
-        <div className="mt-6">
-          {/* <div className="rounded-md bg-blue-50 border border-blue-100 text-xs text-blue-700 px-3 py-2">
-            Drag and drop elements to reorder them. The order will be preserved in your study.
-          </div> */}
+        <div className="text-xs text-gray-600 mb-4">Min {CATEGORY_MIN}, Max {CATEGORY_MAX}. Current: {categories.length}</div>
 
-          <div className="mt-5 space-y-5">
-            {elements.map((el, idx) => (
-              <div key={el.id} className="border rounded-xl overflow-hidden">
+        {categories.length > 0 && (
+          <div className="space-y-4">
+            {categories.map((category, catIdx) => (
+              <div key={category.id} className="border rounded-xl overflow-hidden">
                 <div className="flex items-center justify-between bg-slate-50 px-4 py-2 text-sm text-gray-700">
-                  <div>Element {idx + 1}</div>
-                  <Button variant="outline" onClick={() => removeElement(el.id)} className="px-3 py-1">Remove</Button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => toggleCategoryCollapse(category.id)}
+                      className="flex items-center gap-2 hover:bg-gray-100 px-2 py-1 rounded"
+                    >
+                      <div className={`transform transition-transform ${collapsedCategories.has(category.id) ? 'rotate-0' : 'rotate-90'}`}>
+                        ▶
+                      </div>
+                      <div>
+                        <div className="font-medium flex items-center gap-2">
+                          {category.title || `Category ${catIdx + 1}`}
+                          {(!category.title || category.title.trim().length === 0) && (
+                            <span className="text-red-500 text-xs">* Required</span>
+                          )}
+                        </div>
+                        {category.description && (
+                          <div className="text-xs text-gray-500">{category.description}</div>
+                        )}
+                      </div>
+                    </button>
+                  </div>
+                  <Button variant="outline" onClick={() => setCategories(prev => prev.filter(c => c.id !== category.id))} className="px-3 py-1">Remove</Button>
                 </div>
-                <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="md:col-span-1">
-                    {(el.secureUrl || el.previewUrl) ? (
-                      <div className="w-full h-40 bg-gray-100 flex items-center justify-center p-2 rounded-lg border">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={el.secureUrl || el.previewUrl} alt={el.name} className="max-w-full max-h-full object-contain" />
+                {!collapsedCategories.has(category.id) && (
+                  <div className="p-4 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-800 mb-2">Category Title <span className="text-red-500">*</span></label>
+                        <input
+                          value={category.title}
+                          onChange={(e) => setCategories(prev => prev.map(c => c.id === category.id ? { ...c, title: e.target.value } : c))}
+                          className={`w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] ${
+                            !category.title || category.title.trim().length === 0 
+                              ? 'border-red-300 bg-red-50' 
+                              : 'border-gray-200'
+                          }`}
+                          placeholder="Enter category title"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-800 mb-2">Description (Optional)</label>
+                        <input
+                          value={category.description || ""}
+                          onChange={(e) => setCategories(prev => prev.map(c => c.id === category.id ? { ...c, description: e.target.value } : c))}
+                          className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+                          placeholder="Enter category description"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-sm font-semibold text-gray-800">Elements ({category.elements.length})</div>
+                      </div>
+
+                    {category.elements.length > 0 ? (
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                        {category.elements.map((element, elIdx) => (
+                          <div key={element.id} className="border rounded-lg p-3">
+                            <div className="aspect-square bg-gray-100 flex items-center justify-center mb-2 rounded-lg">
+                              {(element.secureUrl || element.previewUrl) ? (
+                                /* eslint-disable-next-line @next/next/no-img-element */
+                                <img src={element.secureUrl || element.previewUrl} alt={element.name} className="max-w-full max-h-full object-contain" />
+                              ) : (
+                                <div className="text-gray-400 text-xs">No Image</div>
+                              )}
+                            </div>
+                            <input
+                              value={element.name}
+                              onChange={(e) => updateCategoryElement(category.id, element.id, { name: e.target.value })}
+                              className="w-full text-xs px-2 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-[rgba(38,116,186,0.3)]"
+                              placeholder="Element name"
+                            />
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => removeCategoryElement(category.id, element.id)}
+                              className="w-full mt-1 text-xs"
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                        ))}
+                        {/* Add more elements button */}
+                        <div 
+                          className="border-2 border-dashed border-gray-300 rounded-lg p-3 cursor-pointer hover:bg-gray-50 transition-colors flex flex-col items-center justify-center min-h-[120px]"
+                          onClick={() => {
+                            const input = document.createElement('input')
+                            input.type = 'file'
+                            input.accept = 'image/*'
+                            input.multiple = true
+                            input.onchange = (e) => {
+                              const files = (e.target as HTMLInputElement).files
+                              if (files) handleCategoryFiles(category.id, files)
+                            }
+                            input.click()
+                          }}
+                        >
+                          <div className="text-gray-400 text-2xl mb-1">+</div>
+                          <div className="text-xs text-gray-500 text-center">Add More</div>
+                        </div>
                       </div>
                     ) : (
-                      <div className="w-full h-40 rounded-lg border border-dashed flex items-center justify-center text-gray-400">No Image</div>
+                      <div 
+                        className="border-2 border-dashed rounded-lg p-6 text-center text-gray-500 cursor-pointer hover:bg-gray-50 transition-colors"
+                        onClick={() => {
+                          const input = document.createElement('input')
+                          input.type = 'file'
+                          input.accept = 'image/*'
+                          input.multiple = true
+                          input.onchange = (e) => {
+                            const files = (e.target as HTMLInputElement).files
+                            if (files) handleCategoryFiles(category.id, files)
+                          }
+                          input.click()
+                        }}
+                      >
+                        <div className="text-sm">No elements added yet</div>
+                        <div className="text-xs">Click here to upload images</div>
+                      </div>
                     )}
-                  </div>
-                  <div className="md:col-span-2 space-y-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-800 mb-2">Element Name <span className="text-red-500">*</span></label>
-                      <input
-                        value={el.name}
-                        onChange={(e) => updateElement(el.id, { name: e.target.value })}
-                        className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-800 mb-2">Element Description</label>
-                      <textarea
-                        value={el.description}
-                        onChange={(e) => updateElement(el.id, { description: e.target.value })}
-                        className="w-full min-h-[90px] rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
-                      />
                     </div>
                   </div>
-                </div>
+                )}
               </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
+
+        {categories.length === 0 && (
+          <div className="text-center py-8 text-gray-500">
+            <div className="text-sm">No categories added yet</div>
+            <div className="text-xs">Click "Add Category" to begin</div>
+          </div>
+        )}
+      </div>
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mt-10">
         <Button variant="outline" className="rounded-full px-6 w-full sm:w-auto" onClick={onBack}>Back</Button>
         <Button
           className="rounded-full px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] w-full sm:w-auto"
           onClick={handleNext}
-          disabled={nextLoading || elements.length < GRID_MIN}
+          disabled={nextLoading || categories.length < CATEGORY_MIN || !areCategoriesValid()}
         >
-          {nextLoading ? 'Uploading...' : (elements.length < GRID_MIN ? `Add at least ${GRID_MIN}` : 'Next')}
+          {nextLoading ? 'Uploading...' : getNextButtonText()}
         </Button>
       </div>
     </div>
@@ -318,6 +648,25 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
   // Hybrid uploader (layer): accumulate single-file adds per layer, debounce 2s
   const layerPendingRef = useRef<Record<string, Array<{ imageId: string; file: File }>>>({})
   const layerTimersRef = useRef<Record<string, ReturnType<typeof setTimeout> | null>>({})
+
+  // Optional background image (single image)
+  const [background, setBackground] = useState<{ id: string; file?: File; previewUrl?: string; secureUrl?: string; name?: string } | null>(() => {
+    try {
+      const raw = localStorage.getItem('cs_step5_layer_background')
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (parsed && (parsed.secureUrl || parsed.previewUrl)) {
+          return {
+            id: parsed.id || crypto.randomUUID(),
+            previewUrl: parsed.previewUrl,
+            secureUrl: parsed.secureUrl,
+            name: parsed.name || 'Background'
+          }
+        }
+      }
+    } catch {}
+    return null
+  })
 
   const addLayer = () => {
     if (layers.length >= LAYER_MAX) return
@@ -526,6 +875,25 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     }, 1000)
   }
 
+  // Background upload helpers
+  const handleBackgroundFile = async (file: File | null) => {
+    if (!file) return
+    const tempId = crypto.randomUUID()
+    const url = URL.createObjectURL(file)
+    const fileName = file.name.replace(/\.[^/.]+$/, "")
+    setBackground({ id: tempId, file, previewUrl: url, name: fileName })
+    try {
+      const [res] = await uploadImages([file])
+      setBackground(prev => prev ? { ...prev, secureUrl: res?.secure_url || prev.secureUrl } : prev)
+    } catch (e) {
+      console.error('Background upload failed', e)
+    }
+  }
+
+  const removeBackground = () => {
+    setBackground(null)
+  }
+
   // Warn on reload if any layer image uploads pending
   useEffect(() => {
     const hasPending = layers.some(l => l.images.some(img => !img.secureUrl))
@@ -545,8 +913,19 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       images: l.images.map(i => ({ id: i.id, previewUrl: i.previewUrl, secureUrl: i.secureUrl, name: i.name })) 
     }))
     localStorage.setItem('cs_step5_layer', JSON.stringify(minimal))
+    // persist background separately
+    if (background && (background.secureUrl || background.previewUrl)) {
+      localStorage.setItem('cs_step5_layer_background', JSON.stringify({
+        id: background.id,
+        previewUrl: background.previewUrl,
+        secureUrl: background.secureUrl,
+        name: background.name || 'Background'
+      }))
+    } else {
+      localStorage.removeItem('cs_step5_layer_background')
+    }
     onDataChange?.()
-  }, [layers, onDataChange])
+  }, [layers, background, onDataChange])
 
   return (
     <div>
@@ -564,17 +943,44 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
         <div className="md:col-span-1 border rounded-xl bg-white p-4 flex items-center justify-center">
           {/* Preview canvas built from z order */}
           <div className="relative w-full aspect-[3/4] bg-slate-50 rounded-lg overflow-hidden border">
+            {background && (background.secureUrl || background.previewUrl) && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={background.secureUrl || background.previewUrl} alt="Background" className="absolute inset-0 w-full h-full object-cover" style={{ zIndex: 0 }} />
+            )}
             {layers.map((l) => {
               const selectedImageId = selectedImageIds[l.id]
               const selectedImage = selectedImageId ? l.images.find(img => img.id === selectedImageId) : l.images[0]
               return selectedImage ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img key={`${l.id}-${selectedImage.id}`} src={selectedImage.secureUrl || selectedImage.previewUrl} alt={l.name} className="absolute inset-0 w-full h-full object-contain" style={{ zIndex: l.z }} />
+                <img key={`${l.id}-${selectedImage.id}`} src={selectedImage.secureUrl || selectedImage.previewUrl} alt={l.name} className="absolute inset-0 w-full h-full object-contain" style={{ zIndex: (background ? l.z + 1 : l.z) }} />
               ) : null
             })}
           </div>
         </div>
         <div className="md:col-span-2">
+          {/* Background controls */}
+          <div className="border rounded-xl bg-white p-4 mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm font-semibold text-gray-800">Background (Optional)</div>
+              {background && (
+                <Button variant="outline" onClick={removeBackground}>Remove</Button>
+              )}
+            </div>
+            {background && (background.secureUrl || background.previewUrl) ? (
+              <div className="flex items-center gap-4">
+                <div className="w-24 h-24 border rounded-md overflow-hidden bg-gray-50">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={background.secureUrl || background.previewUrl} alt="Background" className="w-full h-full object-cover" />
+                </div>
+                <div className="text-xs text-gray-600">Rendered behind all layers with z-index 0.</div>
+              </div>
+            ) : (
+              <label className="inline-flex items-center justify-center px-3 py-2 border-2 border-dashed rounded-md text-xs text-gray-600 cursor-pointer hover:bg-gray-50">
+                Upload Background
+                <input type="file" accept="image/*" className="hidden" onChange={(e) => handleBackgroundFile(e.target.files?.[0] || null)} />
+              </label>
+            )}
+          </div>
           <div className="text-xs text-gray-600 mb-2">Min {LAYER_MIN}, Max {LAYER_MAX}. Current: {layers.length}</div>
           {layers.map((layer, idx) => (
             <Fragment key={layer.id}>

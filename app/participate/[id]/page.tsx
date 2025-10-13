@@ -133,11 +133,15 @@ export default function ParticipateIntroPage() {
       // Get respondent-specific study details using the new API
       try {
         const respondentDetails = await getRespondentStudyDetails(String(response.respondent_id), params.id)
-        
-        
+        // Normalize background image URL into metadata for consumers
+        const rawInfo = respondentDetails?.study_info || respondentDetails || {}
+        const backgroundUrl = rawInfo?.metadata?.background_image_url || rawInfo?.background_image_url || null
+        const normalizedInfo = backgroundUrl
+          ? { ...rawInfo, metadata: { ...(rawInfo.metadata || {}), background_image_url: backgroundUrl } }
+          : rawInfo
         // Store only the essential data to avoid localStorage quota issues
         const essentialData = {
-          study_info: respondentDetails?.study_info || respondentDetails,
+          study_info: normalizedInfo,
           assigned_tasks: respondentDetails?.assigned_tasks || [],
           classification_questions: respondentDetails?.classification_questions || []
         }
@@ -218,12 +222,14 @@ export default function ParticipateIntroPage() {
           const existingData = localStorage.getItem('current_study_details')
           const existingClassificationQuestions = existingData ? JSON.parse(existingData)?.classification_questions || [] : []
           
+          const backgroundUrl = details?.metadata?.background_image_url || details?.background_image_url || null
           const essentialData = {
             study_info: {
               study_type: details?.study_type,
               main_question: details?.main_question,
               orientation_text: details?.orientation_text,
-              rating_scale: details?.rating_scale
+              rating_scale: details?.rating_scale,
+              metadata: backgroundUrl ? { background_image_url: backgroundUrl } : undefined,
             },
             assigned_tasks: userTasks,
             classification_questions: existingClassificationQuestions

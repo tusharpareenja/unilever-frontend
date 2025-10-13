@@ -33,6 +33,13 @@ export interface ElementPayload {
   element_type: "image"
   content: string // URL to the uploaded image
   alt_text: string
+  category_id: string
+}
+
+export interface CategoryPayload {
+  category_id: string
+  name: string
+  order: number
 }
 
 export interface StudyLayerPayload {
@@ -72,7 +79,9 @@ export interface CreateStudyPayload {
   audience_segmentation: AudienceSegmentationPayload
   elements: ElementPayload[]
   study_layers: StudyLayerPayload[]
+  categories?: CategoryPayload[] // NEW: Optional categories for grid studies
   classification_questions?: ClassificationQuestionPayload[] // NEW: Optional classification questions
+  background_image_url?: string // NEW: Optional background image for layer studies
 }
 
 export interface UploadImageResult {
@@ -268,6 +277,7 @@ export function buildStudyPayloadFromLocalStorage(): CreateStudyPayload {
   const s3 = get("cs_step3", { minValue: 1, maxValue: 5, minLabel: "", maxLabel: "", middleLabel: "" }) as any
   const grid = get<any[]>("cs_step5_grid", [])
   const layer = get<any[]>("cs_step5_layer", [])
+  const layerBackground = get<any | null>("cs_step5_layer_background", null)
   const s6 = get("cs_step6", { respondents: 0, countries: [], genderMale: 0, genderFemale: 0, ageSelections: {} }) as any
   const classificationQuestions = get<any[]>("cs_step4", []) // Get classification questions from localStorage
   
@@ -284,24 +294,95 @@ export function buildStudyPayloadFromLocalStorage(): CreateStudyPayload {
   // Upload images and get URLs
   let elements: ElementPayload[] = []
   let study_layers: StudyLayerPayload[] = []
+  let categories: CategoryPayload[] = []
 
   if (s2.type === "grid") {
-    // For grid mode: use secure URLs directly (images already uploaded)
-    const gridWithImages = grid.filter(e => e.secureUrl)
-    elements = gridWithImages.map((item, idx) => {
-      // console.log(`Grid Element ${idx}:`, { id: item.id, name: item.name, secureUrl: item.secureUrl })
-      return {
-        element_id: String(item.id || `E${idx + 1}`).substring(0, 10),
-        name: item.name || `Element ${idx + 1}`,
-        description: item.description || "",
-        element_type: "image" as const,
-        content: item.secureUrl,
-        alt_text: item.name || `Element ${idx + 1}`,
-      }
-    })
+    console.log('=== BUILDING GRID STUDY ELEMENTS ===')
+    console.log('Grid data from localStorage:', JSON.stringify(grid, null, 2))
+    
+    // Check if using new category format or legacy format
+    const isCategoryFormat = grid.length > 0 && grid[0].title && grid[0].elements
+    console.log('Is category format:', isCategoryFormat)
+    
+    if (isCategoryFormat) {
+      // New category format: flatten all elements from all categories
+      console.log('Processing category format...')
+      
+      // Build categories array
+      categories = grid.map((category: any, catIdx: number) => ({
+        category_id: String(category.id || `C${catIdx + 1}`),
+        name: String(category.title || `Category ${catIdx + 1}`),
+        order: catIdx,
+      }))
+      console.log('Built categories:', categories)
+      
+      elements = grid
+        .flatMap((category: any, catIdx: number) => {
+          console.log(`Category ${catIdx} (${category.title}):`, {
+            elements_count: category.elements?.length || 0,
+            elements_with_secureUrl: (category.elements || []).filter((e: any) => Boolean(e?.secureUrl)).length
+          })
+          return (category.elements || [])
+            .filter((e: any) => Boolean(e?.secureUrl))
+            .map((e: any, idx: number) => ({
+              element_id: String(e.id || crypto.randomUUID?.() || `E${idx + 1}`),
+              name: e.name || `Element ${idx + 1}`,
+              description: e.description || "",
+              element_type: "image" as const,
+              content: e.secureUrl,
+              alt_text: e.name || `Element ${idx + 1}`,
+              category_id: String(category.id || `C${catIdx + 1}`),
+            }))
+        })
+      console.log('Final elements count:', elements.length)
+      console.log('Elements:', elements.map(e => ({ id: e.element_id, name: e.name, content: e.content })))
+    } else {
+      // Legacy format: use elements array directly
+      console.log('Processing legacy format...')
+      const gridWithImages = grid.filter(e => e.secureUrl)
+      console.log('Grid with images count:', gridWithImages.length)
+      elements = gridWithImages.map((item, idx) => {
+        // console.log(`Grid Element ${idx}:`, { id: item.id, name: item.name, secureUrl: item.secureUrl })
+        return {
+          element_id: String(item.id || crypto.randomUUID?.() || `E${idx + 1}`),
+          name: item.name || `Element ${idx + 1}`,
+          description: item.description || "",
+          element_type: "image" as const,
+          content: item.secureUrl,
+          alt_text: item.name || `Element ${idx + 1}`,
+          category_id: "default-category", // Legacy format uses default category
+        }
+      })
+      console.log('Final elements count:', elements.length)
+    }
+    console.log('=== END BUILDING GRID STUDY ELEMENTS ===')
   } else {
     // For layer mode: use secure URLs directly (images already uploaded)
-    study_layers = layer.map((l: any, layerIdx: number) => {
+    // If background present, prepend a background layer at z_index 0
+    const backgroundLayer = (() => {
+      if (layerBackground && (layerBackground.secureUrl || layerBackground.previewUrl)) {
+        const url = layerBackground.secureUrl || layerBackground.previewUrl
+        return {
+          layer_id: layerBackground.id || crypto.randomUUID?.() || Math.random().toString(36).slice(2),
+          name: layerBackground.name || 'Background',
+          description: 'Auto-added background layer',
+          z_index: 0,
+          order: 0,
+          images: [
+            {
+              image_id: layerBackground.id || crypto.randomUUID?.() || Math.random().toString(36).slice(2),
+              name: layerBackground.name || 'Background',
+              url,
+              alt_text: layerBackground.name || 'Background',
+              order: 0,
+            },
+          ],
+        }
+      }
+      return null
+    })()
+
+    const userLayers = layer.map((l: any, layerIdx: number) => {
       const imageObjects = l.images?.filter((img: any) => img.secureUrl).map((img: any, imgIdx: number) => {
         // console.log(`Layer ${layerIdx} Image ${imgIdx}:`, { id: img.id, name: img.name, secureUrl: img.secureUrl })
         return {
@@ -317,11 +398,12 @@ export function buildStudyPayloadFromLocalStorage(): CreateStudyPayload {
         layer_id: l.id || crypto.randomUUID?.() || Math.random().toString(36).slice(2),
         name: l.name || `Layer ${layerIdx + 1}`,
         description: l.description || "",
-        z_index: typeof l.z === "number" ? l.z : layerIdx,
-        order: typeof l.z === "number" ? l.z : layerIdx,
+        z_index: typeof l.z === "number" ? l.z : layerIdx + (backgroundLayer ? 1 : 0),
+        order: typeof l.z === "number" ? l.z : layerIdx + (backgroundLayer ? 1 : 0),
         images: imageObjects,
       }
     })
+    study_layers = backgroundLayer ? [backgroundLayer, ...userLayers] : userLayers
   }
 
   // Build classification questions from localStorage (Step 4 format)
@@ -383,11 +465,14 @@ export function buildStudyPayloadFromLocalStorage(): CreateStudyPayload {
     },
     elements,
     study_layers,
+    categories: categories.length > 0 ? categories : undefined, // NEW: Include categories if any
     classification_questions: classification_questions.length > 0 ? classification_questions : undefined, // NEW: Include classification questions if any
+    background_image_url: (layerBackground && (layerBackground.secureUrl || layerBackground.previewUrl)) ? (layerBackground.secureUrl || layerBackground.previewUrl) : undefined,
   }
 
   console.log('Built elements:', elements)
   console.log('Built study_layers:', study_layers)
+  console.log('Built categories:', categories)
   console.log('Built classification_questions:', classification_questions)
   console.log('Raw classification questions from localStorage:', classificationQuestions)
   console.log('Final payload structure:', {
@@ -430,24 +515,62 @@ function getAuthHeader(): Record<string, string> {
 }
 
 // -------- Task Generation --------
+export interface TaskGenerationCategoryPayload {
+  category_id: string
+  name: string
+  order: number
+}
+
 export interface TaskGenerationElementPayload {
   element_id: string
   name: string
+  description: string
   element_type: "image"
   content: string
+  alt_text: string
+  category_id: string
 }
 
 export interface TaskGenerationPayload {
+  title: string
+  background: string
+  language: string
+  main_question: string
+  orientation_text: string
   study_type: StudyType
-  audience_segmentation: { number_of_respondents: number }
+  rating_scale: {
+    min_value: number
+    max_value: number
+    min_label: string
+    max_label: string
+    middle_label: string
+  }
+  audience_segmentation: {
+    number_of_respondents: number
+    country: string
+    gender_distribution: Record<string, number>
+    age_distribution: Record<string, number>
+  }
+  categories?: TaskGenerationCategoryPayload[]
   elements?: TaskGenerationElementPayload[]
   study_layers?: any[]
-  seed?: number
+  classification_questions?: Array<{
+    question_id: string
+    question_text: string
+    question_type: string
+    is_required: boolean
+    order: number
+    answer_options: Array<{
+      id: string
+      text: string
+      order: number
+    }>
+  }>
 }
 
-export function buildTaskGenerationPayloadFromLocalStorage(seed?: number): TaskGenerationPayload {
+export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayload {
   const s2 = get("cs_step2", { type: "grid" }) as any
-  const s6 = get("cs_step6", { respondents: 0 }) as any
+  const s6 = get("cs_step6", { respondents: 0, countries: [], genderMale: 0, genderFemale: 0, ageSelections: {} }) as any
   const grid = get<any[]>("cs_step5_grid", [])
   const layer = get<any[]>("cs_step5_layer", [])
   
@@ -455,32 +578,111 @@ export function buildTaskGenerationPayloadFromLocalStorage(seed?: number): TaskG
   console.log('Task generation payload builder - Grid:', grid)
   console.log('Task generation payload builder - Layer:', layer)
 
+  // Build audience segmentation
+  const gender_distribution: Record<string, number> = {
+    male: Number(s6.genderMale || 0),
+    female: Number(s6.genderFemale || 0),
+  }
+
+  // Convert age selections map into numeric percentages
+  const age_distribution: Record<string, number> = {}
+  const ageSel = s6.ageSelections || {}
+  Object.keys(ageSel).forEach((label) => {
+    const val = ageSel[label]?.percent
+    const num = typeof val === "string" ? Number(val.replace(/[^0-9.-]/g, "")) : Number(val || 0)
+    age_distribution[label] = isNaN(num) ? 0 : num
+  })
+
+  const countries: string[] = Array.isArray(s6.countries) ? s6.countries : []
+
   // Build payload based on study type
   let elements: TaskGenerationElementPayload[] = []
+  let categories: TaskGenerationCategoryPayload[] = []
   let study_layers: any[] = []
   
   if ((s2.type as StudyType) === "grid") {
-    // Grid mode: use elements array
-    elements = grid
-      .filter((e) => Boolean(e?.secureUrl))
-      .map((e, idx) => {
-        // console.log(`Task Generation - Grid Element ${idx}:`, { id: e.id, name: e.name, secureUrl: e.secureUrl })
+    // Grid mode: check if using new category format or legacy format
+    const isCategoryFormat = grid.length > 0 && grid[0].title && grid[0].elements
+    
+    if (isCategoryFormat) {
+      // New category format: build categories and elements with category_id
+      console.log('=== CATEGORY FORMAT DEBUG ===')
+      console.log('Grid data:', JSON.stringify(grid, null, 2))
+      
+      categories = grid.map((category: any, catIdx: number) => {
+        const categoryId = String(category.id || `C${catIdx + 1}`).slice(0, 36)
+        console.log(`Category ${catIdx}:`, {
+          id: category.id,
+          title: category.title,
+          elements_count: category.elements?.length || 0,
+          category_id: categoryId
+        })
         return {
-          element_id: String(e.id || `E${idx + 1}`).slice(0, 10),
-          name: String(e.name || `E${idx + 1}`),
-          element_type: "image" as const,
-          content: String(e.secureUrl),
+          category_id: categoryId,
+          name: String(category.title || `Category ${catIdx + 1}`),
+          order: catIdx,
         }
       })
+
+      elements = grid
+        .flatMap((category: any, catIdx: number) => {
+          const categoryId = String(category.id || `C${catIdx + 1}`).slice(0, 36)
+          console.log(`Processing category ${catIdx} (${category.title}):`, {
+            category_id: categoryId,
+            elements: category.elements?.length || 0
+          })
+          
+          return (category.elements || [])
+            .filter((e: any) => Boolean(e?.secureUrl))
+            .map((e: any, elIdx: number) => {
+              console.log(`Element ${elIdx} in category ${catIdx}:`, {
+                element_id: e.id,
+                name: e.name,
+                category_id: categoryId
+              })
+              return {
+                element_id: String(e.id || `E${elIdx + 1}`).slice(0, 36),
+                name: String(e.name || `Element ${elIdx + 1}`),
+                description: String(e.description || ""),
+                element_type: "image" as const,
+                content: String(e.secureUrl),
+                alt_text: String(e.name || `Element ${elIdx + 1}`),
+                category_id: categoryId,
+              }
+            })
+        })
+        
+      console.log('=== END CATEGORY FORMAT DEBUG ===')
+    } else {
+      // Legacy format: create a default category and use elements array directly
+      const defaultCategoryId = "default-category"
+      categories = [{
+        category_id: defaultCategoryId,
+        name: "Default Category",
+        order: 0,
+      }]
+
+      elements = grid
+        .filter((e) => Boolean(e?.secureUrl))
+        .map((e, idx) => ({
+          element_id: String(e.id || `E${idx + 1}`).slice(0, 36),
+          name: String(e.name || `Element ${idx + 1}`),
+          description: String(e.description || ""),
+          element_type: "image" as const,
+          content: String(e.secureUrl),
+          alt_text: String(e.name || `Element ${idx + 1}`),
+          category_id: defaultCategoryId,
+        }))
+    }
   } else {
     // Layer mode: use study_layers array
     study_layers = layer.map((l: any, layerIdx: number) => {
       const imageObjects = l.images?.filter((img: any) => img.secureUrl).map((img: any, imgIdx: number) => {
-        // console.log(`Task Generation - Layer ${layerIdx} Image ${imgIdx}:`, { id: img.id, name: img.name, secureUrl: img.secureUrl })
         return {
           image_id: img.id || crypto.randomUUID?.() || Math.random().toString(36).slice(2),
           name: img.name || `Image ${imgIdx + 1}`,
           url: img.secureUrl,
+          alt_text: img.name || `Image ${imgIdx + 1}`,
           order: imgIdx,
         }
       }) || []
@@ -496,29 +698,106 @@ export function buildTaskGenerationPayloadFromLocalStorage(seed?: number): TaskG
     })
   }
 
+  // Get additional data from localStorage
+  const s1 = get("cs_step1", { title: "", description: "", language: "ENGLISH" }) as any
+  const s3 = get("cs_step3", { minValue: 1, maxValue: 5, minLabel: "", maxLabel: "", middleLabel: "" }) as any
+  const s4 = get("cs_step4", []) as any[] // Classification questions
+  
+  const language = (s1.language || "en").toString().toLowerCase().startsWith("en") ? "en" : s1.language || "en"
+  
+  // Build classification questions
+  const classification_questions = s4
+    .filter((q: any) => q.title && q.title.trim().length > 0)
+    .map((q: any, idx: number) => {
+      const validOptions = q.options?.filter((opt: any) => opt.text && opt.text.trim().length > 0) || []
+      
+      return {
+        question_id: String(q.id || `Q${idx + 1}`).slice(0, 36),
+        question_text: q.title || "",
+        question_type: "multiple_choice",
+        is_required: q.required !== false,
+        order: idx + 1,
+        answer_options: validOptions.map((option: any, optIdx: number) => ({
+          id: String(option.id || String.fromCharCode(65 + optIdx)).slice(0, 36),
+          text: option.text || "",
+          order: optIdx + 1
+        }))
+      }
+    })
+
   const payload: TaskGenerationPayload = {
+    title: s1.title || "",
+    background: s1.description || "",
+    language,
+    main_question: s2.mainQuestion || "",
+    orientation_text: s2.orientationText || "",
     study_type: ((s2.type as StudyType) === 'layer' ? 'layer' : 'grid') as StudyType,
-    audience_segmentation: { number_of_respondents: Math.max(1, Number(s6.respondents || 0)) },
+    rating_scale: {
+      min_value: Number(s3.minValue ?? 1),
+      max_value: Number(s3.maxValue ?? 5),
+      min_label: s3.minLabel || "",
+      max_label: s3.maxLabel || "",
+      middle_label: s3.middleLabel || "",
+    },
+    audience_segmentation: {
+      number_of_respondents: Math.max(1, Number(s6.respondents || 0)),
+      country: countries.join(", "),
+      gender_distribution,
+      age_distribution,
+    },
+    ...(categories.length > 0 && { categories }),
     ...(elements.length > 0 && { elements }),
     ...(study_layers.length > 0 && { study_layers }),
-    seed,
+    ...(classification_questions.length > 0 && { classification_questions }),
   }
   
-  // console.log('Task generation payload:', payload)
+  console.log('Task generation payload:', payload)
   return payload
 }
 
 export async function generateTasks(payload: TaskGenerationPayload): Promise<any> {
+  console.log('=== TASK GENERATION API REQUEST ===')
+  console.log('URL:', `${API_BASE_URL}/studies/generate-tasks`)
+  console.log('Method: POST')
+  console.log('Request Body:', JSON.stringify(payload, null, 2))
+  console.log('Payload Summary:', {
+    title: payload.title,
+    study_type: payload.study_type,
+    language: payload.language,
+    main_question: payload.main_question,
+    rating_scale: payload.rating_scale,
+    categories_count: payload.categories?.length || 0,
+    elements_count: payload.elements?.length || 0,
+    study_layers_count: payload.study_layers?.length || 0,
+    classification_questions_count: payload.classification_questions?.length || 0,
+    respondents: payload.audience_segmentation?.number_of_respondents || 0,
+    countries: payload.audience_segmentation?.country || 'N/A'
+  })
+  console.log('=== END TASK GENERATION REQUEST ===')
+
   const res = await fetchWithAuth(`${API_BASE_URL}/studies/generate-tasks`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   })
+  
+  console.log('=== TASK GENERATION API RESPONSE ===')
+  console.log('Response Status:', res.status, res.statusText)
+  
   const text = await res.text().catch(() => "")
   let data: any = {}
   try { data = text ? JSON.parse(text) : {} } catch { data = { detail: text } }
+  
+  console.log('Response Data:', data)
+  console.log('=== END TASK GENERATION RESPONSE ===')
+  
   if (!res.ok) {
     const msg = (data && (data.detail || data.message)) || text || `Generate tasks failed (${res.status})`
+    console.log('=== TASK GENERATION ERROR ===')
+    console.log('Error message:', msg)
+    console.log('Full error data:', data)
+    console.log('Response status:', res.status)
+    console.log('=== END TASK GENERATION ERROR ===')
     // Surface full response for debugging callers
     throw Object.assign(new Error(typeof msg === 'string' ? msg : JSON.stringify(msg)), { status: res.status, data })
   }
@@ -529,10 +808,15 @@ export async function generateTasks(payload: TaskGenerationPayload): Promise<any
 export async function regenerateTasksForStudy(studyId: string): Promise<any> {
   console.log('=== HTTP REQUEST TO /studies/{id}/regenerate-tasks ===')
   console.log('URL:', `${API_BASE_URL}/studies/${studyId}/regenerate-tasks`)
+  
+  // Build the same payload as generate tasks
+  const taskGenerationPayload = buildTaskGenerationPayloadFromLocalStorage()
+  console.log('Regenerate tasks payload:', JSON.stringify(taskGenerationPayload, null, 2))
+  
   const res = await fetchWithAuth(`${API_BASE_URL}/studies/${studyId}/regenerate-tasks`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({}),
+    body: JSON.stringify(taskGenerationPayload),
   })
   const text = await res.text().catch(() => "")
   let data: any = {}

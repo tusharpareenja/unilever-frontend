@@ -52,7 +52,26 @@ function isStepCompleted(stepId: number): boolean {
         if (step2.type === 'grid') {
           if (!gridData) return false
           const grid = JSON.parse(gridData)
-          return Array.isArray(grid) && grid.length > 0 && grid.every((e: any) => e.secureUrl)
+          
+          // Check if it's the new category format or legacy format
+          const isCategoryFormat = grid.length > 0 && grid[0].title && grid[0].elements
+          
+          if (isCategoryFormat) {
+            // New category format: check categories and their elements
+            return Array.isArray(grid) && 
+                   grid.length >= 3 && // Minimum 3 categories
+                   grid.every((category: any) => 
+                     category.title && 
+                     category.title.trim().length > 0 && 
+                     category.elements && 
+                     Array.isArray(category.elements) &&
+                     category.elements.length > 0 &&
+                     category.elements.every((element: any) => element.secureUrl)
+                   )
+          } else {
+            // Legacy format: check direct elements
+            return Array.isArray(grid) && grid.length > 0 && grid.every((e: any) => e.secureUrl)
+          }
         } else {
           if (!layerData) return false
           const layer = JSON.parse(layerData)
