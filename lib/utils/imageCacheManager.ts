@@ -375,12 +375,20 @@ class ImageCacheManager {
         activeBaseKeys.forEach((k) => {
             // Prefer content object when available
             const fromContent = content?.[k]
-            if (fromContent && typeof fromContent === 'object' && typeof fromContent.url === 'string') {
-              urls.push(fromContent.url)
+            if (fromContent && typeof fromContent === 'object') {
+              if (typeof (fromContent as any).url === 'string') {
+                urls.push((fromContent as any).url)
+              } else if (typeof (fromContent as any).content === 'string') {
+                urls.push((fromContent as any).content)
+              }
             }
             const fromContent2 = content?.[`${k}_content`]
-            if (fromContent2 && typeof fromContent2 === 'object' && typeof fromContent2.url === 'string') {
-              urls.push(fromContent2.url)
+            if (fromContent2 && typeof fromContent2 === 'object') {
+              if (typeof (fromContent2 as any).url === 'string') {
+                urls.push((fromContent2 as any).url)
+              } else if (typeof (fromContent2 as any).content === 'string') {
+                urls.push((fromContent2 as any).content)
+              }
             }
 
             // If elements_shown_content is missing, some backends place direct URLs under *_content inside elements_shown itself
@@ -401,13 +409,21 @@ class ImageCacheManager {
           }
           
           const contentItem = safeContent[k]
-          if (contentItem && typeof contentItem === 'object' && contentItem.url) {
-            urls.push(contentItem.url)
+          if (contentItem && typeof contentItem === 'object') {
+            if ((contentItem as any).url) {
+              urls.push((contentItem as any).url)
+            } else if ((contentItem as any).content && typeof (contentItem as any).content === 'string') {
+              urls.push((contentItem as any).content)
+            }
           }
           
           const contentItem2 = safeContent[`${k}_content`]
-          if (contentItem2 && typeof contentItem2 === 'object' && contentItem2.url) {
-            urls.push(contentItem2.url)
+          if (contentItem2 && typeof contentItem2 === 'object') {
+            if ((contentItem2 as any).url) {
+              urls.push((contentItem2 as any).url)
+            } else if ((contentItem2 as any).content && typeof (contentItem2 as any).content === 'string') {
+              urls.push((contentItem2 as any).content)
+            }
           }
           if (typeof contentItem2 === 'string' && contentItem2.startsWith('http')) {
             urls.push(contentItem2)
@@ -418,7 +434,10 @@ class ImageCacheManager {
         // 1) Scan content object for any url fields
         if (urls.length === 0 && content && typeof content === 'object') {
           Object.values(content).forEach((v: any) => {
-            if (v && typeof v === 'object' && typeof v.url === 'string') urls.push(v.url)
+            if (v && typeof v === 'object') {
+              if (typeof v.url === 'string') urls.push(v.url)
+              if (typeof v.content === 'string') urls.push(v.content)
+            }
             if (typeof v === 'string' && v.startsWith('http')) urls.push(v)
           })
         }

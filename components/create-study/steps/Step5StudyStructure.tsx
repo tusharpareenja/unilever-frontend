@@ -211,12 +211,7 @@ const CATEGORY_MAX = 10
     if (typeof window === 'undefined') return
     if (!gridHasHydratedRef.current) return
     
-    console.log('=== SAVING CATEGORIES TO LOCALSTORAGE ===')
-    console.log('Categories to save:', categories.map(c => ({
-      id: c.id,
-      title: c.title,
-      elements_count: c.elements.length
-    })))
+    
     
     const minimal = categories.map(c => ({ 
       id: c.id, 
@@ -231,7 +226,6 @@ const CATEGORY_MAX = 10
       }))
     }))
     
-    console.log('Minimal data to save:', JSON.stringify(minimal, null, 2))
     localStorage.setItem('cs_step5_grid', JSON.stringify(minimal))
     onDataChange?.()
   }, [categories, mode, onDataChange])
@@ -258,9 +252,7 @@ const CATEGORY_MAX = 10
 
   // Category management functions
   const handleCategoryFiles = async (categoryId: string, files: FileList) => {
-    console.log('=== ADDING ELEMENTS TO CATEGORY ===')
-    console.log('Category ID:', categoryId)
-    console.log('Files count:', files.length)
+    
     
     const list = Array.from(files)
     const selectionIds: string[] = []
@@ -278,7 +270,7 @@ const CATEGORY_MAX = 10
       }
       selectionIds.push(tempId)
       
-      console.log(`Adding element ${tempId} (${fileName}) to category ${categoryId}`)
+      
       
       setCategories(prev => {
         const updated = prev.map(c => 
@@ -286,11 +278,7 @@ const CATEGORY_MAX = 10
             ? { ...c, elements: [...c.elements, newElement] }
             : c
         )
-        console.log('Updated categories:', updated.map(c => ({
-          id: c.id,
-          title: c.title,
-          elements_count: c.elements.length
-        })))
+        
         return updated
       })
     })
@@ -572,6 +560,26 @@ const CATEGORY_MAX = 10
                 )}
               </div>
             ))}
+            {/* Centered Add Category at bottom */}
+            <div className="flex items-center justify-center pt-2">
+              <Button 
+                className="rounded-full px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)]" 
+                onClick={() => {
+                  if (categories.length >= CATEGORY_MAX) return
+                  const newCategory: CategoryItem = {
+                    id: crypto.randomUUID(),
+                    title: `Category ${categories.length + 1}`,
+                    description: "",
+                    elements: []
+                  }
+                  setCategories(prev => [...prev, newCategory])
+                  setCollapsedCategories(new Set(categories.map(c => c.id)))
+                }}
+                disabled={categories.length >= CATEGORY_MAX}
+              >
+                + Add Category
+              </Button>
+            </div>
           </div>
         )}
 

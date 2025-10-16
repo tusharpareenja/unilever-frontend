@@ -193,6 +193,17 @@ export default function ResponseDetailsPage() {
 
                                 return (
                                   <div className="relative w-full max-w-lg aspect-square overflow-hidden rounded-md bg-gray-100">
+                                    {/* Optional background image behind all layers */}
+                                    {data?.background_image_url && (
+                                      // eslint-disable-next-line @next/next/no-img-element
+                                      <img
+                                        src={data.background_image_url}
+                                        alt="Background"
+                                        className="absolute inset-0 m-auto h-full w-full object-cover"
+                                        style={{ zIndex: 0 }}
+                                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                                      />
+                                    )}
                                     {layerElements.map((img, idx) => (
                                       // eslint-disable-next-line @next/next/no-img-element
                                       <img
@@ -200,7 +211,7 @@ export default function ResponseDetailsPage() {
                                         src={img.url}
                                         alt={img.alt}
                                         className="absolute inset-0 m-auto h-full w-full object-contain"
-                                        style={{ zIndex: img.z }}
+                                        style={{ zIndex: Math.max(1, img.z) }}
                                       />
                                     ))}
                                   </div>
@@ -215,19 +226,16 @@ export default function ResponseDetailsPage() {
                                 // Case 1: elements_shown_content is an object of strings or objects
                                 if (t.elements_shown_content && typeof t.elements_shown_content === 'object') {
                                   const contentObj: Record<string, any> = t.elements_shown_content as any
-                                  const flags: Record<string, any> | null = (t.elements_shown_in_task && typeof t.elements_shown_in_task === 'object') ? (t.elements_shown_in_task as any) : null
+                                  // In some responses, keys here don't match elements_shown_in_task keys.
+                                  // Prefer entries where value is an object having { url, visible: 1 }.
                                   Object.entries(contentObj).forEach(([key, val]) => {
-                                    let url: string | null = null
-                                    if (typeof val === 'string') {
-                                      url = val
-                                    } else if (val && typeof val === 'object' && typeof (val as any).url === 'string') {
-                                      url = (val as any).url
-                                    }
-                                    if (url) {
-                                      // If flags exist, require shown flag; else include
-                                      if (!flags || Number(flags[key]) === 1 || Number(flags[key.replace(/_content$/, '')]) === 1) {
-                                        list.push({ url, name: key })
+                                    if (val && typeof val === 'object' && typeof (val as any).url === 'string') {
+                                      if (Number((val as any).visible ?? 1) === 1) {
+                                        list.push({ url: String((val as any).url), name: key })
                                       }
+                                    } else if (typeof val === 'string' && val) {
+                                      // Fallback: include plain string URLs
+                                      list.push({ url: val, name: key })
                                     }
                                   })
                                 }

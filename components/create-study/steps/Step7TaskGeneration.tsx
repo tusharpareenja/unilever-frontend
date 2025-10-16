@@ -23,13 +23,32 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
     try {
       setIsGenerating(true)
       const payload = buildTaskGenerationPayloadFromLocalStorage()
-      console.log('Task generation payload:', payload)
       const data = await generateTasks(payload)
-      console.log('Task generation response:', data)
       setMatrix(data)
       
       // Store only preview data (1 respondent) to avoid localStorage limit
       try {
+        // If backend returns a study_id in the task generation response, persist it for fast launch
+        try {
+          const possibleStudyIdCandidates: Array<string | undefined> = [
+            data?.study_id,
+            data?.id,
+            data?.data?.id,
+            data?.metadata?.study_id,
+            data?.metadata?.id,
+            data?.study?.id,
+          ]
+          const possibleStudyId = possibleStudyIdCandidates.find((v) => typeof v === 'string' && v.length > 0)
+          if (possibleStudyId) {
+            localStorage.setItem('cs_study_id', JSON.stringify(String(possibleStudyId)))
+            
+          } else {
+            console.warn('No study_id found in task generation response; fast launch will fall back if needed.')
+          }
+        } catch (idStoreErr) {
+          console.warn('Failed to store study id from task generation response:', idStoreErr)
+        }
+
         const previewData = {
           metadata: data.metadata,
           preview_tasks: data.tasks?.[0] || [], // Only first respondent's tasks
@@ -38,7 +57,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
           full_matrix_available: true // Flag to indicate we have full data on backend
         }
         localStorage.setItem('cs_step7_matrix', JSON.stringify(previewData))
-        console.log('Stored preview data (1 respondent only) to avoid storage limit')
+        
       } catch (storageError) {
         console.warn('Failed to store preview data:', storageError)
         // Still mark as completed even if storage fails
@@ -113,7 +132,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
   // derive stats safely from metadata or LS
   const respondentsFromLS = getFromLS('cs_step6', { respondents: undefined as any }).respondents
   const studyType = getFromLS('cs_step2', { type: 'grid' }).type
-  console.log('Study type:', studyType)
+  
   const meta = (matrix as any)?.metadata || {}
   // We will compute total tasks from metadata if available, else sum of bucket lengths
   let totalTasks = meta.total_tasks as any
@@ -325,13 +344,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
         metadata = matrix.metadata || {}
       }
 
-      console.log('Matrix structure:', {
-        hasTasks: !!tasks,
-        hasMetadata: !!metadata,
-        tasksKeys: tasks ? Object.keys(tasks) : [],
-        matrixKeys: Object.keys(matrix),
-        isPreviewData: !!matrix.preview_tasks
-      })
+      
 
       if (!tasks) {
         alert('Invalid task generation data format.')
@@ -355,18 +368,16 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
 
       if (studyType === 'grid') {
         // For grid studies, always use task data to build columns since it's the most reliable source
-        console.log('Building columns from task data for grid study')
+        
         
         if (Object.keys(tasks).length > 0) {
           const firstTask = tasks[Object.keys(tasks)[0]][0]
-          console.log('First task structure:', firstTask)
-          console.log('First task elements_shown:', firstTask?.elements_shown)
           
           if (firstTask && firstTask.elements_shown) {
             const elementKeys = Object.keys(firstTask.elements_shown).filter(key => 
               !key.includes('_content')
             )
-            console.log('Element keys from task data:', elementKeys)
+            
             
             // Use the keys directly as column names
             elementColumns = elementKeys.sort()
@@ -374,13 +385,12 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
             elementColumns.forEach(key => {
               elementKeyMapping[key] = key
             })
-            console.log('Element columns from task data:', elementColumns)
-            console.log('Element key mapping from task data:', elementKeyMapping)
+            
           } else {
-            console.log('No elements_shown in first task or first task is missing')
+            
           }
         } else {
-          console.log('No tasks available for column generation')
+          
         }
       } else if (studyType === 'layer_v2') {
         // For layer studies, get layer names with image numbers
@@ -398,7 +408,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
 
       // Force debug: if no columns, try to get them from any task BEFORE generating CSV
       if (elementColumns.length === 0) {
-        console.log('No element columns found, trying to extract from any available task...')
+        
         for (const respondentId of Object.keys(tasks)) {
           const respondentTasks = tasks[respondentId]
           if (respondentTasks && respondentTasks.length > 0) {
@@ -407,14 +417,14 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
               const elementKeys = Object.keys(firstTask.elements_shown).filter(key => 
                 !key.includes('_content')
               )
-              console.log('Found element keys in respondent', respondentId, ':', elementKeys)
+              
               if (elementKeys.length > 0) {
                 // Try to get element names from localStorage first
                 const gridData = localStorage.getItem('cs_step5_grid')
                 if (gridData) {
                   try {
                     const categories = JSON.parse(gridData)
-                    console.log('Building columns from localStorage categories:', categories)
+                    
                     
                     // Build columns with proper names and category order
                     elementColumns = []
@@ -435,10 +445,9 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                       }
                     })
                     
-                    console.log('Built columns from localStorage:', elementColumns)
-                    console.log('Built key mapping from localStorage:', elementKeyMapping)
+                    
                   } catch (e) {
-                    console.log('Failed to parse localStorage data, using task keys directly')
+                    
                     elementColumns = elementKeys.sort()
                     elementKeyMapping = {}
                     elementColumns.forEach(key => {
@@ -453,7 +462,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                     elementKeyMapping[key] = key
                   })
                 }
-                console.log('Forced element columns:', elementColumns)
+                
                 break
               }
             }
@@ -461,9 +470,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
         }
       }
 
-      console.log('Element columns generated:', elementColumns)
-      console.log('Element key mapping:', elementKeyMapping)
-      console.log('Tasks structure:', Object.keys(tasks).map(id => ({ respondent: id, taskCount: tasks[id]?.length })))
+      
 
       // Generate CSV content
       const csvRows: string[] = []
@@ -496,9 +503,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
 
       // Create and download CSV
       const csvContent = csvRows.join('\n')
-      console.log('Final CSV content preview:', csvContent.split('\n').slice(0, 3).join('\n'))
-      console.log('Total CSV rows:', csvRows.length)
-      console.log('Element columns count:', elementColumns.length)
+      
       
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
       const link = document.createElement('a')
@@ -622,7 +627,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                         // Sort by z-index (ascending - lower z-index renders first/behind)
                         visibleLayers.sort((a, b) => a.z_index - b.z_index)
                         
-                        console.log('Visible layers for task:', visibleLayers)
+                        
                         
                         return (
                           <div key={tIdx} className="border rounded-lg overflow-hidden">
@@ -687,8 +692,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                         // Handle grid study - updated for category-based format
                         const shown = task?.elements_shown || {}
                         const shownContent = task?.elements_shown_content || {}
-                        console.log('Task elements_shown:', shown)
-                        console.log('Task elements_shown_content:', shownContent)
+                        
                         
                         const urls: string[] = []
                         
@@ -747,7 +751,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                           urls.push(...extractUrlsFromObject(task))
                         }
                         
-                        console.log('Extracted URLs:', urls)
+                        
                         // Determine elements per task dynamically, fallback to all urls
                         const maxPerTask = typeof elementsPerTask === 'number' && elementsPerTask > 0 ? elementsPerTask : urls.length
                         const show = urls.slice(0, maxPerTask)

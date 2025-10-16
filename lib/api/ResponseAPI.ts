@@ -482,6 +482,7 @@ export interface ResponseSessionDetails {
   session_start_time?: string
   session_end_time?: string
   is_completed: boolean
+  background_image_url?: string
   personal_info?: { gender?: string; date_of_birth?: string }
   ip_address?: string
   user_agent?: string

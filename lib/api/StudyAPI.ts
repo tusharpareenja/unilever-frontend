@@ -532,6 +532,7 @@ export interface TaskGenerationElementPayload {
 }
 
 export interface TaskGenerationPayload {
+  study_id?: string
   title: string
   background: string
   language: string
@@ -554,6 +555,7 @@ export interface TaskGenerationPayload {
   categories?: TaskGenerationCategoryPayload[]
   elements?: TaskGenerationElementPayload[]
   study_layers?: any[]
+  background_image_url?: string
   classification_questions?: Array<{
     question_id: string
     question_text: string
@@ -573,6 +575,8 @@ export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayl
   const s6 = get("cs_step6", { respondents: 0, countries: [], genderMale: 0, genderFemale: 0, ageSelections: {} }) as any
   const grid = get<any[]>("cs_step5_grid", [])
   const layer = get<any[]>("cs_step5_layer", [])
+  const layerBackground = get<any | null>("cs_step5_layer_background", null)
+  const existingStudyId = get<string | null>("cs_study_id", null)
   
   console.log('Task generation payload builder - Step 2:', s2)
   console.log('Task generation payload builder - Grid:', grid)
@@ -712,13 +716,13 @@ export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayl
       const validOptions = q.options?.filter((opt: any) => opt.text && opt.text.trim().length > 0) || []
       
       return {
-        question_id: String(q.id || `Q${idx + 1}`).slice(0, 36),
+        question_id: String(q.id || `Q${idx + 1}`).substring(0, 10),
         question_text: q.title || "",
         question_type: "multiple_choice",
         is_required: q.required !== false,
         order: idx + 1,
         answer_options: validOptions.map((option: any, optIdx: number) => ({
-          id: String(option.id || String.fromCharCode(65 + optIdx)).slice(0, 36),
+          id: String(option.id || String.fromCharCode(65 + optIdx)).substring(0, 10),
           text: option.text || "",
           order: optIdx + 1
         }))
@@ -726,6 +730,7 @@ export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayl
     })
 
   const payload: TaskGenerationPayload = {
+    ...(existingStudyId ? { study_id: String(existingStudyId) } : {}),
     title: s1.title || "",
     background: s1.description || "",
     language,
@@ -749,6 +754,9 @@ export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayl
     ...(elements.length > 0 && { elements }),
     ...(study_layers.length > 0 && { study_layers }),
     ...(classification_questions.length > 0 && { classification_questions }),
+    ...(((layerBackground && (layerBackground.secureUrl || layerBackground.previewUrl))) && {
+      background_image_url: String(layerBackground.secureUrl || layerBackground.previewUrl)
+    })
   }
   
   console.log('Task generation payload:', payload)
@@ -761,6 +769,7 @@ export async function generateTasks(payload: TaskGenerationPayload): Promise<any
   console.log('Method: POST')
   console.log('Request Body:', JSON.stringify(payload, null, 2))
   console.log('Payload Summary:', {
+    study_id: payload.study_id,
     title: payload.title,
     study_type: payload.study_type,
     language: payload.language,

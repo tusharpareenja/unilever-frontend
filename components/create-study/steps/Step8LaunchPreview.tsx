@@ -10,6 +10,11 @@ function get<T>(key: string, fallback: T): T {
   try { const v = localStorage.getItem(key); return v ? JSON.parse(v) as T : fallback } catch { return fallback }
 }
 
+// Remove stored study id used for fast launch
+function clearStoredStudyId() {
+  try { localStorage.removeItem('cs_study_id') } catch {}
+}
+
 export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => void; onDataChange?: () => void }) {
   const [isLaunching, setIsLaunching] = useState(false)
   const [launchError, setLaunchError] = useState<string | null>(null)
@@ -26,8 +31,6 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
   const hasLayer = step2.type === 'layer'
   
   // Debug layer structure
-  console.log('Step 8 - Layer data:', layer)
-  console.log('Step 8 - Has layer:', hasLayer)
 
   const handleLaunchStudy = async () => {
     if (!isConfirmed) {
@@ -40,31 +43,120 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
     setLaunchError(null)
 
     try {
-      const result = await createStudyFromLocalStorage()
-      console.log('Study launched successfully:', result)
-      const studyId = result?.id || result?.study_id || result?.data?.id
-      
-      if (studyId) {
-        // Wait for study activation to complete before redirecting
+      // Prefer fast launch if we already have a study_id from Step 7
+      const storedIdRaw = localStorage.getItem('cs_study_id')
+      const existingStudyId = storedIdRaw ? JSON.parse(storedIdRaw) as string : undefined
+
+      let studyId = existingStudyId
+
+      if (existingStudyId) {
+        // Build partial update payload from current localStorage values
+        // Build audience segmentation from step6
+        const gender_distribution: Record<string, number> = {
+          male: Number(step6.genderMale || 0),
+          female: Number(step6.genderFemale || 0),
+        }
+        const age_distribution: Record<string, number> = {}
         try {
-          console.log('Activating study...')
-          await fetchWithAuth(`${API_BASE_URL}/studies/${studyId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: 'active' }),
+          const ageSel = (step6.ageSelections || {}) as Record<string, { percent?: number | string }>
+          Object.keys(ageSel).forEach((label) => {
+            const val = ageSel[label]?.percent
+            const num = typeof val === 'string' ? Number(val.replace(/[^0-9.-]/g, '')) : Number(val || 0)
+            age_distribution[label] = isNaN(num) ? 0 : num
           })
-          console.log('Study activated successfully')
-        } catch (activateError) {
-          console.error('Failed to activate study:', activateError)
-          // Continue anyway - user can activate manually if needed
+        } catch {}
+        const countries: string[] = Array.isArray(step6.countries) ? step6.countries : []
+
+        const updatePayload: any = {
+          title: step1.title || '',
+          background: step1.description || '',
+          language: (step1.language || 'en'),
+          main_question: step2.mainQuestion || '',
+          orientation_text: step2.orientationText || '',
+          rating_scale: {
+            min_value: Number(step3.minValue ?? 1),
+            max_value: Number(step3.maxValue ?? 5),
+            min_label: step3.minLabel || '',
+            max_label: step3.maxLabel || '',
+            middle_label: step3.middleLabel || '',
+          },
+          audience_segmentation: {
+            number_of_respondents: Math.max(1, Number(step6.respondents || 0)),
+            country: countries.join(', '),
+            gender_distribution,
+            age_distribution,
+          },
         }
 
-        // Do not regenerate tasks on launch; heavy generation happens in Step 7 only.
+        // Optional background image for layer studies
+        try {
+          const bgRaw = localStorage.getItem('cs_step5_layer_background')
+          if (bgRaw) {
+            const bg = JSON.parse(bgRaw)
+            const url = bg?.secureUrl || bg?.previewUrl
+            if (url) updatePayload.background_image_url = url
+          }
+        } catch {}
+
+        // Optional classification questions with short IDs
+        if (Array.isArray(step4) && step4.length > 0) {
+          const classification_questions = step4
+            .filter((q: any) => q.title && String(q.title).trim().length > 0)
+            .map((q: any, idx: number) => {
+              const validOptions = (q.options || []).filter((opt: any) => opt.text && String(opt.text).trim().length > 0)
+              return {
+                question_id: String(q.id || `Q${idx + 1}`).substring(0, 10),
+                question_text: q.title || '',
+                question_type: 'multiple_choice',
+                is_required: q.required !== false,
+                order: idx + 1,
+                answer_options: validOptions.map((option: any, optIdx: number) => ({
+                  id: String(option.id || String.fromCharCode(65 + optIdx)).substring(0, 10),
+                  text: option.text || '',
+                  order: optIdx + 1,
+                }))
+              }
+            })
+          if (classification_questions.length > 0) {
+            updatePayload.classification_questions = classification_questions
+          }
+        }
+
+        // Call fast launch endpoint (applies updates and activates)
+        const res = await fetchWithAuth(`${API_BASE_URL}/studies/${existingStudyId}/launch`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatePayload),
+        })
+        if (!res.ok) {
+          const text = await res.text().catch(() => '')
+          throw new Error(text || `Launch failed (${res.status})`)
+        }
+        const updated = await res.json().catch(() => ({}))
+        studyId = updated?.id || existingStudyId
       } else {
+        // Fallback: create + activate (legacy path)
+        const result = await createStudyFromLocalStorage()
+        studyId = result?.id || result?.study_id || result?.data?.id
+        if (studyId) {
+          try {
+            await fetchWithAuth(`${API_BASE_URL}/studies/${studyId}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status: 'active' }),
+            })
+          } catch (activateError) {
+            
+          }
+        }
+      }
+      
+      if (!studyId) {
         console.warn('Cannot activate study: study id missing in create response')
       }
 
       // Clear all step data from localStorage (including cached step7 matrix)
+      clearStoredStudyId()
       const keysToRemove = ['cs_step1', 'cs_step2', 'cs_step3', 'cs_step4', 'cs_step5_grid', 'cs_step5_layer', 'cs_step5_layer_background', 'cs_step6', 'cs_step7', 'cs_step7_tasks', 'cs_step7_matrix', 'cs_step7_meta', 'cs_step7_signature']
       keysToRemove.forEach(key => localStorage.removeItem(key))
 
@@ -253,6 +345,7 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
                   </div>
                 </>
               )}
+
             </div>
           )}
         </section>
