@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { buildTaskGenerationPayloadFromLocalStorage, generateTasks } from "@/lib/api/StudyAPI"
+import { buildTaskGenerationPayloadFromLocalStorage, generateTasks, generateTasksWithPolling, JobStatus } from "@/lib/api/StudyAPI"
 import JSZip from "jszip"
 
 interface Step7TaskGenerationProps {
@@ -18,59 +18,145 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
   const [isStatsOpen, setIsStatsOpen] = useState(false)
   const [isDownloadingAssets, setIsDownloadingAssets] = useState(false)
   const [countdownSeconds, setCountdownSeconds] = useState(600) // 10 minutes
+  
+  // Background job polling states
+  const [jobStatus, setJobStatus] = useState<JobStatus | null>(null)
+  const [isPolling, setIsPolling] = useState(false)
+  const [pollingError, setPollingError] = useState<string | null>(null)
+
+  // Persist preview and mark step completed when full result is ready
+  const savePreviewAndComplete = (result: any) => {
+    if (!result) return
+    try {
+      console.log('[Step7] Saving preview and completing. totals:', {
+        respondents: result?.metadata?.number_of_respondents,
+        total_tasks: result?.metadata?.total_tasks,
+        tasks_per_consumer: result?.metadata?.tasks_per_consumer,
+        metadata_keys: result?.metadata ? Object.keys(result.metadata) : []
+      })
+      setMatrix(result)
+      const previewData = {
+        metadata: result.metadata,
+        preview_tasks: result.tasks?.[0] || [], // Only first respondent's tasks
+        total_respondents: result.metadata?.number_of_respondents || 0,
+        total_tasks: result.metadata?.total_tasks || 0,
+        full_matrix_available: true
+      }
+      console.log('[Step7] Persisting cs_step7_matrix')
+      localStorage.setItem('cs_step7_matrix', JSON.stringify(previewData))
+    } catch (storageError) {
+      console.warn('Failed to store preview data:', storageError)
+    }
+    // Mark step 7 as completed
+    try {
+      console.log('[Step7] Marking step7 as completed')
+      localStorage.setItem('cs_step7_tasks', JSON.stringify({ completed: true, timestamp: Date.now() }))
+      onDataChange?.()
+    } catch {}
+  }
 
   const generateNow = async () => {
     try {
       setIsGenerating(true)
+      setPollingError(null)
+      setJobStatus(null)
+      // Ensure we don't show stale preview while a new background job runs
+      try { console.log('[Step7] Clearing cached cs_step7_matrix'); localStorage.removeItem('cs_step7_matrix') } catch {}
+      setMatrix(null)
+      
       const payload = buildTaskGenerationPayloadFromLocalStorage()
-      const data = await generateTasks(payload)
-      setMatrix(data)
+      console.log('[Step7] Submitting task generation payload')
       
-      // Store only preview data (1 respondent) to avoid localStorage limit
-      try {
-        // If backend returns a study_id in the task generation response, persist it for fast launch
-        try {
-          const possibleStudyIdCandidates: Array<string | undefined> = [
-            data?.study_id,
-            data?.id,
-            data?.data?.id,
-            data?.metadata?.study_id,
-            data?.metadata?.id,
-            data?.study?.id,
-          ]
-          const possibleStudyId = possibleStudyIdCandidates.find((v) => typeof v === 'string' && v.length > 0)
-          if (possibleStudyId) {
-            localStorage.setItem('cs_study_id', JSON.stringify(String(possibleStudyId)))
-            
-          } else {
-            console.warn('No study_id found in task generation response; fast launch will fall back if needed.')
-          }
-        } catch (idStoreErr) {
-          console.warn('Failed to store study id from task generation response:', idStoreErr)
-        }
-
-        const previewData = {
-          metadata: data.metadata,
-          preview_tasks: data.tasks?.[0] || [], // Only first respondent's tasks
-          total_respondents: data.metadata?.number_of_respondents || 0,
-          total_tasks: data.metadata?.total_tasks || 0,
-          full_matrix_available: true // Flag to indicate we have full data on backend
-        }
-        localStorage.setItem('cs_step7_matrix', JSON.stringify(previewData))
+      // Use the new polling-enabled generation
+      const data = await generateTasksWithPolling(payload, (status) => {
+        console.log('[Step7] Job status update:', {
+          job_id: status?.job_id,
+          status: status?.status,
+          progress: status?.progress,
+          message: status?.message
+        })
+        setJobStatus(status)
+        setIsPolling(status.status === 'processing' || status.status === 'pending')
         
-      } catch (storageError) {
-        console.warn('Failed to store preview data:', storageError)
-        // Still mark as completed even if storage fails
-      }
+        if (status.status === 'completed') {
+          // The result will be fetched separately via getTaskGenerationResult
+          // This callback is just for status updates during polling
+        }
+      })
       
-      // Mark step 7 as completed
-      localStorage.setItem('cs_step7_tasks', JSON.stringify({ completed: true, timestamp: Date.now() }))
-      onDataChange?.()
+      console.log('[Step7] generateTasksWithPolling returned:', {
+        hasData: !!data,
+        hasTasks: !!(data?.tasks),
+        hasMetadata: !!(data?.metadata),
+        dataKeys: data ? Object.keys(data) : []
+      })
+      
+      // Check if this is a completed background job result or immediate result
+      const dataJobId = (data as any)?.job_id || (data as any)?.metadata?.job_id || (data as any)?.data?.job_id
+      const hasTasks = !!(data?.tasks && Object.keys(data.tasks).length > 0)
+      
+      if (hasTasks) {
+        // We have actual task data (either immediate or completed background job)
+        console.log('[Step7] Task data received, processing...')
+        savePreviewAndComplete(data)
+      } else if (dataJobId) {
+        // Background job started but not completed yet
+        console.log('[Step7] Background job started; id:', dataJobId)
+      } else {
+        // Immediate generation without background job
+        console.log('[Step7] Immediate generation response received (no job).')
+        setMatrix(data)
+        
+        // Store only preview data (1 respondent) to avoid localStorage limit
+        try {
+          // If backend returns a study_id in the task generation response, persist it for fast launch
+          try {
+            const possibleStudyIdCandidates: Array<string | undefined> = [
+              data?.study_id,
+              data?.id,
+              data?.data?.id,
+              data?.metadata?.study_id,
+              data?.metadata?.id,
+              data?.study?.id,
+            ]
+            const possibleStudyId = possibleStudyIdCandidates.find((v) => typeof v === 'string' && v.length > 0)
+            if (possibleStudyId) {
+              console.log('[Step7] Persisting cs_study_id', possibleStudyId)
+              localStorage.setItem('cs_study_id', JSON.stringify(String(possibleStudyId)))
+              
+            } else {
+              console.warn('No study_id found in task generation response; fast launch will fall back if needed.')
+            }
+          } catch (idStoreErr) {
+            console.warn('Failed to store study id from task generation response:', idStoreErr)
+          }
+
+          const previewData = {
+            metadata: data.metadata,
+            preview_tasks: data.tasks?.[0] || [], // Only first respondent's tasks
+            total_respondents: data.metadata?.number_of_respondents || 0,
+            total_tasks: data.metadata?.total_tasks || 0,
+            full_matrix_available: true // Flag to indicate we have full data on backend
+          }
+          console.log('[Step7] Persisting cs_step7_matrix (immediate)')
+          localStorage.setItem('cs_step7_matrix', JSON.stringify(previewData))
+          
+        } catch (storageError) {
+          console.warn('Failed to store preview data:', storageError)
+          // Still mark as completed even if storage fails
+        }
+        
+        // Mark step 7 as completed
+        console.log('[Step7] Marking step7 as completed (immediate)')
+        localStorage.setItem('cs_step7_tasks', JSON.stringify({ completed: true, timestamp: Date.now() }))
+        onDataChange?.()
+      }
     } catch (e) {
       console.error('Task generation error:', e)
       const err: any = e
       const message = err?.data?.detail || err?.message || 'Task generation failed.'
       const textMsg = typeof message === 'string' ? message : JSON.stringify(message)
+      setPollingError(textMsg)
       alert(textMsg)
       try {
         const lower = String(textMsg).toLowerCase()
@@ -88,6 +174,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
       } catch {}
     } finally {
       setIsGenerating(false)
+      setIsPolling(false)
     }
   }
 
@@ -134,14 +221,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
   const studyType = getFromLS('cs_step2', { type: 'grid' }).type
   
   const meta = (matrix as any)?.metadata || {}
-  // We will compute total tasks from metadata if available, else sum of bucket lengths
-  let totalTasks = meta.total_tasks as any
-  const numRespondents = meta.number_of_respondents ?? respondentsFromLS ?? '-'
-  const tasksPerRespondent = meta.tasks_per_consumer ?? '-'
-  const elementsPerTask = meta.K ?? meta.elements_per_task ?? '-'
-
-  const formattedCountdown = `${Math.floor(countdownSeconds / 60)}:${String(countdownSeconds % 60).padStart(2, '0')}`
-
+  
   // Use preview data (1 respondent only) for display
   const rawTasks = (matrix as any)?.preview_tasks || (matrix as any)?.tasks
   let respondentBuckets: any[][] = []
@@ -153,13 +233,33 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
     respondentBuckets = keys.slice(0, 1).map((k)=>rawTasks[k]) // Only first respondent
   }
 
-  if (totalTasks == null) {
-    if (typeof meta.number_of_respondents === 'number' && typeof meta.tasks_per_consumer === 'number') {
-      totalTasks = meta.number_of_respondents * meta.tasks_per_consumer
-    } else {
-      totalTasks = respondentBuckets.reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0)
-    }
+  const numRespondents = meta.number_of_respondents ?? respondentsFromLS ?? '-'
+  
+  // Calculate tasks per respondent from available data
+  let tasksPerRespondent = meta.tasks_per_consumer ?? '-'
+  
+  // If tasks_per_consumer is not available, calculate it from total_tasks and number_of_respondents
+  if (tasksPerRespondent === '-' && typeof meta.total_tasks === 'number' && typeof meta.number_of_respondents === 'number' && meta.number_of_respondents > 0) {
+    tasksPerRespondent = Math.round(meta.total_tasks / meta.number_of_respondents)
   }
+  
+  // If still not available, try to calculate from actual task data
+  if (tasksPerRespondent === '-' && respondentBuckets.length > 0 && Array.isArray(respondentBuckets[0])) {
+    tasksPerRespondent = respondentBuckets[0].length
+  }
+  
+  // Calculate total tasks as tasks_per_respondent × number_of_respondents
+  let totalTasks: any = '-'
+  if (typeof tasksPerRespondent === 'number' && typeof numRespondents === 'number') {
+    totalTasks = tasksPerRespondent * numRespondents
+  } else if (meta.total_tasks) {
+    totalTasks = meta.total_tasks
+  } else if (respondentBuckets.length > 0) {
+    totalTasks = respondentBuckets.reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0)
+  }
+  
+  const elementsPerTask = meta.K ?? meta.elements_per_task ?? '-'
+  const formattedCountdown = `${Math.floor(countdownSeconds / 60)}:${String(countdownSeconds % 60).padStart(2, '0')}`
 
   // Compute additional derived statistics from preview data (first respondent only)
   const previewTasksForStats = Array.isArray(respondentBuckets?.[0]) ? respondentBuckets[0] : []
@@ -327,10 +427,16 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
   }
 
   // Function to download CSV matrix
-  const downloadMatrixCSV = () => {
+  const downloadMatrixCSV = async () => {
     try {
       if (!matrix) {
         alert('No task generation data found. Please generate tasks first.')
+        return
+      }
+      
+      // Check if we're still polling (tasks not ready)
+      if (isPolling || (jobStatus && jobStatus.status !== 'completed')) {
+        alert('Tasks are still being generated. Please wait for completion before downloading CSV.')
         return
       }
 
@@ -338,10 +444,38 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
       let tasks = matrix.tasks
       let metadata = matrix.metadata
       
-      // If it's cached preview data, reconstruct the tasks format
+      // If it's cached preview data, we need to get the full task data
       if (matrix.preview_tasks && !matrix.tasks) {
-        tasks = { "0": matrix.preview_tasks }
-        metadata = matrix.metadata || {}
+        console.log('[CSV] Using cached preview data - this will only show first respondent')
+        console.log('[CSV] To get all respondents, please regenerate tasks or wait for full completion')
+        
+        // Try to get the study ID and fetch full data
+        const studyId = localStorage.getItem('cs_study_id')
+        if (studyId) {
+          try {
+            console.log('[CSV] Attempting to fetch full study data for CSV generation')
+            const { getStudyDetails } = await import('@/lib/api/StudyAPI')
+            const fullStudyData = await getStudyDetails(JSON.parse(studyId))
+            if (fullStudyData && fullStudyData.tasks) {
+              console.log('[CSV] Successfully fetched full study data with', Object.keys(fullStudyData.tasks).length, 'respondents')
+              tasks = fullStudyData.tasks
+              metadata = fullStudyData
+            } else {
+              console.log('[CSV] Full study data not available, using preview data')
+              tasks = { "0": matrix.preview_tasks }
+              metadata = matrix.metadata || {}
+            }
+          } catch (error) {
+            console.warn('[CSV] Failed to fetch full study data:', error)
+            console.log('[CSV] Using preview data instead')
+            tasks = { "0": matrix.preview_tasks }
+            metadata = matrix.metadata || {}
+          }
+        } else {
+          console.log('[CSV] No study ID found, using preview data')
+          tasks = { "0": matrix.preview_tasks }
+          metadata = matrix.metadata || {}
+        }
       }
 
       
@@ -363,14 +497,54 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
           studyType = step2.type || 'grid'
         }
       }
+      
+      console.log('[CSV] Study type detected:', studyType)
+      console.log('[CSV] Tasks keys:', Object.keys(tasks))
+      console.log('[CSV] First task sample:', tasks[Object.keys(tasks)[0]]?.[0])
       let elementColumns: string[] = []
       let elementKeyMapping: { [key: string]: string } = {}
 
       if (studyType === 'grid') {
-        // For grid studies, always use task data to build columns since it's the most reliable source
+        // For grid studies, try to get element names from localStorage first
+        const gridData = localStorage.getItem('cs_step5_grid')
+        console.log('[CSV] Grid data from localStorage:', gridData)
+        if (gridData) {
+          try {
+            const categories = JSON.parse(gridData)
+            console.log('[CSV] Parsed grid categories:', categories)
+            
+            // Build columns with proper names and category order
+            elementColumns = []
+            elementKeyMapping = {}
+            
+            categories.forEach((category: any, catIdx: number) => {
+              if (category.elements && Array.isArray(category.elements)) {
+                category.elements.forEach((element: any, elIdx: number) => {
+                  const categoryName = category.title || `Category_${catIdx + 1}`
+                  const elementName = element.name || `Element_${elIdx + 1}`
+                  const columnName = `${categoryName}_${elementName}`
+                  elementColumns.push(columnName)
+                  
+                  // Map the API response key to our column name
+                  const apiKey = `${categoryName}_${elIdx + 1}`
+                  elementKeyMapping[apiKey] = columnName
+                  
+                  console.log('[CSV] Added grid column:', columnName, 'from category:', categoryName, 'element:', elementName)
+                  console.log('[CSV] Mapped API key:', apiKey, 'to column:', columnName)
+                })
+              }
+            })
+            
+            console.log('[CSV] Grid element columns:', elementColumns)
+            console.log('[CSV] Grid element key mapping:', elementKeyMapping)
+          } catch (e) {
+            console.warn('[CSV] Failed to parse grid data from localStorage:', e)
+          }
+        }
         
-        
-        if (Object.keys(tasks).length > 0) {
+        // If no columns from localStorage, try to get them from task data
+        if (elementColumns.length === 0 && Object.keys(tasks).length > 0) {
+          console.log('[CSV] No grid columns found, falling back to task data')
           const firstTask = tasks[Object.keys(tasks)[0]][0]
           
           if (firstTask && firstTask.elements_shown) {
@@ -378,33 +552,59 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
               !key.includes('_content')
             )
             
-            
             // Use the keys directly as column names
             elementColumns = elementKeys.sort()
             elementKeyMapping = {}
             elementColumns.forEach(key => {
               elementKeyMapping[key] = key
             })
-            
-          } else {
-            
           }
-        } else {
-          
         }
-      } else if (studyType === 'layer_v2') {
-        // For layer studies, get layer names with image numbers
+      } else if (studyType === 'layer' || studyType === 'layer_v2') {
+        // For layer studies, get layer names with image names
         const layerData = localStorage.getItem('cs_step5_layer')
+        console.log('[CSV] Layer data from localStorage:', layerData)
         if (layerData) {
           const layers = JSON.parse(layerData)
+          console.log('[CSV] Parsed layers:', layers)
           elementColumns = []
+          elementKeyMapping = {}
           layers.forEach((layer: any) => {
             layer.images.forEach((img: any, index: number) => {
-              elementColumns.push(`${layer.name}_${index + 1}`)
+              const imageName = img.name || img.filename || `image_${index + 1}`
+              const columnName = `${layer.name}_${imageName}`
+              elementColumns.push(columnName)
+              
+              // Map the API response key (categoryname_1, categoryname_2, etc.) to our desired column name
+              const apiKey = `${layer.name}_${index + 1}`
+              elementKeyMapping[apiKey] = columnName
+              
+              console.log('[CSV] Added layer column:', columnName, 'from layer:', layer.name, 'image:', imageName)
+              console.log('[CSV] Mapped API key:', apiKey, 'to column:', columnName)
             })
           })
+          console.log('[CSV] Layer element columns:', elementColumns)
+          console.log('[CSV] Layer element key mapping:', elementKeyMapping)
+        }
+        
+        // If no columns from localStorage, try to get them from task data
+        if (elementColumns.length === 0 && Object.keys(tasks).length > 0) {
+          console.log('[CSV] No layer columns found, falling back to task data')
+          const firstTask = tasks[Object.keys(tasks)[0]][0]
+          if (firstTask && firstTask.elements_shown) {
+            const elementKeys = Object.keys(firstTask.elements_shown).filter(key => 
+              !key.includes('_content')
+            )
+            elementColumns = elementKeys.sort()
+            elementKeyMapping = {}
+            elementColumns.forEach(key => {
+              elementKeyMapping[key] = key
+            })
+          }
         }
       }
+      
+      console.log('[CSV] Element columns found:', elementColumns.length, elementColumns)
 
       // Force debug: if no columns, try to get them from any task BEFORE generating CSV
       if (elementColumns.length === 0) {
@@ -528,7 +728,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
         <p className="text-sm text-gray-600">Preview tasks generated for respondents.</p>
 
         {matrix && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <div className="rounded-lg border p-3 bg-white">
               <div className="text-xs text-gray-600">Total Tasks</div>
               <div className="text-xl font-semibold">{totalTasks}</div>
@@ -541,7 +741,6 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
               <div className="text-xs text-gray-600">Tasks / Respondent</div>
               <div className="text-xl font-semibold">{tasksPerRespondent}</div>
             </div>
-       
           </div>
         )}
 
@@ -573,15 +772,46 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
           </div>
           {!matrix ? (
             <div className="flex items-center justify-center py-10 sm:py-14 md:py-16 min-h-[220px] sm:min-h-[260px] md:min-h-[300px]">
-              <div className="text-center">
+              <div className="text-center space-y-3">
+                {/* Main timer display */}
                 <div className="text-4xl sm:text-5xl md:text-6xl font-mono font-bold tracking-widest text-gray-900">
                   {formattedCountdown}
                 </div>
-                <div className="mt-2 text-xs sm:text-sm text-gray-500">Auto-refresh timer</div>
+                
+                {/* Status line - properly aligned under timer */}
+                {jobStatus && (
+                  <div className="text-sm text-gray-600 font-medium">
+                    {jobStatus.status}
+                    {typeof jobStatus.progress === 'number' ? ` • ${Math.round(jobStatus.progress)}%` : ''}
+                  </div>
+                )}
+                
+                {/* Generating status with spinner */}
                 {isGenerating && (
-                  <div className="mt-4 inline-flex items-center gap-2 text-sm text-gray-600">
-                    <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-400"></span>
-                    Generating...
+                  <div className="space-y-3">
+                    <div className="inline-flex items-center gap-2 text-sm text-gray-600">
+                      <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-400"></span>
+                      {isPolling ? 'Generating your task' : 'Generating...'}
+                    </div>
+                    
+                    {/* Progress bar - centered and properly sized */}
+                    {jobStatus && jobStatus.progress !== undefined && (
+                      <div className="w-full max-w-xs mx-auto">
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div 
+                            className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                            style={{ width: `${Math.round(jobStatus.progress)}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Polling error */}
+                    {pollingError && (
+                      <div className="text-xs text-red-600 bg-red-50 p-2 rounded max-w-xs mx-auto">
+                        Error: {pollingError}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -787,10 +1017,14 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
 
         <div className="rounded-lg border bg-white p-4">
           <div className="text-sm font-semibold mb-3">Matrix Actions</div>
-          <div className="flex flex-wrap gap-3">
-            <Button onClick={handleRegenerateTasks} variant="outline">{isGenerating ? "Regenerating..." : "Regenerate Tasks"}</Button>
-            <Button variant="outline" onClick={() => setIsStatsOpen(true)}>View Matrix Statistics</Button>
-            <Button variant="outline" onClick={downloadMatrixCSV}>
+          <div className="flex flex-wrap gap-3 justify-start">
+            <Button onClick={handleRegenerateTasks} variant="outline" className="flex-shrink-0">
+              {isGenerating ? "Regenerating..." : "Regenerate Tasks"}
+            </Button>
+            <Button variant="outline" onClick={() => setIsStatsOpen(true)} className="flex-shrink-0">
+              View Matrix Statistics
+            </Button>
+            <Button variant="outline" onClick={() => downloadMatrixCSV().catch(console.error)} className="flex-shrink-0">
               📥 Download Matrix CSV
             </Button>
           </div>
@@ -824,10 +1058,10 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                   <div className="text-xs text-gray-600">Tasks / Respondent</div>
                   <div className="text-xl font-semibold">{tasksPerRespondent}</div>
                 </div>
-                <div className="rounded-lg border p-3 bg-white">
+                {/* <div className="rounded-lg border p-3 bg-white">
                   <div className="text-xs text-gray-600">Elements / Task</div>
                   <div className="text-xl font-semibold">{elementsPerTask}</div>
-                </div>
+                </div> */}
                 {/* <div className="rounded-lg border p-3 bg-white">
                   <div className="text-xs text-gray-600">Avg Elements / Task (Preview)</div>
                   <div className="text-xl font-semibold">{avgElementsPerTaskPreview.toFixed(2)}</div>
@@ -836,10 +1070,10 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                   <div className="text-xs text-gray-600">Unique Assets in Preview</div>
                   <div className="text-xl font-semibold">{uniqueAssetsInPreview}</div>
                 </div> */}
-                <div className="rounded-lg border p-3 bg-white sm:col-span-2 lg:col-span-3">
+                {/* <div className="rounded-lg border p-3 bg-white sm:col-span-2 lg:col-span-3">
                   <div className="text-xs text-gray-600">Estimated Total Element Views</div>
                   <div className="text-xl font-semibold">{estimatedTotalElementViews}</div>
-                </div>
+                </div> */}
               </div>
               <div className="rounded-lg border bg-slate-50 p-3">
                 <div className="text-xs text-gray-600 mb-2">Notes</div>

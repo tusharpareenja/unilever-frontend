@@ -122,6 +122,49 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
           }
         }
 
+        // Validate payload before sending
+        console.log('=== STEP 8 PAYLOAD VALIDATION ===')
+        const validationErrors: string[] = []
+        
+        if (!updatePayload.title || updatePayload.title.trim() === '') {
+          validationErrors.push('Title is missing or empty')
+        }
+        if (!updatePayload.main_question || updatePayload.main_question.trim() === '') {
+          validationErrors.push('Main question is missing or empty')
+        }
+        if (!updatePayload.audience_segmentation?.number_of_respondents || updatePayload.audience_segmentation.number_of_respondents <= 0) {
+          validationErrors.push('Number of respondents is missing or invalid')
+        }
+        if (!updatePayload.rating_scale?.min_value || !updatePayload.rating_scale?.max_value) {
+          validationErrors.push('Rating scale values are missing')
+        }
+        
+        if (validationErrors.length > 0) {
+          console.error('Payload validation failed:', validationErrors)
+          throw new Error(`Validation failed: ${validationErrors.join(', ')}`)
+        }
+        console.log('Payload validation passed')
+        console.log('=== END PAYLOAD VALIDATION ===')
+        
+        // Log the fast launch payload
+        console.log('=== STEP 8 FAST LAUNCH PAYLOAD ===')
+        console.log('URL:', `${API_BASE_URL}/studies/${existingStudyId}/launch`)
+        console.log('Method: PUT')
+        console.log('Payload:', JSON.stringify(updatePayload, null, 2))
+        console.log('Payload Summary:', {
+          title: updatePayload.title,
+          study_type: step2.type,
+          language: updatePayload.language,
+          main_question: updatePayload.main_question,
+          respondents: updatePayload.audience_segmentation?.number_of_respondents,
+          countries: updatePayload.audience_segmentation?.country,
+          gender_distribution: updatePayload.audience_segmentation?.gender_distribution,
+          age_distribution: updatePayload.audience_segmentation?.age_distribution,
+          classification_questions_count: updatePayload.classification_questions?.length || 0,
+          has_background_image: !!updatePayload.background_image_url
+        })
+        console.log('=== END FAST LAUNCH PAYLOAD ===')
+        
         // Call fast launch endpoint (applies updates and activates)
         const res = await fetchWithAuth(`${API_BASE_URL}/studies/${existingStudyId}/launch`, {
           method: 'PUT',
@@ -130,12 +173,26 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
         })
         if (!res.ok) {
           const text = await res.text().catch(() => '')
+          console.error('=== STEP 8 LAUNCH ERROR ===')
+          console.error('Status:', res.status, res.statusText)
+          console.error('Response text:', text)
+          try {
+            const errorData = JSON.parse(text)
+            console.error('Error details:', errorData)
+          } catch {
+            console.error('Could not parse error response as JSON')
+          }
+          console.error('=== END LAUNCH ERROR ===')
           throw new Error(text || `Launch failed (${res.status})`)
         }
         const updated = await res.json().catch(() => ({}))
         studyId = updated?.id || existingStudyId
       } else {
         // Fallback: create + activate (legacy path)
+        console.log('=== STEP 8 FALLBACK CREATE STUDY ===')
+        console.log('Using createStudyFromLocalStorage() - this will log its own payload')
+        console.log('=== END FALLBACK CREATE STUDY ===')
+        
         const result = await createStudyFromLocalStorage()
         studyId = result?.id || result?.study_id || result?.data?.id
         if (studyId) {

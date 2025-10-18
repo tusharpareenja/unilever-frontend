@@ -581,6 +581,7 @@ export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayl
   console.log('Task generation payload builder - Step 2:', s2)
   console.log('Task generation payload builder - Grid:', grid)
   console.log('Task generation payload builder - Layer:', layer)
+  console.log('Task generation payload builder - Existing Study ID:', existingStudyId)
 
   // Build audience segmentation
   const gender_distribution: Record<string, number> = {
@@ -760,6 +761,7 @@ export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayl
   }
   
   console.log('Task generation payload:', payload)
+  console.log('Task generation payload - Study ID included:', !!payload.study_id, payload.study_id)
   return payload
 }
 
@@ -837,6 +839,183 @@ export async function regenerateTasksForStudy(studyId: string): Promise<any> {
   }
   console.log('Regenerate tasks success:', data)
   return data
+}
+
+// Background job status types
+export interface JobStatus {
+  job_id?: string
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'started'
+  progress?: number
+  message?: string
+  error?: string
+  created_at?: string
+  updated_at?: string
+}
+
+// Check background job status
+export async function getTaskGenerationStatus(jobId: string): Promise<JobStatus> {
+  console.log('=== CHECKING TASK GENERATION STATUS ===')
+  console.log('URL:', `${API_BASE_URL}/studies/generate-tasks/status/${jobId}`)
+  const res = await fetchWithAuth(`${API_BASE_URL}/studies/generate-tasks/status/${jobId}`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+  })
+  const text = await res.text().catch(() => '')
+  let data: any = {}
+  try { data = text ? JSON.parse(text) : {} } catch { data = { detail: text } }
+  if (!res.ok) {
+    const msg = (data && (data.detail || data.message)) || text || `Check job status failed (${res.status})`
+    throw Object.assign(new Error(typeof msg === 'string' ? msg : JSON.stringify(msg)), { status: res.status, data })
+  }
+  console.log('Task generation status:', data)
+  return data
+}
+
+export async function getTaskGenerationResult(jobId: string): Promise<any> {
+  console.log('=== FETCHING TASK GENERATION RESULT ===')
+  console.log('URL:', `${API_BASE_URL}/studies/generate-tasks/result/${jobId}`)
+  const res = await fetchWithAuth(`${API_BASE_URL}/studies/generate-tasks/result/${jobId}`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+  })
+  const text = await res.text().catch(() => '')
+  let data: any = {}
+  try { data = text ? JSON.parse(text) : {} } catch { data = { detail: text } }
+  if (!res.ok) {
+    const msg = (data && (data.detail || data.message)) || text || `Fetch job result failed (${res.status})`
+    throw Object.assign(new Error(typeof msg === 'string' ? msg : JSON.stringify(msg)), { status: res.status, data })
+  }
+  console.log('Task generation result:', data)
+  return data
+}
+
+export async function cancelTaskGeneration(jobId: string): Promise<any> {
+  console.log('=== CANCELLING TASK GENERATION JOB ===')
+  console.log('URL:', `${API_BASE_URL}/studies/generate-tasks/cancel/${jobId}`)
+  const res = await fetchWithAuth(`${API_BASE_URL}/studies/generate-tasks/cancel/${jobId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  })
+  const text = await res.text().catch(() => '')
+  let data: any = {}
+  try { data = text ? JSON.parse(text) : {} } catch { data = { detail: text } }
+  if (!res.ok) {
+    const msg = (data && (data.detail || data.message)) || text || `Cancel job failed (${res.status})`
+    throw Object.assign(new Error(typeof msg === 'string' ? msg : JSON.stringify(msg)), { status: res.status, data })
+  }
+  console.log('Cancel response:', data)
+  return data
+}
+
+// Poll job status with exponential backoff
+export async function pollJobStatus(
+  jobId: string, 
+  onProgress?: (status: JobStatus) => void,
+  maxAttempts: number = 60,
+  baseDelay: number = 2000
+): Promise<JobStatus> {
+  console.log(`🔄 Starting job polling for job ${jobId}`)
+  
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const status = await getTaskGenerationStatus(jobId)
+      console.log(`📊 Job status (attempt ${attempt}):`, status.status, status.progress ? `${status.progress}%` : '')
+      
+      if (onProgress) {
+        onProgress(status)
+      }
+      
+      if (status.status === 'completed') {
+        console.log('✅ Job completed successfully')
+        return status
+      }
+      
+      if (status.status === 'failed') {
+        console.error('❌ Job failed:', status.error)
+        throw new Error(status.error || 'Job failed')
+      }
+      
+      // Calculate delay with exponential backoff (max 30 seconds)
+      const delay = Math.min(baseDelay * Math.pow(1.5, attempt - 1), 30000)
+      console.log(`⏳ Waiting ${delay}ms before next check...`)
+      await new Promise(resolve => setTimeout(resolve, delay))
+      
+    } catch (error) {
+      console.error(`❌ Error checking job status (attempt ${attempt}):`, error)
+      
+      if (attempt === maxAttempts) {
+        throw error
+      }
+      
+      // Wait before retry
+      const delay = Math.min(baseDelay * Math.pow(1.5, attempt - 1), 30000)
+      await new Promise(resolve => setTimeout(resolve, delay))
+    }
+  }
+  
+  throw new Error('Job polling timeout - maximum attempts reached')
+}
+
+// Enhanced task generation with background job support
+export async function generateTasksWithPolling(
+  payload: TaskGenerationPayload,
+  onProgress?: (status: JobStatus) => void
+): Promise<any> {
+  console.log('=== TASK GENERATION WITH BACKGROUND JOB SUPPORT ===')
+  
+  // First, try the immediate generation
+  try {
+    const immediateResult = await generateTasks(payload)
+    console.log('=== TASK GENERATION IMMEDIATE RESULT ===')
+    try { console.log('Immediate result keys:', Object.keys(immediateResult || {})) } catch {}
+    try { console.log('Immediate result.metadata:', (immediateResult as any)?.metadata) } catch {}
+    // Extract job id from multiple possible locations (root, metadata, data)
+    const jobId = (immediateResult as any)?.job_id 
+      || (immediateResult as any)?.metadata?.job_id 
+      || (immediateResult as any)?.data?.job_id
+    console.log('Computed jobId:', jobId)
+
+    // Check if the response indicates a background job was started
+    const statusHint: string | undefined = (immediateResult as any)?.metadata?.status || (immediateResult as any)?.status
+    if (jobId || (statusHint && ['started','pending','processing'].includes(statusHint))) {
+      const effectiveJobId = String(jobId || (immediateResult as any)?.metadata?.job_id || (immediateResult as any)?.data?.job_id)
+      console.log('🔄 Background job started, polling for completion...')
+      const finalStatus = await pollJobStatus(effectiveJobId, onProgress)
+      if (finalStatus.status === 'completed') {
+        // Fetch the final result from result endpoint
+        console.log('🔄 Job completed, fetching final result...')
+        const result = await getTaskGenerationResult(effectiveJobId)
+        console.log('✅ Final result received:', {
+          hasTasks: !!(result?.tasks),
+          hasMetadata: !!(result?.metadata),
+          taskCount: result?.tasks ? Object.keys(result.tasks).length : 0,
+          respondents: result?.metadata?.number_of_respondents,
+          study_id: result?.study_id || result?.metadata?.study_id
+        })
+        
+        // Store study_id from result if available
+        const studyId = result?.study_id || result?.metadata?.study_id
+        if (studyId) {
+          console.log('[API] Storing study_id from task generation result:', studyId)
+          try {
+            localStorage.setItem('cs_study_id', JSON.stringify(studyId))
+          } catch (storageError) {
+            console.warn('Failed to store study_id:', storageError)
+          }
+        }
+        
+        return result
+      }
+      return finalStatus
+    }
+    
+    // If no job_id, return immediate result
+    return immediateResult
+    
+  } catch (error) {
+    console.error('Task generation failed:', error)
+    throw error
+  }
 }
 
 // Study Management Types
@@ -976,7 +1155,7 @@ export async function putUpdateStudy(studyId: string, payload: UpdateStudyPutPay
 }
 
 export async function getStudyDetailsWithoutAuth(studyId: string): Promise<StudyDetails> {
-  // console.log('=== HTTP REQUEST TO /studies/public/{id} ===')
+  // console.log('=== HTTP REQUEST TO /studies/blic/{id} ===')
   // console.log('URL:', `${API_BASE_URL}/studies/public/${studyId}`)
   
   const res = await fetch(`${API_BASE_URL}/studies/public/${studyId}`, {
