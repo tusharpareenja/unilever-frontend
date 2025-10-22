@@ -980,7 +980,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={background.secureUrl || background.previewUrl} alt="Background" className="w-full h-full object-cover" />
                 </div>
-                <div className="text-xs text-gray-600">Rendered behind all layers with z-index 0.</div>
+                <div className="text-xs text-gray-600">Rendered behind all layers.</div>
               </div>
             ) : (
               <label className="inline-flex items-center justify-center px-3 py-2 border-2 border-dashed rounded-md text-xs text-gray-600 cursor-pointer hover:bg-gray-50">
