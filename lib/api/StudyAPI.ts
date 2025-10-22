@@ -1273,7 +1273,7 @@ export interface StudiesResponse {
   total_pages?: number
 }
 
-export async function getStudies(page: number = 1, per_page: number = 10): Promise<StudyListItem[]> {
+export async function getStudies(page: number = 1, per_page: number = 1000): Promise<StudyListItem[]> {
   const response = await fetchWithAuth(`${API_BASE_URL}/studies?page=${page}&per_page=${per_page}`, {
     method: 'GET',
     headers: {

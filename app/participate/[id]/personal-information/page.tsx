@@ -103,8 +103,20 @@ export default function PersonalInformationPage() {
 
         if (userTasks.length === 0) return
 
+        // Extract background image URL for layer studies
+        const backgroundUrl = studyInfo?.metadata?.background_image_url || study?.metadata?.background_image_url || studyInfo?.background_image_url
+
         // Use smart preloading with cache management
         await startSmartPreload(userTasks)
+        
+        // Preload background image for layer studies
+        if (backgroundUrl && typeof backgroundUrl === 'string') {
+          try {
+            await imageCacheManager.prewarmUrls([backgroundUrl], 'high')
+          } catch (error) {
+            // Background preload failure suppressed
+          }
+        }
       } catch (error) {
         // preload failure suppressed
       }

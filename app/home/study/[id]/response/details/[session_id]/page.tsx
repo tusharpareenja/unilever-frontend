@@ -199,7 +199,7 @@ export default function ResponseDetailsPage() {
                                       <img
                                         src={data.background_image_url}
                                         alt="Background"
-                                        className="absolute inset-0 m-auto h-full w-full object-cover"
+                                        className="absolute inset-0 m-auto h-full w-full object-contain"
                                         style={{ zIndex: 0 }}
                                         onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
                                       />

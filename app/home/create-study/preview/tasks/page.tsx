@@ -353,7 +353,7 @@ export default function TasksPage() {
                             <img
                               src={backgroundUrl}
                               alt="Background"
-                              className="absolute inset-0 m-auto h-full w-full object-cover"
+                              className="absolute inset-0 m-auto h-full w-full object-contain"
                               style={{ zIndex: 0 }}
                             />
                           )}
@@ -494,7 +494,7 @@ export default function TasksPage() {
                             <img
                               src={backgroundUrl}
                               alt="Background"
-                              className="absolute inset-0 m-auto h-full w-full object-cover"
+                              className="absolute inset-0 m-auto h-full w-full object-contain"
                               style={{ zIndex: 0 }}
                             />
                           )}

@@ -64,7 +64,7 @@ export default function DashboardPage() {
       try {
         setLoading((prev) => prev && studies.length === 0)
         setError(null)
-        const studiesArray = await getStudies(1, 100) // Get more studies for filtering
+        const studiesArray = await getStudies(1, 200) // Get more studies for filtering
         
         // Ensure we have an array
         const safeStudiesArray = Array.isArray(studiesArray) ? studiesArray : []

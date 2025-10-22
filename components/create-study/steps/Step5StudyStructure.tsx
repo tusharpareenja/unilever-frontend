@@ -953,7 +953,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
           <div className="relative w-full aspect-[3/4] bg-slate-50 rounded-lg overflow-hidden border">
             {background && (background.secureUrl || background.previewUrl) && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={background.secureUrl || background.previewUrl} alt="Background" className="absolute inset-0 w-full h-full object-cover" style={{ zIndex: 0 }} />
+              <img src={background.secureUrl || background.previewUrl} alt="Background" className="absolute inset-0 w-full h-full object-contain" style={{ zIndex: 0 }} />
             )}
             {layers.map((l) => {
               const selectedImageId = selectedImageIds[l.id]
@@ -978,7 +978,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
               <div className="flex items-center gap-4">
                 <div className="w-24 h-24 border rounded-md overflow-hidden bg-gray-50">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={background.secureUrl || background.previewUrl} alt="Background" className="w-full h-full object-cover" />
+                  <img src={background.secureUrl || background.previewUrl} alt="Background" className="w-full h-full object-contain" />
                 </div>
                 <div className="text-xs text-gray-600">Rendered behind all layers.</div>
               </div>

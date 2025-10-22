@@ -214,7 +214,11 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
 
       // Clear all step data from localStorage (including cached step7 matrix)
       clearStoredStudyId()
-      const keysToRemove = ['cs_step1', 'cs_step2', 'cs_step3', 'cs_step4', 'cs_step5_grid', 'cs_step5_layer', 'cs_step5_layer_background', 'cs_step6', 'cs_step7', 'cs_step7_tasks', 'cs_step7_matrix', 'cs_step7_meta', 'cs_step7_signature']
+      const keysToRemove = [
+        'cs_step1', 'cs_step2', 'cs_step3', 'cs_step4', 'cs_step5_grid', 'cs_step5_layer', 'cs_step5_layer_background', 
+        'cs_step6', 'cs_step7', 'cs_step7_tasks', 'cs_step7_matrix', 'cs_step7_meta', 'cs_step7_signature',
+        'cs_current_step', 'cs_backup_steps', 'cs_study_id', 'cs_flash_message'
+      ]
       keysToRemove.forEach(key => localStorage.removeItem(key))
 
       // Redirect to study page after activation

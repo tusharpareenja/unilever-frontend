@@ -788,7 +788,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                 
                 {/* Generating status with spinner */}
                 {isGenerating && (
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     <div className="inline-flex items-center gap-2 text-sm text-gray-600">
                       <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-400"></span>
                       {isPolling ? 'Generating your task' : 'Generating...'}
@@ -873,7 +873,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                                     <img 
                                       src={backgroundUrl}
                                       alt="Background"
-                                      className="absolute inset-0 w-full h-full object-cover"
+                                      className="absolute inset-0 w-full h-full object-contain"
                                       style={{ 
                                         zIndex: 0,
                                         position: 'absolute',
