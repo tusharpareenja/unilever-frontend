@@ -100,7 +100,10 @@ const CATEGORY_MAX = 10
   const areCategoriesValid = () => {
     if (categories.length < CATEGORY_MIN) return false
     return categories.every(category => 
-      category.title && category.title.trim().length > 0
+      category.title && 
+      category.title.trim().length > 0 &&
+      category.elements && 
+      category.elements.length > 0
     )
   }
 
@@ -113,6 +116,13 @@ const CATEGORY_MAX = 10
     )
     if (invalidCategories.length > 0) {
       return 'Complete category titles'
+    }
+    // Check if any category is missing images
+    const hasEmptyCategories = categories.some(category => 
+      !category.elements || category.elements.length === 0
+    )
+    if (hasEmptyCategories) {
+      return 'Add at least one image to each category'
     }
     return 'Next'
   }
