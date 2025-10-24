@@ -23,6 +23,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
   const [jobStatus, setJobStatus] = useState<JobStatus | null>(null)
   const [isPolling, setIsPolling] = useState(false)
   const [pollingError, setPollingError] = useState<string | null>(null)
+  const [highestProgress, setHighestProgress] = useState<number>(0)
 
   // Persist preview and mark step completed when full result is ready
   const savePreviewAndComplete = (result: any) => {
@@ -60,6 +61,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
       setIsGenerating(true)
       setPollingError(null)
       setJobStatus(null)
+      setHighestProgress(0) // Reset highest progress for new generation
       // Ensure we don't show stale preview while a new background job runs
       try { console.log('[Step7] Clearing cached cs_step7_matrix'); localStorage.removeItem('cs_step7_matrix') } catch {}
       setMatrix(null)
@@ -75,7 +77,19 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
           progress: status?.progress,
           message: status?.message
         })
-        setJobStatus(status)
+        
+        // Ensure progress never decreases from the highest value reached
+        const currentProgress = typeof status?.progress === 'number' ? status.progress : 0
+        const newHighestProgress = Math.max(highestProgress, currentProgress)
+        setHighestProgress(newHighestProgress)
+        
+        // Create a modified status object with monotonic progress
+        const monotonicStatus = {
+          ...status,
+          progress: newHighestProgress
+        }
+        
+        setJobStatus(monotonicStatus)
         setIsPolling(status.status === 'processing' || status.status === 'pending')
         
         if (status.status === 'completed') {
