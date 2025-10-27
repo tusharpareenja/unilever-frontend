@@ -351,16 +351,31 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
       // Check if there's already a job in progress in localStorage
       const existingJobState = loadJobState()
       console.log('[Step7] generateNow called, checking existing job state:', existingJobState)
-      if (existingJobState && (existingJobState.jobId || existingJobState.status?.job_id)) {
+      
+      // Only prevent new generation if there's an active job (processing/pending)
+      if (existingJobState && existingJobState.status && 
+          (existingJobState.status.status === 'processing' || existingJobState.status.status === 'pending')) {
         console.log('[Step7] Job already in progress, not starting new generation')
         return
       }
       
-      setIsGenerating(true)
-      setPollingError(null)
+      // If there's a completed/failed job state, clear it and continue
+      if (existingJobState) {
+        console.log('[Step7] Found completed/failed job state, clearing and starting new generation')
+        clearJobState()
+      }
+      
+      // Ensure we start with a completely clean state
       setJobStatus(null)
-      setHighestProgress(0) // Reset highest progress for new generation
-      setJobStartTime(null) // Reset job start time
+      setHighestProgress(0)
+      setJobStartTime(null)
+      setIsPolling(false)
+      setPollingError(null)
+      
+      // Force a brief delay to ensure state is reset before starting new generation
+      await new Promise(resolve => setTimeout(resolve, 100))
+      
+      setIsGenerating(true)
       clearJobState() // Clear any existing job state
       clearTimerState() // Clear timer state for new job
       stopTimerSaving() // Stop any existing timer saving
@@ -963,6 +978,47 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
 
   const handleRegenerateTasks = async () => {
     console.log('[Step7] Regenerating tasks...')
+    console.log('[Step7] Current state before regeneration:', {
+      isGenerating,
+      isPolling,
+      jobStatus: jobStatus?.status,
+      highestProgress,
+      hasJobState: !!localStorage.getItem('cs_step7_job_state')
+    })
+    
+    // Force clear all job-related state before regenerating
+    console.log('[Step7] Clearing all job state for regeneration...')
+    clearJobState()
+    clearTimerState()
+    stopTimerSaving()
+    
+    // Reset all state variables immediately
+    setJobStatus(null)
+    setHighestProgress(0)
+    setJobStartTime(null)
+    setIsPolling(false)
+    setPollingError(null)
+    setIsGenerating(false) // Reset generating state
+    
+    // Reset all refs
+    timerInitialized.current = false
+    hasCheckedForExistingJob.current = false
+    isResuming.current = false
+    isLoadingFromCache.current = false
+    
+    // Reset countdown timer to prevent brief timer display
+    setCountdownSeconds(600)
+    countdownRef.current = 600
+    
+    // Force a longer delay to ensure all state is cleared before starting new generation
+    await new Promise(resolve => setTimeout(resolve, 300))
+    
+    console.log('[Step7] State after clearing:', {
+      isGenerating,
+      isPolling,
+      jobStatus: jobStatus?.status,
+      highestProgress
+    })
     
     // Check if we have an existing study ID
     const existingStudyId = localStorage.getItem('cs_study_id')
@@ -972,6 +1028,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
       console.log('[Step7] No existing study ID found, will create new study')
     }
     
+    console.log('[Step7] Starting generateNow after state clearing...')
     await generateNow();
   }
 
@@ -1349,7 +1406,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                     </div>
                     
                     {/* Progress bar - centered and properly sized */}
-                    {jobStatus && jobStatus.progress !== undefined && (
+                    {jobStatus && jobStatus.progress !== undefined && jobStatus.progress >= 0 && jobStatus.status === 'processing' && isPolling && (
                       <div className="w-full max-w-xs mx-auto">
                         <div className="w-full bg-gray-200 rounded-full h-2">
                           <div 
