@@ -6,6 +6,7 @@ import { AuthGuard } from "@/components/auth/AuthGuard"
 import { DashboardHeader } from "../../../components/dashboard-header"
 import { getStudyResponses, type StudyResponseItem, downloadStudyResponsesCsv } from "@/lib/api/ResponseAPI"
 import Link from "next/link"
+import { Download } from "lucide-react"
 
 const PAGE_SIZE = 10
 
@@ -18,11 +19,10 @@ export default function StudyResponsesPage() {
   const [loading, setLoading] = useState(true)
   const [items, setItems] = useState<StudyResponseItem[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [search, setSearch] = useState("")
-  const [statusFilter, setStatusFilter] = useState<string>("all")
-  const [completionFilter, setCompletionFilter] = useState<string>("all")
+  const [statusFilter, setStatusFilter] = useState<string>("completed")
   const [page, setPage] = useState<number>(Number(searchParams.get("page") || 1))
   const [exporting, setExporting] = useState(false)
+  const [exportStage, setExportStage] = useState(0)
   const hasFetchedRef = useRef(false)
 
   const fetchResponses = async () => {
@@ -56,25 +56,12 @@ export default function StudyResponsesPage() {
     }
   }, [loading, items.length, studyId])
 
-  // Filter + search in-memory for snappy UX
+  // Filter in-memory for snappy UX
   const filtered = useMemo(() => {
     let list = items
     if (statusFilter !== "all") {
       if (statusFilter === "completed") list = list.filter(i => i.is_completed)
       if (statusFilter === "abandoned") list = list.filter(i => i.is_abandoned)
-    }
-    if (completionFilter !== "all") {
-      if (completionFilter === "100") list = list.filter(i => (i.completion_percentage ?? 0) >= 100)
-      if (completionFilter === "<100") list = list.filter(i => (i.completion_percentage ?? 0) < 100)
-    }
-    if (search.trim()) {
-      const q = search.trim().toLowerCase()
-      list = list.filter(i => {
-        const pid = String(i.respondent_id)
-        const gender = i.personal_info?.gender || ""
-        const sess = i.session_id || ""
-        return pid.includes(q) || gender.toLowerCase().includes(q) || sess.toLowerCase().includes(q)
-      })
     }
     // sort by respondent_id (ascending)
     return [...list].sort((a, b) => {
@@ -82,7 +69,7 @@ export default function StudyResponsesPage() {
       const br = typeof b.respondent_id === 'number' ? b.respondent_id : Number(b.respondent_id || 0)
       return ar - br
     })
-  }, [items, statusFilter, completionFilter, search])
+  }, [items, statusFilter])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const currentPage = Math.min(Math.max(1, page), totalPages)
@@ -136,6 +123,21 @@ export default function StudyResponsesPage() {
   const exportCsv = async () => {
     try {
       setExporting(true)
+      setExportStage(0)
+      
+      // Stage 1: Creating CSV
+      setExportStage(1)
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      
+      // Stage 2: Extracting your responses
+      setExportStage(2)
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      
+      // Stage 3: Processing data
+      setExportStage(3)
+      await new Promise(resolve => setTimeout(resolve, 1500))
+      
+      // Actually download the CSV
       const blob = await downloadStudyResponsesCsv(studyId)
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
@@ -148,6 +150,7 @@ export default function StudyResponsesPage() {
       alert("Export failed")
     } finally {
       setExporting(false)
+      setExportStage(0)
     }
   }
 
@@ -173,7 +176,27 @@ export default function StudyResponsesPage() {
               </div>
               <div className="flex gap-2">
                 <button onClick={() => router.push(`/home/study/${studyId}`)} className="px-4 py-2 rounded-md bg-white/10 hover:bg-white/20 text-white">Back to Study</button>
-                <button onClick={exportCsv} disabled={exporting} className="px-4 py-2 rounded-md bg-white text-[#2674BA] hover:opacity-90 disabled:opacity-60">{exporting ? 'Exporting…' : 'Export CSV'}</button>
+                <button 
+                  onClick={exportCsv} 
+                  disabled={exporting} 
+                  className="px-4 py-2 rounded-md bg-white text-[#2674BA] hover:opacity-90 disabled:opacity-60 flex items-center gap-2"
+                >
+                  {exporting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#2674BA]"></div>
+                      <span>
+                        {exportStage === 1 && "Creating CSV..."}
+                        {exportStage === 2 && "Extracting your responses..."}
+                        {exportStage === 3 && "Processing data..."}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4" />
+                      <span>Export CSV</span>
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </div>
@@ -186,33 +209,11 @@ export default function StudyResponsesPage() {
               <div className="text-sm text-gray-600">Total Responses</div>
               <span className="px-3 py-1 rounded-full text-white text-sm" style={{ backgroundColor: '#2674BA' }}>{items.length}</span>
             </div>
-            <div className="flex-1 sm:relative">
-              <div className="relative">
-                <input
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  placeholder="Search responses"
-                  className="block w-full px-3 py-2 border rounded-md bg-white pr-4 sm:pr-28"
-                />
-              </div>
-              <button
-                onClick={() => setPage(1)}
-                className="w-full sm:w-auto mt-2 sm:mt-0 sm:absolute sm:right-0 sm:top-1/2 sm:-translate-y-1/2 px-4 py-2 rounded-md text-white"
-                style={{ backgroundColor: '#2674BA' }}
-              >
-                Search
-              </button>
-            </div>
             <div className="flex gap-2">
               <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1) }} className="px-3 py-2 border rounded-md bg-white flex-1 sm:flex-none">
                 <option value="all">All Status</option>
                 <option value="completed">Completed</option>
                 <option value="abandoned">Abandoned</option>
-              </select>
-              <select value={completionFilter} onChange={e => { setCompletionFilter(e.target.value); setPage(1) }} className="px-3 py-2 border rounded-md bg-white flex-1 sm:flex-none">
-                <option value="all">All Completion Level</option>
-                <option value="100">100%</option>
-                <option value="<100">Below 100%</option>
               </select>
             </div>
           </div>

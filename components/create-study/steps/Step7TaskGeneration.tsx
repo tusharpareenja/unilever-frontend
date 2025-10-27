@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { buildTaskGenerationPayloadFromLocalStorage, generateTasks, generateTasksWithPolling, JobStatus } from "@/lib/api/StudyAPI"
 import JSZip from "jszip"
@@ -18,33 +18,279 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
   const [isStatsOpen, setIsStatsOpen] = useState(false)
   const [isDownloadingAssets, setIsDownloadingAssets] = useState(false)
   const [countdownSeconds, setCountdownSeconds] = useState(600) // 10 minutes
+  const countdownRef = useRef(600)
   
   // Background job polling states
   const [jobStatus, setJobStatus] = useState<JobStatus | null>(null)
   const [isPolling, setIsPolling] = useState(false)
   const [pollingError, setPollingError] = useState<string | null>(null)
   const [highestProgress, setHighestProgress] = useState<number>(0)
+  const [jobStartTime, setJobStartTime] = useState<number | null>(null)
+  const timerInitialized = useRef<boolean>(false)
+  const timerSaveInterval = useRef<NodeJS.Timeout | null>(null)
+  const hasCheckedForExistingJob = useRef<boolean>(false)
+  const isResuming = useRef<boolean>(false)
+  const isLoadingFromCache = useRef<boolean>(false)
+
+  // Job persistence functions
+  const saveJobState = (jobId: string, status: JobStatus, startTime: number) => {
+    try {
+      const jobState = {
+        jobId,
+        status,
+        startTime,
+        progress: status.progress || 0,
+        timestamp: Date.now()
+      }
+      localStorage.setItem('cs_step7_job_state', JSON.stringify(jobState))
+      console.log('[Step7] Saved job state with progress:', jobState.progress + '%')
+    } catch (error) {
+      console.warn('Failed to save job state:', error)
+    }
+  }
+
+  const loadJobState = () => {
+    try {
+      const saved = localStorage.getItem('cs_step7_job_state')
+      if (saved) {
+        const jobState = JSON.parse(saved)
+        console.log('[Step7] Loaded job state:', jobState)
+        // Check if job is still active (not completed or failed)
+        if (jobState.status && (jobState.status.status === 'processing' || jobState.status.status === 'pending')) {
+          return jobState
+        } else {
+          console.log('[Step7] Job state found but job is completed/failed, clearing...')
+          clearJobState()
+          return null
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to load job state:', error)
+    }
+    return null
+  }
+
+  // Check if job is completed and fetch result
+  const checkAndFetchCompletedJob = async (jobId: string) => {
+    try {
+      console.log('[Step7] Checking if job is completed:', jobId)
+      const { getTaskGenerationResult } = await import('@/lib/api/StudyAPI')
+      const result = await getTaskGenerationResult(jobId)
+      console.log('[Step7] getTaskGenerationResult returned:', result)
+      if (result && result.tasks) {
+        console.log('[Step7] Job was completed, fetching result and saving preview')
+        savePreviewAndComplete(result)
+        clearJobState()
+        clearTimerState()
+        stopTimerSaving()
+        setJobStartTime(null)
+        setHighestProgress(0)
+        return true
+      } else {
+        console.log('[Step7] Job not completed or no tasks in result:', {
+          hasResult: !!result,
+          hasTasks: !!(result && result.tasks),
+          resultKeys: result ? Object.keys(result) : []
+        })
+      }
+    } catch (error) {
+      console.log('[Step7] Job not completed or error fetching result:', error)
+    }
+    return false
+  }
+
+  const clearJobState = () => {
+    try {
+      localStorage.removeItem('cs_step7_job_state')
+      console.log('[Step7] Cleared job state')
+    } catch (error) {
+      console.warn('Failed to clear job state:', error)
+    }
+  }
+
+  // Timer persistence functions
+  const saveTimerState = (seconds: number) => {
+    try {
+      const timerState = {
+        seconds,
+        timestamp: Date.now()
+      }
+      localStorage.setItem('cs_step7_timer_state', JSON.stringify(timerState))
+      console.log('[Step7] Saved timer state:', timerState)
+    } catch (error) {
+      console.warn('Failed to save timer state:', error)
+    }
+  }
+
+  const loadTimerState = () => {
+    try {
+      const saved = localStorage.getItem('cs_step7_timer_state')
+      if (saved) {
+        const timerState = JSON.parse(saved)
+        console.log('[Step7] Loaded timer state:', timerState)
+        return timerState
+      }
+    } catch (error) {
+      console.warn('Failed to load timer state:', error)
+    }
+    return null
+  }
+
+  const clearTimerState = () => {
+    try {
+      localStorage.removeItem('cs_step7_timer_state')
+      console.log('[Step7] Cleared timer state')
+    } catch (error) {
+      console.warn('Failed to clear timer state:', error)
+    }
+  }
+
+  // Start 5-second interval timer saving
+  const startTimerSaving = () => {
+    // Clear any existing interval
+    if (timerSaveInterval.current) {
+      clearInterval(timerSaveInterval.current)
+    }
+    
+    // Save timer every 5 seconds
+    timerSaveInterval.current = setInterval(() => {
+      saveTimerState(countdownRef.current)
+      console.log('[Step7] Saved timer state every 5 seconds:', countdownRef.current)
+    }, 5000)
+    
+    console.log('[Step7] Started 5-second timer saving')
+  }
+
+  // Stop timer saving
+  const stopTimerSaving = () => {
+    if (timerSaveInterval.current) {
+      clearInterval(timerSaveInterval.current)
+      timerSaveInterval.current = null
+      console.log('[Step7] Stopped timer saving')
+    }
+  }
+
+  // Resume polling for existing job
+  const resumeJobPolling = async (jobId: string) => {
+    if (isResuming.current) {
+      console.log('[Step7] Already resuming, skipping duplicate call')
+      return
+    }
+
+    try {
+      isResuming.current = true
+      console.log('[Step7] Resuming polling for job:', jobId)
+      setIsPolling(true)
+      setPollingError(null)
+      
+      // Show user that we're resuming with latest progress
+      console.log('[Step7] Resuming task generation from saved progress...')
+      
+      // Import the polling function
+      const { pollJobStatus, getTaskGenerationResult } = await import('@/lib/api/StudyAPI')
+      
+      const finalStatus = await pollJobStatus(jobId, (status) => {
+        console.log('[Step7] Resumed job status update:', {
+          job_id: status?.job_id,
+          status: status?.status,
+          progress: status?.progress,
+          message: status?.message
+        })
+        
+        // Ensure progress never decreases from the highest value reached
+        const currentProgress = typeof status?.progress === 'number' ? status.progress : 0
+        const newHighestProgress = Math.max(highestProgress, currentProgress)
+        setHighestProgress(newHighestProgress)
+        
+        // Create a modified status object with monotonic progress
+        const monotonicStatus = {
+          ...status,
+          progress: newHighestProgress
+        }
+        
+        setJobStatus(monotonicStatus)
+        setIsPolling(status.status === 'processing' || status.status === 'pending')
+        
+        // Update job state in localStorage with latest progress
+        saveJobState(jobId, monotonicStatus, jobStartTime || Date.now())
+      }, 60, 5000) // 60 max attempts, 5 second base delay
+      
+      if (finalStatus.status === 'completed') {
+        console.log('[Step7] Resumed job completed, fetching result...')
+        const result = await getTaskGenerationResult(jobId)
+        savePreviewAndComplete(result)
+        clearJobState()
+        clearTimerState()
+        stopTimerSaving()
+        setJobStartTime(null)
+        setHighestProgress(0) // Clear highest progress when job completes
+      } else if (finalStatus.status === 'failed') {
+        console.error('[Step7] Resumed job failed:', finalStatus.error)
+        setPollingError(finalStatus.error || 'Job failed')
+        clearJobState()
+        setJobStartTime(null)
+      }
+      
+    } catch (error) {
+      console.error('[Step7] Error resuming job polling:', error)
+      setPollingError(error instanceof Error ? error.message : 'Failed to resume job')
+      clearJobState()
+      setJobStartTime(null)
+    } finally {
+      setIsPolling(false)
+      isResuming.current = false
+    }
+  }
 
   // Persist preview and mark step completed when full result is ready
   const savePreviewAndComplete = (result: any) => {
-    if (!result) return
+    console.log('[Step7] savePreviewAndComplete called with result:', result)
+    if (!result) {
+      console.log('[Step7] No result provided, skipping save')
+      return
+    }
     try {
       console.log('[Step7] Saving preview and completing. totals:', {
         respondents: result?.metadata?.number_of_respondents,
         total_tasks: result?.metadata?.total_tasks,
         tasks_per_consumer: result?.metadata?.tasks_per_consumer,
-        metadata_keys: result?.metadata ? Object.keys(result.metadata) : []
+        metadata_keys: result?.metadata ? Object.keys(result.metadata) : [],
+        hasTasks: !!result.tasks,
+        tasksKeys: result.tasks ? Object.keys(result.tasks) : []
       })
       setMatrix(result)
+      
+      // Extract tasks from different possible structures
+      let previewTasks = []
+      if (result.tasks && Array.isArray(result.tasks)) {
+        // If tasks is an array, take the first one
+        previewTasks = result.tasks[0] || []
+      } else if (result.tasks && typeof result.tasks === 'object') {
+        // If tasks is an object with numbered keys, get the first respondent
+        const taskKeys = Object.keys(result.tasks).sort((a, b) => Number(a) - Number(b))
+        if (taskKeys.length > 0) {
+          previewTasks = result.tasks[taskKeys[0]] || []
+        }
+      }
+      
+      console.log('[Step7] Extracted preview tasks:', {
+        hasResultTasks: !!result.tasks,
+        resultTasksType: typeof result.tasks,
+        resultTasksKeys: result.tasks ? Object.keys(result.tasks) : [],
+        previewTasksLength: previewTasks.length
+      })
+      
       const previewData = {
         metadata: result.metadata,
-        preview_tasks: result.tasks?.[0] || [], // Only first respondent's tasks
+        preview_tasks: previewTasks,
         total_respondents: result.metadata?.number_of_respondents || 0,
         total_tasks: result.metadata?.total_tasks || 0,
         full_matrix_available: true
       }
+      console.log('[Step7] Preview data to save:', previewData)
       console.log('[Step7] Persisting cs_step7_matrix')
       localStorage.setItem('cs_step7_matrix', JSON.stringify(previewData))
+      console.log('[Step7] ✅ Successfully saved preview data to localStorage')
     } catch (storageError) {
       console.warn('Failed to store preview data:', storageError)
     }
@@ -58,16 +304,30 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
 
   const generateNow = async () => {
     try {
+      // Check if there's already a job in progress in localStorage
+      const existingJobState = loadJobState()
+      console.log('[Step7] generateNow called, checking existing job state:', existingJobState)
+      if (existingJobState && (existingJobState.jobId || existingJobState.status?.job_id)) {
+        console.log('[Step7] Job already in progress, not starting new generation')
+        return
+      }
+      
       setIsGenerating(true)
       setPollingError(null)
       setJobStatus(null)
       setHighestProgress(0) // Reset highest progress for new generation
+      setJobStartTime(null) // Reset job start time
+      clearJobState() // Clear any existing job state
+      clearTimerState() // Clear timer state for new job
+      stopTimerSaving() // Stop any existing timer saving
+      timerInitialized.current = false // Reset timer initialization
       // Ensure we don't show stale preview while a new background job runs
       try { console.log('[Step7] Clearing cached cs_step7_matrix'); localStorage.removeItem('cs_step7_matrix') } catch {}
       setMatrix(null)
       
       const payload = buildTaskGenerationPayloadFromLocalStorage()
       console.log('[Step7] Submitting task generation payload')
+      console.log('[Step7] Payload includes study_id:', !!payload.study_id, payload.study_id)
       
       // Use the new polling-enabled generation
       const data = await generateTasksWithPolling(payload, (status) => {
@@ -92,6 +352,13 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
         setJobStatus(monotonicStatus)
         setIsPolling(status.status === 'processing' || status.status === 'pending')
         
+        // Save job state for persistence across browser sessions
+        if (status.job_id && (status.status === 'processing' || status.status === 'pending')) {
+          const startTime = jobStartTime || Date.now()
+          setJobStartTime(startTime)
+          saveJobState(status.job_id, monotonicStatus, startTime)
+        }
+        
         if (status.status === 'completed') {
           // The result will be fetched separately via getTaskGenerationResult
           // This callback is just for status updates during polling
@@ -111,7 +378,8 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
       
       if (hasTasks) {
         // We have actual task data (either immediate or completed background job)
-        console.log('[Step7] Task data received, processing...')
+        console.log('[Step7] ✅ Task data received, processing...')
+        console.log('[Step7] ✅ Calling savePreviewAndComplete with data:', data)
         savePreviewAndComplete(data)
       } else if (dataJobId) {
         // Background job started but not completed yet
@@ -145,9 +413,27 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
             console.warn('Failed to store study id from task generation response:', idStoreErr)
           }
 
+          // Extract tasks from different possible structures (same logic as savePreviewAndComplete)
+          let previewTasks = []
+          if (data.tasks && Array.isArray(data.tasks)) {
+            previewTasks = data.tasks[0] || []
+          } else if (data.tasks && typeof data.tasks === 'object') {
+            const taskKeys = Object.keys(data.tasks).sort((a, b) => Number(a) - Number(b))
+            if (taskKeys.length > 0) {
+              previewTasks = data.tasks[taskKeys[0]] || []
+            }
+          }
+          
+          console.log('[Step7] Immediate generation - extracted preview tasks:', {
+            hasDataTasks: !!data.tasks,
+            dataTasksType: typeof data.tasks,
+            dataTasksKeys: data.tasks ? Object.keys(data.tasks) : [],
+            previewTasksLength: previewTasks.length
+          })
+
           const previewData = {
             metadata: data.metadata,
-            preview_tasks: data.tasks?.[0] || [], // Only first respondent's tasks
+            preview_tasks: previewTasks,
             total_respondents: data.metadata?.number_of_respondents || 0,
             total_tasks: data.metadata?.total_tasks || 0,
             full_matrix_available: true // Flag to indicate we have full data on backend
@@ -163,6 +449,11 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
         // Mark step 7 as completed
         console.log('[Step7] Marking step7 as completed (immediate)')
         localStorage.setItem('cs_step7_tasks', JSON.stringify({ completed: true, timestamp: Date.now() }))
+        clearJobState() // Clear job state when completed
+        clearTimerState() // Clear timer state when completed
+        stopTimerSaving() // Stop timer saving when completed
+        setJobStartTime(null)
+        setHighestProgress(0) // Clear highest progress when job completes
         onDataChange?.()
       }
     } catch (e) {
@@ -189,39 +480,209 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
     } finally {
       setIsGenerating(false)
       setIsPolling(false)
+      // Clear job state on error
+      if (pollingError) {
+        clearJobState()
+        setJobStartTime(null)
+      }
     }
   }
 
-  // Trigger on becoming active so it doesn't run too early
+  // Check for existing job on mount - ONLY ONCE
   useEffect(() => {
-    if (!active) return
-    // Load from cache if available, else generate
-    try {
-      const cached = localStorage.getItem('cs_step7_matrix')
-      if (cached) {
-        setMatrix(JSON.parse(cached))
-        // continue timer even if matrix exists
-      } else {
+    if (hasCheckedForExistingJob.current) {
+      console.log('[Step7] Already checked for existing job, skipping')
+      return
+    }
+
+    console.log('[Step7] Component mounted, checking for existing job...')
+    hasCheckedForExistingJob.current = true
+    
+    const existingJobState = loadJobState()
+    console.log('[Step7] Checking for existing job state:', existingJobState)
+    
+    if (existingJobState && (existingJobState.jobId || existingJobState.status?.job_id)) {
+      const jobId = existingJobState.jobId || existingJobState.status?.job_id
+      console.log('[Step7] ✅ Found existing job, checking if completed:', jobId)
+      
+      // First check if the job is already completed
+      checkAndFetchCompletedJob(jobId).then((isCompleted) => {
+        if (isCompleted) {
+          console.log('[Step7] ✅ Job was already completed, preview loaded')
+          return
+        }
+        
+        console.log('[Step7] ✅ Job still in progress, resuming:', jobId)
+        setJobStatus(existingJobState.status)
+        setJobStartTime(existingJobState.startTime)
+        setHighestProgress(existingJobState.status?.progress || existingJobState.progress || 0)
+        setIsPolling(true)
+        
+        // Load timer state
+        const savedTimer = loadTimerState()
+        if (savedTimer) {
+          setCountdownSeconds(savedTimer.seconds)
+          countdownRef.current = savedTimer.seconds
+          timerInitialized.current = true
+        }
+        
+        // Resume polling
+        resumeJobPolling(jobId)
+      })
+      return
+    } else {
+      console.log('[Step7] ❌ No existing job found')
+      
+      // Check for cached matrix
+      try {
+        const cached = localStorage.getItem('cs_step7_matrix')
+        if (cached) {
+          console.log('[Step7] Found cached matrix, loading it')
+          isLoadingFromCache.current = true
+          const matrixData = JSON.parse(cached)
+          
+          // Clear timer and job state since tasks are already completed
+          clearJobState()
+          clearTimerState()
+          stopTimerSaving()
+          setJobStartTime(null)
+          setHighestProgress(0)
+          setIsPolling(false)
+          setJobStatus(null)
+          
+          // Set matrix after clearing state to ensure timer doesn't start
+          setMatrix(matrixData)
+          
+          console.log('[Step7] Loaded cached matrix:', {
+            hasMetadata: !!matrixData.metadata,
+            hasPreviewTasks: !!matrixData.preview_tasks,
+            totalRespondents: matrixData.total_respondents,
+            totalTasks: matrixData.total_tasks
+          })
+          console.log('[Step7] ✅ Cleared timer and job state for completed tasks')
+        } else {
+          console.log('[Step7] No cached matrix found')
+        }
+      } catch (error) {
+        console.log('[Step7] Error loading cached matrix:', error)
+      }
+    }
+  }, [])
+
+  // Handle active prop changes - but DON'T start generation if job exists
+  useEffect(() => {
+    if (!active || !hasCheckedForExistingJob.current) return
+    
+    console.log('[Step7] Step became active')
+    
+    // Check if there's an existing job or cached matrix
+    const existingJobState = loadJobState()
+    const hasCachedMatrix = localStorage.getItem('cs_step7_matrix')
+    
+    if (existingJobState && (existingJobState.jobId || existingJobState.status?.job_id)) {
+      console.log('[Step7] ✅ Job already in progress, not starting new generation')
+      return
+    }
+    
+    if (hasCachedMatrix && matrix) {
+      console.log('[Step7] ✅ Matrix already loaded, not starting new generation')
+      return
+    }
+    
+    if (hasCachedMatrix && !matrix) {
+      console.log('[Step7] Loading cached matrix')
+      try {
+        setMatrix(JSON.parse(hasCachedMatrix))
+      } catch (error) {
+        console.error('[Step7] Error loading cached matrix:', error)
         generateNow()
       }
-    } catch {}
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+      return
+    }
+    
+    // Only generate if no job and no cached matrix
+    console.log('[Step7] No job or matrix found, starting generation')
+    generateNow()
   }, [active])
 
-  // Countdown timer logic: always runs when active; restarts every 10 minutes if tasks not ready
+  // Cleanup job state when component unmounts or when job completes
+  useEffect(() => {
+    return () => {
+      if (!isPolling && !isGenerating) {
+        // Don't clear job state on unmount if still in progress
+        console.log('[Step7] Component unmounting, preserving job state')
+      }
+    }
+  }, [isPolling, isGenerating])
+
+  // Countdown timer logic: calculates remaining time based on job start time
   useEffect(() => {
     if (!active) return
-    setCountdownSeconds(600)
+    
+    // Don't start timer if we're loading from cache
+    if (isLoadingFromCache.current) {
+      console.log('[Step7] Loading from cache, skipping timer initialization')
+      return
+    }
+    
+    // Check if cached matrix exists in localStorage (even if not loaded in state yet)
+    const cachedMatrix = localStorage.getItem('cs_step7_matrix')
+    if (cachedMatrix) {
+      console.log('[Step7] Cached matrix found, skipping timer initialization')
+      return
+    }
+    
+    // Don't start timer if matrix is already loaded (tasks completed)
+    if (matrix) {
+      console.log('[Step7] Matrix already loaded, skipping timer initialization')
+      return
+    }
+    
+    // Only recalculate timer when component becomes active or when matrix changes
+    // Don't recalculate on every jobStartTime change
+    if (!timerInitialized.current || matrix !== null) {
+      // Check if we have a saved timer state first (for resumed jobs)
+      const savedTimerState = loadTimerState()
+      let initialCountdown: number
+      
+      if (savedTimerState && savedTimerState.seconds !== undefined) {
+        // Use saved timer value for resumed jobs
+        console.log('[Step7] Using saved timer value:', savedTimerState.seconds)
+        initialCountdown = savedTimerState.seconds
+      } else {
+        // Calculate initial countdown based on job start time for new jobs
+        const calculateInitialCountdown = () => {
+          if (jobStartTime && !matrix) {
+            const elapsedSeconds = Math.floor((Date.now() - jobStartTime) / 1000)
+            const remainingSeconds = Math.max(0, 600 - elapsedSeconds) // 600 = 10 minutes
+            console.log('[Step7] Timer: elapsed', elapsedSeconds, 'remaining', remainingSeconds)
+            return remainingSeconds
+          }
+          return 600 // Default 10 minutes
+        }
+        initialCountdown = calculateInitialCountdown()
+      }
+      
+      setCountdownSeconds(initialCountdown)
+      countdownRef.current = initialCountdown
+      timerInitialized.current = true
+    }
+    
+    // Start 5-second timer saving
+    startTimerSaving()
+    
     const id = window.setInterval(() => {
       setCountdownSeconds((prev) => {
-        if (prev > 0) return prev - 1
-        // When reaches zero and tasks are still not generated, restart timer
-        if (!matrix) return 600
-        // If tasks are ready, keep cycling the timer (continue as requested)
-        return 600
+        const newValue = prev > 0 ? prev - 1 : (!matrix ? 600 : 600)
+        countdownRef.current = newValue
+        return newValue
       })
     }, 1000)
-    return () => window.clearInterval(id)
+    
+    return () => {
+      window.clearInterval(id)
+      stopTimerSaving()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, !!matrix])
 
@@ -437,7 +898,17 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
   }
 
   const handleRegenerateTasks = async () => {
-     await generateNow();
+    console.log('[Step7] Regenerating tasks...')
+    
+    // Check if we have an existing study ID
+    const existingStudyId = localStorage.getItem('cs_study_id')
+    if (existingStudyId) {
+      console.log('[Step7] Found existing study ID for regeneration:', existingStudyId)
+    } else {
+      console.log('[Step7] No existing study ID found, will create new study')
+    }
+    
+    await generateNow();
   }
 
   // Function to download CSV matrix
@@ -793,15 +1264,20 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                 </div>
                 
                 {/* Status line - properly aligned under timer */}
-                {jobStatus && (
+                {jobStatus && jobStatus.status !== 'completed' && (
                   <div className="text-sm text-gray-600 font-medium">
                     {jobStatus.status}
                     {typeof jobStatus.progress === 'number' ? ` • ${Math.round(jobStatus.progress)}%` : ''}
+                    {jobStatus.status === 'processing' && jobStatus.progress !== undefined && jobStatus.progress > 0 && isResuming.current && (
+                      <div className="text-xs text-blue-600 mt-1">
+                        Resuming from last progress...
+                      </div>
+                    )}
                   </div>
                 )}
                 
-                {/* Generating status with spinner */}
-                {isGenerating && (
+                {/* Generating status with spinner - only show when actively generating */}
+                {(isGenerating || (isPolling && jobStatus && jobStatus.status !== 'completed')) && (
                   <div className="space-y-2">
                     <div className="inline-flex items-center gap-2 text-sm text-gray-600">
                       <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-400"></span>
@@ -999,24 +1475,79 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                         // Determine elements per task dynamically, fallback to all urls
                         const maxPerTask = typeof elementsPerTask === 'number' && elementsPerTask > 0 ? elementsPerTask : urls.length
                         const show = urls.slice(0, maxPerTask)
-                        const colClass = show.length >= 4 ? 'lg:grid-cols-4 md:grid-cols-3 sm:grid-cols-2 grid-cols-1' : (show.length === 3 ? 'md:grid-cols-3 sm:grid-cols-2 grid-cols-1' : 'sm:grid-cols-2 grid-cols-1')
+                        
+                        // Layout logic based on number of elements (matching participate flow)
+                        let gridClass, containerClass
+                        if (show.length === 1) {
+                          // 1 element: centered
+                          gridClass = 'grid-cols-1'
+                          containerClass = 'flex justify-center'
+                        } else if (show.length === 2) {
+                          // 2 elements: side by side in middle
+                          gridClass = 'grid-cols-2'
+                          containerClass = 'flex justify-center'
+                        } else if (show.length === 3) {
+                          // 3 elements: 2 up, 1 down (centered) - special layout
+                          gridClass = 'grid-cols-2'
+                          containerClass = 'flex justify-center'
+                        } else if (show.length === 4) {
+                          // 4 elements: 2 up, 2 down
+                          gridClass = 'grid-cols-2'
+                          containerClass = 'flex justify-center'
+                        } else {
+                          // More than 4: fallback to grid
+                          gridClass = 'grid-cols-2'
+                          containerClass = 'flex justify-center'
+                        }
+                        
                         return (
                           <div key={tIdx} className="border rounded-lg overflow-hidden">
                             <div className="bg-slate-50 px-4 py-2 text-xs text-gray-600 flex items-center justify-between">
                               <div>Task {(typeof task?.task_index === 'number') ? task.task_index + 1 : tIdx + 1}</div>
                               {/* <div className="text-gray-400">{task?.task_id}</div> */}
                             </div>
-                            <div className={`grid ${colClass} gap-0`}>
-                              {(show.length ? show : [null]).map((url, i) => (
-                                url ? (
-                                  <div key={i} className="aspect-square bg-gray-100 flex items-center justify-center p-2">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img src={url} alt={`element-${i+1}`} className="max-w-full max-h-full object-contain" />
+                            <div className={`${containerClass} p-4`}>
+                              {show.length === 3 ? (
+                                // Special layout for 3 elements: all same size
+                                <div className="grid grid-cols-2 gap-3 max-w-md">
+                                  {/* First two elements in top row */}
+                                  {show.slice(0, 2).map((url, i) => (
+                                    <div key={i} className="aspect-square flex items-center justify-center">
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img 
+                                        src={url} 
+                                        alt={`element-${i+1}`} 
+                                        className="w-full h-full object-contain" 
+                                      />
+                                    </div>
+                                  ))}
+                                  {/* Third element - same size as others, centered */}
+                                  <div className="col-span-2 flex justify-center">
+                                    <div className="aspect-square flex items-center justify-center" style={{ width: 'calc(50% - 0.375rem)' }}>
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img 
+                                        src={show[2]} 
+                                        alt="element-3" 
+                                        className="w-full h-full object-contain" 
+                                      />
+                                    </div>
                                   </div>
-                                ) : (
-                                  <div key={i} className="aspect-square bg-slate-100 flex items-center justify-center text-xs text-gray-400">No Image</div>
-                                )
-                              ))}
+                                </div>
+                              ) : (
+                                // Standard grid layout for other cases
+                                <div className={`grid ${gridClass} gap-3 max-w-md`}>
+                                  {show.map((url, i) => (
+                                    <div key={i} className="aspect-square flex items-center justify-center">
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img 
+                                        src={url} 
+                                        alt={`element-${i+1}`} 
+                                        className="w-full h-full object-contain " 
+                                      />
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           </div>
                         )

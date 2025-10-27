@@ -30,6 +30,25 @@ export default function ClassificationQuestionsPage() {
 
   // Load classification questions from localStorage
   useEffect(() => {
+    // Check if study is already completed for this user
+    try {
+      const completedStudies = JSON.parse(localStorage.getItem('completed_studies') || '{}')
+      if (completedStudies[params.id]) {
+        // Study already completed, redirect to thank you page
+        router.push(`/participate/${params.id}/thank-you`)
+        return
+      }
+    } catch {}
+
+    // Prevent back navigation to previous pages
+    const handlePopState = (event: PopStateEvent) => {
+      // If user tries to go back, redirect to current page
+      event.preventDefault()
+      router.push(`/participate/${params.id}/classification-questions`)
+    }
+
+    window.addEventListener('popstate', handlePopState)
+
     const loadQuestions = () => {
       try {
         const studyDetails = localStorage.getItem('current_study_details')
@@ -62,6 +81,10 @@ export default function ClassificationQuestionsPage() {
     }
 
     loadQuestions()
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+    }
   }, [])
 
   // Smart preloading with cache management

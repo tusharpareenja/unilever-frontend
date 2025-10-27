@@ -291,7 +291,20 @@ export default function ResponseDetailsPage() {
               {/* Classification Questions */}
               <div className="bg-white rounded-lg border overflow-hidden">
                 <div className="px-5 py-3 border-b" style={{ borderColor: 'rgba(0,0,0,0.06)' }}>
-                  <div className="text-[15px] font-semibold" style={{ color: '#2674BA' }}>Classification Questions</div>
+                  <div className="flex justify-between items-center">
+                    <div className="text-[15px] font-semibold" style={{ color: '#2674BA' }}>Classification Questions</div>
+                    {data.classification_answers && data.classification_answers.length > 0 && (
+                      <div className="text-sm text-gray-500">
+                        Total Time: {(() => {
+                          // Calculate total time spent on classification questions
+                          const totalTime = data.classification_answers.reduce((sum, ans) => {
+                            return sum + (ans.time_spent_seconds || 0)
+                          }, 0)
+                          return `${totalTime}s`
+                        })()}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="p-5 text-sm text-gray-800">
                   {data.classification_answers && data.classification_answers.length > 0 ? (
@@ -304,9 +317,6 @@ export default function ResponseDetailsPage() {
                           </div>
                           <div className="text-xs text-gray-500 md:text-right">
                             <div>Answered: {fmtDate(ans.answer_timestamp)}</div>
-                            {typeof ans.time_spent_seconds === 'number' && (
-                              <div>Time: {ans.time_spent_seconds}s</div>
-                            )}
                           </div>
                         </div>
                       ))}

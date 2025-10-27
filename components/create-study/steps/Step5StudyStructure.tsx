@@ -31,7 +31,7 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
   // Dynamic limits from env with sensible defaults
   const GRID_MIN = Number.parseInt(process.env.NEXT_PUBLIC_GRID_MIN_ELEMENTS || '4') || 4
   const GRID_MAX = Number.parseInt(process.env.NEXT_PUBLIC_GRID_MAX_ELEMENTS || '20') || 20
-const CATEGORY_MIN = 3
+const CATEGORY_MIN = 4
 const CATEGORY_MAX = 10
   
   const [categories, setCategories] = useState<CategoryItem[]>(() => {
@@ -201,6 +201,21 @@ const CATEGORY_MAX = 10
     handleFiles(e.dataTransfer.files)
   }
 
+  const onDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'copy'
+  }
+
+  const onDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.currentTarget.classList.add('bg-blue-50', 'border-blue-300')
+  }
+
+  const onDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.currentTarget.classList.remove('bg-blue-50', 'border-blue-300')
+  }
+
   // Warn on reload if any grid uploads pending
   useEffect(() => {
     if (mode !== 'grid') return
@@ -285,7 +300,10 @@ const CATEGORY_MAX = 10
       setCategories(prev => {
         const updated = prev.map(c => 
           c.id === categoryId 
-            ? { ...c, elements: [...c.elements, newElement] }
+            ? { 
+                ...c, 
+                elements: [...c.elements, newElement].sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+              }
             : c
         )
         
@@ -305,7 +323,7 @@ const CATEGORY_MAX = 10
                   const idx = selectionIds.indexOf(e.id)
                   if (idx !== -1) return { ...e, secureUrl: results[idx]?.secure_url || e.secureUrl }
                   return e
-                })
+                }).sort((a, b) => (a.name || '').localeCompare(b.name || ''))
               }
             : c
         ))
@@ -332,7 +350,7 @@ const CATEGORY_MAX = 10
                   const idx = pending.findIndex(p => p.id === e.id)
                   if (idx !== -1) return { ...e, secureUrl: results[idx]?.secure_url || e.secureUrl }
                   return e
-                })
+                }).sort((a, b) => (a.name || '').localeCompare(b.name || ''))
               }
             : c
         ))
@@ -347,7 +365,7 @@ const CATEGORY_MAX = 10
       c.id === categoryId 
         ? { 
             ...c, 
-            elements: c.elements.map(e => e.id === elementId ? { ...e, ...patch } : e)
+            elements: c.elements.map(e => e.id === elementId ? { ...e, ...patch } : e).sort((a, b) => (a.name || '').localeCompare(b.name || ''))
           }
         : c
     ))
@@ -530,6 +548,22 @@ const CATEGORY_MAX = 10
                         {/* Add more elements button */}
                         <div 
                           className="border-2 border-dashed border-gray-300 rounded-lg p-3 cursor-pointer hover:bg-gray-50 transition-colors flex flex-col items-center justify-center min-h-[120px]"
+                          onDrop={(e) => {
+                            e.preventDefault()
+                            handleCategoryFiles(category.id, e.dataTransfer.files)
+                          }}
+                          onDragOver={(e) => {
+                            e.preventDefault()
+                            e.dataTransfer.dropEffect = 'copy'
+                          }}
+                          onDragEnter={(e) => {
+                            e.preventDefault()
+                            e.currentTarget.classList.add('bg-blue-50', 'border-blue-300')
+                          }}
+                          onDragLeave={(e) => {
+                            e.preventDefault()
+                            e.currentTarget.classList.remove('bg-blue-50', 'border-blue-300')
+                          }}
                           onClick={() => {
                             const input = document.createElement('input')
                             input.type = 'file'
@@ -543,12 +577,28 @@ const CATEGORY_MAX = 10
                           }}
                         >
                           <div className="text-gray-400 text-2xl mb-1">+</div>
-                          <div className="text-xs text-gray-500 text-center">Add More</div>
+                          <div className="text-xs text-gray-500 text-center">Click anywhere to add more</div>
                         </div>
                       </div>
                     ) : (
                       <div 
                         className="border-2 border-dashed rounded-lg p-6 text-center text-gray-500 cursor-pointer hover:bg-gray-50 transition-colors"
+                        onDrop={(e) => {
+                          e.preventDefault()
+                          handleCategoryFiles(category.id, e.dataTransfer.files)
+                        }}
+                        onDragOver={(e) => {
+                          e.preventDefault()
+                          e.dataTransfer.dropEffect = 'copy'
+                        }}
+                        onDragEnter={(e) => {
+                          e.preventDefault()
+                          e.currentTarget.classList.add('bg-blue-50', 'border-blue-300')
+                        }}
+                        onDragLeave={(e) => {
+                          e.preventDefault()
+                          e.currentTarget.classList.remove('bg-blue-50', 'border-blue-300')
+                        }}
                         onClick={() => {
                           const input = document.createElement('input')
                           input.type = 'file'
@@ -562,7 +612,7 @@ const CATEGORY_MAX = 10
                         }}
                       >
                         <div className="text-sm">No elements added yet</div>
-                        <div className="text-xs">Click here to upload images</div>
+                        <div className="text-xs">Click anywhere to upload images or drag & drop</div>
                       </div>
                     )}
                     </div>
@@ -660,7 +710,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
   const [showModal, setShowModal] = useState(false)
   const [draftName, setDraftName] = useState("Layer 1")
   const [draftDescription, setDraftDescription] = useState("")
-  const [draftImages, setDraftImages] = useState<Array<{ id: string; file?: File; previewUrl: string; secureUrl?: string; name?: string }>>([])
+  const [draftImages, setDraftImages] = useState<Array<{ id: string; file?: File; previewUrl: string; secureUrl?: string; name: string }>>([])
   const [selectedImageIds, setSelectedImageIds] = useState<Record<string, string>>({}) // layerId -> selectedImageId
   const [nextLoading, setNextLoading] = useState(false)
   // Hybrid uploader (layer): accumulate single-file adds per layer, debounce 2s
@@ -705,7 +755,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       const url = URL.createObjectURL(file)
       const fileName = file.name.replace(/\.[^/.]+$/, "")
       ids.push(tempId)
-      setDraftImages(prev => [...prev, { id: tempId, file, previewUrl: url, name: fileName }])
+      setDraftImages(prev => [...prev, { id: tempId, file, previewUrl: url, name: fileName }].sort((a, b) => (a.name || '').localeCompare(b.name || '')))
     })
     if (list.length > 1) {
       uploadImages(list).then((results) => {
@@ -713,7 +763,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
           const idx = ids.indexOf(img.id)
           if (idx !== -1) return { ...img, secureUrl: results[idx]?.secure_url || img.secureUrl }
           return img
-        }))
+        }).sort((a, b) => (a.name || '').localeCompare(b.name || '')))
       }).catch((e) => console.error('Draft batch upload failed', e))
       return
     }
@@ -734,7 +784,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
           const idx = pending.findIndex(p => p.imageId === img.id)
           if (idx !== -1) return { ...img, secureUrl: results[idx]?.secure_url || img.secureUrl }
           return img
-        }))
+        }).sort((a, b) => (a.name || '').localeCompare(b.name || '')))
       } catch (e) {
         console.error('Draft debounced upload failed', e)
       }
@@ -832,7 +882,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
   const updateImageName = (layerId: string, imageId: string, name: string) => {
     setLayers(prev => prev.map(layer => {
       if (layer.id !== layerId) return layer
-      return { ...layer, images: layer.images.map(img => img.id === imageId ? { ...img, name } : img) }
+      return { ...layer, images: layer.images.map(img => img.id === imageId ? { ...img, name } : img).sort((a, b) => (a.name || '').localeCompare(b.name || '')) }
     }))
   }
 
@@ -854,7 +904,10 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       const url = URL.createObjectURL(file)
       const fileName = file.name.replace(/\.[^/.]+$/, "")
       ids.push(tempId)
-      setLayers(prev => prev.map(l => (l.id === layerId ? { ...l, images: [...l.images, { id: tempId, file, previewUrl: url, name: fileName }] } : l)))
+      setLayers(prev => prev.map(l => (l.id === layerId ? { 
+        ...l, 
+        images: [...l.images, { id: tempId, file, previewUrl: url, name: fileName }].sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+      } : l)))
     })
     if (list.length > 1) {
       uploadImages(list).then((results) => {
@@ -864,7 +917,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
             const idx = ids.indexOf(img.id)
             if (idx !== -1) return { ...img, secureUrl: results[idx]?.secure_url || img.secureUrl }
             return img
-          }) }
+          }).sort((a, b) => (a.name || '').localeCompare(b.name || '')) }
         }))
       }).catch((e) => console.error('Layer batch upload failed', e))
       return
@@ -885,7 +938,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
             const idx = pending.findIndex(p => p.imageId === img.id)
             if (idx !== -1) return { ...img, secureUrl: results[idx]?.secure_url || img.secureUrl }
             return img
-          }) }
+          }).sort((a, b) => (a.name || '').localeCompare(b.name || '')) }
         }))
       } catch (e) {
         console.error('Layer debounced upload failed', e)
@@ -1090,10 +1143,39 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                         </div>
                       )
                     })}
-                    <label className="w-20 h-20 border-2 border-dashed rounded-md flex items-center justify-center text-gray-400 cursor-pointer hover:border-gray-300 transition-colors">
+                    <div 
+                      className="w-20 h-20 border-2 border-dashed rounded-md flex items-center justify-center text-gray-400 cursor-pointer hover:border-gray-300 transition-colors"
+                      onDrop={(e) => {
+                        e.preventDefault()
+                        addImagesToLayer(layer.id, e.dataTransfer.files)
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault()
+                        e.dataTransfer.dropEffect = 'copy'
+                      }}
+                      onDragEnter={(e) => {
+                        e.preventDefault()
+                        e.currentTarget.classList.add('bg-blue-50', 'border-blue-300')
+                      }}
+                      onDragLeave={(e) => {
+                        e.preventDefault()
+                        e.currentTarget.classList.remove('bg-blue-50', 'border-blue-300')
+                      }}
+                      onClick={() => {
+                        const input = document.createElement('input')
+                        input.type = 'file'
+                        input.accept = 'image/*'
+                        input.multiple = true
+                        input.onchange = (e) => {
+                          const files = (e.target as HTMLInputElement).files
+                          if (files) addImagesToLayer(layer.id, files)
+                        }
+                        input.click()
+                      }}
+                      title="Click to add images"
+                    >
                       +
-                      <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => addImagesToLayer(layer.id, e.target.files)} />
-                    </label>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1107,7 +1189,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
           ))}
 
           {layers.length === 0 && (
-            <div className="text-sm text-gray-500">No layers added yet. Click &quot;Add New Layer&quot; to begin.</div>
+            <div className="text-sm text-gray-500">No layers added yet. Click "Add New Layer" to begin.</div>
           )}
         </div>
       </div>

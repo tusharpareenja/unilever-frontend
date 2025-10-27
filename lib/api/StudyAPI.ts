@@ -582,6 +582,7 @@ export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayl
   console.log('Task generation payload builder - Grid:', grid)
   console.log('Task generation payload builder - Layer:', layer)
   console.log('Task generation payload builder - Existing Study ID:', existingStudyId)
+  console.log('Task generation payload builder - Raw localStorage cs_study_id:', localStorage.getItem('cs_study_id'))
 
   // Build audience segmentation
   const gender_distribution: Record<string, number> = {
@@ -980,7 +981,7 @@ export async function generateTasksWithPolling(
     if (jobId || (statusHint && ['started','pending','processing'].includes(statusHint))) {
       const effectiveJobId = String(jobId || (immediateResult as any)?.metadata?.job_id || (immediateResult as any)?.data?.job_id)
       console.log('🔄 Background job started, polling for completion...')
-      const finalStatus = await pollJobStatus(effectiveJobId, onProgress)
+      const finalStatus = await pollJobStatus(effectiveJobId, onProgress, 60, 5000) // 60 max attempts, 5 second base delay
       if (finalStatus.status === 'completed') {
         // Fetch the final result from result endpoint
         console.log('🔄 Job completed, fetching final result...')

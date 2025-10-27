@@ -58,6 +58,16 @@ export default function PersonalInformationPage() {
   }
 
   useEffect(() => {
+    // Check if study is already completed for this user
+    try {
+      const completedStudies = JSON.parse(localStorage.getItem('completed_studies') || '{}')
+      if (completedStudies[params.id]) {
+        // Study already completed, redirect to thank you page
+        router.push(`/participate/${params.id}/thank-you`)
+        return
+      }
+    } catch {}
+
     try {
       const s = localStorage.getItem('study_session')
       if (s) {
@@ -66,7 +76,20 @@ export default function PersonalInformationPage() {
       }
     } catch {}
     setGuardChecked(true)
-  }, [])
+
+    // Prevent back navigation to start page
+    const handlePopState = (event: PopStateEvent) => {
+      // If user tries to go back to start page, redirect to current page
+      event.preventDefault()
+      router.push(`/participate/${params.id}/personal-information`)
+    }
+
+    window.addEventListener('popstate', handlePopState)
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+    }
+  }, [params.id, router])
 
   // Smart preloading: preload all task images with cache management
   useEffect(() => {
@@ -134,15 +157,23 @@ export default function PersonalInformationPage() {
 
   const handleDateChange = (newValue: any) => {
     if (newValue) {
-      setDob(newValue.toDate())
+      // For year-only selection, set to January 1st of the selected year
+      const selectedYear = newValue.year()
+      const yearDate = new Date(selectedYear, 0, 1) // January 1st of selected year
+      setDob(yearDate)
+      
+      // Auto-close the calendar after year selection
+      setTimeout(() => {
+        setCalendarOpen(false)
+      }, 150)
     }
   }
 
   const handleCalendarClick = (event: React.MouseEvent) => {
     const target = event.target as HTMLElement
     
-    // Check if clicked on a day button
-    if (target.closest('.MuiPickersDay-root:not(.Mui-disabled)')) {
+    // Check if clicked on a year button
+    if (target.closest('.MuiPickersYear-yearButton:not(.Mui-disabled)')) {
       // Delay closing to allow the date change to process
       setTimeout(() => {
         setCalendarOpen(false)
@@ -162,10 +193,13 @@ export default function PersonalInformationPage() {
       setFormError("")
     }
 
-    // Age validation: must be 13+
+    // Age validation: must be 13+ (using year-only calculation)
     try {
       const today = new Date()
-      const ageYears = today.getFullYear() - dob.getFullYear() - (today < new Date(today.getFullYear(), dob.getMonth(), dob.getDate()) ? 1 : 0)
+      const currentYear = today.getFullYear()
+      const birthYear = dob.getFullYear()
+      const ageYears = currentYear - birthYear
+      
       if (ageYears < 13) {
         setAgeError("You must be at least 13 years old to participate.")
         return
@@ -250,7 +284,7 @@ export default function PersonalInformationPage() {
           {/* Preloading indicator removed per request */}
 
           <div className="mt-2">
-            <label className="block text-sm font-semibold text-gray-800 mb-2">Date of Birth</label>
+            <label className="block text-sm font-semibold text-gray-800 mb-2">Year of Birth</label>
             <div className="flex items-center gap-2">
               <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
                 <PopoverTrigger asChild>
@@ -259,7 +293,7 @@ export default function PersonalInformationPage() {
                     className="w-full justify-start text-left font-normal border-gray-200 hover:border-gray-300 focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] focus:border-[rgba(38,116,186,0.3)] bg-transparent"
                   >
                     <CalendarIcon className="mr-2 h-4 w-4 text-gray-500" />
-                    {dob ? format(dob, "dd / MM / yyyy") : <span className="text-gray-500">DD / MM / YYYY</span>}
+                    {dob ? dob.getFullYear().toString() : <span className="text-gray-500">Select Year</span>}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="p-4 w-[90vw] max-w-[20rem] sm:w-auto" align="start">
@@ -270,18 +304,19 @@ export default function PersonalInformationPage() {
                         onChange={handleDateChange}
                         maxDate={dayjs()}
                         minDate={dayjs('1900-01-01')}
+                        views={['year']}
                         sx={{
                           '& .MuiPickersCalendarHeader-root': {
                             paddingLeft: 1,
                             paddingRight: 1,
                             minHeight: '40px',
                           },
-                          '& .MuiDayCalendar-root': {
+                          '& .MuiYearCalendar-root': {
                             fontSize: '0.875rem',
                           },
-                          '& .MuiPickersDay-root': {
+                          '& .MuiPickersYear-yearButton': {
                             fontSize: '0.875rem',
-                            width: '32px',
+                            width: '60px',
                             height: '32px',
                             '&.Mui-selected': {
                               backgroundColor: 'rgba(38,116,186,1)',
@@ -304,7 +339,7 @@ export default function PersonalInformationPage() {
               </Popover>
             </div>
             <p className="mt-2 text-xs text-gray-500">
-              Please enter your birth date. We&apos;ll calculate your age automatically.
+              Please select your birth year. We&apos;ll calculate your age automatically.
             </p>
             {ageError && (
               <div className="mt-2 text-xs text-red-600">{ageError}</div>

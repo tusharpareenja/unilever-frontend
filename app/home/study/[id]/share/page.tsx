@@ -171,7 +171,7 @@ export default function StudySharePage() {
                 </div>
 
                 {/* Other Sharing Options */}
-                <div>
+                {/* <div>
                   <div className="text-sm font-semibold mb-3" style={{ color: BRAND }}>Other Sharing Options</div>
                   <div className="flex items-center gap-4">
                     <button className="w-10 h-10 rounded-full border flex items-center justify-center" style={{ borderColor: "#E5EEF6" }}>
@@ -187,7 +187,7 @@ export default function StudySharePage() {
                       <Share2 className="w-5 h-5 text-gray-600" />
                     </button>
                   </div>
-                </div>
+                </div> */}
               </section>
 
               {/* Embed Link */}
@@ -229,7 +229,7 @@ export default function StudySharePage() {
                     </div>
                     <div>
                       <div className="text-xs text-gray-500 mb-1">Expected Duration</div>
-                      <div className="text-sm text-gray-800">1 - 2 Minutes</div>
+                      <div className="text-sm text-gray-800">2 - 5 Minutes</div>
                     </div>
                   </div>
                   <div className="px-4 sm:px-6 py-3 text-center text-xs text-blue-600" style={{ color: BRAND, background: "#F6FAFF" }}>

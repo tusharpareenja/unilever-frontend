@@ -28,6 +28,7 @@ export function Step1BasicDetails({ onNext, onCancel, onDataChange }: Step1Basic
     try { const v = localStorage.getItem('cs_step1'); if (v) { const o = JSON.parse(v); return Boolean(o.agree) } } catch {};
     return false
   })
+  const [showTerms, setShowTerms] = useState(false)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -95,7 +96,12 @@ export function Step1BasicDetails({ onNext, onCancel, onDataChange }: Step1Basic
         <div className="flex items-start sm:items-center gap-2">
           <input id="agree" type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="w-4 h-4 mt-1 sm:mt-0" />
           <label htmlFor="agree" className="text-sm text-gray-700">
-            I Read and Agree to <span className="text-[rgba(38,116,186,1)] cursor-pointer">Terms and Conditions</span>
+            I Read and Agree to <span 
+              className="text-[rgba(38,116,186,1)] cursor-pointer hover:underline" 
+              onClick={() => setShowTerms(true)}
+            >
+              Terms and Conditions
+            </span>
           </label>
         </div>
       </div>
@@ -106,6 +112,83 @@ export function Step1BasicDetails({ onNext, onCancel, onDataChange }: Step1Basic
           Next
         </Button>
       </div>
+
+      {/* Terms and Conditions Modal */}
+      {showTerms && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl w-full max-w-2xl max-h-[80vh] shadow-xl">
+            <div className="flex items-center justify-between px-6 py-4 border-b">
+              <h2 className="text-lg font-semibold text-gray-900">Terms and Conditions</h2>
+              <button 
+                className="text-gray-500 hover:text-gray-700 text-xl"
+                onClick={() => setShowTerms(false)}
+              >
+                ×
+              </button>
+            </div>
+            <div className="px-6 py-4 max-h-[60vh] overflow-y-auto">
+              <div className="space-y-4 text-sm text-gray-700">
+                <h3 className="font-semibold text-base">1. Study Creation and Management</h3>
+                <p>By creating a study on this platform, you agree to comply with all applicable laws and regulations. You are responsible for ensuring that your study content is appropriate, accurate, and does not violate any third-party rights.</p>
+                
+                <h3 className="font-semibold text-base">2. Data Collection and Privacy</h3>
+                <p>You acknowledge that participant data will be collected according to our privacy policy. You must obtain proper consent from participants and ensure compliance with data protection regulations such as GDPR, CCPA, and other applicable privacy laws.</p>
+                
+                <h3 className="font-semibold text-base">3. Content Guidelines</h3>
+                <p>Your study content must not contain:</p>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li>Offensive, discriminatory, or inappropriate material</li>
+                  <li>Copyrighted content without proper authorization</li>
+                  <li>Misleading or false information</li>
+                  <li>Content that violates platform policies</li>
+                </ul>
+                
+                <h3 className="font-semibold text-base">4. Participant Rights</h3>
+                <p>Participants have the right to withdraw from your study at any time. You must respect their privacy and provide clear information about data usage. Participants should be able to contact you with questions or concerns.</p>
+                
+                <h3 className="font-semibold text-base">5. Platform Usage</h3>
+                <p>You agree to use the platform responsibly and not to:</p>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li>Attempt to circumvent platform security measures</li>
+                  <li>Use the platform for illegal activities</li>
+                  <li>Interfere with other users' studies</li>
+                  <li>Share your account credentials</li>
+                </ul>
+                
+                <h3 className="font-semibold text-base">6. Intellectual Property</h3>
+                <p>You retain ownership of your study content, but grant the platform a license to host and display your studies. The platform's software and features remain our intellectual property.</p>
+                
+                <h3 className="font-semibold text-base">7. Limitation of Liability</h3>
+                <p>The platform is provided "as is" without warranties. We are not liable for any damages arising from your use of the platform or your studies. You use the platform at your own risk.</p>
+                
+                <h3 className="font-semibold text-base">8. Termination</h3>
+                <p>We reserve the right to suspend or terminate your account if you violate these terms. You may terminate your account at any time by contacting support.</p>
+                
+                <h3 className="font-semibold text-base">9. Changes to Terms</h3>
+                <p>We may update these terms from time to time. Continued use of the platform after changes constitutes acceptance of the new terms.</p>
+                
+                <h3 className="font-semibold text-base">10. Contact Information</h3>
+                <p>For questions about these terms, please contact our support team at support@example.com or through the platform's help center.</p>
+                
+                <div className="pt-4 border-t">
+                  <p className="text-xs text-gray-500">
+                    Last updated: {new Date().toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowTerms(false)}
+                className="px-4 py-2"
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

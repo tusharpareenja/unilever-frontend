@@ -228,9 +228,9 @@ export function StudyGrid({
           {/* <p className="text-sm text-gray-600 mb-4">this is to se what type...</p> */}
 
           {/* Three metric cards in a row */}
-          <div className="flex gap-4 mb-6 flex-wrap">
+          <div className="flex gap-6 mb-6 flex-wrap">
             {/* Total Response */}
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-[rgba(38,116,186,1)] rounded flex items-center justify-center text-white text-xs font-medium">
                 {study.total_responses}
               </div>
@@ -238,7 +238,7 @@ export function StudyGrid({
             </div>
 
             {/* Completed */}
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-[rgba(38,116,186,1)] rounded flex items-center justify-center text-white text-xs font-medium">
                 {study.completed_responses}
               </div>
@@ -246,8 +246,8 @@ export function StudyGrid({
             </div>
 
             {/* Success Rate */}
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-[rgba(38,116,186,1)] rounded flex items-center justify-center text-white text-xs font-medium">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-8 bg-[rgba(38,116,186,1)] rounded flex items-center justify-center text-white text-xs font-medium px-2">
                 {getCompletionRate(study)}%
               </div>
               <span className="text-sm text-gray-600">Total Response</span>
@@ -255,8 +255,8 @@ export function StudyGrid({
 
             {/* Study Complete (%) using respondents_completed/respondents_target */}
             {typeof (study as StudyListItem & { respondents_target?: number; respondents_completed?: number }).respondents_target !== 'undefined' && typeof (study as StudyListItem & { respondents_target?: number; respondents_completed?: number }).respondents_completed !== 'undefined' && (
-              <div className="flex items-center space-x-2">
-                <div className="w-10 h-8 bg-[rgba(38,116,186,1)] rounded flex items-center justify-center text-white text-xs font-medium px-2">
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-8 bg-[rgba(38,116,186,1)] rounded flex items-center justify-center text-white text-xs font-medium px-3">
                   {(() => {
                     const target = Number((study as StudyListItem & { respondents_target?: number; respondents_completed?: number }).respondents_target || 0)
                     const done = Number((study as StudyListItem & { respondents_target?: number; respondents_completed?: number }).respondents_completed || 0)

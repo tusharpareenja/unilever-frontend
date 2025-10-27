@@ -21,6 +21,7 @@ export default function StudyManagementPage() {
   const [analytics, setAnalytics] = useState<StudyAnalytics | null>(null)
   const [analyticsLoading, setAnalyticsLoading] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [exportStage, setExportStage] = useState(0)
 
   // Cache keys
   const STUDY_CACHE_KEY = `study_details_cache_${studyId}`
@@ -223,6 +224,21 @@ export default function StudyManagementPage() {
   const buildCsvAndDownload = async () => {
     try {
       setExporting(true)
+      setExportStage(0)
+      
+      // Stage 1: Extracting data
+      setExportStage(1)
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      
+      // Stage 2: Processing responses
+      setExportStage(2)
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      
+      // Stage 3: Generating CSV
+      setExportStage(3)
+      await new Promise(resolve => setTimeout(resolve, 1500))
+      
+      // Actually download the CSV
       const blob = await downloadStudyResponsesCsv(studyId)
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -235,6 +251,7 @@ export default function StudyManagementPage() {
       alert('Failed to export CSV')
     } finally {
       setExporting(false)
+      setExportStage(0)
     }
   }
 
@@ -337,15 +354,15 @@ export default function StudyManagementPage() {
                   <button 
                     onClick={() => study.status === 'active' && router.push(`/home/study/${studyId}/share`)} 
                     disabled={study.status !== 'active'}
-                    className={`flex items-center gap-2 transition-all duration-200 ${
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all duration-200 ${
                       study.status === 'active' 
                         ? 'hover:opacity-80 cursor-pointer' 
                         : 'opacity-50 cursor-not-allowed'
                     }`}
                     title={study.status !== 'active' ? 'Activate study to share' : ''}
                   >
-                    <Share className="w-4 h-4" />
-                    <span>Share</span>
+                    <Share className="w-6 h-6" />
+                    <span className="font-medium text-lg">Share</span>
                   </button>
                   {/* {study.status !== 'active' && (
                     <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
@@ -705,8 +722,21 @@ export default function StudyManagementPage() {
                 className="flex items-center gap-2 px-4 py-2 border rounded-lg hover:opacity-80 disabled:opacity-60"
                 style={{ borderColor: '#2674BA', color: '#2674BA' }}
               >
-                <Download className="w-4 h-4" />
-                {exporting ? 'Exporting...' : 'Export CSV'}
+                {exporting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#2674BA]"></div>
+                    <span>
+                      {exportStage === 1 && "Extracting data..."}
+                      {exportStage === 2 && "Processing responses..."}
+                      {exportStage === 3 && "Generating CSV..."}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4" />
+                    <span>Export CSV</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

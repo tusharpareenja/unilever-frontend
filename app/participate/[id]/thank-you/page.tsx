@@ -3,11 +3,10 @@
 import { useRouter } from "next/navigation"
 // import { DashboardHeader } from "@/app/home/components/dashboard-header"
 import { useEffect, useState } from "react"
-import { CheckCircle, Home, X } from "lucide-react"
+import { CheckCircle, X } from "lucide-react"
 import { imageCacheManager } from "@/lib/utils/imageCacheManager"
 
 export default function ThankYouPage() {
-  // const params = useParams<{ id: string }>()
   const router = useRouter()
   const [responseTimes, setResponseTimes] = useState<Record<string, number>>({})
   const [completionTime, setCompletionTime] = useState<string>("")
@@ -16,10 +15,28 @@ export default function ThankYouPage() {
   const [isHydrated, setIsHydrated] = useState(false)
   const [redirecting, setRedirecting] = useState(false)
   const [countdown, setCountdown] = useState<number | null>(null)
+  const [studyId, setStudyId] = useState<string>("")
 
   useEffect(() => {
     // Mark as hydrated to prevent hydration mismatches
     setIsHydrated(true)
+
+    // Get study ID from URL
+    const pathParts = window.location.pathname.split('/')
+    const currentStudyId = pathParts[pathParts.indexOf('participate') + 1]
+    setStudyId(currentStudyId)
+
+    // Mark this study as completed in localStorage
+    try {
+      const completedStudies = JSON.parse(localStorage.getItem('completed_studies') || '{}')
+      completedStudies[currentStudyId] = {
+        completedAt: new Date().toISOString(),
+        responseId: Math.random().toString(36).substring(2, 8).toUpperCase()
+      }
+      localStorage.setItem('completed_studies', JSON.stringify(completedStudies))
+    } catch (error) {
+      console.error('Error marking study as completed:', error)
+    }
 
     // Clear image cache on thank-you page
     imageCacheManager.clearCache()
@@ -137,15 +154,47 @@ export default function ThankYouPage() {
         }, 1000)
       }
     } catch {}
-    return () => { try { window.clearInterval(interval); window.clearTimeout(timeoutStop) } catch {} }
+    // Prevent back navigation - if user tries to go back, redirect to thank you page
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      // This will show a confirmation dialog if user tries to leave
+      event.preventDefault()
+      event.returnValue = 'You have already completed this study. Are you sure you want to leave?'
+    }
+
+    const handlePopState = (event: PopStateEvent) => {
+      // If user tries to go back using browser back button, redirect to thank you page
+      event.preventDefault()
+      router.push(`/participate/${currentStudyId}/thank-you`)
+    }
+
+    // Add event listeners
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    window.addEventListener('popstate', handlePopState)
+
+    return () => { 
+      try { 
+        window.clearInterval(interval); 
+        window.clearTimeout(timeoutStop);
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+        window.removeEventListener('popstate', handlePopState);
+      } catch {} 
+    }
   }, [])
 
-  const handleReturnHome = () => {
-    router.push('/')
-  }
-
   const handleCloseTab = () => {
-    window.close()
+    // Try to close the tab/window
+    if (window.opener) {
+      // If opened in a popup, close it
+      window.close()
+    } else {
+      // For regular tabs, try to close (may not work due to browser security)
+      window.close()
+      
+      // Fallback: redirect to about:blank
+      setTimeout(() => {
+        window.location.href = 'about:blank'
+      }, 100)
+    }
   }
 
   const totalTasks = Object.keys(responseTimes).length
@@ -280,13 +329,6 @@ export default function ThankYouPage() {
 
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
-            <button
-              onClick={handleReturnHome}
-              className="flex items-center justify-center gap-2 px-6 py-3 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
-            >
-              <Home className="h-4 w-4" />
-              Return to home
-            </button>
             <button
               onClick={handleCloseTab}
               className="flex items-center justify-center gap-2 px-6 py-3 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"

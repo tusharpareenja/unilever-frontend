@@ -19,6 +19,16 @@ export default function ParticipateIntroPage() {
 
   // Fetch study details on component mount
   useEffect(() => {
+    // Check if study is already completed for this user
+    try {
+      const completedStudies = JSON.parse(localStorage.getItem('completed_studies') || '{}')
+      if (completedStudies[params.id]) {
+        // Study already completed, redirect to thank you page
+        router.push(`/participate/${params.id}/thank-you`)
+        return
+      }
+    } catch {}
+
     // Capture rid query once and store in localStorage for post-completion redirect
     try {
       const search = typeof window !== 'undefined' ? window.location.search : ''
@@ -94,10 +104,10 @@ export default function ParticipateIntroPage() {
 
   // Use real data from API or fallback values
   const studyTitle = studyDetails?.title || "Study Title"
-  const estimatedTime = "1-2 minutes" // Keep as requested
+  const estimatedTime = "2-5 minutes" // Keep as requested
   const studyType = studyDetails?.study_type === "grid" ? "Grid Study" : "Layer Study"
   const orientationText = studyDetails?.orientation_text || "Welcome to the study!"
-  const totalVignettes = studyDetails?.respondents_target || 3
+  const totalVignettes = studyDetails?.tasks_per_respondent || 3
 
   const startHref = useMemo(() => `/participate/${params?.id}/personal-information`, [params?.id])
 

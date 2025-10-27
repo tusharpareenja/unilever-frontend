@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
+import { signOut } from 'next-auth/react'
 import { Tokens, User } from '@/lib/api/LoginApi'
 
 interface AuthContextType {
@@ -24,6 +25,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null)
   const [tokens, setTokens] = useState<Tokens | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
   const router = useRouter()
 
   const isAuthenticated = !!user && !!tokens?.access_token
@@ -71,16 +73,36 @@ export function AuthProvider({ children }: AuthProviderProps) {
     localStorage.setItem('tokens', JSON.stringify(tokenData))
   }
 
-  const logout = () => {
+  const logout = async () => {
+    // Prevent multiple logout calls
+    if (isLoggingOut) {
+      return
+    }
+    
+    setIsLoggingOut(true)
+    
+    // Clear state immediately
     setUser(null)
     setTokens(null)
     
-    // Clear from localStorage
+    // Clear from localStorage (handle both regular login and OAuth login)
     localStorage.removeItem('user')
     localStorage.removeItem('tokens')
+    localStorage.removeItem('auth_user')  // OAuth login
+    localStorage.removeItem('token')      // OAuth login
     
-    // Redirect to login
-    router.push('/login')
+    // Also sign out from NextAuth.js if user was logged in via OAuth
+    try {
+      await signOut({ redirect: false }) // Don't redirect, we'll handle it
+    } catch (error) {
+      // Handle error silently
+    }
+    
+    // Reset logout state
+    setIsLoggingOut(false)
+    
+    // Force redirect to login
+    window.location.href = '/login'
   }
 
   const refreshToken = async (): Promise<boolean> => {

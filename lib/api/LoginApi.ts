@@ -2,7 +2,6 @@
 export const API_BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
 export interface RegisterPayload {
-	username: string;
 	email: string;
 	name: string;
 	password: string;
@@ -12,7 +11,6 @@ export interface RegisterPayload {
 
 export interface User {
 	id: string;
-	username: string;
 	email: string;
 	name: string;
 	phone: string;
@@ -79,15 +77,15 @@ export async function register(payload: RegisterPayload): Promise<RegisterRespon
 
 // Login API for /auth/login
 export interface LoginPayload {
-	username_or_email: string; // username or email
+	email: string;
 	password: string;
 }
 
 export type LoginResponse = RegisterResponse;
 
 export async function login(payload: LoginPayload): Promise<LoginResponse> {
-	if (!payload.username_or_email) {
-		throw new ApiError("Username or email is required", 400);
+	if (!payload.email) {
+		throw new ApiError("Email is required", 400);
 	}
 	try {
 		const res = await fetch(`${API_BASE_URL}/auth/login`, {
@@ -112,9 +110,8 @@ export async function login(payload: LoginPayload): Promise<LoginResponse> {
 }
 
 // Forgot Password API for /auth/forgot-password
-// Forgot Password API for /auth/forgot-password
 export interface ForgotPasswordPayload {
-	username_or_email: string;  // ✅ Fixed field name
+	email: string;
 }
 
 export interface ForgotPasswordResponse {
@@ -122,8 +119,8 @@ export interface ForgotPasswordResponse {
 }
 
 export async function forgotPassword(payload: ForgotPasswordPayload): Promise<ForgotPasswordResponse> {
-	if (!payload.username_or_email) {  // ✅ Fixed field name
-		throw new ApiError("Username or email is required", 400);
+	if (!payload.email) {
+		throw new ApiError("Email is required", 400);
 	}
 	
 	// console.log("API_BASE_URL:", API_BASE_URL);

@@ -9,12 +9,10 @@ import { imageCacheManager } from "@/lib/utils/imageCacheManager"
 // Helper function to get cached URLs for display
 const getCachedUrl = (url: string | undefined): string => {
   if (!url) {
-    return '/placeholder.svg'
+    return "/placeholder.svg"
   }
-  
+
   const cachedUrl = imageCacheManager.getCachedUrl(url)
-  // Log when we're using cached vs original URLs
-  
   return cachedUrl
 }
 
@@ -27,7 +25,6 @@ type Task = {
   layeredImages?: Array<{ url: string; z: number }>
   gridUrls?: string[]
   compositeLayerUrl?: string
-  // Source maps from backend to echo on submit
   _elements_shown?: Record<string, unknown>
   _elements_shown_content?: Record<string, unknown>
 }
@@ -36,7 +33,6 @@ export default function TasksPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
 
-  // Load tasks from localStorage study details using respondentId
   const [tasks, setTasks] = useState<Task[]>([])
   const [isFetching, setIsFetching] = useState<boolean>(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
@@ -50,7 +46,6 @@ export default function TasksPage() {
   const [mainQuestion, setMainQuestion] = useState<string>("")
   const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null)
 
-  // Interaction tracking
   const hoverCountsRef = useRef<Record<number, number>>({})
   const clickCountsRef = useRef<Record<number, number>>({})
   const firstViewTimeRef = useRef<string | null>(null)
@@ -60,27 +55,19 @@ export default function TasksPage() {
     firstViewTimeRef.current = new Date().toISOString()
   }, [])
 
-  // Cleanup object URLs on unmount
   useEffect(() => {
     return () => {
       try {
-        // Clean up any blob URLs that might exist
-        try {
-          const cached = sessionStorage.getItem('task_img_cache')
-          if (cached) {
-            const cache = JSON.parse(cached)
-        Object.values(cache).forEach(url => {
-          if (typeof url === 'string' && url.startsWith('blob:')) {
-            URL.revokeObjectURL(url)
-          }
-        })
-          }
-        sessionStorage.removeItem('task_img_cache')
-        } catch {
-          // best-effort cleanup
+        const cached = sessionStorage.getItem("task_img_cache")
+        if (cached) {
+          const cache = JSON.parse(cached)
+          Object.values(cache).forEach((url) => {
+            if (typeof url === "string" && url.startsWith("blob:")) {
+              URL.revokeObjectURL(url)
+            }
+          })
         }
-
-        // Clean up completed
+        sessionStorage.removeItem("task_img_cache")
       } catch {
         // best-effort cleanup
       }
@@ -96,6 +83,21 @@ export default function TasksPage() {
 
   useEffect(() => {
     try {
+      const completedStudies = JSON.parse(localStorage.getItem("completed_studies") || "{}")
+      if (completedStudies[params.id]) {
+        router.push(`/participate/${params.id}/thank-you`)
+        return
+      }
+    } catch {}
+
+    const handlePopState = (event: PopStateEvent) => {
+      event.preventDefault()
+      router.push(`/participate/${params.id}/tasks`)
+    }
+
+    window.addEventListener("popstate", handlePopState)
+
+    try {
       setIsFetching(true)
       setFetchError(null)
 
@@ -109,24 +111,25 @@ export default function TasksPage() {
       const { respondentId } = JSON.parse(sessionRaw || "{}")
       const study = JSON.parse(detailsRaw || "{}")
 
-      // Handle new API response format
       const studyInfo = study?.study_info || study
       const assignedTasks = study?.assigned_tasks || []
 
-      // Extract optional background image URL from metadata
       try {
-        const bg = studyInfo?.metadata?.background_image_url || study?.metadata?.background_image_url || studyInfo?.background_image_url
-        if (typeof bg === 'string' && bg) {
+        const bg =
+          studyInfo?.metadata?.background_image_url ||
+          study?.metadata?.background_image_url ||
+          studyInfo?.background_image_url
+        if (typeof bg === "string" && bg) {
           setBackgroundUrl(String(bg))
         } else {
           setBackgroundUrl(null)
         }
-      } catch { setBackgroundUrl(null) }
-
-      
+      } catch {
+        setBackgroundUrl(null)
+      }
 
       const detectedStudyType = studyInfo?.study_type || study?.study_type
-      
+
       setStudyType(detectedStudyType)
       setMainQuestion(String(studyInfo?.main_question || study?.main_question || ""))
 
@@ -140,12 +143,10 @@ export default function TasksPage() {
         setScaleLabels({ left: "", right: "", middle: "" })
       }
 
-      // Use assigned_tasks directly from new API response
       let userTasks: any[] = []
       if (Array.isArray(assignedTasks) && assignedTasks.length > 0) {
         userTasks = assignedTasks
       } else {
-        // Fallback to old format for backward compatibility
         const tasksObj = study?.tasks || study?.data?.tasks || study?.task_map || study?.task || {}
         const respondentKey = String(respondentId ?? 0)
         let respondentTasks: any[] = tasksObj?.[respondentKey] || tasksObj?.[Number(respondentKey)] || []
@@ -153,7 +154,6 @@ export default function TasksPage() {
           if (Array.isArray(tasksObj)) {
             respondentTasks = tasksObj
           } else if (tasksObj && typeof tasksObj === "object") {
-            // Pick the first non-empty respondent bucket instead of flattening all
             for (const [k, v] of Object.entries(tasksObj)) {
               if (Array.isArray(v) && v.length) {
                 respondentTasks = v as any[]
@@ -170,19 +170,17 @@ export default function TasksPage() {
           const shown = t?.elements_shown || {}
           const content = t?.elements_shown_content || {}
 
-          
-
           const layers = Object.keys(shown)
             .filter((k) => {
               const isShown = Number(shown[k]) === 1
               const hasContent = content?.[k] && content[k] !== null
               const hasUrl = hasContent && content[k].url
-              
+
               return isShown && hasContent && hasUrl
             })
             .map((k) => {
               const layerData = content[k]
-              
+
               return {
                 url: String(layerData.url),
                 z: Number(layerData.z_index ?? 0),
@@ -190,14 +188,13 @@ export default function TasksPage() {
             })
             .sort((a, b) => a.z - b.z)
 
-          
           const taskResult = {
             id: String(t?.task_id ?? t?.task_index ?? Math.random()),
             layeredImages: layers,
             _elements_shown: shown,
             _elements_shown_content: content,
           }
-          
+
           return taskResult
         } else {
           const es = t?.elements_shown || {}
@@ -205,13 +202,11 @@ export default function TasksPage() {
           const activeKeys = Object.keys(es).filter((k) => Number(es[k]) === 1)
 
           const getUrlForKey = (k: string): string | undefined => {
-            // Check the new category-based format first
             const elementContent = (content as any)[k]
             if (elementContent && typeof elementContent === "object" && elementContent.content) {
               return elementContent.content
             }
 
-            // Fallback to old format checks
             const directUrl = (es as any)[`${k}_content`]
             if (typeof directUrl === "string" && directUrl) return directUrl
 
@@ -234,7 +229,6 @@ export default function TasksPage() {
             if (typeof url === "string" && url) list.push(url)
           })
 
-          // As a last resort, scan content object for any url fields when no activeKeys resolved
           if (list.length === 0 && content && typeof content === "object") {
             Object.values(content).forEach((v: any) => {
               if (v && typeof v === "object" && typeof v.url === "string") list.push(v.url)
@@ -243,7 +237,6 @@ export default function TasksPage() {
             })
           }
 
-          // Fallback: if we still have fewer than 4 images, try to pull any *_content string URLs from elements_shown itself
           try {
             if (list.length < 4 && es && typeof es === "object") {
               const seen = new Set(list)
@@ -263,29 +256,24 @@ export default function TasksPage() {
             rightImageUrl: list[1],
             leftLabel: "",
             rightLabel: "",
-            gridUrls: list, // Store all URLs for grid display
+            gridUrls: list,
             _elements_shown: es,
             _elements_shown_content: content,
           }
         }
       })
 
-
-
-      // Debug layer tasks specifically
-  
-
-      // Set tasks immediately - images should already be preloaded from previous pages
       setTasks(parsed)
 
-      // Check if images are already cached
       const cacheStats = imageCacheManager.getCacheStats()
-
-      // No mobile composite creation needed - always use individual layers
     } catch (err: unknown) {
       setFetchError((err as Error)?.message || "Failed to load tasks")
     } finally {
       setIsFetching(false)
+    }
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState)
     }
   }, [])
 
@@ -298,16 +286,10 @@ export default function TasksPage() {
 
   const totalTasks = tasks.length
 
-  // Mobile detection
-  const isMobile = typeof window !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
-
-  // Hide initial loading after 5 seconds
   useEffect(() => {
-    // Remove artificial delay so cached images can show instantly
     setIsInitialLoading(false)
   }, [])
 
-  // Mount-time: prewarm ALL layered images across study to eliminate first-view lag
   useEffect(() => {
     if (!Array.isArray(tasks) || tasks.length === 0) return
     try {
@@ -316,27 +298,25 @@ export default function TasksPage() {
           tasks
             .flatMap((t: any) => (Array.isArray(t?.layeredImages) ? t.layeredImages : []))
             .map((li: any) => li?.url)
-            .filter(Boolean)
-        )
+            .filter(Boolean),
+        ),
       ) as string[]
       const allWithBg = backgroundUrl ? [...allLayerUrls, backgroundUrl] : allLayerUrls
       if (allWithBg.length > 0) {
-        imageCacheManager.prewarmUrls(allWithBg, 'high')
+        imageCacheManager.prewarmUrls(allWithBg, "high")
       }
     } catch {}
   }, [totalTasks, backgroundUrl])
 
-  // Handle task transitions for smooth image switching (no loading screen)
   useEffect(() => {
     if (tasks.length === 0) return
 
     const currentTask = tasks[currentTaskIndex]
     if (!currentTask) return
 
-    // Preload + warm-decode current task images silently in background
     const preloadCurrentTask = async () => {
       const urls: string[] = []
-      
+
       if (currentTask.layeredImages) {
         currentTask.layeredImages.forEach((img: any) => {
           if (img.url) urls.push(img.url)
@@ -347,23 +327,20 @@ export default function TasksPage() {
       }
       if (currentTask.leftImageUrl) urls.push(currentTask.leftImageUrl)
       if (currentTask.rightImageUrl) urls.push(currentTask.rightImageUrl)
-      
-      // Add background image for layer studies
+
       if (backgroundUrl) {
         urls.push(backgroundUrl)
       }
 
-      // Warm-decode using the cache manager so switch feels instant
-      await imageCacheManager.prewarmUrls(urls, 'critical')
+      await imageCacheManager.prewarmUrls(urls, "critical")
     }
 
     preloadCurrentTask()
   }, [currentTaskIndex, tasks])
 
-  // Task image cache for composites (sessionStorage based)
   function getTaskImageCache() {
     try {
-      const cached = sessionStorage.getItem('task_img_cache')
+      const cached = sessionStorage.getItem("task_img_cache")
       return cached ? JSON.parse(cached) : {}
     } catch {
       return {}
@@ -372,88 +349,12 @@ export default function TasksPage() {
 
   function setTaskImageCache(cache: Record<string, string>) {
     try {
-      sessionStorage.setItem('task_img_cache', JSON.stringify(cache))
+      sessionStorage.setItem("task_img_cache", JSON.stringify(cache))
     } catch {
       // best-effort caching
     }
   }
 
-  // Composite layer images for mobile - NO CANVAS APPROACH (ASYNC)
-  const createLayerComposite = async (task: Task): Promise<string | null> => {
-    if (!task.layeredImages || task.layeredImages.length === 0) {
-      
-      return null
-    }
-    
-    try {
-      // NO CANVAS APPROACH: Completely avoid canvas operations that cause security errors
-      
-      // Sort layers by z-index
-      const sortedLayers = [...task.layeredImages].sort((a, b) => a.z - b.z)
-      
-      
-      // For mobile, we'll use a much simpler approach:
-      // 1. If only one layer, return it directly
-      if (sortedLayers.length === 1) {
-        
-        return sortedLayers[0].url
-      }
-
-      // 2. For multiple layers, return the top layer (highest z-index)
-      // This avoids canvas security issues entirely
-      const topLayer = sortedLayers[sortedLayers.length - 1]
-      
-      return topLayer.url
-
-      // Note: This approach sacrifices perfect layering for mobile compatibility
-      // The trade-off is worth it to avoid security errors
-    } catch (error) {
-      
-      // Ultimate fallback: return the first layer URL
-      return task.layeredImages?.[0]?.url || null
-    }
-  }
-
-  // Composite layer images for mobile - NO CANVAS APPROACH (SYNC)
-  const createLayerCompositeSync = (task: Task): string | null => {
-    if (!task.layeredImages || task.layeredImages.length === 0) {
-      
-      return null
-    }
-    
-    try {
-      // NO CANVAS APPROACH: Completely avoid canvas operations that cause security errors
-      
-      // Sort layers by z-index
-      const sortedLayers = [...task.layeredImages].sort((a, b) => a.z - b.z)
-      
-      
-      // For mobile, we'll use a much simpler approach:
-      // 1. If only one layer, return it directly
-      if (sortedLayers.length === 1) {
-        
-        return sortedLayers[0].url
-      }
-
-      // 2. For multiple layers, return the top layer (highest z-index)
-      // This avoids canvas security issues entirely
-      const topLayer = sortedLayers[sortedLayers.length - 1]
-      
-      return topLayer.url
-
-      // Note: This approach sacrifices perfect layering for mobile compatibility
-      // The trade-off is worth it to avoid security errors
-    } catch (error) {
-      
-      // Ultimate fallback: return the first layer URL
-      return task.layeredImages?.[0]?.url || null
-    }
-  }
-
-
-
-
-  // Reset timer when task changes
   useEffect(() => {
     taskStartRef.current = Date.now()
     setLastSelected(null)
@@ -483,7 +384,6 @@ export default function TasksPage() {
         last_view_time: new Date().toISOString(),
       }))
 
-      // Build a flat elements_shown_content map with URL strings if available
       let payloadShownContent: Record<string, string> | undefined = undefined
       try {
         const es: any = task?._elements_shown || {}
@@ -527,102 +427,6 @@ export default function TasksPage() {
       console.error("Failed to enqueue task:", e)
     }
   }
-
-  // Periodic/background flush using bulk endpoint
-  useEffect(() => {
-    // Send-everything-at-end mode: skip periodic background flush
-    return () => {}
-  }, [])
-
-  // Periodic/background flush using bulk endpoint (disabled when sending all at end)
-  /*
-  useEffect(() => {
-    const flush = async () => {
-      try {
-        const sessionRaw = localStorage.getItem('study_session')
-        if (!sessionRaw) return
-        const { sessionId } = JSON.parse(sessionRaw)
-        if (!sessionId) return
-
-        const qRaw = localStorage.getItem('task_submit_queue')
-        const q: any[] = qRaw ? JSON.parse(qRaw) : []
-        if (!Array.isArray(q) || q.length === 0) return
-
-        // Process queue in batches to avoid losing tasks
-        const batchSize = 10 // Send max 10 tasks per batch
-        const tasksToSend = q.slice(0, batchSize).map((it) => ({
-          task_id: it.task_id,
-          rating_given: it.rating_given,
-          task_duration_seconds: it.task_duration_seconds,
-          element_interactions: Array.isArray(it.element_interactions) ? it.element_interactions.slice(0, 10) : [],
-          elements_shown_in_task: it.elements_shown_in_task || undefined,
-          elements_shown_content: it.elements_shown_content || undefined,
-        }))
-
-        if (tasksToSend.length === 0) return
-
-        // Try sendBeacon first
-        let sent = false
-        try {
-          const url = `http://127.0.0.1:8000/api/v1/responses/submit-tasks-bulk?session_id=${encodeURIComponent(sessionId)}`
-          const data = JSON.stringify({ tasks: tasksToSend })
-          if (navigator.sendBeacon) {
-            const ok = navigator.sendBeacon(url, new Blob([data], { type: 'application/json' }))
-            if (ok) sent = true
-          }
-        } catch {}
-
-        if (!sent) {
-          submitTasksBulk(String(sessionId), tasksToSend).catch((e) => {
-            console.error('submitTasksBulk failed, trying individual submissions:', e)
-            // Fallback: try submitting tasks individually
-            for (const task of tasksToSend) {
-              submitTaskResponse(String(sessionId), task).catch((individualError) => {
-                console.error('Individual task submission failed:', individualError)
-              })
-            }
-          })
-        }
-
-        // On success, remove only the sent tasks from queue
-        const remaining = q.slice(batchSize)
-        if (remaining.length > 0) {
-          localStorage.setItem('task_submit_queue', JSON.stringify(remaining))
-        } else {
-          localStorage.removeItem('task_submit_queue')
-        }
-      } catch (e: any) {
-        // Retry only on transient; keep queue
-        const msg = String(e?.message || '')
-        if (/\b(429|408|5\d\d|NetworkError|timeout|aborted)\b/i.test(msg)) {
-          // keep queue
-        } else {
-          // drop malformed items to avoid permanent blockage
-          console.warn('Dropping queue due to non-retryable error:', e)
-          // Keep only the most recent 5 items on error
-          try {
-            const qRaw = localStorage.getItem('task_submit_queue')
-            const q: any[] = qRaw ? JSON.parse(qRaw) : []
-            localStorage.setItem('task_submit_queue', JSON.stringify(q.slice(-5)))
-          } catch {}
-        }
-      }
-    }
-
-    const interval = window.setInterval(flush, 3000)
-    const onVis = () => { if (document.visibilityState !== 'visible') flush() }
-    const onHide = () => flush()
-    document.addEventListener('visibilitychange', onVis)
-    window.addEventListener('pagehide', onHide)
-    window.addEventListener('beforeunload', onHide)
-    return () => {
-      window.clearInterval(interval)
-      document.removeEventListener('visibilitychange', onVis)
-      window.removeEventListener('pagehide', onHide)
-      window.removeEventListener('beforeunload', onHide)
-    }
-  }, [])
-  */
 
   const submitSessionInBackground = () => {
     try {
@@ -686,7 +490,6 @@ export default function TasksPage() {
       setTimeout(() => setCurrentTaskIndex((i) => i + 1), 80)
     } else {
       setIsLoading(true)
-      // Final flush: send ALL tasks in one bulk call
       const doFinish = async () => {
         try {
           const sessionRaw = localStorage.getItem("study_session")
@@ -695,7 +498,6 @@ export default function TasksPage() {
             const qRaw = localStorage.getItem("task_submit_queue")
             const q: any[] = qRaw ? JSON.parse(qRaw) : []
             if (Array.isArray(q) && q.length) {
-              // Build single bulk payload with ALL remaining tasks
               const tasksToSend = q.map((it) => ({
                 task_id: it.task_id,
                 rating_given: it.rating_given,
@@ -707,19 +509,18 @@ export default function TasksPage() {
                 elements_shown_content: it.elements_shown_content || undefined,
               }))
 
-
-              submitTasksBulk(String(sessionId), tasksToSend).then(() => {
-                localStorage.removeItem("task_submit_queue")
-              }).catch((e) => {
-                console.error("Final flush failed:", e)
-                // Keep queue for retry on thank-you page
-              })
+              submitTasksBulk(String(sessionId), tasksToSend)
+                .then(() => {
+                  localStorage.removeItem("task_submit_queue")
+                })
+                .catch((e) => {
+                  console.error("Final flush failed:", e)
+                })
             }
           }
         } catch {}
         submitSessionInBackground()
       }
-      // Run final flush, but still navigate quickly
       try {
         void doFinish()
       } catch {}
@@ -737,30 +538,12 @@ export default function TasksPage() {
 
   const task = tasks[currentTaskIndex]
 
-  // Check if we have a cached composite for this task
-  const cache = getTaskImageCache()
-  const compositeKey = `composite_${task?.id}`
-  const compositeUrl = cache[compositeKey]
-
-  // Debug logging
-  console.log('Task debug:', {
-    taskId: task?.id,
-    hasLayeredImages: !!task?.layeredImages,
-    layeredImagesCount: task?.layeredImages?.length,
-    isMobile,
-    studyType
-  })
-
-  // const isFinished = totalTasks > 0 && currentTaskIndex >= totalTasks - 1 && lastSelected !== null
-
-
   return (
     <div
       className="h-[100dvh] lg:min-h-screen lg:bg-white overflow-hidden lg:overflow-visible"
       style={{ paddingTop: "max(10px, env(safe-area-inset-top))" }}
     >
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 sm:pt-12 md:pt-14 pb-16">
-
         {isFetching ? (
           <div className="p-10 text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[rgba(38,116,186,1)] mx-auto mb-4" />
@@ -772,31 +555,26 @@ export default function TasksPage() {
           <div className="p-6 text-center text-sm text-gray-600">No tasks assigned.</div>
         ) : (
           <>
-            {/* Mobile Layout - Exact copy of image */}
+            {/* Mobile Layout */}
             <div
-              className="lg:hidden flex flex-col h-[calc(100vh-150px)] overflow-hidden"
+              className="lg:hidden flex flex-col h-[calc(100vh-140px)] overflow-hidden"
               style={{ paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}
             >
-              {/* Progress Section - Outside white card */}
-              <div className="mb-0">
-                <div className="flex items-start justify-between mb-2 gap-3">
-                  <div className="text-sm sm:text-base font-medium text-gray-800 flex-1 leading-tight break-words hyphens-auto max-w-[calc(100%-4rem)]">
-                    {mainQuestion || `Question ${Math.min(currentTaskIndex + 1, totalTasks)}`}
-                  </div>
-                  <div className="text-base font-semibold text-[rgba(38,116,186,1)] flex-shrink-0">
-                    {Math.min(currentTaskIndex + 1, totalTasks)} / {totalTasks}
-                  </div>
-                </div>
-                <div className="h-2 w-full bg-gray-200 rounded overflow-hidden">
+              {/* Progress Section */}
+              <div className="mb-2 sm:mb-4 flex-shrink-0">
+                <div className="h-2 w-full bg-gray-200 rounded overflow-hidden mb-2 sm:mb-3">
                   <div
                     className="h-full bg-[rgba(38,116,186,1)] rounded transition-all duration-300"
                     style={{ width: `${progressPct}%` }}
                   ></div>
                 </div>
+                <div className="text-sm sm:text-base font-medium text-gray-800 leading-tight break-words hyphens-auto">
+                  {mainQuestion || `Question ${Math.min(currentTaskIndex + 1, totalTasks)}`}
+                </div>
               </div>
 
-              {/* Main Content - Full height layout */}
-              <div className="flex-1 flex flex-col min-h-0">
+              {/* Main Content */}
+              <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
                 {isLoading ? (
                   <div className="flex-1 flex items-center justify-center">
                     <div className="text-center">
@@ -815,15 +593,13 @@ export default function TasksPage() {
                   </div>
                 ) : (
                   <>
-                    {/* Image Section - Centered in middle */}
-                    <div className="flex-1 flex items-center justify-center pb-2 min-h-0">
+                    <div className="flex-1 flex items-center justify-center min-h-0 overflow-hidden px-2">
                       {studyType === "layer" ? (
-                        <div className="relative w-full max-w-none overflow-hidden rounded-md h-[50vh] max-h-[400px]">
-                          {/* Always use individual layers for both mobile and desktop */}
-                          <div className="relative w-full h-full">
+                        <div className="relative w-full h-full flex items-center justify-center">
+                          <div className="relative w-full h-full max-w-full max-h-full">
                             {backgroundUrl && (
                               <img
-                                src={getCachedUrl(backgroundUrl)}
+                                src={getCachedUrl(backgroundUrl) || "/placeholder.svg"}
                                 alt="Background"
                                 decoding="async"
                                 loading="eager"
@@ -839,7 +615,7 @@ export default function TasksPage() {
                               return (
                                 <img
                                   key={`${img.url}-${idx}`}
-                                  src={resolved}
+                                  src={resolved || "/placeholder.svg"}
                                   alt={String(img.z)}
                                   decoding="async"
                                   loading="eager"
@@ -849,33 +625,39 @@ export default function TasksPage() {
                                   className="absolute inset-0 m-auto h-full w-full object-contain"
                                   style={{ zIndex: (img.z ?? 0) + 1 }}
                                   onError={() => {
-                                    console.error('Layer image failed to load:', img.url)
+                                    console.error("Layer image failed to load:", img.url)
                                   }}
                                 />
                               )
                             })}
-                            {/* Pre-render next task layers offscreen to avoid flash on navigation */}
                             {(tasks[currentTaskIndex + 1]?.layeredImages || []).map((img: any, idx: number) => {
                               const resolved = getCachedUrl(img.url) || "/placeholder.svg"
                               return (
                                 <img
                                   key={`next-${img.url}-${idx}`}
-                                  src={resolved}
+                                  src={resolved || "/placeholder.svg"}
                                   alt={String(img.z)}
                                   decoding="async"
                                   loading="eager"
                                   fetchPriority="high"
-                                  style={{ position: 'absolute', top: -99999, left: -99999, width: 1, height: 1, visibility: 'hidden' }}
+                                  style={{
+                                    position: "absolute",
+                                    top: -99999,
+                                    left: -99999,
+                                    width: 1,
+                                    height: 1,
+                                    visibility: "hidden",
+                                  }}
                                 />
                               )
                             })}
                           </div>
                         </div>
                       ) : (
-                        <div className="w-full max-w-full overflow-hidden max-h-[50vh] relative">
+                        <div className="w-full h-full flex items-center justify-center overflow-hidden relative">
                           {backgroundUrl && (
                             <img
-                              src={getCachedUrl(backgroundUrl)}
+                              src={getCachedUrl(backgroundUrl) || "/placeholder.svg"}
                               alt="Background"
                               decoding="async"
                               loading="eager"
@@ -886,16 +668,16 @@ export default function TasksPage() {
                           )}
                           {task?.gridUrls && task.gridUrls.length === 3 ? (
                             // Special layout for exactly 3 images on mobile
-                            <div className="flex flex-col gap-2 sm:gap-3 relative" style={{ zIndex: 1 }}>
+                            <div className="flex flex-col gap-1 xs:gap-2 sm:gap-3 relative" style={{ zIndex: 1 }}>
                               {/* Top row: 2 images side by side */}
-                              <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                              <div className="grid grid-cols-2 gap-1 xs:gap-2 sm:gap-3">
                                 {task.gridUrls.slice(0, 2).map((url: string, i: number) => (
-                                  <div key={i} className="aspect-square w-full overflow-hidden rounded-md">
+                                  <div key={i} className="aspect-square w-full overflow-hidden">
                                     <Image
                                       src={getCachedUrl(url) || "/placeholder.svg"}
                                       alt={`element-${i + 1}`}
-                                      width={300}
-                                      height={300}
+                                      width={299}
+                                      height={299}
                                       className="h-full w-full object-contain"
                                       loading="eager"
                                       fetchPriority="high"
@@ -906,12 +688,12 @@ export default function TasksPage() {
                               </div>
                               {/* Bottom row: 1 centered image */}
                               <div className="w-full flex justify-center">
-                                <div className="aspect-square w-1/2 overflow-hidden rounded-md">
+                                <div className="aspect-square w-1/2 overflow-hidden">
                                   <Image
                                     src={getCachedUrl(task.gridUrls[2]) || "/placeholder.svg"}
                                     alt="element-3"
-                                    width={300}
-                                    height={300}
+                                    width={299}
+                                    height={299}
                                     className="h-full w-full object-contain"
                                     loading="eager"
                                     fetchPriority="high"
@@ -921,14 +703,14 @@ export default function TasksPage() {
                               </div>
                             </div>
                           ) : task?.gridUrls && task.gridUrls.length > 3 ? (
-                            <div className="grid grid-cols-2 gap-2 sm:gap-3 w-full overflow-hidden place-items-center relative" style={{ zIndex: 1 }}>
+                            <div className="grid grid-cols-2 gap-1 xs:gap-2 sm:gap-3 w-full overflow-hidden place-items-center relative" style={{ zIndex: 1 }}>
                               {task.gridUrls.slice(0, 4).map((url: string, i: number) => (
-                                <div key={i} className="aspect-square w-full overflow-hidden rounded-md">
+                                <div key={i} className="aspect-square w-full overflow-hidden">
                                   <Image
                                     src={getCachedUrl(url) || "/placeholder.svg"}
                                     alt={`element-${i + 1}`}
-                                    width={300}
-                                    height={300}
+                                    width={299}
+                                    height={299}
                                     className="h-full w-full object-contain"
                                     loading="eager"
                                     fetchPriority="high"
@@ -938,32 +720,32 @@ export default function TasksPage() {
                               ))}
                             </div>
                           ) : (
-                            <div className="flex flex-col gap-2 sm:gap-3 relative" style={{ zIndex: 1 }}>
-                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md max-h-[22vh]">
+                            <div className="flex flex-col gap-1 xs:gap-2 sm:gap-3 relative" style={{ zIndex: 1 }}>
+                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md max-h-[18vh] xs:max-h-[20vh] sm:max-h-[22vh]">
                                 {task?.leftImageUrl ? (
                                   <Image
                                     src={getCachedUrl(task.leftImageUrl) || "/placeholder.svg"}
                                     alt="left"
-                                    width={400}
-                                    height={300}
+                                    width={450}
+                                    height={338}
                                     className="h-full w-full object-contain"
                                     loading="eager"
                                     fetchPriority="high"
-                                    unoptimized={task.leftImageUrl?.includes('blob.core.windows.net')}
+                                    unoptimized={task.leftImageUrl?.includes("blob.core.windows.net")}
                                   />
                                 ) : null}
                               </div>
-                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md max-h-[22vh]">
+                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md max-h-[18vh] xs:max-h-[20vh] sm:max-h-[22vh]">
                                 {task?.rightImageUrl ? (
                                   <Image
                                     src={getCachedUrl(task.rightImageUrl) || "/placeholder.svg"}
                                     alt="right"
-                                    width={400}
-                                    height={300}
+                                    width={450}
+                                    height={338}
                                     className="h-full w-full object-contain"
                                     loading="eager"
                                     fetchPriority="high"
-                                    unoptimized={task.rightImageUrl?.includes('blob.core.windows.net')}
+                                    unoptimized={task.rightImageUrl?.includes("blob.core.windows.net")}
                                   />
                                 ) : null}
                               </div>
@@ -973,50 +755,75 @@ export default function TasksPage() {
                       )}
                     </div>
 
-                    {/* Labels for grid study */}
                     {studyType === "grid" && (
-                      <div className="grid grid-cols-2 gap-4 text-xs sm:text-sm font-semibold text-gray-800 mb-4 px-2">
+                      <div className="grid grid-cols-2 gap-4 text-xs sm:text-sm font-semibold text-gray-800 mb-2 px-2 flex-shrink-0">
                         <div className="text-center text-balance">{task?.leftLabel ?? ""}</div>
                         <div className="text-center text-balance">{task?.rightLabel ?? ""}</div>
                       </div>
                     )}
 
-                    {/* Rating Scale - Bottom with iOS safe area padding */}
-                    <div className="mt-1 pb-4 px-2" style={{ paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}>
-                      <div className="flex items-end justify-center">
-                        <div className="flex items-end justify-between w-full max-w-sm">
+                    {/* Rating Scale */}
+                    <div
+                      className="mt-auto pb-2 px-2 flex-shrink-0"
+                      style={{ paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}
+                    >
+                      <div className="flex items-center justify-center mb-2">
+                        <div className="flex items-center justify-between w-full max-w-sm gap-1">
                           {[1, 2, 3, 4, 5].map((n) => {
                             const selected = lastSelected === n
-                            let labelText = ""
-                            if (n === 1) labelText = scaleLabels.left
-                            if (n === 3) labelText = scaleLabels.middle
-                            if (n === 5) labelText = scaleLabels.right
-
                             return (
-                              <div
+                              <button
                                 key={n}
-                                className="relative flex flex-col items-center w-[60px]"
+                                onClick={() => handleSelect(n)}
+                                className={`h-10 w-10 sm:h-12 sm:w-12 rounded-full border-2 transition-colors text-sm sm:text-base font-semibold flex-shrink-0 ${
+                                  selected
+                                    ? "bg-[rgba(38,116,186,1)] text-white border-[rgba(38,116,186,1)]"
+                                    : "bg-white text-gray-700 border-gray-300 hover:border-gray-400"
+                                }`}
                                 onMouseEnter={() => {
                                   hoverCountsRef.current[n] = (hoverCountsRef.current[n] || 0) + 1
                                   lastViewTimeRef.current = new Date().toISOString()
                                 }}
                               >
-                                <div className="mb-2 w-full text-[10px] sm:text-xs font-medium text-gray-800 text-center leading-tight text-balance px-1 min-h-[2.5rem] flex items-end justify-center">
-                                  <span className="break-words hyphens-auto">{labelText}</span>
-                                </div>
-                                <button
-                                  onClick={() => handleSelect(n)}
-                                  className={`h-12 w-12 sm:h-14 sm:w-14 rounded-full border-2 transition-colors text-base sm:text-lg font-semibold flex-shrink-0 ${
-                                    selected
-                                      ? "bg-white text-[rgba(38,116,186,1)] border-[rgba(38,116,186,1)]"
-                                      : "bg-white text-gray-700 border-gray-300 hover:border-gray-400"
-                                  }`}
-                                >
-                                  {n}
-                                </button>
-                              </div>
+                                {n}
+                              </button>
                             )
                           })}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col items-start justify-center gap-2 px-2">
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">
+                            1
+                          </div>
+                          {scaleLabels.left && (
+                            <div className="text-xs sm:text-sm font-medium text-gray-700 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
+                              {scaleLabels.left}
+                            </div>
+                          )}
+                        </div>
+
+                        {scaleLabels.middle && (
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">
+                              3
+                            </div>
+                            <div className="text-xs sm:text-sm font-medium text-gray-700 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
+                              {scaleLabels.middle}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">
+                            5
+                          </div>
+                          {scaleLabels.right && (
+                            <div className="text-xs sm:text-sm font-medium text-gray-700 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
+                              {scaleLabels.right}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1031,9 +838,6 @@ export default function TasksPage() {
                 <div className="text-base font-medium text-gray-800 flex-1 leading-tight break-words hyphens-auto max-w-[calc(100%-5rem)]">
                   {mainQuestion || `Question ${Math.min(currentTaskIndex + 1, totalTasks)}`}
                 </div>
-                <span className="flex-shrink-0">
-                  {Math.min(currentTaskIndex + 1, totalTasks)} / {totalTasks}
-                </span>
               </div>
               <div className="h-1 rounded bg-gray-200 overflow-hidden">
                 <div className="h-full bg-[rgba(38,116,186,1)] transition-all" style={{ width: `${progressPct}%` }} />
@@ -1050,12 +854,11 @@ export default function TasksPage() {
                   <div className="space-y-4">
                     {studyType === "layer" ? (
                       <div className="flex justify-center">
-                        <div className="relative w-full max-w-lg aspect-square overflow-hidden rounded-md">
-                          {/* Always use individual layers for both mobile and desktop */}
+                        <div className="relative w-full max-w-lg aspect-square overflow-hidden">
                           <div className="relative w-full h-full">
                             {backgroundUrl && (
                               <img
-                                src={getCachedUrl(backgroundUrl)}
+                                src={getCachedUrl(backgroundUrl) || "/placeholder.svg"}
                                 alt="Background"
                                 decoding="async"
                                 loading="eager"
@@ -1071,7 +874,7 @@ export default function TasksPage() {
                               return (
                                 <img
                                   key={`${img.url}-${idx}`}
-                                  src={resolved}
+                                  src={resolved || "/placeholder.svg"}
                                   alt={String(img.z)}
                                   decoding="async"
                                   loading="eager"
@@ -1083,18 +886,24 @@ export default function TasksPage() {
                                 />
                               )
                             })}
-                            {/* Pre-render next task layers offscreen to avoid flash on navigation */}
                             {(tasks[currentTaskIndex + 1]?.layeredImages || []).map((img: any, idx: number) => {
                               const resolved = getCachedUrl(img.url) || "/placeholder.svg"
                               return (
                                 <img
                                   key={`next-desktop-${img.url}-${idx}`}
-                                  src={resolved}
+                                  src={resolved || "/placeholder.svg"}
                                   alt={String(img.z)}
                                   decoding="async"
                                   loading="eager"
                                   fetchPriority="high"
-                                  style={{ position: 'absolute', top: -99999, left: -99999, width: 1, height: 1, visibility: 'hidden' }}
+                                  style={{
+                                    position: "absolute",
+                                    top: -99999,
+                                    left: -99999,
+                                    width: 1,
+                                    height: 1,
+                                    visibility: "hidden",
+                                  }}
                                 />
                               )
                             })}
@@ -1109,12 +918,9 @@ export default function TasksPage() {
                             : [task?.leftImageUrl, task?.rightImageUrl].filter(Boolean)
                         ) as string[]
 
-                        // Debug: log the URLs to see what's happening
-                        console.log("Grid URLs:", urls.length, urls)
-
                         if (urls.length <= 2) {
                           return (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative">
+                            <div className="grid grid-cols-2 gap-4 relative max-w-2xl mx-auto">
                               {backgroundUrl && (
                                 <img
                                   src={getCachedUrl(backgroundUrl) || "/placeholder.svg"}
@@ -1122,16 +928,16 @@ export default function TasksPage() {
                                   decoding="async"
                                   loading="eager"
                                   fetchPriority="high"
-                                  className="absolute inset-0 w-full h-full object-cover rounded-md"
+                                  className="absolute inset-0 w-full h-full object-cover"
                                   style={{ zIndex: 0 }}
                                 />
                               )}
-                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md border" style={{ zIndex: 1 }}>
+                              <div className="aspect-square w-full overflow-hidden border" style={{ zIndex: 1 }}>
                                 {urls[0] && (
                                   <Image
                                     src={getCachedUrl(urls[0]) || "/placeholder.svg"}
                                     alt="left"
-                                    width={400}
+                                    width={300}
                                     height={300}
                                     className="h-full w-full object-contain"
                                     loading="eager"
@@ -1139,12 +945,12 @@ export default function TasksPage() {
                                   />
                                 )}
                               </div>
-                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md border" style={{ zIndex: 1 }}>
+                              <div className="aspect-square w-full overflow-hidden border" style={{ zIndex: 1 }}>
                                 {urls[1] && (
                                   <Image
                                     src={getCachedUrl(urls[1]) || "/placeholder.svg"}
                                     alt="right"
-                                    width={400}
+                                    width={300}
                                     height={300}
                                     className="h-full w-full object-contain"
                                     loading="eager"
@@ -1156,12 +962,9 @@ export default function TasksPage() {
                           )
                         }
 
-                        // Special layout for exactly 3 images
-                        console.log("Checking 3-image condition:", urls.length === 3, "URLs:", urls)
                         if (urls.length === 3) {
-                          console.log("Rendering 3-image layout!")
                           return (
-                            <div className="relative">
+                            <div className="relative max-w-2xl mx-auto">
                               {backgroundUrl && (
                                 <img
                                   src={getCachedUrl(backgroundUrl) || "/placeholder.svg"}
@@ -1169,20 +972,18 @@ export default function TasksPage() {
                                   decoding="async"
                                   loading="eager"
                                   fetchPriority="high"
-                                  className="absolute inset-0 w-full h-full object-cover rounded-md"
+                                  className="absolute inset-0 w-full h-full object-cover"
                                   style={{ zIndex: 0 }}
                                 />
                               )}
-                              {/* All devices: 2 images on top, 1 centered below */}
                               <div className="flex flex-col gap-4" style={{ zIndex: 1 }}>
-                                {/* Top row: 2 images side by side */}
                                 <div className="grid grid-cols-2 gap-4">
                                   {urls.slice(0, 2).map((url, i) => (
-                                    <div key={i} className="aspect-[4/3] w-full overflow-hidden rounded-md border">
+                                    <div key={i} className="aspect-square w-full overflow-hidden border">
                                       <Image
                                         src={getCachedUrl(url as string) || "/placeholder.svg"}
                                         alt={`element-${i + 1}`}
-                                        width={400}
+                                        width={300}
                                         height={300}
                                         className="h-full w-full object-contain"
                                         unoptimized={(url as string)?.includes("blob.core.windows.net")}
@@ -1190,13 +991,12 @@ export default function TasksPage() {
                                     </div>
                                   ))}
                                 </div>
-                                {/* Bottom row: 1 centered image */}
                                 <div className="w-full flex justify-center">
-                                  <div className="aspect-[4/3] w-3/4 sm:w-1/2 md:w-1/3 overflow-hidden rounded-md border">
+                                  <div className="aspect-square w-1/2 overflow-hidden border">
                                     <Image
                                       src={getCachedUrl(urls[2] as string) || "/placeholder.svg"}
                                       alt="element-3"
-                                      width={400}
+                                      width={300}
                                       height={300}
                                       className="h-full w-full object-contain"
                                       unoptimized={(urls[2] as string)?.includes("blob.core.windows.net")}
@@ -1207,12 +1007,9 @@ export default function TasksPage() {
                             </div>
                           )
                         }
-                        
-                        // Debug: Check if we're falling through to the default layout
-                        console.log("Falling through to default layout with", urls.length, "URLs")
 
                         return (
-                          <div className="grid grid-cols-2 gap-4 relative">
+                          <div className="grid grid-cols-2 gap-4 relative max-w-2xl mx-auto">
                             {backgroundUrl && (
                               <img
                                 src={getCachedUrl(backgroundUrl) || "/placeholder.svg"}
@@ -1220,20 +1017,20 @@ export default function TasksPage() {
                                 decoding="async"
                                 loading="eager"
                                 fetchPriority="high"
-                                className="absolute inset-0 w-full h-full object-cover rounded-md"
+                                className="absolute inset-0 w-full h-full object-cover"
                                 style={{ zIndex: 0 }}
                               />
                             )}
                             {urls.slice(0, 4).map((url, i) => (
                               <div
                                 key={i}
-                                className="aspect-[4/3] w-full md:h-[24vh] lg:h-[26vh] overflow-hidden rounded-md border"
+                                className="aspect-square w-full overflow-hidden border"
                                 style={{ zIndex: 1 }}
                               >
                                 <Image
                                   src={getCachedUrl(url as string) || "/placeholder.svg"}
                                   alt={`element-${i + 1}`}
-                                  width={400}
+                                  width={300}
                                   height={300}
                                   className="h-full w-full object-contain"
                                   unoptimized={(url as string)?.includes("blob.core.windows.net")}
@@ -1250,42 +1047,64 @@ export default function TasksPage() {
                       <div className="text-center text-balance">{task?.rightLabel ?? ""}</div>
                     </div>
 
-                    {/* Labels and rating scale - Larger for desktop */}
-                    <div className="w-full max-w-2xl mx-auto mt-6">
-                      <div className="flex items-end justify-center">
-                        <div className="flex items-end justify-between w-full max-w-lg">
+                    <div className="w-full max-w-2xl mx-auto mt-4">
+                      <div className="flex items-center justify-center mb-3">
+                        <div className="flex items-center justify-between w-full max-w-lg gap-2">
                           {[1, 2, 3, 4, 5].map((n) => {
                             const selected = lastSelected === n
-                            let labelText = ""
-                            if (n === 1) labelText = scaleLabels.left
-                            if (n === 3) labelText = scaleLabels.middle
-                            if (n === 5) labelText = scaleLabels.right
-
                             return (
-                              <div
+                              <button
                                 key={n}
-                                className="relative flex flex-col items-center w-[90px]"
+                                onClick={() => handleSelect(n)}
+                                className={`h-11 w-11 lg:h-12 lg:w-12 xl:h-14 xl:w-14 rounded-full border-2 transition-colors text-sm lg:text-base xl:text-lg font-semibold flex-shrink-0 ${
+                                  selected
+                                    ? "bg-[rgba(38,116,186,1)] text-white border-[rgba(38,116,186,1)]"
+                                    : "bg-white text-gray-700 border-gray-300 hover:border-gray-400"
+                                }`}
                                 onMouseEnter={() => {
                                   hoverCountsRef.current[n] = (hoverCountsRef.current[n] || 0) + 1
                                   lastViewTimeRef.current = new Date().toISOString()
                                 }}
                               >
-                                <div className="mb-3 w-full text-xs lg:text-sm xl:text-base font-medium text-gray-900 text-center leading-tight text-balance px-1 min-h-[3rem] flex items-end justify-center">
-                                  <span className="break-words hyphens-auto">{labelText}</span>
-                                </div>
-                                <button
-                                  onClick={() => handleSelect(n)}
-                                  className={`h-10 w-10 sm:h-11 sm:w-11 lg:h-12 lg:w-12 xl:h-14 xl:w-14 rounded-full border-2 lg:border-2 transition-colors text-sm lg:text-base xl:text-lg font-semibold flex-shrink-0 ${
-                                    selected
-                                      ? "border-[rgba(38,116,186,1)] text-[rgba(38,116,186,1)] bg-white"
-                                      : "border-gray-200 text-gray-700 hover:border-gray-300 bg-white"
-                                  }`}
-                                >
-                                  {n}
-                                </button>
-                              </div>
+                                {n}
+                              </button>
                             )
                           })}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col items-start justify-center gap-2 px-2">
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <div className="h-8 w-8 lg:h-9 lg:w-9 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs lg:text-sm font-semibold text-gray-700 flex-shrink-0">
+                            1
+                          </div>
+                          {scaleLabels.left && (
+                            <div className="text-sm lg:text-base xl:text-lg font-medium text-gray-800 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
+                              {scaleLabels.left}
+                            </div>
+                          )}
+                        </div>
+
+                        {scaleLabels.middle && (
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <div className="h-8 w-8 lg:h-9 lg:w-9 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs lg:text-sm font-semibold text-gray-700 flex-shrink-0">
+                              3
+                            </div>
+                            <div className="text-sm lg:text-base xl:text-lg font-medium text-gray-800 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
+                              {scaleLabels.middle}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <div className="h-8 w-8 lg:h-9 lg:w-9 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs lg:text-sm font-semibold text-gray-700 flex-shrink-0">
+                            5
+                          </div>
+                          {scaleLabels.right && (
+                            <div className="text-sm lg:text-base xl:text-lg font-medium text-gray-800 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
+                              {scaleLabels.right}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>

@@ -2,7 +2,19 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
+import { imageCacheManager } from "@/lib/utils/imageCacheManager"
 // Preview mode: no API calls, no persistence
+
+// Helper function to get cached URLs for display
+const getCachedUrl = (url: string | undefined): string => {
+  if (!url) {
+    return "/placeholder.svg"
+  }
+
+  const cachedUrl = imageCacheManager.getCachedUrl(url)
+  return cachedUrl
+}
 
 type Task = {
   id: string
@@ -70,7 +82,7 @@ export default function TasksPage() {
       const normalizedType: 'grid' | 'layer' | undefined = typeNorm.includes('layer') ? 'layer' : (typeNorm.includes('grid') ? 'grid' : undefined)
       setStudyType(normalizedType)
 
-      setMainQuestion(String(s2?.main_question || s2?.question || ''))
+      setMainQuestion(String(s2?.mainQuestion || s2?.main_question || s2?.question || ''))
 
       // Background for layer preview (optional)
       try {
@@ -114,11 +126,14 @@ export default function TasksPage() {
           if (normalizedType === 'layer') {
             const shown = t?.elements_shown || {}
             const content = t?.elements_shown_content || {}
+            console.log('[Preview Tasks] Task elements_shown:', shown)
+            console.log('[Preview Tasks] Task elements_shown_content:', content)
             const layers = Object.keys(shown)
               .filter((k) => Number(shown[k]) === 1 && content?.[k]?.url)
               .map((k) => ({ url: String(content[k].url), z: Number(content[k].z_index ?? 0) }))
               .sort((a, b) => a.z - b.z)
-                return { 
+            console.log('[Preview Tasks] Parsed layers:', layers)
+            return { 
               id: String(t?.task_id ?? t?.task_index ?? Math.random()),
               layeredImages: layers,
               _elements_shown: shown,
@@ -127,7 +142,10 @@ export default function TasksPage() {
           } else {
             const es = t?.elements_shown || {}
             const content = t?.elements_shown_content || {}
+            console.log('[Preview Tasks] Grid task elements_shown:', es)
+            console.log('[Preview Tasks] Grid task elements_shown_content:', content)
             const activeKeys = Object.keys(es).filter((k) => Number(es[k]) === 1)
+            console.log('[Preview Tasks] Active keys:', activeKeys)
 
             const getUrlForKey = (k: string): string | undefined => {
               // 1) elements_shown may embed direct URL under k_content
@@ -217,7 +235,7 @@ export default function TasksPage() {
         const unique = Array.from(urls).filter((u) => !preloadedUrlsRef.current.has(u))
         unique.forEach((u) => preloadedUrlsRef.current.add(u))
         unique.forEach((src) => {
-          const img = new Image()
+          const img = document.createElement('img')
           ;(img as any).decoding = 'async'
           ;(img as any).referrerPolicy = 'no-referrer'
           img.src = src
@@ -237,7 +255,16 @@ export default function TasksPage() {
   const taskStartRef = useRef<number>(Date.now())
   const [lastSelected, setLastSelected] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [isInitialLoading, setIsInitialLoading] = useState(true)
   const preloadedUrlsRef = useRef<Set<string>>(new Set())
+
+  // Hide initial loading after a short delay
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsInitialLoading(false)
+    }, 1000)
+    return () => clearTimeout(timer)
+  }, [])
 
   // Reset timer when task changes
   useEffect(() => {
@@ -314,26 +341,21 @@ export default function TasksPage() {
               className="lg:hidden flex flex-col h-[calc(100vh-150px)] overflow-hidden"
               style={{ paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}
             >
-              {/* Progress Section - Outside white card */}
-              <div className="mb-0">
-                <div className="flex items-start justify-between mb-2 gap-3">
-                  <div className="text-sm sm:text-base font-medium text-gray-800 flex-1 leading-tight text-balance">
-                    {mainQuestion || `Question ${Math.min(currentTaskIndex + 1, totalTasks)}`}
-                  </div>
-                  <div className="text-base font-semibold text-[rgba(38,116,186,1)] flex-shrink-0">
-                    {Math.min(currentTaskIndex + 1, totalTasks)} / {totalTasks}
-                  </div>
-                </div>
-                <div className="h-2 w-full bg-gray-200 rounded overflow-hidden">
+              {/* Progress Section */}
+              <div className="mb-4 flex-shrink-0">
+                <div className="h-2 w-full bg-gray-200 rounded overflow-hidden mb-3">
                   <div
                     className="h-full bg-[rgba(38,116,186,1)] rounded transition-all duration-300"
                     style={{ width: `${progressPct}%` }}
                   ></div>
                 </div>
+                <div className="text-sm sm:text-base font-medium text-gray-800 leading-tight break-words hyphens-auto">
+                  {mainQuestion || `Question ${Math.min(currentTaskIndex + 1, totalTasks)}`}
+                </div>
               </div>
 
               {/* Main Content - Full height layout */}
-              <div className="flex-1 flex flex-col min-h-0">
+              <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
                 {isLoading ? (
                   <div className="flex-1 flex items-center justify-center">
                     <div className="text-center">
@@ -342,66 +364,151 @@ export default function TasksPage() {
                       <p className="mt-2 text-sm text-gray-600">Please wait while we save your study data.</p>
                     </div>
                   </div>
+                ) : isInitialLoading ? (
+                  <div className="flex-1 flex items-center justify-center pb-2 min-h-0">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[rgba(38,116,186,1)] mx-auto mb-4"></div>
+                      <h2 className="text-xl font-semibold text-gray-900">Loading images...</h2>
+                      <p className="mt-2 text-sm text-gray-600">Preparing task images for optimal display.</p>
+                    </div>
+                  </div>
                 ) : (
                   <>
-                    {/* Image Section - Centered in middle */}
-                    <div className="flex-1 flex items-center justify-center pb-2 min-h-0">
+                    {/* Image Section - Flexible responsive layout */}
+                    <div className="flex-1 flex items-center justify-center min-h-0 overflow-hidden px-2">
                       {studyType === "layer" ? (
-                        <div className="relative w-full max-w-none overflow-hidden rounded-md h-[50vh] max-h-[400px]">
+                        <div className="relative w-full max-w-md sm:max-w-lg overflow-hidden aspect-square">
+                          {/* Always use individual layers for both mobile and desktop */}
+                          <div className="relative w-full h-full">
+                            {backgroundUrl && (
+                              <img
+                                src={getCachedUrl(backgroundUrl) || "/placeholder.svg"}
+                                alt="Background"
+                                decoding="async"
+                                loading="eager"
+                                fetchPriority="high"
+                                width={600}
+                                height={600}
+                                className="absolute inset-0 m-auto h-full w-full object-contain"
+                                style={{ zIndex: 0 }}
+                              />
+                            )}
+                            {task?.layeredImages?.map((img, idx) => {
+                              const resolved = getCachedUrl(img.url) || "/placeholder.svg"
+                              return (
+                                <img
+                                  key={`${img.url}-${idx}`}
+                                  src={resolved || "/placeholder.svg"}
+                                  alt={String(img.z)}
+                                  decoding="async"
+                                  loading="eager"
+                                  fetchPriority="high"
+                                  width={600}
+                                  height={600}
+                                  className="absolute inset-0 m-auto h-full w-full object-contain"
+                                  style={{ zIndex: (img.z ?? 0) + 1 }}
+                                  onError={() => {
+                                    console.error("Layer image failed to load:", img.url)
+                                  }}
+                                />
+                              )
+                            })}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="w-full max-w-md sm:max-w-lg overflow-hidden relative">
                           {backgroundUrl && (
-                            // eslint-disable-next-line @next/next/no-img-element
                             <img
-                              src={backgroundUrl}
+                              src={getCachedUrl(backgroundUrl) || "/placeholder.svg"}
                               alt="Background"
-                              className="absolute inset-0 m-auto h-full w-full object-contain"
+                              decoding="async"
+                              loading="eager"
+                              fetchPriority="high"
+                              className="absolute inset-0 w-full h-full object-cover"
                               style={{ zIndex: 0 }}
                             />
                           )}
-                          {task?.layeredImages?.map((img, idx) => (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              key={`${img.url}-${idx}`}
-                              src={img.url || "/placeholder.svg"}
-                              alt={String(img.z)}
-                              className="absolute inset-0 m-auto h-full w-full object-contain"
-                              style={{ zIndex: (img.z ?? 0) + 1 }}
-                            />
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="w-full max-w-full overflow-hidden max-h-[50vh]">
-                          {task?.gridUrls && task.gridUrls.length > 2 ? (
-                            <div className="grid grid-cols-2 gap-2 sm:gap-3 w-full overflow-hidden place-items-center">
-                              {task.gridUrls.slice(0, 4).map((url, i) => (
-                                <div key={i} className="aspect-square w-full overflow-hidden rounded-md">
-                                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img
-                                    src={url || "/placeholder.svg"}
+                          {task?.gridUrls && task.gridUrls.length === 3 ? (
+                            // Special layout for exactly 3 images - all same size
+                            <div className="grid grid-cols-2 gap-2 sm:gap-3 relative" style={{ zIndex: 1 }}>
+                              {/* First two images in top row */}
+                              {task.gridUrls.slice(0, 2).map((url, i) => (
+                                <div key={i} className="aspect-square w-full overflow-hidden">
+                                  <Image
+                                    src={getCachedUrl(url) || "/placeholder.svg"}
                                     alt={`element-${i + 1}`}
+                                    width={300}
+                                    height={300}
                                     className="h-full w-full object-contain"
+                                    loading="eager"
+                                    fetchPriority="high"
+                                    unoptimized={url?.includes("blob.core.windows.net")}
+                                  />
+                                </div>
+                              ))}
+                              {/* Third image - same size as others, centered */}
+                              <div className="col-span-2 flex justify-center">
+                                <div className="aspect-square w-1/2 overflow-hidden">
+                                  <Image
+                                    src={getCachedUrl(task.gridUrls[2]) || "/placeholder.svg"}
+                                    alt="element-3"
+                                    width={300}
+                                    height={300}
+                                    className="h-full w-full object-contain"
+                                    loading="eager"
+                                    fetchPriority="high"
+                                    unoptimized={task.gridUrls[2]?.includes("blob.core.windows.net")}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          ) : task?.gridUrls && task.gridUrls.length > 3 ? (
+                            <div
+                              className="grid grid-cols-2 gap-2 sm:gap-3 w-full overflow-hidden place-items-center relative"
+                              style={{ zIndex: 1 }}
+                            >
+                              {task.gridUrls.slice(0, 4).map((url, i) => (
+                                <div key={i} className="aspect-square w-full overflow-hidden">
+                                  <Image
+                                    src={getCachedUrl(url) || "/placeholder.svg"}
+                                    alt={`element-${i + 1}`}
+                                    width={300}
+                                    height={300}
+                                    className="h-full w-full object-contain"
+                                    loading="eager"
+                                    fetchPriority="high"
+                                    unoptimized={url?.includes("blob.core.windows.net")}
                                   />
                                 </div>
                               ))}
                             </div>
                           ) : (
-                            <div className="flex flex-col gap-2 sm:gap-3">
-                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md max-h-[22vh]">
+                            <div className="flex flex-col gap-2 sm:gap-3 relative" style={{ zIndex: 1 }}>
+                              <div className="aspect-[4/3] w-full overflow-hidden max-h-[22vh]">
                                 {task?.leftImageUrl ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    src={task.leftImageUrl || "/placeholder.svg"}
+                                  <Image
+                                    src={getCachedUrl(task.leftImageUrl) || "/placeholder.svg"}
                                     alt="left"
+                                    width={400}
+                                    height={300}
                                     className="h-full w-full object-contain"
+                                    loading="eager"
+                                    fetchPriority="high"
+                                    unoptimized={task.leftImageUrl?.includes("blob.core.windows.net")}
                                   />
                                 ) : null}
                               </div>
-                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md max-h-[22vh]">
+                              <div className="aspect-[4/3] w-full overflow-hidden max-h-[22vh]">
                                 {task?.rightImageUrl ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    src={task.rightImageUrl || "/placeholder.svg"}
+                                  <Image
+                                    src={getCachedUrl(task.rightImageUrl) || "/placeholder.svg"}
                                     alt="right"
+                                    width={400}
+                                    height={300}
                                     className="h-full w-full object-contain"
+                                    loading="eager"
+                                    fetchPriority="high"
+                                    unoptimized={task.rightImageUrl?.includes("blob.core.windows.net")}
                                   />
                                 ) : null}
                               </div>
@@ -413,48 +520,78 @@ export default function TasksPage() {
 
                     {/* Labels for grid study */}
                     {studyType === "grid" && (
-                      <div className="grid grid-cols-2 gap-4 text-xs sm:text-sm font-semibold text-gray-800 mb-4 px-2">
+                      <div className="grid grid-cols-2 gap-4 text-xs sm:text-sm font-semibold text-gray-800 mb-2 px-2 flex-shrink-0">
                         <div className="text-center text-balance">{task?.leftLabel ?? ""}</div>
                         <div className="text-center text-balance">{task?.rightLabel ?? ""}</div>
                       </div>
                     )}
 
                     {/* Rating Scale - Bottom with iOS safe area padding */}
-                    <div className="mt-1 pb-4 px-2" style={{ paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}>
-                      <div className="flex items-end justify-center">
-                        <div className="flex items-end justify-between w-full max-w-sm">
+                    <div
+                      className="mt-auto pb-2 px-2 flex-shrink-0"
+                      style={{ paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}
+                    >
+                      {/* Horizontal scale buttons (1-5) */}
+                      <div className="flex items-center justify-center mb-2">
+                        <div className="flex items-center justify-between w-full max-w-sm gap-1">
                           {[1, 2, 3, 4, 5].map((n) => {
                             const selected = lastSelected === n
-                            let labelText = ""
-                            if (n === 1) labelText = scaleLabels.left
-                            if (n === 3) labelText = scaleLabels.middle
-                            if (n === 5) labelText = scaleLabels.right
-
                             return (
-                              <div
+                              <button
                                 key={n}
-                                className="relative flex flex-col items-center w-[60px]"
+                                onClick={() => handleSelect(n)}
+                                className={`h-10 w-10 sm:h-12 sm:w-12 rounded-full border-2 transition-colors text-sm sm:text-base font-semibold flex-shrink-0 ${
+                                  selected
+                                    ? "bg-[rgba(38,116,186,1)] text-white border-[rgba(38,116,186,1)]"
+                                    : "bg-white text-gray-700 border-gray-300 hover:border-gray-400"
+                                }`}
                                 onMouseEnter={() => {
                                   hoverCountsRef.current[n] = (hoverCountsRef.current[n] || 0) + 1
                                   lastViewTimeRef.current = new Date().toISOString()
                                 }}
                               >
-                                <div className="mb-2 w-full text-[10px] sm:text-xs font-medium text-gray-800 text-center leading-tight text-balance px-1 min-h-[2.5rem] flex items-end justify-center">
-                                  <span className="break-words hyphens-auto">{labelText}</span>
-                                </div>
-                                <button
-                                  onClick={() => handleSelect(n)}
-                                  className={`h-12 w-12 sm:h-14 sm:w-14 rounded-full border-2 transition-colors text-base sm:text-lg font-semibold flex-shrink-0 ${
-                                    selected
-                                      ? "bg-white text-[rgba(38,116,186,1)] border-[rgba(38,116,186,1)]"
-                                      : "bg-white text-gray-700 border-gray-300 hover:border-gray-400"
-                                  }`}
-                                >
-                                  {n}
-                                </button>
-                              </div>
+                                {n}
+                              </button>
                             )
                           })}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col items-start justify-center gap-2 px-2">
+                        {/* Label for 1 */}
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">
+                            1
+                          </div>
+                          {scaleLabels.left && (
+                            <div className="text-xs sm:text-sm font-medium text-gray-700 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
+                              {scaleLabels.left}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Label for 3 (optional) */}
+                        {scaleLabels.middle && (
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">
+                              3
+                            </div>
+                            <div className="text-xs sm:text-sm font-medium text-gray-700 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
+                              {scaleLabels.middle}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Label for 5 */}
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">
+                            5
+                          </div>
+                          {scaleLabels.right && (
+                            <div className="text-xs sm:text-sm font-medium text-gray-700 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
+                              {scaleLabels.right}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -466,12 +603,9 @@ export default function TasksPage() {
             {/* Desktop Layout */}
             <div className="hidden lg:block">
               <div className="flex items-start justify-between text-sm text-gray-600 mb-1 gap-4">
-                <div className="text-base font-medium text-gray-800 flex-1 leading-tight text-balance">
+                <div className="text-base font-medium text-gray-800 flex-1 leading-tight break-words hyphens-auto max-w-[calc(100%-5rem)]">
                   {mainQuestion || `Question ${Math.min(currentTaskIndex + 1, totalTasks)}`}
                 </div>
-                <span className="flex-shrink-0">
-                  {Math.min(currentTaskIndex + 1, totalTasks)} / {totalTasks}
-                </span>
               </div>
               <div className="h-1 rounded bg-gray-200 overflow-hidden">
                 <div className="h-full bg-[rgba(38,116,186,1)] transition-all" style={{ width: `${progressPct}%` }} />
@@ -484,30 +618,70 @@ export default function TasksPage() {
                     <h2 className="text-xl sm:text-2xl font-semibold text-gray-900">Processing your responses...</h2>
                     <p className="mt-2 text-sm text-gray-600">Please wait while we save your study data.</p>
                   </div>
+                ) : isInitialLoading ? (
+                  <div className="p-6 sm:p-10 text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[rgba(38,116,186,1)] mx-auto mb-4"></div>
+                    <h2 className="text-xl sm:text-2xl font-semibold text-gray-900">Loading images...</h2>
+                    <p className="mt-2 text-sm text-gray-600">Preparing task images for optimal display.</p>
+                  </div>
                 ) : (
                   <div className="space-y-4">
                     {studyType === "layer" ? (
                       <div className="flex justify-center">
-                        <div className="relative w-full max-w-lg aspect-square overflow-hidden rounded-md">
-                          {backgroundUrl && (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={backgroundUrl}
-                              alt="Background"
-                              className="absolute inset-0 m-auto h-full w-full object-contain"
-                              style={{ zIndex: 0 }}
-                            />
-                          )}
-                          {task?.layeredImages?.map((img, idx) => (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              key={`${img.url}-${idx}`}
-                              src={img.url || "/placeholder.svg"}
-                              alt={String(img.z)}
-                              className="absolute inset-0 m-auto h-full w-full object-contain"
-                              style={{ zIndex: (img.z ?? 0) + 1 }}
-                            />
-                          ))}
+                        <div className="relative w-full max-w-lg aspect-square overflow-hidden">
+                          <div className="relative w-full h-full">
+                            {backgroundUrl && (
+                              <img
+                                src={getCachedUrl(backgroundUrl) || "/placeholder.svg"}
+                                alt="Background"
+                                decoding="async"
+                                loading="eager"
+                                fetchPriority="high"
+                                width={800}
+                                height={800}
+                                className="absolute inset-0 m-auto h-full w-full object-contain"
+                                style={{ zIndex: 0 }}
+                              />
+                            )}
+                            {task?.layeredImages?.map((img, idx) => {
+                              const resolved = getCachedUrl(img.url) || "/placeholder.svg"
+                              return (
+                                <img
+                                  key={`${img.url}-${idx}`}
+                                  src={resolved || "/placeholder.svg"}
+                                  alt={String(img.z)}
+                                  decoding="async"
+                                  loading="eager"
+                                  fetchPriority="high"
+                                  width={600}
+                                  height={600}
+                                  className="absolute inset-0 m-auto h-full w-full object-contain"
+                                  style={{ zIndex: (img.z ?? 0) + 1 }}
+                                />
+                              )
+                            })}
+                            {(tasks[currentTaskIndex + 1]?.layeredImages || []).map((img, idx) => {
+                              const resolved = getCachedUrl(img.url) || "/placeholder.svg"
+                              return (
+                                <img
+                                  key={`next-desktop-${img.url}-${idx}`}
+                                  src={resolved || "/placeholder.svg"}
+                                  alt={String(img.z)}
+                                  decoding="async"
+                                  loading="eager"
+                                  fetchPriority="high"
+                                  style={{
+                                    position: "absolute",
+                                    top: -99999,
+                                    left: -99999,
+                                    width: 1,
+                                    height: 1,
+                                    visibility: "hidden",
+                                  }}
+                                />
+                              )
+                            })}
+                          </div>
                         </div>
                       </div>
                     ) : (
@@ -517,42 +691,123 @@ export default function TasksPage() {
                             ? task.gridUrls
                             : [task?.leftImageUrl, task?.rightImageUrl].filter(Boolean)
                         ) as string[]
+
                         if (urls.length <= 2) {
                           return (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md border">
+                            <div className="grid grid-cols-2 gap-4 relative max-w-2xl mx-auto">
+                              {backgroundUrl && (
+                                <img
+                                  src={getCachedUrl(backgroundUrl) || "/placeholder.svg"}
+                                  alt="Background"
+                                  decoding="async"
+                                  loading="eager"
+                                  fetchPriority="high"
+                                  className="absolute inset-0 w-full h-full object-cover"
+                                  style={{ zIndex: 0 }}
+                                />
+                              )}
+                              <div className="aspect-square w-full overflow-hidden border" style={{ zIndex: 1 }}>
                                 {urls[0] && (
-                                  <img
-                                    src={urls[0] || "/placeholder.svg"}
+                                  <Image
+                                    src={getCachedUrl(urls[0]) || "/placeholder.svg"}
                                     alt="left"
+                                    width={300}
+                                    height={300}
                                     className="h-full w-full object-contain"
+                                    loading="eager"
+                                    unoptimized={urls[0]?.includes("blob.core.windows.net")}
                                   />
                                 )}
                               </div>
-                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md border">
+                              <div className="aspect-square w-full overflow-hidden border" style={{ zIndex: 1 }}>
                                 {urls[1] && (
-                                  <img
-                                    src={urls[1] || "/placeholder.svg"}
+                                  <Image
+                                    src={getCachedUrl(urls[1]) || "/placeholder.svg"}
                                     alt="right"
+                                    width={300}
+                                    height={300}
                                     className="h-full w-full object-contain"
+                                    loading="eager"
+                                    unoptimized={urls[1]?.includes("blob.core.windows.net")}
                                   />
                                 )}
                               </div>
                             </div>
                           )
                         }
+
+                        if (urls.length === 3) {
+                          return (
+                            <div className="relative max-w-2xl mx-auto">
+                              {backgroundUrl && (
+                                <img
+                                  src={getCachedUrl(backgroundUrl) || "/placeholder.svg"}
+                                  alt="Background"
+                                  decoding="async"
+                                  loading="eager"
+                                  fetchPriority="high"
+                                  className="absolute inset-0 w-full h-full object-cover"
+                                  style={{ zIndex: 0 }}
+                                />
+                              )}
+                              <div className="flex flex-col gap-4" style={{ zIndex: 1 }}>
+                                <div className="grid grid-cols-2 gap-4">
+                                  {urls.slice(0, 2).map((url, i) => (
+                                    <div key={i} className="aspect-square w-full overflow-hidden border">
+                                      <Image
+                                        src={getCachedUrl(url as string) || "/placeholder.svg"}
+                                        alt={`element-${i + 1}`}
+                                        width={300}
+                                        height={300}
+                                        className="h-full w-full object-contain"
+                                        unoptimized={(url as string)?.includes("blob.core.windows.net")}
+                                      />
+                                    </div>
+                                  ))}
+                                </div>
+                                <div className="w-full flex justify-center">
+                                  <div className="aspect-square w-1/2 overflow-hidden border">
+                                    <Image
+                                      src={getCachedUrl(urls[2] as string) || "/placeholder.svg"}
+                                      alt="element-3"
+                                      width={300}
+                                      height={300}
+                                      className="h-full w-full object-contain"
+                                      unoptimized={(urls[2] as string)?.includes("blob.core.windows.net")}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        }
+
                         return (
-                          <div className={`grid grid-cols-2 gap-4`}>
+                          <div className="grid grid-cols-2 gap-4 relative max-w-2xl mx-auto">
+                            {backgroundUrl && (
+                              <img
+                                src={getCachedUrl(backgroundUrl) || "/placeholder.svg"}
+                                alt="Background"
+                                decoding="async"
+                                loading="eager"
+                                fetchPriority="high"
+                                className="absolute inset-0 w-full h-full object-cover"
+                                style={{ zIndex: 0 }}
+                              />
+                            )}
                             {urls.slice(0, 4).map((url, i) => (
                               <div
                                 key={i}
-                                className="aspect-[4/3] w-full md:h-[24vh] lg:h-[26vh] overflow-hidden rounded-md border"
+                                className="aspect-square w-full overflow-hidden border"
+                                style={{ zIndex: 1 }}
                               >
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                  src={(url as string) || "/placeholder.svg"}
+                                <Image
+                                  src={getCachedUrl(url as string) || "/placeholder.svg"}
                                   alt={`element-${i + 1}`}
+                                  width={300}
+                                  height={300}
                                   className="h-full w-full object-contain"
+                                  unoptimized={(url as string)?.includes("blob.core.windows.net")}
                                 />
                               </div>
                             ))}
@@ -566,42 +821,64 @@ export default function TasksPage() {
                       <div className="text-center text-balance">{task?.rightLabel ?? ""}</div>
                     </div>
 
-                    {/* Labels and rating scale - Larger for desktop */}
-                    <div className="w-full max-w-2xl mx-auto mt-6">
-                      <div className="flex items-end justify-center">
-                        <div className="flex items-end justify-between w-full max-w-lg">
+                    <div className="w-full max-w-2xl mx-auto mt-4">
+                      <div className="flex items-center justify-center mb-3">
+                        <div className="flex items-center justify-between w-full max-w-lg gap-2">
                           {[1, 2, 3, 4, 5].map((n) => {
                             const selected = lastSelected === n
-                            let labelText = ""
-                            if (n === 1) labelText = scaleLabels.left
-                            if (n === 3) labelText = scaleLabels.middle
-                            if (n === 5) labelText = scaleLabels.right
-
                             return (
-                              <div
+                              <button
                                 key={n}
-                                className="relative flex flex-col items-center w-[90px]"
+                                onClick={() => handleSelect(n)}
+                                className={`h-11 w-11 lg:h-12 lg:w-12 xl:h-14 xl:w-14 rounded-full border-2 transition-colors text-sm lg:text-base xl:text-lg font-semibold flex-shrink-0 ${
+                                  selected
+                                    ? "bg-[rgba(38,116,186,1)] text-white border-[rgba(38,116,186,1)]"
+                                    : "bg-white text-gray-700 border-gray-300 hover:border-gray-400"
+                                }`}
                                 onMouseEnter={() => {
                                   hoverCountsRef.current[n] = (hoverCountsRef.current[n] || 0) + 1
                                   lastViewTimeRef.current = new Date().toISOString()
                                 }}
                               >
-                                <div className="mb-3 w-full text-xs lg:text-sm xl:text-base font-medium text-gray-900 text-center leading-tight text-balance px-1 min-h-[3rem] flex items-end justify-center">
-                                  <span className="break-words hyphens-auto">{labelText}</span>
-                                </div>
-                                <button
-                                  onClick={() => handleSelect(n)}
-                                  className={`h-10 w-10 sm:h-11 sm:w-11 lg:h-12 lg:w-12 xl:h-14 xl:w-14 rounded-full border-2 lg:border-2 transition-colors text-sm lg:text-base xl:text-lg font-semibold flex-shrink-0 ${
-                                    selected
-                                      ? "border-[rgba(38,116,186,1)] text-[rgba(38,116,186,1)] bg-white"
-                                      : "border-gray-200 text-gray-700 hover:border-gray-300 bg-white"
-                                  }`}
-                                >
-                                  {n}
-                                </button>
-                              </div>
+                                {n}
+                              </button>
                             )
                           })}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col items-start justify-center gap-2 px-2">
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <div className="h-8 w-8 lg:h-9 lg:w-9 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs lg:text-sm font-semibold text-gray-700 flex-shrink-0">
+                            1
+                          </div>
+                          {scaleLabels.left && (
+                            <div className="text-sm lg:text-base xl:text-lg font-medium text-gray-800 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
+                              {scaleLabels.left}
+                            </div>
+                          )}
+                        </div>
+
+                        {scaleLabels.middle && (
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <div className="h-8 w-8 lg:h-9 lg:w-9 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs lg:text-sm font-semibold text-gray-700 flex-shrink-0">
+                              3
+                            </div>
+                            <div className="text-sm lg:text-base xl:text-lg font-medium text-gray-800 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
+                              {scaleLabels.middle}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <div className="h-8 w-8 lg:h-9 lg:w-9 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs lg:text-sm font-semibold text-gray-700 flex-shrink-0">
+                            5
+                          </div>
+                          {scaleLabels.right && (
+                            <div className="text-sm lg:text-base xl:text-lg font-medium text-gray-800 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
+                              {scaleLabels.right}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>

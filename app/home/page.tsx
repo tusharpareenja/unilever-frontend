@@ -6,7 +6,7 @@ import { DashboardHeader } from "./components/dashboard-header"
 import { OverviewCards } from "./components/overview-cards"
 import { StudyFilters } from "./components/study-filters"
 import { StudyGrid } from "./components/study-grid"
-import { AuthGuard } from "@/components/auth/AuthGuard"
+import { AuthGuardDebug as AuthGuard } from "@/components/auth/AuthGuardDebug"
 import { getStudies, StudyListItem } from "@/lib/api/StudyAPI"
 
 export default function DashboardPage() {
@@ -105,12 +105,12 @@ export default function DashboardPage() {
 
   return (
     <AuthGuard requireAuth={true}>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5 }}
-        className="min-h-screen bg-slate-100"
-      >
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5 }}
+          className="min-h-screen bg-slate-100"
+        >
         <DashboardHeader />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -139,7 +139,7 @@ export default function DashboardPage() {
             error={error}
           />
         </div>
-      </motion.div>
+        </motion.div>
     </AuthGuard>
   )
 }

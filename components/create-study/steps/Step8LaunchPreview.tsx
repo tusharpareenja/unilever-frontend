@@ -12,11 +12,17 @@ function get<T>(key: string, fallback: T): T {
 
 // Remove stored study id used for fast launch
 function clearStoredStudyId() {
-  try { localStorage.removeItem('cs_study_id') } catch {}
+  try { 
+    localStorage.removeItem('cs_study_id')
+    localStorage.removeItem('cs_flash_message')
+  } catch (error) {
+    console.warn('Failed to clear stored study id:', error)
+  }
 }
 
 export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => void; onDataChange?: () => void }) {
   const [isLaunching, setIsLaunching] = useState(false)
+  const [launchStage, setLaunchStage] = useState(0)
   const [launchError, setLaunchError] = useState<string | null>(null)
   const [isConfirmed, setIsConfirmed] = useState(false)
 
@@ -40,7 +46,20 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
 
     // Show launching indicator during create call only
     setIsLaunching(true)
+    setLaunchStage(0)
     setLaunchError(null)
+    
+    // Stage 1: Creating your study
+    setLaunchStage(1)
+    await new Promise(resolve => setTimeout(resolve, 2000))
+    
+    // Stage 2: Activating your study
+    setLaunchStage(2)
+    await new Promise(resolve => setTimeout(resolve, 2000))
+    
+    // Stage 3: Finalizing setup
+    setLaunchStage(3)
+    await new Promise(resolve => setTimeout(resolve, 1500))
 
     try {
       // Prefer fast launch if we already have a study_id from Step 7
@@ -219,7 +238,28 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
         'cs_step6', 'cs_step7', 'cs_step7_tasks', 'cs_step7_matrix', 'cs_step7_meta', 'cs_step7_signature',
         'cs_current_step', 'cs_backup_steps', 'cs_study_id', 'cs_flash_message'
       ]
-      keysToRemove.forEach(key => localStorage.removeItem(key))
+      
+      // Remove all keys and log for debugging
+      keysToRemove.forEach(key => {
+        try {
+          localStorage.removeItem(key)
+          console.log(`Cleared localStorage key: ${key}`)
+        } catch (error) {
+          console.warn(`Failed to remove localStorage key ${key}:`, error)
+        }
+      })
+      
+      // Additional cleanup: remove any remaining step7 related keys that might exist
+      try {
+        const allKeys = Object.keys(localStorage)
+        const step7Keys = allKeys.filter(key => key.startsWith('cs_step7'))
+        step7Keys.forEach(key => {
+          localStorage.removeItem(key)
+          console.log(`Cleared additional step7 key: ${key}`)
+        })
+      } catch (error) {
+        console.warn('Failed to clean up additional step7 keys:', error)
+      }
 
       // Redirect to study page after activation
       window.location.href = `/home/study/${studyId}`
@@ -228,6 +268,7 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
       setLaunchError(error.message || 'Failed to launch study. Please try again.')
     } finally {
       setIsLaunching(false)
+      setLaunchStage(0)
     }
   }
 
@@ -487,11 +528,19 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
       {isLaunching && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
           <div className="bg-white rounded-xl shadow-lg px-8 py-6 text-center">
-            <div className="mx-auto mb-3 relative inline-flex">
-              <span className="animate-ping absolute inline-flex h-6 w-6 rounded-full bg-[rgba(38,116,186,1)] opacity-30"></span>
-              <span className="relative inline-flex rounded-full h-6 w-6 bg-[rgba(38,116,186,1)]"></span>
+            <div className="mx-auto mb-4 relative inline-flex">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[rgba(38,116,186,1)]"></div>
             </div>
-            <div className="text-sm font-semibold text-gray-800">Launching… Please wait</div>
+            <div className="text-lg font-semibold text-gray-800 mb-2">
+              {launchStage === 1 && "📝 Creating your study..."}
+              {launchStage === 2 && "🚀 Activating your study..."}
+              {launchStage === 3 && "⚙️ Finalizing setup..."}
+            </div>
+            <div className="text-sm text-gray-600">
+              {launchStage === 1 && "Setting up your study configuration"}
+              {launchStage === 2 && "Making your study live and accessible"}
+              {launchStage === 3 && "Preparing everything for participants"}
+            </div>
           </div>
         </div>
       )}

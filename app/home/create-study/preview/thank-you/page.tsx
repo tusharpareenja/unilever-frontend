@@ -208,13 +208,13 @@ export default function ThankYouPage() {
 
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
-            <button
+            {/* <button
               onClick={handleReturnHome}
               className="flex items-center justify-center gap-2 px-6 py-3 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
             >
               <Home className="h-4 w-4" />
               Return to home
-            </button>
+            </button> */}
             <button
               onClick={handleCloseTab}
               className="flex items-center justify-center gap-2 px-6 py-3 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"

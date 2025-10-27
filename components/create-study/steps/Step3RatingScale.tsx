@@ -67,17 +67,6 @@ export function Step3RatingScale({ onNext, onBack, onDataChange }: Step3RatingSc
   const formatLabel = (label: string, fallback: string) => {
     const text = (label || "").trim()
     if (!text) return fallback
-    if (text.includes(" ")) return text
-    if (text.length > 6) {
-      const mid = Math.ceil(text.length / 2)
-      return (
-        <>
-          {text.slice(0, mid)}
-          <wbr />
-          {text.slice(mid)}
-        </>
-      )
-    }
     return text
   }
 
@@ -98,10 +87,10 @@ export function Step3RatingScale({ onNext, onBack, onDataChange }: Step3RatingSc
               placeholder="e.g., Not at all important"
               value={minLabel}
               onChange={(e) => setMinLabel(e.target.value)}
-              maxLength={18}
+              maxLength={50}
               className="rounded-lg"
             />
-            <p className="mt-2 text-xs text-gray-500">Label for the minimum value (1) - Max 18 characters</p>
+            <p className="mt-2 text-xs text-gray-500">Label for the minimum value (1) - Max 50 characters</p>
           </div>
 
           <div>
@@ -112,10 +101,10 @@ export function Step3RatingScale({ onNext, onBack, onDataChange }: Step3RatingSc
               placeholder="e.g., Very important"
               value={maxLabel}
               onChange={(e) => setMaxLabel(e.target.value)}
-              maxLength={18}
+              maxLength={50}
               className="rounded-lg"
             />
-            <p className="mt-2 text-xs text-gray-500">Label for the maximum value (5) - Max 18 characters</p>
+            <p className="mt-2 text-xs text-gray-500">Label for the maximum value (5) - Max 50 characters</p>
           </div>
 
           <div className="md:col-span-2">
@@ -124,32 +113,48 @@ export function Step3RatingScale({ onNext, onBack, onDataChange }: Step3RatingSc
               placeholder="e.g., Fairly important"
               value={middleLabel}
               onChange={(e) => setMiddleLabel(e.target.value)}
-              maxLength={18}
+              maxLength={50}
               className="rounded-lg"
             />
-            <p className="mt-2 text-xs text-gray-500">Optional label for the middle value (3) - Max 18 characters</p>
+            <p className="mt-2 text-xs text-gray-500">Optional label for the middle value (3) - Max 50 characters</p>
           </div>
         </div>
 
         <div className="border rounded-xl p-5 bg-slate-50">
           <div className="text-sm font-medium text-gray-700 mb-4">Scale Preview</div>
-          <div className="flex items-start justify-center gap-4 px-2">
-            {[1, 2, 3, 4, 5].map((v) => (
-              <div key={v} className="relative flex flex-col items-center gap-2 pt-12 flex-1 max-w-[60px] sm:max-w-[80px]">
-                <div className="absolute top-0 text-xs text-gray-500 text-center w-full left-1/2 -translate-x-1/2 px-1 leading-tight whitespace-normal break-normal hyphens-none">
-                  {v === 1 ? (
-                    <div className="text-[10px] sm:text-xs">{formatLabel(minLabel, "Lowest")}</div>
-                  ) : v === 3 && middleLabel ? (
-                    <div className="text-[10px] sm:text-xs">{formatLabel(middleLabel, "")}</div>
-                  ) : v === 5 ? (
-                    <div className="text-[10px] sm:text-xs">{formatLabel(maxLabel, "Highest")}</div>
-                  ) : null}
-                </div>
-                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 border-[rgba(38,116,186,1)] text-[rgba(38,116,186,1)] flex items-center justify-center font-medium text-sm sm:text-base">
+          <div className="flex flex-col items-center gap-4">
+            {/* Horizontal scale 1 2 3 4 5 */}
+            <div className="flex items-center justify-center gap-4 px-2">
+              {[1, 2, 3, 4, 5].map((v) => (
+                <div key={v} className="w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 border-[rgba(38,116,186,1)] text-[rgba(38,116,186,1)] flex items-center justify-center font-medium text-sm sm:text-base">
                   {v}
                 </div>
+              ))}
+            </div>
+            
+            {/* Vertical labels below - 1, 3, 5 in small grey circles */}
+            <div className="flex flex-col items-start gap-2 min-w-[200px]">
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded-full border border-gray-400 bg-gray-100 text-gray-600 flex items-center justify-center text-xs font-medium flex-shrink-0" style={{ minWidth: '20px', minHeight: '20px' }}>
+                  1
+                </div>
+                <span className="text-xs text-gray-600 whitespace-nowrap">{formatLabel(minLabel, "Lowest")}</span>
               </div>
-            ))}
+              {middleLabel && (
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full border border-gray-400 bg-gray-100 text-gray-600 flex items-center justify-center text-xs font-medium flex-shrink-0" style={{ minWidth: '20px', minHeight: '20px' }}>
+                    3
+                  </div>
+                  <span className="text-xs text-gray-600 whitespace-nowrap">{formatLabel(middleLabel, "")}</span>
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded-full border border-gray-400 bg-gray-100 text-gray-600 flex items-center justify-center text-xs font-medium flex-shrink-0" style={{ minWidth: '20px', minHeight: '20px' }}>
+                  5
+                </div>
+                <span className="text-xs text-gray-600 whitespace-nowrap">{formatLabel(maxLabel, "Highest")}</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>

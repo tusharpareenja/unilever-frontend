@@ -141,11 +141,23 @@ export function Step2StudyType({ onNext, onBack, value, onDataChange }: Step2Stu
 
         <div>
           <label className="block text-sm font-semibold text-gray-800 mb-2">Orientation Text for Respondents <span className="text-red-500">*</span></label>
-          <input
-            className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+          <textarea
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] resize-none min-h-[120px] max-h-[300px] overflow-y-auto"
             placeholder="Enter the welcome message for respondents"
             value={orientationText}
             onChange={(e) => setOrientationText(e.target.value)}
+            rows={4}
+            style={{
+              height: 'auto',
+              minHeight: '120px',
+              maxHeight: '300px',
+              overflowY: orientationText.length > 200 ? 'auto' : 'hidden'
+            }}
+            onInput={(e) => {
+              const target = e.target as HTMLTextAreaElement;
+              target.style.height = 'auto';
+              target.style.height = Math.min(target.scrollHeight, 300) + 'px';
+            }}
           />
           <p className="mt-2 text-xs text-gray-500">This text will be displayed to respondents at the start of the study</p>
         </div>

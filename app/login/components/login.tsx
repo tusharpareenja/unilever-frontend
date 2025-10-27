@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Eye, EyeOff } from "lucide-react"
 import { login as loginApi, forgotPassword } from "@/lib/api/LoginApi"
 import { useAuth } from "@/lib/auth/AuthContext"
+import { signIn } from "next-auth/react"
 
 interface LoginFormProps {
   onSwitchToRegister: () => void
@@ -26,13 +27,25 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
   const { login } = useAuth()
   const router = useRouter()
 
+  const handleGoogleSignIn = async () => {
+    try {
+      // Use NextAuth.js with callbackUrl to redirect to a custom handler page
+      await signIn("google", { 
+        callbackUrl: "/auth/callback"
+      })
+      
+    } catch (error) {
+      setErrorMessage("Google sign-in failed. Please try again.")
+    }
+  }
+
   const handleForgotPasswordSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
     const emailOrUsername = formData.get('emailOrUsername') as string
     
     if (!emailOrUsername.trim()) {
-      alert("Please enter your email or username.")
+      alert("Please enter your email.")
       return
     }
 
@@ -41,7 +54,7 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
       // console.log("Calling forgot password API with:", emailOrUsername.trim())
       // Call the real forgot password API
       const response = await forgotPassword({
-        username_or_email: emailOrUsername.trim()
+        email: emailOrUsername.trim()
       })
       // console.log("API Response:", response)
       alert("Password reset link has been sent to your email address")
@@ -94,13 +107,13 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
             setErrorMessage("")
             setSuccessMessage("")
             if (!identifier || !password) {
-              setErrorMessage("Please enter username/email and password.")
+              setErrorMessage("Please enter email and password.")
               return
             }
             setIsSubmitting(true)
             try {
               const response = await loginApi({
-                username_or_email: identifier,
+                email: identifier,
                 password,
               })
               
@@ -153,10 +166,10 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
             </div>
           )}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Username or Email</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
             <Input
-              type="text"
-              placeholder="Enter your username or email"
+              type="email"
+              placeholder="Enter your email"
               className="w-full px-4 py-3 rounded-full border border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
@@ -215,12 +228,12 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
           </div>
 
           <div className="flex justify-center space-x-4">
-            {/* Social login buttons can be uncommented and customized */}
-            {/* <button
+            <button
               type="button"
-              className="w-12 h-12 bg-white border border-gray-200 rounded-full flex items-center justify-center hover:bg-gray-50 shadow-sm transition-colors"
+              onClick={handleGoogleSignIn}
+              className="w-full bg-white border border-gray-200 rounded-full flex items-center justify-center hover:bg-gray-50 shadow-sm transition-colors py-3 px-4"
             >
-              <svg className="w-5 h-5" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
                 <path
                   fill="#4285F4"
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -238,7 +251,8 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
                   d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                 />
               </svg>
-            </button> */}
+              <span className="text-gray-700 font-medium">Continue with Google</span>
+            </button>
           </div>
 
           <div className="text-center mt-6">
@@ -270,18 +284,18 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
               </div>
               
               <p className="text-gray-600 mb-6 leading-relaxed">
-                Enter your email address or username and we'll send you a link to reset your password.
+                Enter your email address and we'll send you a link to reset your password.
               </p>
 
               <form onSubmit={handleForgotPasswordSubmit} className="space-y-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email or Username
+                    Email
                   </label>
                   <Input
                     name="emailOrUsername"
-                    type="text"
-                    placeholder="Enter your email or username"
+                    type="email"
+                    placeholder="Enter your email"
                     className="w-full px-4 py-3 rounded-full border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
                     required
                   />
