@@ -1,6 +1,6 @@
 "use client"
 
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { useMemo, useRef, useState, useEffect } from "react"
 // import { DashboardHeader } from "@/app/home/components/dashboard-header"
 import { startStudy, getRespondentStudyDetails } from "@/lib/api/ResponseAPI"
@@ -9,6 +9,7 @@ import { getStudyDetailsWithoutAuth, getStudyDetailsForStart } from "@/lib/api/S
 export default function ParticipateIntroPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [isStarting, setIsStarting] = useState(false)
   const [studyDetails, setStudyDetails] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -31,15 +32,30 @@ export default function ParticipateIntroPage() {
 
     // Capture rid query once and store in localStorage for post-completion redirect
     try {
+      // Method 1: Using Next.js useSearchParams
+      const ridFromSearchParams = searchParams.get('rid')
+      console.log('Rid from useSearchParams:', ridFromSearchParams) // Debug log
+      
+      // Method 2: Using window.location.search as fallback
       const search = typeof window !== 'undefined' ? window.location.search : ''
-      if (search) {
-        const params = new URLSearchParams(search)
-        const rid = params.get('rid')
-        if (rid) {
-          localStorage.setItem('redirect_rid', rid)
-        }
+      console.log('URL search params:', search) // Debug log
+      
+      let rid = ridFromSearchParams
+      if (!rid && search) {
+        const urlParams = new URLSearchParams(search)
+        rid = urlParams.get('rid')
+        console.log('Found rid from URLSearchParams:', rid) // Debug log
       }
-    } catch {}
+      
+      if (rid) {
+        localStorage.setItem('redirect_rid', rid)
+        console.log('Stored rid in localStorage:', rid) // Debug log
+      } else {
+        console.log('No rid parameter found in URL') // Debug log
+      }
+    } catch (error) {
+      console.error('Error capturing rid parameter:', error)
+    }
 
     const fetchStudyDetails = async () => {
       if (!params?.id) return
@@ -414,5 +430,6 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     </div>
   )
 }
+
 
 

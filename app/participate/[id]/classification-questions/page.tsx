@@ -211,7 +211,7 @@ export default function ClassificationQuestionsPage() {
     const answers: Record<string, string> = {}
     questions.forEach(q => { if (q.selected) answers[q.id] = q.selected })
     localStorage.setItem('classification_answers', JSON.stringify(answers))
-    router.push(`/participate/${params?.id}/tasks`)
+    router.push(`/participate/${params?.id}/orientation-page`)
   }
 
   const canProceed = questions.every(q => !q.required || q.selected !== null)
@@ -240,10 +240,10 @@ export default function ClassificationQuestionsPage() {
           </p>
           <div className="mt-8 flex justify-center">
             <button
-              onClick={() => router.push(`/participate/${params?.id}/tasks`)}
+              onClick={() => router.push(`/participate/${params?.id}/orientation-page`)}
               className="px-5 py-2 rounded-md bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] text-white text-sm"
             >
-              Continue to Tasks
+              Continue to Orientation
             </button>
           </div>
         </div>

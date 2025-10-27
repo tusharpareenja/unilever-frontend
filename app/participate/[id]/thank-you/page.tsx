@@ -136,7 +136,9 @@ export default function ThankYouPage() {
     // If redirected id exists, schedule redirect 2s after thank-you shows
     try {
       const rid = localStorage.getItem('redirect_rid')
+      console.log('Thank you page - checking for rid:', rid) // Debug log
       if (rid) {
+        console.log('Found rid in localStorage, setting up redirect:', rid) // Debug log
         setRedirecting(true)
         setCountdown(3)
         const interval = setInterval(() => {
@@ -146,14 +148,19 @@ export default function ThankYouPage() {
               clearInterval(interval)
               try { localStorage.removeItem('redirect_rid') } catch {}
               const cintRid = encodeURIComponent(rid)
+              console.log('Redirecting to:', `https://notch.insights.supply/cb?token=446a1929-7cfa-4ee3-9778-a9e9dae498ac&RID=${cintRid}`) // Debug log
               window.location.href = `https://notch.insights.supply/cb?token=446a1929-7cfa-4ee3-9778-a9e9dae498ac&RID=${cintRid}`
               return 0
             }
             return prev - 1
           })
         }, 1000)
+      } else {
+        console.log('No rid found in localStorage') // Debug log
       }
-    } catch {}
+    } catch (error) {
+      console.error('Error handling rid redirect:', error)
+    }
     // Prevent back navigation - if user tries to go back, redirect to thank you page
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
       // This will show a confirmation dialog if user tries to leave

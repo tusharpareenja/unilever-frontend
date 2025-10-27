@@ -975,6 +975,20 @@ export async function generateTasksWithPolling(
     const statusHint: string | undefined = (immediateResult as any)?.metadata?.status || (immediateResult as any)?.status
     if (jobId || (statusHint && ['started','pending','processing'].includes(statusHint))) {
       const effectiveJobId = String(jobId || (immediateResult as any)?.metadata?.job_id || (immediateResult as any)?.data?.job_id)
+      
+      // Store study_id immediately when background job starts (for page refresh resilience)
+      const immediateStudyId = (immediateResult as any)?.study_id 
+        || (immediateResult as any)?.metadata?.study_id 
+        || (immediateResult as any)?.data?.study_id
+      if (immediateStudyId) {
+        console.log('[API] Storing study_id immediately when background job starts:', immediateStudyId)
+        try {
+          localStorage.setItem('cs_study_id', JSON.stringify(String(immediateStudyId)))
+        } catch (storageError) {
+          console.warn('Failed to store study_id immediately:', storageError)
+        }
+      }
+      
       console.log('🔄 Background job started, polling for completion...')
       const finalStatus = await pollJobStatus(effectiveJobId, onProgress, 5000) // 5 second interval
       if (finalStatus.status === 'completed') {

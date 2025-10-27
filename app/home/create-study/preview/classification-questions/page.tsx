@@ -41,7 +41,7 @@ export default function PreviewClassificationQuestions() {
           </div>
 
           <div className="mt-8 flex justify-end">
-            <button disabled={!canProceed} onClick={()=>router.push('/home/create-study/preview/tasks')} className="px-5 py-2 rounded-md bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] text-white text-sm disabled:bg-gray-300 disabled:cursor-not-allowed">Continue</button>
+            <button disabled={!canProceed} onClick={()=>router.push('/home/create-study/preview/orientation-page')} className="px-5 py-2 rounded-md bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] text-white text-sm disabled:bg-gray-300 disabled:cursor-not-allowed">Continue</button>
           </div>
         </div>
       </div>
