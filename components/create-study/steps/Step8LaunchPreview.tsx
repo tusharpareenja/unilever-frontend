@@ -69,8 +69,17 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
       let studyId = existingStudyId
 
       if (existingStudyId) {
-        // Build partial update payload from current localStorage values
-        // Build audience segmentation from step6
+        console.log('[Step8] Using existing study_id for fast launch:', existingStudyId)
+        
+        // Validate that the study_id is a valid string and not empty
+        if (typeof existingStudyId !== 'string' || existingStudyId.trim() === '') {
+          console.warn('[Step8] Invalid study_id found, falling back to create new study')
+          const result = await createStudyFromLocalStorage()
+          studyId = result?.id || result?.study_id || result?.data?.id
+        } else {
+          try {
+            // Build partial update payload from current localStorage values
+            // Build audience segmentation from step6
         const gender_distribution: Record<string, number> = {
           male: Number(step6.genderMale || 0),
           female: Number(step6.genderFemale || 0),
@@ -206,6 +215,23 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
         }
         const updated = await res.json().catch(() => ({}))
         studyId = updated?.id || existingStudyId
+          } catch (fastLaunchError) {
+            console.error('[Step8] Fast launch failed, falling back to create new study:', fastLaunchError)
+            const result = await createStudyFromLocalStorage()
+            studyId = result?.id || result?.study_id || result?.data?.id
+            if (studyId) {
+              try {
+                await fetchWithAuth(`${API_BASE_URL}/studies/${studyId}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ status: 'active' }),
+                })
+              } catch (activateError) {
+                console.warn('[Step8] Failed to activate fallback study:', activateError)
+              }
+            }
+          }
+        }
       } else {
         // Fallback: create + activate (legacy path)
         console.log('=== STEP 8 FALLBACK CREATE STUDY ===')
@@ -229,25 +255,37 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
       
       if (!studyId) {
         console.warn('Cannot activate study: study id missing in create response')
+        throw new Error('Study launch failed: no study ID available')
       }
 
-      // Clear all step data from localStorage (including cached step7 matrix)
-      clearStoredStudyId()
-      const keysToRemove = [
-        'cs_step1', 'cs_step2', 'cs_step3', 'cs_step4', 'cs_step5_grid', 'cs_step5_layer', 'cs_step5_layer_background', 
-        'cs_step6', 'cs_step7', 'cs_step7_tasks', 'cs_step7_matrix', 'cs_step7_meta', 'cs_step7_signature',
-        'cs_current_step', 'cs_backup_steps', 'cs_study_id', 'cs_flash_message'
-      ]
-      
-      // Remove all keys and log for debugging
-      keysToRemove.forEach(key => {
-        try {
-          localStorage.removeItem(key)
-          console.log(`Cleared localStorage key: ${key}`)
-        } catch (error) {
-          console.warn(`Failed to remove localStorage key ${key}:`, error)
-        }
-      })
+      console.log('[Step8] Study launch successful, study_id:', studyId)
+
+      // Only clear localStorage after confirming successful launch
+      try {
+        // Clear all step data from localStorage (including cached step7 matrix)
+        clearStoredStudyId()
+        const keysToRemove = [
+          'cs_step1', 'cs_step2', 'cs_step3', 'cs_step4', 'cs_step5_grid', 'cs_step5_layer', 'cs_step5_layer_background', 
+          'cs_step6', 'cs_step7', 'cs_step7_tasks', 'cs_step7_matrix', 'cs_step7_meta', 'cs_step7_signature',
+          'cs_current_step', 'cs_backup_steps', 'cs_study_id', 'cs_flash_message'
+        ]
+        
+        // Remove all keys and log for debugging
+        keysToRemove.forEach(key => {
+          try {
+            localStorage.removeItem(key)
+            console.log(`Cleared localStorage key: ${key}`)
+          } catch (error) {
+            console.warn(`Failed to remove localStorage key ${key}:`, error)
+          }
+        })
+        
+        console.log('[Step8] Successfully cleared all localStorage data after study launch')
+        console.log('[Step8] Study launch completed successfully, study_id cleared:', studyId)
+      } catch (clearError) {
+        console.warn('[Step8] Failed to clear some localStorage data:', clearError)
+        // Don't throw here as the study launch was successful
+      }
       
       // Additional cleanup: remove any remaining step7 related keys that might exist
       try {
@@ -265,6 +303,7 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
       window.location.href = `/home/study/${studyId}`
     } catch (error: any) {
       console.error('Failed to launch study:', error)
+      console.log('[Step8] Study launch failed, preserving study_id for retry')
       setLaunchError(error.message || 'Failed to launch study. Please try again.')
     } finally {
       setIsLaunching(false)

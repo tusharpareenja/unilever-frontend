@@ -207,24 +207,48 @@ export default function ParticipateIntroPage() {
       ;(async () => {
         try {
           const details: any = await getStudyDetailsForStart(params.id)
-          if (!details) return
+          if (!details) {
+            console.error('[Participate] No study details found for study:', params.id)
+            return
+          }
+          
+          console.log('[Participate] Study details received:', {
+            study_id: params.id,
+            hasTasks: !!(details?.tasks),
+            hasDataTasks: !!(details?.data?.tasks),
+            hasTaskMap: !!(details?.task_map),
+            hasTask: !!(details?.task),
+            tasksType: typeof details?.tasks,
+            dataTasksType: typeof details?.data?.tasks,
+            taskMapType: typeof details?.task_map,
+            taskType: typeof details?.task
+          })
           
           const tasksSrc: any = details?.tasks || details?.data?.tasks || details?.task_map || details?.task || {}
           let userTasks: any[] = []
           
           if (Array.isArray(tasksSrc)) {
             userTasks = tasksSrc
+            console.log('[Participate] Tasks found as array, count:', userTasks.length)
           } else if (tasksSrc && typeof tasksSrc === 'object') {
             const rk = String(response.respondent_id ?? 0)
             userTasks = tasksSrc?.[rk] || tasksSrc?.[Number(rk)] || []
+            console.log('[Participate] Tasks found as object, respondent_id:', rk, 'tasks count:', userTasks.length)
             if (!Array.isArray(userTasks) || userTasks.length === 0) {
+              console.log('[Participate] No tasks for respondent, trying fallback...')
               for (const v of Object.values(tasksSrc)) { 
                 if (Array.isArray(v) && v.length) { 
                   userTasks = v; 
+                  console.log('[Participate] Found fallback tasks, count:', userTasks.length)
                   break 
                 } 
               }
             }
+          }
+          
+          console.log('[Participate] Final user tasks count:', userTasks.length)
+          if (userTasks.length === 0) {
+            console.error('[Participate] No tasks available for study:', params.id, 'This may indicate a study_id mismatch issue.')
           }
           
           // Store only essential data to avoid localStorage quota issues

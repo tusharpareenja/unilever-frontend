@@ -33,17 +33,28 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
   const isLoadingFromCache = useRef<boolean>(false)
 
   // Job persistence functions
-  const saveJobState = (jobId: string, status: JobStatus, startTime: number) => {
+  const saveJobState = (jobId: string, status: JobStatus, startTime: number, studyId?: string) => {
     try {
       const jobState = {
         jobId,
         status,
         startTime,
         progress: status.progress || 0,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        studyId: studyId || null
       }
       localStorage.setItem('cs_step7_job_state', JSON.stringify(jobState))
-      console.log('[Step7] Saved job state with progress:', jobState.progress + '%')
+      console.log('[Step7] Saved job state with progress:', jobState.progress + '%', studyId ? `and study_id: ${studyId}` : '')
+      
+      // Also persist study_id separately if available
+      if (studyId) {
+        try {
+          localStorage.setItem('cs_study_id', JSON.stringify(studyId))
+          console.log('[Step7] Persisted study_id from job state:', studyId)
+        } catch (storageError) {
+          console.warn('Failed to store study_id from job state:', storageError)
+        }
+      }
     } catch (error) {
       console.warn('Failed to save job state:', error)
     }
@@ -55,6 +66,17 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
       if (saved) {
         const jobState = JSON.parse(saved)
         console.log('[Step7] Loaded job state:', jobState)
+        
+        // Restore study_id if available in job state
+        if (jobState.studyId) {
+          try {
+            localStorage.setItem('cs_study_id', JSON.stringify(jobState.studyId))
+            console.log('[Step7] Restored study_id from job state:', jobState.studyId)
+          } catch (storageError) {
+            console.warn('Failed to restore study_id from job state:', storageError)
+          }
+        }
+        
         // Check if job is still active (not completed or failed)
         if (jobState.status && (jobState.status.status === 'processing' || jobState.status.status === 'pending')) {
           return jobState
@@ -79,6 +101,18 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
       console.log('[Step7] getTaskGenerationResult returned:', result)
       if (result && result.tasks) {
         console.log('[Step7] Job was completed, fetching result and saving preview')
+        
+        // Ensure study_id is persisted from the result
+        const studyId = result?.study_id || result?.metadata?.study_id
+        if (studyId) {
+          try {
+            localStorage.setItem('cs_study_id', JSON.stringify(studyId))
+            console.log('[Step7] Persisted study_id from completed job result:', studyId)
+          } catch (storageError) {
+            console.warn('Failed to store study_id from completed job result:', storageError)
+          }
+        }
+        
         savePreviewAndComplete(result)
         clearJobState()
         clearTimerState()
@@ -212,7 +246,17 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
         setIsPolling(status.status === 'processing' || status.status === 'pending')
         
         // Update job state in localStorage with latest progress
-        saveJobState(jobId, monotonicStatus, jobStartTime || Date.now())
+        // Try to get study_id from job state or current localStorage
+        const currentJobState = loadJobState()
+        const studyId = currentJobState?.studyId || (() => {
+          try {
+            const stored = localStorage.getItem('cs_study_id')
+            return stored ? JSON.parse(stored) : null
+          } catch {
+            return null
+          }
+        })()
+        saveJobState(jobId, monotonicStatus, jobStartTime || Date.now(), studyId)
       }, 60, 5000) // 60 max attempts, 5 second base delay
       
       if (finalStatus.status === 'completed') {
@@ -329,6 +373,25 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
       console.log('[Step7] Submitting task generation payload')
       console.log('[Step7] Payload includes study_id:', !!payload.study_id, payload.study_id)
       
+      // First, get the immediate result to extract study_id
+      const immediateResult = await generateTasks(payload)
+      console.log('[Step7] Immediate result received:', {
+        hasData: !!immediateResult,
+        study_id: immediateResult?.study_id || immediateResult?.metadata?.study_id || immediateResult?.id,
+        job_id: immediateResult?.job_id || immediateResult?.metadata?.job_id
+      })
+      
+      // Extract study_id from immediate result for persistence
+      const extractedStudyId = immediateResult?.study_id || immediateResult?.metadata?.study_id || immediateResult?.id
+      if (extractedStudyId) {
+        try {
+          localStorage.setItem('cs_study_id', JSON.stringify(extractedStudyId))
+          console.log('[Step7] Persisted study_id from immediate result:', extractedStudyId)
+        } catch (storageError) {
+          console.warn('Failed to store study_id from immediate result:', storageError)
+        }
+      }
+      
       // Use the new polling-enabled generation
       const data = await generateTasksWithPolling(payload, (status) => {
         console.log('[Step7] Job status update:', {
@@ -356,7 +419,8 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
         if (status.job_id && (status.status === 'processing' || status.status === 'pending')) {
           const startTime = jobStartTime || Date.now()
           setJobStartTime(startTime)
-          saveJobState(status.job_id, monotonicStatus, startTime)
+          // Use the extracted study_id from immediate result
+          saveJobState(status.job_id, monotonicStatus, startTime, extractedStudyId)
         }
         
         if (status.status === 'completed') {
