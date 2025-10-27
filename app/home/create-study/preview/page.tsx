@@ -160,11 +160,36 @@ export default function ParticipateIntroPage() {
   const step1 = (()=>{ try{ return JSON.parse(localStorage.getItem('cs_step1')||'{}') }catch{return {}} })()
   const step2 = (()=>{ try{ return JSON.parse(localStorage.getItem('cs_step2')||'{}') }catch{return {}} })()
   const step6 = (()=>{ try{ return JSON.parse(localStorage.getItem('cs_step6')||'{}') }catch{return {}} })()
+  const step7matrix = (()=>{ try{ return JSON.parse(localStorage.getItem('cs_step7_matrix')||'{}') }catch{return {}} })()
+  
   const studyTitle = step1?.title || "Study Title"
   const estimatedTime = "2-5 minutes"
   const orientationText = step2?.orientationText || "Welcome to the study!"
   const studyType = step2?.type === "layer" ? "Layer Study" : "Grid Study"
-  const totalVignettes = step6?.respondents || 3
+  
+  // Calculate total number of tasks
+  let totalTasks = 0
+  if (step7matrix && typeof step7matrix === 'object') {
+    if (Array.isArray(step7matrix.preview_tasks)) {
+      totalTasks = step7matrix.preview_tasks.length
+    } else if (Array.isArray(step7matrix.tasks)) {
+      totalTasks = step7matrix.tasks.length
+    } else if (step7matrix.tasks && typeof step7matrix.tasks === 'object') {
+      const buckets = step7matrix.tasks as Record<string, any>
+      if (Array.isArray(buckets['0']) && buckets['0'].length) {
+        totalTasks = buckets['0'].length
+      } else {
+        for (const v of Object.values(buckets)) {
+          if (Array.isArray(v) && v.length) { 
+            totalTasks = v.length
+            break 
+          }
+        }
+      }
+    }
+  }
+  
+  const totalVignettes = totalTasks || 0
   const startHref = '/home/create-study/preview/personal-information'
 
   const handleStartStudy = async () => {
