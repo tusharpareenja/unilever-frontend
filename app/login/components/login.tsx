@@ -96,7 +96,7 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
       <div className="bg-white rounded-b-lg p-4 sm:p-6 md:p-8 shadow-lg">
         <div className="mb-8">
           <h2 className="text-2xl font-normal text-gray-800">
-            Welcome To <span className="text-blue-600 font-semibold">UniliverImageStudy</span>
+            Welcome To <span className="text-blue-600 font-semibold">Mindsurve</span>
           </h2>
         </div>
 

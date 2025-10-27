@@ -42,8 +42,8 @@ export function DashboardHeader() {
          {/* Logo */}
          <div className="flex items-center">
           <motion.div whileHover={{ scale: 1.05 }} className="text-2xl font-bold">
-            <span className="text-green-600">Ui</span>
-            <span className="text-gray-800">Study</span>
+            <span className="text-green-600">Mind</span>
+            <span className="text-gray-800">Surve</span>
           </motion.div>
         </div>
         
@@ -103,7 +103,7 @@ export function DashboardHeader() {
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-50"
+                className="absolute right-0 mt-2 w-50 bg-white rounded-md shadow-lg border border-gray-200 z-100"
               >
                 <div className="py-1">
                   <div className="px-4 py-2 text-sm text-gray-700 border-b border-gray-100">

@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Unilever Image Study",
-  description: "Unilever Image Study",
+  title: "Mindsurve",
+  description: "Mindsurve",
 };
 
 export default function RootLayout({

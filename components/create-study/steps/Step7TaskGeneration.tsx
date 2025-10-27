@@ -1414,11 +1414,11 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                   <div className="text-sm text-gray-600 font-medium">
                     {jobStatus.status}
                     {typeof jobStatus.progress === 'number' ? ` • ${Math.round(jobStatus.progress)}%` : ''}
-                    {jobStatus.status === 'processing' && jobStatus.progress !== undefined && jobStatus.progress > 0 && isResuming.current && (
+                    {/* {jobStatus.status === 'processing' && jobStatus.progress !== undefined && jobStatus.progress > 0 && isResuming.current && (
                       <div className="text-xs text-blue-600 mt-1">
                         Resuming from last progress...
                       </div>
-                    )}
+                    )} */}
                   </div>
                 )}
                 
