@@ -137,6 +137,18 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
     try {
       localStorage.removeItem('cs_step7_job_state')
       console.log('[Step7] Cleared job state')
+      
+      // Also reset all related React state variables immediately
+      setJobStatus(null)
+      setIsPolling(false)
+      setPollingError(null)
+      setJobStartTime(null)
+      setHighestProgress(0)
+      setCountdownSeconds(0)
+      countdownRef.current = 0
+      isResuming.current = false
+      
+      console.log('[Step7] Reset all job-related state variables')
     } catch (error) {
       console.warn('Failed to clear job state:', error)
     }
@@ -257,7 +269,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
           }
         })()
         saveJobState(jobId, monotonicStatus, jobStartTime || Date.now(), studyId)
-      }, 60, 5000) // 60 max attempts, 5 second base delay
+      }, 5000) // 5 second interval
       
       if (finalStatus.status === 'completed') {
         console.log('[Step7] Resumed job completed, fetching result...')
@@ -388,26 +400,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
       console.log('[Step7] Submitting task generation payload')
       console.log('[Step7] Payload includes study_id:', !!payload.study_id, payload.study_id)
       
-      // First, get the immediate result to extract study_id
-      const immediateResult = await generateTasks(payload)
-      console.log('[Step7] Immediate result received:', {
-        hasData: !!immediateResult,
-        study_id: immediateResult?.study_id || immediateResult?.metadata?.study_id || immediateResult?.id,
-        job_id: immediateResult?.job_id || immediateResult?.metadata?.job_id
-      })
-      
-      // Extract study_id from immediate result for persistence
-      const extractedStudyId = immediateResult?.study_id || immediateResult?.metadata?.study_id || immediateResult?.id
-      if (extractedStudyId) {
-        try {
-          localStorage.setItem('cs_study_id', JSON.stringify(extractedStudyId))
-          console.log('[Step7] Persisted study_id from immediate result:', extractedStudyId)
-        } catch (storageError) {
-          console.warn('Failed to store study_id from immediate result:', storageError)
-        }
-      }
-      
-      // Use the new polling-enabled generation
+      // Use the polling-enabled generation (this handles both immediate and background jobs)
       const data = await generateTasksWithPolling(payload, (status) => {
         console.log('[Step7] Job status update:', {
           job_id: status?.job_id,
@@ -434,8 +427,16 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
         if (status.job_id && (status.status === 'processing' || status.status === 'pending')) {
           const startTime = jobStartTime || Date.now()
           setJobStartTime(startTime)
-          // Use the extracted study_id from immediate result
-          saveJobState(status.job_id, monotonicStatus, startTime, extractedStudyId)
+          // Get study_id from localStorage or from the status
+          const studyId = (() => {
+            try {
+              const stored = localStorage.getItem('cs_study_id')
+              return stored ? JSON.parse(stored) : null
+            } catch {
+              return null
+            }
+          })()
+          saveJobState(status.job_id, monotonicStatus, startTime, studyId)
         }
         
         if (status.status === 'completed') {
@@ -460,6 +461,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
         console.log('[Step7] ✅ Task data received, processing...')
         console.log('[Step7] ✅ Calling savePreviewAndComplete with data:', data)
         savePreviewAndComplete(data)
+        clearJobState() // Clear job state when result endpoint returns data
       } else if (dataJobId) {
         // Background job started but not completed yet
         console.log('[Step7] Background job started; id:', dataJobId)

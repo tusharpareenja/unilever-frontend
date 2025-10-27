@@ -908,16 +908,16 @@ export async function cancelTaskGeneration(jobId: string): Promise<any> {
   return data
 }
 
-// Poll job status with exponential backoff
+// Poll job status with fixed 5-second intervals (no maximum attempts)
 export async function pollJobStatus(
   jobId: string, 
   onProgress?: (status: JobStatus) => void,
-  maxAttempts: number = 60,
-  baseDelay: number = 2000
+  intervalDelay: number = 5000
 ): Promise<JobStatus> {
-  console.log(`🔄 Starting job polling for job ${jobId}`)
+  console.log(`🔄 Starting continuous job polling for job ${jobId} (every ${intervalDelay}ms)`)
   
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+  let attempt = 1
+  while (true) {
     try {
       const status = await getTaskGenerationStatus(jobId)
       console.log(`📊 Job status (attempt ${attempt}):`, status.status, status.progress ? `${status.progress}%` : '')
@@ -936,25 +936,20 @@ export async function pollJobStatus(
         throw new Error(status.error || 'Job failed')
       }
       
-      // Calculate delay with exponential backoff (max 30 seconds)
-      const delay = Math.min(baseDelay * Math.pow(1.5, attempt - 1), 30000)
-      console.log(`⏳ Waiting ${delay}ms before next check...`)
-      await new Promise(resolve => setTimeout(resolve, delay))
+      // Wait exactly 5 seconds before next check
+      console.log(`⏳ Waiting ${intervalDelay}ms before next check...`)
+      await new Promise(resolve => setTimeout(resolve, intervalDelay))
+      attempt++
       
     } catch (error) {
       console.error(`❌ Error checking job status (attempt ${attempt}):`, error)
       
-      if (attempt === maxAttempts) {
-        throw error
-      }
-      
-      // Wait before retry
-      const delay = Math.min(baseDelay * Math.pow(1.5, attempt - 1), 30000)
-      await new Promise(resolve => setTimeout(resolve, delay))
+      // Wait before retry (same interval)
+      console.log(`⏳ Retrying in ${intervalDelay}ms...`)
+      await new Promise(resolve => setTimeout(resolve, intervalDelay))
+      attempt++
     }
   }
-  
-  throw new Error('Job polling timeout - maximum attempts reached')
 }
 
 // Enhanced task generation with background job support
@@ -981,7 +976,7 @@ export async function generateTasksWithPolling(
     if (jobId || (statusHint && ['started','pending','processing'].includes(statusHint))) {
       const effectiveJobId = String(jobId || (immediateResult as any)?.metadata?.job_id || (immediateResult as any)?.data?.job_id)
       console.log('🔄 Background job started, polling for completion...')
-      const finalStatus = await pollJobStatus(effectiveJobId, onProgress, 60, 5000) // 60 max attempts, 5 second base delay
+      const finalStatus = await pollJobStatus(effectiveJobId, onProgress, 5000) // 5 second interval
       if (finalStatus.status === 'completed') {
         // Fetch the final result from result endpoint
         console.log('🔄 Job completed, fetching final result...')
