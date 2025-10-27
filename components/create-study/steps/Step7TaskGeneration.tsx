@@ -31,6 +31,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
   const hasCheckedForExistingJob = useRef<boolean>(false)
   const isResuming = useRef<boolean>(false)
   const isLoadingFromCache = useRef<boolean>(false)
+  const [showTimer, setShowTimer] = useState<boolean>(false)
 
   // Job persistence functions
   const saveJobState = (jobId: string, status: JobStatus, startTime: number, studyId?: string) => {
@@ -695,6 +696,26 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
       }
     }
   }, [isPolling, isGenerating])
+
+  // Show timer after 1 second delay to prevent flickering
+  useEffect(() => {
+    if (!active) {
+      setShowTimer(false)
+      return
+    }
+    
+    // Don't show timer if loading from cache or matrix already exists
+    if (isLoadingFromCache.current || matrix) {
+      setShowTimer(false)
+      return
+    }
+    
+    const timer = setTimeout(() => {
+      setShowTimer(true)
+    }, 1000)
+    
+    return () => clearTimeout(timer)
+  }, [active, matrix])
 
   // Countdown timer logic: calculates remaining time based on job start time
   useEffect(() => {
@@ -1381,10 +1402,12 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
           {!matrix ? (
             <div className="flex items-center justify-center py-10 sm:py-14 md:py-16 min-h-[220px] sm:min-h-[260px] md:min-h-[300px]">
               <div className="text-center space-y-3">
-                {/* Main timer display */}
-                <div className="text-4xl sm:text-5xl md:text-6xl font-mono font-bold tracking-widest text-gray-900">
-                  {formattedCountdown}
-                </div>
+                {/* Main timer display - show after 1 second delay */}
+                {showTimer && (
+                  <div className="text-4xl sm:text-5xl md:text-6xl font-mono font-bold tracking-widest text-gray-900">
+                    {formattedCountdown}
+                  </div>
+                )}
                 
                 {/* Status line - properly aligned under timer */}
                 {jobStatus && jobStatus.status !== 'completed' && (
@@ -1686,13 +1709,28 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
         <div className="rounded-lg border bg-white p-4">
           <div className="text-sm font-semibold mb-3">Matrix Actions</div>
           <div className="flex flex-wrap gap-3 justify-start">
-            <Button onClick={handleRegenerateTasks} variant="outline" className="flex-shrink-0">
+            <Button 
+              onClick={handleRegenerateTasks} 
+              variant="outline" 
+              className="flex-shrink-0"
+              disabled={isGenerating || isPolling}
+            >
               {isGenerating ? "Regenerating..." : "Regenerate Tasks"}
             </Button>
-            <Button variant="outline" onClick={() => setIsStatsOpen(true)} className="flex-shrink-0">
+            <Button 
+              variant="outline" 
+              onClick={() => setIsStatsOpen(true)} 
+              className="flex-shrink-0"
+              disabled={isGenerating || isPolling}
+            >
               View Matrix Statistics
             </Button>
-            <Button variant="outline" onClick={() => downloadMatrixCSV().catch(console.error)} className="flex-shrink-0">
+            <Button 
+              variant="outline" 
+              onClick={() => downloadMatrixCSV().catch(console.error)} 
+              className="flex-shrink-0"
+              disabled={isGenerating || isPolling}
+            >
               📥 Download Matrix CSV
             </Button>
           </div>

@@ -53,6 +53,25 @@ export default function TasksPage() {
   }, [])
 
   useEffect(() => {
+    return () => {
+      try {
+        const cached = sessionStorage.getItem("task_img_cache")
+        if (cached) {
+          const cache = JSON.parse(cached)
+          Object.values(cache).forEach((url) => {
+            if (typeof url === "string" && url.startsWith("blob:")) {
+              URL.revokeObjectURL(url)
+            }
+          })
+        }
+        sessionStorage.removeItem("task_img_cache")
+      } catch {
+        // best-effort cleanup
+      }
+    }
+  }, [])
+
+  useEffect(() => {
     firstViewTimeRef.current = new Date().toISOString()
     lastViewTimeRef.current = null
     hoverCountsRef.current = {}
@@ -217,30 +236,8 @@ export default function TasksPage() {
         })
       
       setTasks(parsed)
-      // Preload all task images in background to avoid display jitter
-      try {
-        const urls = new Set<string>()
-        parsed.forEach((t) => {
-          if (t.layeredImages && t.layeredImages.length > 0) {
-            t.layeredImages.forEach((li) => li.url && urls.add(li.url))
-          } else {
-            if (t.gridUrls) {
-              t.gridUrls.forEach((url) => urls.add(url))
-            } else {
-              if (t.leftImageUrl) urls.add(t.leftImageUrl)
-              if (t.rightImageUrl) urls.add(t.rightImageUrl)
-            }
-          }
-        })
-        const unique = Array.from(urls).filter((u) => !preloadedUrlsRef.current.has(u))
-        unique.forEach((u) => preloadedUrlsRef.current.add(u))
-        unique.forEach((src) => {
-          const img = document.createElement('img')
-          ;(img as any).decoding = 'async'
-          ;(img as any).referrerPolicy = 'no-referrer'
-          img.src = src
-        })
-      } catch {}
+
+      const cacheStats = imageCacheManager.getCacheStats()
     } catch (err: unknown) {
       console.error('Failed to load tasks from localStorage:', err)
       setFetchError((err as Error)?.message || 'Failed to load tasks')
@@ -256,17 +253,76 @@ export default function TasksPage() {
   const [lastSelected, setLastSelected] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isInitialLoading, setIsInitialLoading] = useState(true)
-  const preloadedUrlsRef = useRef<Set<string>>(new Set())
 
-  // Hide initial loading after a short delay
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsInitialLoading(false)
-    }, 1000)
-    return () => clearTimeout(timer)
+    setIsInitialLoading(false)
   }, [])
 
-  // Reset timer when task changes
+  useEffect(() => {
+    if (!Array.isArray(tasks) || tasks.length === 0) return
+    try {
+      const allLayerUrls: string[] = Array.from(
+        new Set(
+          tasks
+            .flatMap((t: any) => (Array.isArray(t?.layeredImages) ? t.layeredImages : []))
+            .map((li: any) => li?.url)
+            .filter(Boolean),
+        ),
+      ) as string[]
+      const allWithBg = backgroundUrl ? [...allLayerUrls, backgroundUrl] : allLayerUrls
+      if (allWithBg.length > 0) {
+        imageCacheManager.prewarmUrls(allWithBg, "high")
+      }
+    } catch {}
+  }, [totalTasks, backgroundUrl])
+
+  useEffect(() => {
+    if (tasks.length === 0) return
+
+    const currentTask = tasks[currentTaskIndex]
+    if (!currentTask) return
+
+    const preloadCurrentTask = async () => {
+      const urls: string[] = []
+
+      if (currentTask.layeredImages) {
+        currentTask.layeredImages.forEach((img: any) => {
+          if (img.url) urls.push(img.url)
+        })
+      }
+      if (currentTask.gridUrls) {
+        urls.push(...currentTask.gridUrls.filter(Boolean))
+      }
+      if (currentTask.leftImageUrl) urls.push(currentTask.leftImageUrl)
+      if (currentTask.rightImageUrl) urls.push(currentTask.rightImageUrl)
+
+      if (backgroundUrl) {
+        urls.push(backgroundUrl)
+      }
+
+      await imageCacheManager.prewarmUrls(urls, "critical")
+    }
+
+    preloadCurrentTask()
+  }, [currentTaskIndex, tasks])
+
+  function getTaskImageCache() {
+    try {
+      const cached = sessionStorage.getItem("task_img_cache")
+      return cached ? JSON.parse(cached) : {}
+    } catch {
+      return {}
+    }
+  }
+
+  function setTaskImageCache(cache: Record<string, string>) {
+    try {
+      sessionStorage.setItem("task_img_cache", JSON.stringify(cache))
+    } catch {
+      // best-effort caching
+    }
+  }
+
   useEffect(() => {
     taskStartRef.current = Date.now()
     setLastSelected(null)
@@ -336,14 +392,14 @@ export default function TasksPage() {
           <div className="p-6 text-center text-sm text-gray-600">No tasks assigned.</div>
         ) : (
           <>
-            {/* Mobile Layout - Exact copy of image */}
+            {/* Mobile Layout */}
             <div
-              className="lg:hidden flex flex-col h-[calc(100vh-150px)] overflow-hidden"
+              className="lg:hidden flex flex-col h-[calc(100vh-140px)] overflow-hidden"
               style={{ paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}
             >
               {/* Progress Section */}
-              <div className="mb-4 flex-shrink-0">
-                <div className="h-2 w-full bg-gray-200 rounded overflow-hidden mb-3">
+              <div className="mb-2 sm:mb-4 flex-shrink-0">
+                <div className="h-2 w-full bg-gray-200 rounded overflow-hidden mb-2 sm:mb-3">
                   <div
                     className="h-full bg-[rgba(38,116,186,1)] rounded transition-all duration-300"
                     style={{ width: `${progressPct}%` }}
@@ -374,12 +430,10 @@ export default function TasksPage() {
                   </div>
                 ) : (
                   <>
-                    {/* Image Section - Flexible responsive layout */}
                     <div className="flex-1 flex items-center justify-center min-h-0 overflow-hidden px-2">
                       {studyType === "layer" ? (
-                        <div className="relative w-full max-w-md sm:max-w-lg overflow-hidden aspect-square">
-                          {/* Always use individual layers for both mobile and desktop */}
-                          <div className="relative w-full h-full">
+                        <div className="relative w-full h-full flex items-center justify-center">
+                          <div className="relative w-full h-full max-w-full max-h-full">
                             {backgroundUrl && (
                               <img
                                 src={getCachedUrl(backgroundUrl) || "/placeholder.svg"}
@@ -393,7 +447,7 @@ export default function TasksPage() {
                                 style={{ zIndex: 0 }}
                               />
                             )}
-                            {task?.layeredImages?.map((img, idx) => {
+                            {task?.layeredImages?.map((img: any, idx: number) => {
                               const resolved = getCachedUrl(img.url) || "/placeholder.svg"
                               return (
                                 <img
@@ -413,10 +467,31 @@ export default function TasksPage() {
                                 />
                               )
                             })}
+                            {(tasks[currentTaskIndex + 1]?.layeredImages || []).map((img: any, idx: number) => {
+                              const resolved = getCachedUrl(img.url) || "/placeholder.svg"
+                              return (
+                                <img
+                                  key={`next-${img.url}-${idx}`}
+                                  src={resolved || "/placeholder.svg"}
+                                  alt={String(img.z)}
+                                  decoding="async"
+                                  loading="eager"
+                                  fetchPriority="high"
+                                  style={{
+                                    position: "absolute",
+                                    top: -99999,
+                                    left: -99999,
+                                    width: 1,
+                                    height: 1,
+                                    visibility: "hidden",
+                                  }}
+                                />
+                              )
+                            })}
                           </div>
                         </div>
                       ) : (
-                        <div className="w-full max-w-md sm:max-w-lg overflow-hidden relative">
+                        <div className="w-full h-full flex items-center justify-center overflow-hidden relative">
                           {backgroundUrl && (
                             <img
                               src={getCachedUrl(backgroundUrl) || "/placeholder.svg"}
@@ -429,68 +504,67 @@ export default function TasksPage() {
                             />
                           )}
                           {task?.gridUrls && task.gridUrls.length === 3 ? (
-                            // Special layout for exactly 3 images - all same size
-                            <div className="grid grid-cols-2 gap-2 sm:gap-3 relative" style={{ zIndex: 1 }}>
-                              {/* First two images in top row */}
-                              {task.gridUrls.slice(0, 2).map((url, i) => (
-                                <div key={i} className="aspect-square w-full overflow-hidden">
-                                  <Image
-                                    src={getCachedUrl(url) || "/placeholder.svg"}
-                                    alt={`element-${i + 1}`}
-                                    width={300}
-                                    height={300}
-                                    className="h-full w-full object-contain"
-                                    loading="eager"
-                                    fetchPriority="high"
-                                    unoptimized={url?.includes("blob.core.windows.net")}
-                                  />
-                                </div>
-                              ))}
-                              {/* Third image - same size as others, centered */}
-                              <div className="col-span-2 flex justify-center">
+                            // Special layout for exactly 3 images on mobile
+                            <div className="flex flex-col gap-1 xs:gap-2 sm:gap-3 relative" style={{ zIndex: 1 }}>
+                              {/* Top row: 2 images side by side */}
+                              <div className="grid grid-cols-2 gap-1 xs:gap-2 sm:gap-3">
+                                {task.gridUrls.slice(0, 2).map((url: string, i: number) => (
+                                  <div key={i} className="aspect-square w-full overflow-hidden">
+                                    <Image
+                                      src={getCachedUrl(url) || "/placeholder.svg"}
+                                      alt={`element-${i + 1}`}
+                                      width={299}
+                                      height={299}
+                                      className="h-full w-full object-contain"
+                                      loading="eager"
+                                      fetchPriority="high"
+                                      unoptimized={url?.includes('blob.core.windows.net')}
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                              {/* Bottom row: 1 centered image */}
+                              <div className="w-full flex justify-center">
                                 <div className="aspect-square w-1/2 overflow-hidden">
                                   <Image
                                     src={getCachedUrl(task.gridUrls[2]) || "/placeholder.svg"}
                                     alt="element-3"
-                                    width={300}
-                                    height={300}
+                                    width={299}
+                                    height={299}
                                     className="h-full w-full object-contain"
                                     loading="eager"
                                     fetchPriority="high"
-                                    unoptimized={task.gridUrls[2]?.includes("blob.core.windows.net")}
+                                    unoptimized={task.gridUrls[2]?.includes('blob.core.windows.net')}
                                   />
                                 </div>
                               </div>
                             </div>
                           ) : task?.gridUrls && task.gridUrls.length > 3 ? (
-                            <div
-                              className="grid grid-cols-2 gap-2 sm:gap-3 w-full overflow-hidden place-items-center relative"
-                              style={{ zIndex: 1 }}
-                            >
-                              {task.gridUrls.slice(0, 4).map((url, i) => (
+                            <div className="grid grid-cols-2 gap-1 xs:gap-2 sm:gap-3 w-full overflow-hidden place-items-center relative" style={{ zIndex: 1 }}>
+                              {task.gridUrls.slice(0, 4).map((url: string, i: number) => (
                                 <div key={i} className="aspect-square w-full overflow-hidden">
                                   <Image
                                     src={getCachedUrl(url) || "/placeholder.svg"}
                                     alt={`element-${i + 1}`}
-                                    width={300}
-                                    height={300}
+                                    width={299}
+                                    height={299}
                                     className="h-full w-full object-contain"
                                     loading="eager"
                                     fetchPriority="high"
-                                    unoptimized={url?.includes("blob.core.windows.net")}
+                                    unoptimized={url?.includes('blob.core.windows.net')}
                                   />
                                 </div>
                               ))}
                             </div>
                           ) : (
-                            <div className="flex flex-col gap-2 sm:gap-3 relative" style={{ zIndex: 1 }}>
-                              <div className="aspect-[4/3] w-full overflow-hidden max-h-[22vh]">
+                            <div className="flex flex-col gap-1 xs:gap-2 sm:gap-3 relative items-center justify-center w-full h-full max-h-full overflow-hidden" style={{ zIndex: 1 }}>
+                              <div className="aspect-square w-full max-w-[50%] overflow-hidden flex-shrink">
                                 {task?.leftImageUrl ? (
                                   <Image
                                     src={getCachedUrl(task.leftImageUrl) || "/placeholder.svg"}
                                     alt="left"
-                                    width={400}
-                                    height={300}
+                                    width={299}
+                                    height={299}
                                     className="h-full w-full object-contain"
                                     loading="eager"
                                     fetchPriority="high"
@@ -498,13 +572,13 @@ export default function TasksPage() {
                                   />
                                 ) : null}
                               </div>
-                              <div className="aspect-[4/3] w-full overflow-hidden max-h-[22vh]">
+                              <div className="aspect-square w-full max-w-[50%] overflow-hidden flex-shrink">
                                 {task?.rightImageUrl ? (
                                   <Image
                                     src={getCachedUrl(task.rightImageUrl) || "/placeholder.svg"}
                                     alt="right"
-                                    width={400}
-                                    height={300}
+                                    width={299}
+                                    height={299}
                                     className="h-full w-full object-contain"
                                     loading="eager"
                                     fetchPriority="high"
@@ -694,7 +768,7 @@ export default function TasksPage() {
 
                         if (urls.length <= 2) {
                           return (
-                            <div className="grid grid-cols-2 gap-4 relative max-w-2xl mx-auto">
+                            <div className="flex flex-col gap-4 relative max-w-md mx-auto items-center">
                               {backgroundUrl && (
                                 <img
                                   src={getCachedUrl(backgroundUrl) || "/placeholder.svg"}
@@ -706,7 +780,7 @@ export default function TasksPage() {
                                   style={{ zIndex: 0 }}
                                 />
                               )}
-                              <div className="aspect-square w-full overflow-hidden border" style={{ zIndex: 1 }}>
+                              <div className="aspect-square w-full max-w-[50%] overflow-hidden border" style={{ zIndex: 1 }}>
                                 {urls[0] && (
                                   <Image
                                     src={getCachedUrl(urls[0]) || "/placeholder.svg"}
@@ -719,7 +793,7 @@ export default function TasksPage() {
                                   />
                                 )}
                               </div>
-                              <div className="aspect-square w-full overflow-hidden border" style={{ zIndex: 1 }}>
+                              <div className="aspect-square w-full max-w-[50%] overflow-hidden border" style={{ zIndex: 1 }}>
                                 {urls[1] && (
                                   <Image
                                     src={getCachedUrl(urls[1]) || "/placeholder.svg"}

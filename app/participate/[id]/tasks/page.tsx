@@ -720,14 +720,14 @@ export default function TasksPage() {
                               ))}
                             </div>
                           ) : (
-                            <div className="flex flex-col gap-1 xs:gap-2 sm:gap-3 relative" style={{ zIndex: 1 }}>
-                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md max-h-[18vh] xs:max-h-[20vh] sm:max-h-[22vh]">
+                            <div className="flex flex-col gap-1 xs:gap-2 sm:gap-3 relative items-center justify-center w-full h-full max-h-full overflow-hidden" style={{ zIndex: 1 }}>
+                              <div className="aspect-square w-full max-w-[50%] overflow-hidden flex-shrink">
                                 {task?.leftImageUrl ? (
                                   <Image
                                     src={getCachedUrl(task.leftImageUrl) || "/placeholder.svg"}
                                     alt="left"
-                                    width={450}
-                                    height={338}
+                                    width={299}
+                                    height={299}
                                     className="h-full w-full object-contain"
                                     loading="eager"
                                     fetchPriority="high"
@@ -735,13 +735,13 @@ export default function TasksPage() {
                                   />
                                 ) : null}
                               </div>
-                              <div className="aspect-[4/3] w-full overflow-hidden rounded-md max-h-[18vh] xs:max-h-[20vh] sm:max-h-[22vh]">
+                              <div className="aspect-square w-full max-w-[50%] overflow-hidden flex-shrink">
                                 {task?.rightImageUrl ? (
                                   <Image
                                     src={getCachedUrl(task.rightImageUrl) || "/placeholder.svg"}
                                     alt="right"
-                                    width={450}
-                                    height={338}
+                                    width={299}
+                                    height={299}
                                     className="h-full w-full object-contain"
                                     loading="eager"
                                     fetchPriority="high"
@@ -920,7 +920,7 @@ export default function TasksPage() {
 
                         if (urls.length <= 2) {
                           return (
-                            <div className="grid grid-cols-2 gap-4 relative max-w-2xl mx-auto">
+                            <div className="flex flex-col gap-4 relative max-w-md mx-auto items-center">
                               {backgroundUrl && (
                                 <img
                                   src={getCachedUrl(backgroundUrl) || "/placeholder.svg"}
@@ -932,7 +932,7 @@ export default function TasksPage() {
                                   style={{ zIndex: 0 }}
                                 />
                               )}
-                              <div className="aspect-square w-full overflow-hidden border" style={{ zIndex: 1 }}>
+                              <div className="aspect-square w-full max-w-[50%] overflow-hidden border" style={{ zIndex: 1 }}>
                                 {urls[0] && (
                                   <Image
                                     src={getCachedUrl(urls[0]) || "/placeholder.svg"}
@@ -945,7 +945,7 @@ export default function TasksPage() {
                                   />
                                 )}
                               </div>
-                              <div className="aspect-square w-full overflow-hidden border" style={{ zIndex: 1 }}>
+                              <div className="aspect-square w-full max-w-[50%] overflow-hidden border" style={{ zIndex: 1 }}>
                                 {urls[1] && (
                                   <Image
                                     src={getCachedUrl(urls[1]) || "/placeholder.svg"}
