@@ -69,7 +69,7 @@ export function OverviewCards({ stats, loading }: OverviewCardsProps) {
             className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] text-white px-4 py-2 rounded-lg flex items-center space-x-2"
           >
             <Plus className="w-4 h-4" />
-            <span>{stats.total === 0 ? 'Create Your First Study' : 'Create New Study'}</span>
+            <span className="cursor-pointer">{stats.total === 0 ? 'Create Your First Study' : 'Create New Study'}</span>
           </Button>
         </motion.div>
       </div>

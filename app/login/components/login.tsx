@@ -202,22 +202,23 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
                 id="remember"
                 checked={rememberMe}
                 onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                className="cursor-pointer"
               />
-              <label htmlFor="remember" className="text-sm text-gray-600">
+              <label htmlFor="remember" className="text-sm text-gray-600 ">
                 Remember me
               </label>
             </div>
             <button 
               type="button" 
               onClick={() => setShowForgotPasswordDialog(true)} 
-              className="text-sm text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+              className="text-sm text-blue-600 hover:text-blue-800 hover:underline transition-colors cursor-pointer"
             >
               Forgot Password ?
             </button>
           </div>
 
           <Button 
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-full font-medium transition-colors" 
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-full font-medium transition-colors cursor-pointer" 
             disabled={isSubmitting}
           >
             {isSubmitting ? "Logging in..." : "Login"}
@@ -251,7 +252,7 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
                   d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                 />
               </svg>
-              <span className="text-gray-700 font-medium">Continue with Google</span>
+              <span className="text-gray-700 font-medium cursor-pointer">Continue with Google</span>
             </button>
           </div>
 
@@ -260,7 +261,7 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
             <button 
               type="button" 
               onClick={onSwitchToRegister} 
-              className="text-blue-600 hover:text-blue-800 hover:underline font-medium transition-colors"
+              className="text-blue-600 hover:text-blue-800 hover:underline font-medium transition-colors cursor-pointer"
             >
               Sign up
             </button>

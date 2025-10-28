@@ -191,7 +191,7 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
             </div>
           </div>
 
-          <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-full font-medium" disabled={isSubmitting}>
+          <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-full font-medium cursor-pointer" disabled={isSubmitting}>
             {isSubmitting ? "Creating..." : "Create Account"}
           </Button>
 
@@ -223,13 +223,13 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
                   d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                 />
               </svg>
-              <span className="text-gray-700 font-medium">Continue with Google</span>
+              <span className="text-gray-700 font-medium cursor-pointer">Continue with Google</span>
             </button>
           </div>
 
           <div className="text-center mt-6">
             <span className="text-gray-600">Already have an Account ? </span>
-            <button type="button" onClick={onSwitchToLogin} className="text-blue-600 hover:underline font-medium">
+            <button type="button" onClick={onSwitchToLogin} className="text-blue-600 hover:underline font-medium cursor-pointer">
               Login
             </button>
           </div>

@@ -1313,7 +1313,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
         const respondentTasks = tasks[respondentId]
         respondentTasks.forEach((task: any, taskIndex: number) => {
           const row = [
-            parseInt(respondentId) + 1, // Convert to 1-based numbering
+            parseInt(respondentId),
             taskIndex + 1,
             ...elementColumns.map(col => {
               // Find the corresponding API key for this column

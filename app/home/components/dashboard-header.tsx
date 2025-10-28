@@ -69,8 +69,8 @@ export function DashboardHeader() {
                 <Button className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] text-white px-4 py-2 rounded-lg flex items-center space-x-2">
                   <Plus className="w-4 h-4" />
                   
-                  <span className="hidden sm:inline">Create New Study</span>
-                  <span className="sm:hidden">Create</span>
+                  <span className="hidden sm:inline cursor-pointer">Create New Study</span>
+                  <span className="sm:hidden cursor-pointer">Create</span>
                   
                   
                   

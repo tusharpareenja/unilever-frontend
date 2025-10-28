@@ -278,7 +278,7 @@ export function StudyGrid({
                 className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] text-white px-6 py-2 rounded-lg flex items-center space-x-2 flex-1 mr-3"
               >
                 <Eye className="w-4 h-4" />
-                <span>View Details</span>
+                <span className="cursor-pointer">View Details</span>
               </Button>
             </motion.div>
 
@@ -288,7 +288,7 @@ export function StudyGrid({
               onClick={() => handleShare(study.id)}
               className="w-10 h-10 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] rounded-full flex items-center justify-center transition-colors"
             >
-              <Share2 className="w-5 h-5 text-white" />
+              <Share2 className="w-5 h-5 text-white cursor-pointer" />
             </motion.button>
           </div>
         </motion.div>
