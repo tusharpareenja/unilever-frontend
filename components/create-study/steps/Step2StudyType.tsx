@@ -164,9 +164,9 @@ export function Step2StudyType({ onNext, onBack, value, onDataChange }: Step2Stu
       </div>
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mt-10">
-        <Button variant="outline" className="rounded-full px-6 w-full sm:w-auto" onClick={onBack}>Back</Button>
+        <Button variant="outline" className="rounded-full px-6 w-full sm:w-auto cursor-pointer" onClick={onBack}>Back</Button>
         <Button
-          className="rounded-full px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] w-full sm:w-auto"
+          className="rounded-full px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] w-full sm:w-auto cursor-pointer"
           onClick={() => type && onNext(type, mainQuestion, orientationText)}
           disabled={!type || !mainQuestion || !orientationText}
         >

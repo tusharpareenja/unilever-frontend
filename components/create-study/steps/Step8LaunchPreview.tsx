@@ -502,7 +502,7 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
 
         <section className="rounded-lg border-2 border-[rgba(38,116,186,1)] bg-white" style={{ borderTopWidth: '4px' }}>
           <div className="p-6 space-y-4">
-            <h3 className="text-lg font-bold text-[rgba(38,116,186,1)] text-center">Launch Study</h3>
+            <h3 className="text-lg font-bold text-[rgba(38,116,186,1)]  text-center">Launch Study</h3>
             
             <p className="text-sm text-gray-600 text-center">
               Once you launch your study, it will be available to respondents and you can start collecting data.
@@ -538,12 +538,12 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
                 variant="outline" 
                 onClick={onBack} 
                 disabled={isLaunching}
-                className="flex-1 bg-black text-white border-black hover:bg-gray-800 hover:border-gray-800 rounded-full"
+                className="flex-1 bg-black text-white border-black hover:bg-gray-800 hover:border-gray-800 rounded-full cursor-pointer"
               >
                 PREVIOUS
               </Button>
               <Button 
-                className="flex-1 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] text-white rounded-full disabled:opacity-80"
+                className="flex-1 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] text-white rounded-full disabled:opacity-80 cursor-pointer"
                 onClick={handleLaunchStudy}
                 disabled={isLaunching || !isConfirmed}
               >

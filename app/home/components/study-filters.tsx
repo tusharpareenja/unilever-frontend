@@ -107,7 +107,7 @@ export function StudyFilters({
               className="pl-10 pr-4 sm:pr-28 py-2 w-full"
             />
           </div>
-          <Button className="w-full sm:w-auto mt-2 sm:mt-0 sm:absolute sm:right-2 sm:top-1/2 sm:-translate-y-1/2 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] text-white px-4 py-2 text-sm">
+          <Button className="w-full sm:w-auto mt-2 sm:mt-0 sm:absolute sm:right-2 sm:top-1/2 sm:-translate-y-1/2 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] text-white px-4 py-2 text-sm cursor-pointer">
             Search
           </Button>
         </div>
@@ -118,7 +118,7 @@ export function StudyFilters({
             <motion.div whileHover={{ scale: 1.02 }}>
               <Button 
                 variant="outline" 
-                className="flex items-center space-x-1 bg-transparent min-w-[120px]"
+                className="flex items-center space-x-1 bg-transparent min-w-[120px] cursor-pointer"
                 onClick={() => setShowTypeDropdown(!showTypeDropdown)}
               >
                 <span className="truncate">{selectedType}</span>
@@ -127,7 +127,7 @@ export function StudyFilters({
             </motion.div>
             
             {showTypeDropdown && (
-              <div className="absolute top-full left-0 mt-1 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-10">
+              <div className="absolute top-full left-0 mt-1 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-10 cursor-pointer">
                 {typeOptions.map((option) => (
                   <button
                     key={option}
@@ -135,7 +135,7 @@ export function StudyFilters({
                       setSelectedType(option)
                       setShowTypeDropdown(false)
                     }}
-                    className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${
+                    className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 cursor-pointer ${
                       selectedType === option ? 'bg-blue-50 text-blue-600' : 'text-gray-700'
                     }`}
                   >
@@ -151,7 +151,7 @@ export function StudyFilters({
             <motion.div whileHover={{ scale: 1.02 }}>
               <Button 
                 variant="outline" 
-                className="flex items-center space-x-1 bg-transparent min-w-[120px]"
+                className="flex items-center space-x-1 bg-transparent min-w-[120px] cursor-pointer"
                 onClick={() => setShowTimeDropdown(!showTimeDropdown)}
               >
                 <span className="truncate">{selectedTime}</span>
@@ -168,7 +168,7 @@ export function StudyFilters({
                       setSelectedTime(option)
                       setShowTimeDropdown(false)
                     }}
-                    className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${
+                    className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 cursor-pointer ${
                       selectedTime === option ? 'bg-blue-50 text-blue-600' : 'text-gray-700'
                     }`}
                   >
@@ -180,7 +180,7 @@ export function StudyFilters({
           </div>
 
           <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-            <Button variant="outline" onClick={onClearFilters}>
+            <Button variant="outline" onClick={onClearFilters} className="cursor-pointer">
               Clear Filters
             </Button>
           </motion.div>

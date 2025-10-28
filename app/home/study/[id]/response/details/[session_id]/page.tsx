@@ -192,7 +192,7 @@ export default function ResponseDetailsPage() {
                                 }
 
                                 return (
-                                  <div className="relative w-full max-w-lg aspect-square overflow-hidden rounded-md bg-gray-100">
+                                  <div className="relative w-full max-w-lg aspect-square overflow-hidden rounded-md">
                                     {/* Optional background image behind all layers */}
                                     {data?.background_image_url && (
                                       // eslint-disable-next-line @next/next/no-img-element
@@ -273,7 +273,7 @@ export default function ResponseDetailsPage() {
                                 }
 
                                 return list.map((e, i) => (
-                                  <div key={i} className="aspect-[4/5] bg-gray-100 rounded-md overflow-hidden flex items-center justify-center">
+                                  <div key={i} className="aspect-[4/5] rounded-md overflow-hidden flex items-center justify-center">
                                     {/* eslint-disable-next-line @next/next/no-img-element */}
                                     <img src={e.url} alt={e?.alt_text || e?.name || ''} className="object-contain w-full h-full" />
                                   </div>

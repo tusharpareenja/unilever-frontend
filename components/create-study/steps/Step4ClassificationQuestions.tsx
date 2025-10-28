@@ -191,9 +191,9 @@ export function Step4ClassificationQuestions({ onNext, onBack, onDataChange }: S
 			</div>
 
 			<div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mt-10">
-				<Button variant="outline" className="rounded-full px-6 w-full sm:w-auto" onClick={onBack}>Back</Button>
+				<Button variant="outline" className="rounded-full cursor-pointer px-6 w-full sm:w-auto" onClick={onBack}>Back</Button>
 				<Button
-					className="rounded-full px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)]"
+					className="rounded-full cursor-pointer px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)]"
 					onClick={onNext}
 					disabled={!canProceed}
 				>

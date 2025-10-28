@@ -94,7 +94,7 @@ export function Step1BasicDetails({ onNext, onCancel, onDataChange }: Step1Basic
         </div>
 
         <div className="flex items-start sm:items-center gap-2">
-          <input id="agree" type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="w-4 h-4 mt-1 sm:mt-0" />
+          <input id="agree" type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="w-4 h-4 mt-1 sm:mt-0 cursor-pointer" />
           <label htmlFor="agree" className="text-sm text-gray-700">
             I Read and Agree to <span 
               className="text-[rgba(38,116,186,1)] cursor-pointer hover:underline" 
@@ -107,8 +107,8 @@ export function Step1BasicDetails({ onNext, onCancel, onDataChange }: Step1Basic
       </div>
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mt-10">
-        <Button variant="outline" className="rounded-full px-6 w-full sm:w-auto" onClick={onCancel}>Cancel</Button>
-        <Button className="rounded-full px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] w-full sm:w-auto" onClick={onNext} disabled={!title || !description || !agree}>
+        <Button variant="outline" className="rounded-full px-6 w-full sm:w-auto cursor-pointer" onClick={onCancel}>Cancel</Button>
+        <Button className="cursor-pointer rounded-full px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] w-full sm:w-auto" onClick={onNext} disabled={!title || !description || !agree}>
           Next
         </Button>
       </div>
