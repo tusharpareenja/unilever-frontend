@@ -123,15 +123,8 @@ export function Step3RatingScale({ onNext, onBack, onDataChange }: Step3RatingSc
         <div className="border rounded-xl p-5 bg-slate-50">
           <div className="text-sm font-medium text-gray-700 mb-4">Scale Preview</div>
           <div className="flex flex-col items-center gap-4">
-            {/* Horizontal scale 1 2 3 4 5 */}
-            <div className="flex items-center justify-center gap-4 px-2">
-              {[1, 2, 3, 4, 5].map((v) => (
-                <div key={v} className="w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 border-[rgba(38,116,186,1)] text-[rgba(38,116,186,1)] flex items-center justify-center font-medium text-sm sm:text-base">
-                  {v}
-                </div>
-              ))}
-            </div>
-            
+
+
             {/* Vertical labels below - 1, 3, 5 in small grey circles */}
             <div className="flex flex-col items-start gap-2 min-w-[200px]">
               <div className="flex items-center gap-2">
@@ -155,6 +148,18 @@ export function Step3RatingScale({ onNext, onBack, onDataChange }: Step3RatingSc
                 <span className="text-xs text-gray-600 whitespace-nowrap">{formatLabel(maxLabel, "Highest")}</span>
               </div>
             </div>
+            {/* Horizontal scale 1 2 3 4 5 */}
+
+
+            <div className="flex items-center justify-center gap-4 px-2">
+              {[1, 2, 3, 4, 5].map((v) => (
+                <div key={v} className="w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 border-[rgba(38,116,186,1)] text-[rgba(38,116,186,1)] flex items-center justify-center font-medium text-sm sm:text-base">
+                  {v}
+                </div>
+              ))}
+            </div>
+            
+            
           </div>
         </div>
       </div>

@@ -38,6 +38,11 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
     }
   }
 
+  const handleMicrosoftSignIn = async () => {
+    // TODO: Implement Microsoft sign-in functionality
+    setErrorMessage("Microsoft sign-in is coming soon!")
+  }
+
   return (
     <div className="w-full">
       {/* Header with gradient */}
@@ -199,7 +204,7 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
             <span className="text-gray-500">or</span>
           </div>
 
-          <div className="flex justify-center space-x-4">
+          <div className="flex flex-col justify-center gap-3">
             <button
               type="button"
               onClick={handleGoogleSignIn}
@@ -224,6 +229,19 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
                 />
               </svg>
               <span className="text-gray-700 font-medium cursor-pointer">Continue with Google</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleMicrosoftSignIn}
+              className="w-full bg-white border border-gray-200 rounded-full flex items-center justify-center hover:bg-gray-50 shadow-sm transition-colors py-3 px-4"
+            >
+              <svg className="w-5 h-5 mr-2" viewBox="0 0 23 23">
+                <path fill="#f25022" d="M1 1h10v10H1z"/>
+                <path fill="#00a4ef" d="M12 1h10v10H12z"/>
+                <path fill="#7fba00" d="M1 12h10v10H1z"/>
+                <path fill="#ffb900" d="M12 12h10v10H12z"/>
+              </svg>
+              <span className="text-gray-700 font-medium cursor-pointer">Continue with Microsoft</span>
             </button>
           </div>
 

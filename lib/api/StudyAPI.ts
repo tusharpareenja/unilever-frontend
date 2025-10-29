@@ -908,19 +908,23 @@ export async function cancelTaskGeneration(jobId: string): Promise<any> {
   return data
 }
 
-// Poll job status with fixed 5-second intervals (no maximum attempts)
+// Poll job status with adaptive intervals - faster when close to completion
 export async function pollJobStatus(
   jobId: string, 
   onProgress?: (status: JobStatus) => void,
-  intervalDelay: number = 5000
+  baseIntervalDelay: number = 5000
 ): Promise<JobStatus> {
-  console.log(`🔄 Starting continuous job polling for job ${jobId} (every ${intervalDelay}ms)`)
+  console.log(`🔄 Starting adaptive job polling for job ${jobId} (base interval: ${baseIntervalDelay}ms)`)
   
   let attempt = 1
+  let lastProgress = 0
+  let consecutiveHighProgressChecks = 0
+  
   while (true) {
     try {
       const status = await getTaskGenerationStatus(jobId)
-      console.log(`📊 Job status (attempt ${attempt}):`, status.status, status.progress ? `${status.progress}%` : '')
+      const currentProgress = typeof status?.progress === 'number' ? status.progress : 0
+      console.log(`📊 Job status (attempt ${attempt}):`, status.status, currentProgress ? `${currentProgress}%` : '')
       
       if (onProgress) {
         onProgress(status)
@@ -936,7 +940,70 @@ export async function pollJobStatus(
         throw new Error(status.error || 'Job failed')
       }
       
-      // Wait exactly 5 seconds before next check
+      // Adaptive polling: faster when progress is high
+      let intervalDelay = baseIntervalDelay
+      
+      // If progress reaches 100%, immediately try result endpoint
+      if (currentProgress >= 100) {
+        console.log(`🎯 Progress at 100%, immediately checking result endpoint...`)
+        try {
+          const result = await getTaskGenerationResult(jobId)
+          // If result has tasks, job is actually complete even if status isn't updated yet
+          if (result && result.tasks) {
+            console.log('✅ Result endpoint returned data at 100% progress, job is complete!')
+            // Return a completed status object
+            return {
+              ...status,
+              status: 'completed' as const
+            }
+          }
+        } catch (resultError) {
+          // Result endpoint may not be ready yet, continue polling but very fast
+          console.log('⚠️ Result endpoint not ready yet at 100%, continuing with fast polling...')
+        }
+        intervalDelay = 1000 // Fast polling while waiting for result endpoint
+      }
+      // If progress >= 95%, poll every 1 second
+      else if (currentProgress >= 95) {
+        intervalDelay = 1000
+        consecutiveHighProgressChecks++
+        console.log(`⚡ High progress detected (${currentProgress}%), fast polling: ${intervalDelay}ms`)
+        
+        // If progress reaches 99%+, try result endpoint proactively every 2 checks
+        if (currentProgress >= 99 && consecutiveHighProgressChecks >= 2) {
+          console.log(`🔍 Progress at ${currentProgress}%, proactively checking result endpoint...`)
+          try {
+            const result = await getTaskGenerationResult(jobId)
+            // If result has tasks, job is actually complete even if status isn't updated yet
+            if (result && result.tasks) {
+              console.log('✅ Result endpoint returned data, job is complete!')
+              // Return a completed status object
+              return {
+                ...status,
+                status: 'completed' as const
+              }
+            }
+          } catch (resultError) {
+            // Result endpoint may not be ready yet, continue polling
+            console.log('⚠️ Result endpoint not ready yet, continuing to poll...')
+          }
+          consecutiveHighProgressChecks = 0 // Reset counter after proactive check
+        }
+      } 
+      // If progress >= 90%, poll every 2 seconds
+      else if (currentProgress >= 90) {
+        intervalDelay = 2000
+        console.log(`⚡ Near completion (${currentProgress}%), moderate polling: ${intervalDelay}ms`)
+      }
+      // If progress >= 80%, poll every 3 seconds
+      else if (currentProgress >= 80) {
+        intervalDelay = 3000
+      }
+      // Otherwise use base interval (5 seconds)
+      
+      lastProgress = currentProgress
+      
+      // Wait with adaptive delay before next check
       console.log(`⏳ Waiting ${intervalDelay}ms before next check...`)
       await new Promise(resolve => setTimeout(resolve, intervalDelay))
       attempt++
@@ -944,10 +1011,11 @@ export async function pollJobStatus(
     } catch (error) {
       console.error(`❌ Error checking job status (attempt ${attempt}):`, error)
       
-      // Wait before retry (same interval)
-      console.log(`⏳ Retrying in ${intervalDelay}ms...`)
-      await new Promise(resolve => setTimeout(resolve, intervalDelay))
+      // Wait before retry (use base interval for errors)
+      console.log(`⏳ Retrying in ${baseIntervalDelay}ms...`)
+      await new Promise(resolve => setTimeout(resolve, baseIntervalDelay))
       attempt++
+      consecutiveHighProgressChecks = 0 // Reset on error
     }
   }
 }
