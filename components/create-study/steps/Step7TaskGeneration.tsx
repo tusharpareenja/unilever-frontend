@@ -1151,7 +1151,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                 category.elements.forEach((element: any, elIdx: number) => {
                   const categoryName = category.title || `Category_${catIdx + 1}`
                   const elementName = element.name || `Element_${elIdx + 1}`
-                  const columnName = `${categoryName}_${elementName}`
+                  const columnName = `${categoryName}-${elementName}`
                   elementColumns.push(columnName)
                   
                   // Map the API response key to our column name
