@@ -1201,7 +1201,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
           layers.forEach((layer: any) => {
             layer.images.forEach((img: any, index: number) => {
               const imageName = img.name || img.filename || `image_${index + 1}`
-              const columnName = `${layer.name}_${imageName}`
+              const columnName = `${layer.name}-${imageName}`
               elementColumns.push(columnName)
               
               // Map the API response key (categoryname_1, categoryname_2, etc.) to our desired column name
