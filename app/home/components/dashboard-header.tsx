@@ -108,7 +108,7 @@ export function DashboardHeader() {
                 <div className="py-1">
                   <div className="px-4 py-2 text-sm text-gray-700 border-b border-gray-100">
                     <div className="font-medium">{user?.name || 'User'}</div>
-                    <div className="text-gray-500">{user?.email || ''}</div>
+                    <div className="text-gray-500 break-all whitespace-normal">{user?.email || ''}</div>
                   </div>
                   <button
                     onClick={() => {
