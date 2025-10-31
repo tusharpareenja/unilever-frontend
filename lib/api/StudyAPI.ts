@@ -121,11 +121,16 @@ function clearTokensAndRedirect() {
       localStorage.removeItem('tokens')
       localStorage.removeItem('user')
       // Force navigation to login
-      window.location.assign('/login')
+      window.location.replace('/login')
     }
   } catch {
     // no-op
   }
+}
+
+// Return a safe no-content response to avoid UI error flashes while redirecting
+function makeNoContentResponse(): Response {
+  return new Response(null, { status: 204, statusText: 'No Content' })
 }
 
 async function refreshTokens(): Promise<boolean> {
@@ -166,12 +171,14 @@ export async function fetchWithAuth(input: RequestInfo | URL, init: RequestInit 
     if (!retry) {
       // On final 401, clear tokens and redirect client-side
       clearTokensAndRedirect()
-      return res
+      // Return a no-op response to prevent downstream error UI from flashing
+      return makeNoContentResponse()
     }
     const ok = await refreshTokens()
     if (!ok) {
       clearTokensAndRedirect()
-      return res
+      // Return a no-op response to prevent downstream error UI from flashing
+      return makeNoContentResponse()
     }
     const tokens2 = readTokens()
     const headers2 = new Headers(init.headers || {})
@@ -179,6 +186,8 @@ export async function fetchWithAuth(input: RequestInfo | URL, init: RequestInit 
     const res2 = await fetch(input, { ...init, headers: headers2 })
     if (res2.status === 401 || res2.status === 403) {
       clearTokensAndRedirect()
+      // Return a no-op response to prevent downstream error UI from flashing
+      return makeNoContentResponse()
     }
     return res2
   }
