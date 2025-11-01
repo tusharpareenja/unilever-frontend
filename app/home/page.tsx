@@ -8,6 +8,7 @@ import { StudyFilters } from "./components/study-filters"
 import { StudyGrid } from "./components/study-grid"
 import { AuthGuardDebug as AuthGuard } from "@/components/auth/AuthGuardDebug"
 import { getStudies, StudyListItem } from "@/lib/api/StudyAPI"
+import { API_BASE_URL } from "@/lib/api/LoginApi"
 
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState("All Studies")
@@ -18,6 +19,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [cardsLoading, setCardsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isValidatingToken, setIsValidatingToken] = useState(true)
   const [stats, setStats] = useState({
     total: 0,
     active: 0,
@@ -25,8 +27,77 @@ export default function DashboardPage() {
     completed: 0
   })
 
-  // Hydrate studies list from cache for instant render on refresh
+  // Check token validity BEFORE rendering anything
   useEffect(() => {
+    const validateTokenBeforeRender = async () => {
+      try {
+        // Check if token exists in localStorage
+        const storedTokens = localStorage.getItem('tokens')
+        if (!storedTokens) {
+          // No token, redirect immediately
+          sessionStorage.setItem('auth_redirecting', 'true')
+          localStorage.removeItem('user')
+          localStorage.removeItem('tokens')
+          localStorage.removeItem('auth_user')
+          localStorage.removeItem('token')
+          window.location.replace('/login')
+          return
+        }
+
+        const tokens = JSON.parse(storedTokens)
+        if (!tokens?.access_token) {
+          // Invalid token format, redirect immediately
+          sessionStorage.setItem('auth_redirecting', 'true')
+          localStorage.removeItem('user')
+          localStorage.removeItem('tokens')
+          localStorage.removeItem('auth_user')
+          localStorage.removeItem('token')
+          window.location.replace('/login')
+          return
+        }
+
+        // Make a lightweight API call to verify token is still valid
+        // Use a minimal endpoint that requires auth
+        const response = await fetch(`${API_BASE_URL}/studies?page=1&per_page=1`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${tokens.access_token}`
+          },
+        })
+
+        // If token is invalid (401/403), redirect immediately
+        if (response.status === 401 || response.status === 403) {
+          sessionStorage.setItem('auth_redirecting', 'true')
+          localStorage.removeItem('user')
+          localStorage.removeItem('tokens')
+          localStorage.removeItem('auth_user')
+          localStorage.removeItem('token')
+          window.location.replace('/login')
+          return
+        }
+
+        // Token is valid, proceed with page rendering
+        setIsValidatingToken(false)
+      } catch (error) {
+        // Network error or other issue - redirect to login to be safe
+        console.error('Token validation error:', error)
+        sessionStorage.setItem('auth_redirecting', 'true')
+        localStorage.removeItem('user')
+        localStorage.removeItem('tokens')
+        localStorage.removeItem('auth_user')
+        localStorage.removeItem('token')
+        window.location.replace('/login')
+      }
+    }
+
+    validateTokenBeforeRender()
+  }, [])
+
+  // Hydrate studies list from cache for instant render on refresh (only if token is valid)
+  useEffect(() => {
+    if (isValidatingToken) return // Wait for token validation
+    
     try {
       const cached = localStorage.getItem('home_studies_cache')
       if (cached) {
@@ -37,10 +108,12 @@ export default function DashboardPage() {
         }
       }
     } catch {}
-  }, [])
+  }, [isValidatingToken])
 
-  // Hydrate cards from cache immediately for instant paint
+  // Hydrate cards from cache immediately for instant paint (only if token is valid)
   useEffect(() => {
+    if (isValidatingToken) return // Wait for token validation
+    
     try {
       const cached = localStorage.getItem('home_stats_cache')
       if (cached) {
@@ -56,10 +129,12 @@ export default function DashboardPage() {
         }
       }
     } catch {}
-  }, [])
+  }, [isValidatingToken])
 
-  // Fetch studies data
+  // Fetch studies data (only if token is valid)
   useEffect(() => {
+    if (isValidatingToken) return // Wait for token validation
+
     const fetchStudies = async () => {
       try {
         setLoading((prev) => prev && studies.length === 0)
@@ -87,20 +162,40 @@ export default function DashboardPage() {
         // Log for debugging
         // console.log(`Loaded ${total} studies: ${active} active, ${draft} draft, ${completed} completed`)
       } catch (err) {
-        console.error('Failed to fetch studies:', err)
-        setError(err instanceof Error ? err.message : 'Failed to fetch studies')
+        // Check if error is due to redirect (token expired)
+        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch studies'
+        const isRedirecting = typeof window !== 'undefined' && (
+          sessionStorage.getItem('auth_redirecting') === 'true' ||
+          window.location.pathname === '/login' ||
+          errorMessage === 'REDIRECTING' ||
+          errorMessage.includes('204')
+        )
+        
+        if (!isRedirecting) {
+          console.error('Failed to fetch studies:', err)
+          setError(errorMessage)
+        }
       } finally {
         setLoading(false)
       }
     }
 
     fetchStudies()
-  }, [])
+  }, [isValidatingToken, studies.length])
 
   const handleClearFilters = () => {
     setSearchQuery("")
     setSelectedType("All Types")
     setSelectedTime("All Time")
+  }
+
+  // Don't render anything until token is validated
+  if (isValidatingToken) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-100">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    )
   }
 
   return (
