@@ -39,8 +39,15 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
   }
 
   const handleMicrosoftSignIn = async () => {
-    // TODO: Implement Microsoft sign-in functionality
-    setErrorMessage("Microsoft sign-in is coming soon!")
+    try {
+      // Use NextAuth.js with callbackUrl to redirect to a custom handler page
+      await signIn("microsoft-entra-id", { 
+        callbackUrl: "/auth/callback"
+      })
+      
+    } catch (error) {
+      setErrorMessage("Microsoft sign-in failed. Please try again.")
+    }
   }
 
   return (

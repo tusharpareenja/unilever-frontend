@@ -762,37 +762,7 @@ export default function TasksPage() {
                       </div>
                     )}
 
-                    {/* Rating Scale */}
-                    <div
-                      className="mt-auto pb-2 px-2 flex-shrink-0"
-                      style={{ paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}
-                    >
-                      <div className="flex items-center justify-center mb-2">
-                        <div className="flex items-center justify-between w-full max-w-sm gap-1">
-                          {[1, 2, 3, 4, 5].map((n) => {
-                            const selected = lastSelected === n
-                            return (
-                              <button
-                                key={n}
-                                onClick={() => handleSelect(n)}
-                                className={`h-10 w-10 sm:h-12 sm:w-12 rounded-full border-2 transition-colors text-sm sm:text-base font-semibold flex-shrink-0 ${
-                                  selected
-                                    ? "bg-[rgba(38,116,186,1)] text-white border-[rgba(38,116,186,1)]"
-                                    : "bg-white text-gray-700 border-gray-300 hover:border-gray-400"
-                                }`}
-                                onMouseEnter={() => {
-                                  hoverCountsRef.current[n] = (hoverCountsRef.current[n] || 0) + 1
-                                  lastViewTimeRef.current = new Date().toISOString()
-                                }}
-                              >
-                                {n}
-                              </button>
-                            )
-                          })}
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col items-start justify-center gap-2 px-2">
+                    <div className="flex flex-col items-start justify-center gap-2 px-2 mb-2">
                         <div className="flex items-center gap-2 flex-shrink-0">
                           <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">
                             1
@@ -826,6 +796,38 @@ export default function TasksPage() {
                           )}
                         </div>
                       </div>
+
+                    {/* Rating Scale */}
+                    <div
+                      className="mt-auto pb-2 px-2 flex-shrink-0"
+                      style={{ paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}
+                    >
+                      <div className="flex items-center justify-center mb-2">
+                        <div className="flex items-center justify-between w-full max-w-sm gap-1">
+                          {[1, 2, 3, 4, 5].map((n) => {
+                            const selected = lastSelected === n
+                            return (
+                              <button
+                                key={n}
+                                onClick={() => handleSelect(n)}
+                                className={`h-10 w-10 sm:h-12 sm:w-12 rounded-full border-2 transition-colors text-sm sm:text-base font-semibold flex-shrink-0 ${
+                                  selected
+                                    ? "bg-[rgba(38,116,186,1)] text-white border-[rgba(38,116,186,1)]"
+                                    : "bg-white text-gray-700 border-gray-300 hover:border-gray-400"
+                                }`}
+                                onMouseEnter={() => {
+                                  hoverCountsRef.current[n] = (hoverCountsRef.current[n] || 0) + 1
+                                  lastViewTimeRef.current = new Date().toISOString()
+                                }}
+                              >
+                                {n}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+
+                      
                     </div>
                   </>
                 )}
@@ -1047,33 +1049,7 @@ export default function TasksPage() {
                       <div className="text-center text-balance">{task?.rightLabel ?? ""}</div>
                     </div>
 
-                    <div className="w-full max-w-2xl mx-auto mt-4">
-                      <div className="flex items-center justify-center mb-3">
-                        <div className="flex items-center justify-between w-full max-w-lg gap-2">
-                          {[1, 2, 3, 4, 5].map((n) => {
-                            const selected = lastSelected === n
-                            return (
-                              <button
-                                key={n}
-                                onClick={() => handleSelect(n)}
-                                className={`h-11 w-11 lg:h-12 lg:w-12 xl:h-14 xl:w-14 rounded-full border-2 transition-colors text-sm lg:text-base xl:text-lg font-semibold flex-shrink-0 ${
-                                  selected
-                                    ? "bg-[rgba(38,116,186,1)] text-white border-[rgba(38,116,186,1)]"
-                                    : "bg-white text-gray-700 border-gray-300 hover:border-gray-400"
-                                }`}
-                                onMouseEnter={() => {
-                                  hoverCountsRef.current[n] = (hoverCountsRef.current[n] || 0) + 1
-                                  lastViewTimeRef.current = new Date().toISOString()
-                                }}
-                              >
-                                {n}
-                              </button>
-                            )
-                          })}
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col items-start justify-center gap-2 px-2">
+                     <div className="flex flex-col items-start justify-center gap-2 px-2">
                         <div className="flex items-center gap-2 flex-shrink-0">
                           <div className="h-8 w-8 lg:h-9 lg:w-9 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs lg:text-sm font-semibold text-gray-700 flex-shrink-0">
                             1
@@ -1107,6 +1083,34 @@ export default function TasksPage() {
                           )}
                         </div>
                       </div>
+
+                    <div className="w-full max-w-2xl mx-auto mt-4">
+                      <div className="flex items-center justify-center mb-3">
+                        <div className="flex items-center justify-between w-full max-w-lg gap-2">
+                          {[1, 2, 3, 4, 5].map((n) => {
+                            const selected = lastSelected === n
+                            return (
+                              <button
+                                key={n}
+                                onClick={() => handleSelect(n)}
+                                className={`h-11 w-11 lg:h-12 lg:w-12 xl:h-14 xl:w-14 rounded-full border-2 transition-colors text-sm lg:text-base xl:text-lg font-semibold flex-shrink-0 ${
+                                  selected
+                                    ? "bg-[rgba(38,116,186,1)] text-white border-[rgba(38,116,186,1)]"
+                                    : "bg-white text-gray-700 border-gray-300 hover:border-gray-400"
+                                }`}
+                                onMouseEnter={() => {
+                                  hoverCountsRef.current[n] = (hoverCountsRef.current[n] || 0) + 1
+                                  lastViewTimeRef.current = new Date().toISOString()
+                                }}
+                              >
+                                {n}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+
+                     
                     </div>
                   </div>
                 )}

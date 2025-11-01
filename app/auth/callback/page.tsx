@@ -67,6 +67,10 @@ export default function AuthCallbackPage() {
         // Make fallback API call
         const makeFallbackCall = async () => {
           try {
+            // Determine provider from session (check account info or default to google for backward compatibility)
+            // Note: For Microsoft Entra ID, provider might be 'microsoft-entra-id' or 'azure-ad'
+            const provider = (session as any)?.provider || (session.user?.email?.includes('@microsoft') ? 'microsoft-entra-id' : 'google')
+            
             const response = await fetch('http://127.0.0.1:8000/api/v1/auth/oauth-login', {
               method: 'POST',
               headers: {
@@ -75,7 +79,7 @@ export default function AuthCallbackPage() {
               body: JSON.stringify({
                 email: session.user?.email,
                 name: session.user?.name,
-                provider: 'google',
+                provider: provider,
                 provider_id: session.user?.email,
                 profile_picture: session.user?.image
               })
@@ -129,10 +133,10 @@ export default function AuthCallbackPage() {
   if (isProcessing) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Completing Google sign-in...</p>
-        </div>
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Completing authentication...</p>
+          </div>
       </div>
     )
   }

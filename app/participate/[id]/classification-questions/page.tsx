@@ -316,7 +316,7 @@ function Toggle({
   return (
     <button
       onClick={() => onSelect(value)}
-      className={`w-full h-11 rounded-md border text-sm transition-colors ${
+      className={`w-full min-h-11 py-2.5 px-3 rounded-md border text-sm transition-colors whitespace-normal break-words text-center ${
         active
           ? "bg-[rgba(38,116,186,1)] text-white border-[rgba(38,116,186,1)]"
           : "bg-white text-gray-700 border-gray-200 hover:border-gray-300"

@@ -24,7 +24,7 @@ type Task = {
   rightLabel?: string
   layeredImages?: Array<{ url: string; z: number }>
   gridUrls?: string[]
-  // Source maps from backend to echo on submit
+  compositeLayerUrl?: string
   _elements_shown?: Record<string, unknown>
   _elements_shown_content?: Record<string, unknown>
 }
@@ -145,49 +145,57 @@ export default function TasksPage() {
           if (normalizedType === 'layer') {
             const shown = t?.elements_shown || {}
             const content = t?.elements_shown_content || {}
-            console.log('[Preview Tasks] Task elements_shown:', shown)
-            console.log('[Preview Tasks] Task elements_shown_content:', content)
+
             const layers = Object.keys(shown)
-              .filter((k) => Number(shown[k]) === 1 && content?.[k]?.url)
-              .map((k) => ({ url: String(content[k].url), z: Number(content[k].z_index ?? 0) }))
+              .filter((k) => {
+                const isShown = Number(shown[k]) === 1
+                const hasContent = content?.[k] && content[k] !== null
+                const hasUrl = hasContent && content[k].url
+
+                return isShown && hasContent && hasUrl
+              })
+              .map((k) => {
+                const layerData = content[k]
+
+                return {
+                  url: String(layerData.url),
+                  z: Number(layerData.z_index ?? 0),
+                }
+              })
               .sort((a, b) => a.z - b.z)
-            console.log('[Preview Tasks] Parsed layers:', layers)
-            return { 
+
+            const taskResult = {
               id: String(t?.task_id ?? t?.task_index ?? Math.random()),
               layeredImages: layers,
               _elements_shown: shown,
               _elements_shown_content: content,
             }
+
+            return taskResult
           } else {
             const es = t?.elements_shown || {}
             const content = t?.elements_shown_content || {}
-            console.log('[Preview Tasks] Grid task elements_shown:', es)
-            console.log('[Preview Tasks] Grid task elements_shown_content:', content)
             const activeKeys = Object.keys(es).filter((k) => Number(es[k]) === 1)
-            console.log('[Preview Tasks] Active keys:', activeKeys)
 
             const getUrlForKey = (k: string): string | undefined => {
-              // 1) elements_shown may embed direct URL under k_content
+              const elementContent = (content as any)[k]
+              if (elementContent && typeof elementContent === "object" && elementContent.content) {
+                return elementContent.content
+              }
+
               const directUrl = (es as any)[`${k}_content`]
-              if (typeof directUrl === 'string' && directUrl) return directUrl
-              
-              // 2) content object: prefer url, then content
+              if (typeof directUrl === "string" && directUrl) return directUrl
+
               const c1: any = (content as any)[k]
-              if (c1 && typeof c1 === 'object') {
-                if (typeof c1.url === 'string' && c1.url) return c1.url
-                if (typeof c1.content === 'string' && c1.content) return c1.content
-              }
-              
+              if (c1 && typeof c1 === "object" && typeof c1.url === "string") return c1.url
+
               const c2: any = (content as any)[`${k}_content`]
-              if (c2 && typeof c2 === 'object') {
-                if (typeof c2.url === 'string' && c2.url) return c2.url
-                if (typeof c2.content === 'string' && c2.content) return c2.content
-              }
-              if (typeof c2 === 'string') return c2
-              
+              if (c2 && typeof c2 === "object" && typeof c2.url === "string") return c2.url
+              if (typeof c2 === "string") return c2
+
               const s2: any = (content as any)[k]
-              if (typeof s2 === 'string') return s2
-              
+              if (typeof s2 === "string") return s2
+
               return undefined
             }
 
@@ -197,24 +205,20 @@ export default function TasksPage() {
               if (typeof url === 'string' && url) list.push(url)
             })
 
-            // As a last resort, scan content object for any url fields when no activeKeys resolved
-            if (list.length === 0 && content && typeof content === 'object') {
+            if (list.length === 0 && content && typeof content === "object") {
               Object.values(content).forEach((v: any) => {
-                if (v && typeof v === 'object') {
-                  if (typeof v.url === 'string' && v.url) list.push(v.url)
-                  if (typeof v.content === 'string' && v.content) list.push(v.content)
-                }
-                if (typeof v === 'string') list.push(v)
+                if (v && typeof v === "object" && typeof v.url === "string") list.push(v.url)
+                if (v && typeof v === "object" && v.content) list.push(v.content)
+                if (typeof v === "string") list.push(v)
               })
             }
 
-            // Fallback: if we still have fewer than 4 images, try to pull any *_content string URLs from elements_shown itself
             try {
-              if (list.length < 4 && es && typeof es === 'object') {
+              if (list.length < 4 && es && typeof es === "object") {
                 const seen = new Set(list)
                 Object.entries(es as Record<string, any>).forEach(([key, val]) => {
                   if (list.length >= 4) return
-                  if (typeof val === 'string' && key.endsWith('_content') && val.startsWith('http') && !seen.has(val)) {
+                  if (typeof val === "string" && key.endsWith("_content") && val.startsWith("http") && !seen.has(val)) {
                     list.push(val)
                     seen.add(val)
                   }
@@ -226,9 +230,9 @@ export default function TasksPage() {
               id: String(t?.task_id ?? t?.task_index ?? Math.random()),
               leftImageUrl: list[0],
               rightImageUrl: list[1],
-              leftLabel: '',
-              rightLabel: '',
-              gridUrls: list, // Store all URLs for grid display
+              leftLabel: "",
+              rightLabel: "",
+              gridUrls: list,
               _elements_shown: es,
               _elements_shown_content: content,
             }
@@ -592,7 +596,6 @@ export default function TasksPage() {
                       )}
                     </div>
 
-                    {/* Labels for grid study */}
                     {studyType === "grid" && (
                       <div className="grid grid-cols-2 gap-4 text-xs sm:text-sm font-semibold text-gray-800 mb-2 px-2 flex-shrink-0">
                         <div className="text-center text-balance">{task?.leftLabel ?? ""}</div>
@@ -600,12 +603,46 @@ export default function TasksPage() {
                       </div>
                     )}
 
-                    {/* Rating Scale - Bottom with iOS safe area padding */}
+                    <div className="flex flex-col items-start justify-center gap-2 px-2 mb-2">
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">
+                            1
+                          </div>
+                          {scaleLabels.left && (
+                            <div className="text-xs sm:text-sm font-medium text-gray-700 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
+                              {scaleLabels.left}
+                            </div>
+                          )}
+                        </div>
+
+                        {scaleLabels.middle && (
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">
+                              3
+                            </div>
+                            <div className="text-xs sm:text-sm font-medium text-gray-700 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
+                              {scaleLabels.middle}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">
+                            5
+                          </div>
+                          {scaleLabels.right && (
+                            <div className="text-xs sm:text-sm font-medium text-gray-700 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
+                              {scaleLabels.right}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                    {/* Rating Scale */}
                     <div
                       className="mt-auto pb-2 px-2 flex-shrink-0"
                       style={{ paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}
                     >
-                      {/* Horizontal scale buttons (1-5) */}
                       <div className="flex items-center justify-center mb-2">
                         <div className="flex items-center justify-between w-full max-w-sm gap-1">
                           {[1, 2, 3, 4, 5].map((n) => {
@@ -631,43 +668,7 @@ export default function TasksPage() {
                         </div>
                       </div>
 
-                      <div className="flex flex-col items-start justify-center gap-2 px-2">
-                        {/* Label for 1 */}
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">
-                            1
-                          </div>
-                          {scaleLabels.left && (
-                            <div className="text-xs sm:text-sm font-medium text-gray-700 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
-                              {scaleLabels.left}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Label for 3 (optional) */}
-                        {scaleLabels.middle && (
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">
-                              3
-                            </div>
-                            <div className="text-xs sm:text-sm font-medium text-gray-700 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
-                              {scaleLabels.middle}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Label for 5 */}
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">
-                            5
-                          </div>
-                          {scaleLabels.right && (
-                            <div className="text-xs sm:text-sm font-medium text-gray-700 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
-                              {scaleLabels.right}
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                      
                     </div>
                   </>
                 )}
@@ -895,33 +896,7 @@ export default function TasksPage() {
                       <div className="text-center text-balance">{task?.rightLabel ?? ""}</div>
                     </div>
 
-                    <div className="w-full max-w-2xl mx-auto mt-4">
-                      <div className="flex items-center justify-center mb-3">
-                        <div className="flex items-center justify-between w-full max-w-lg gap-2">
-                          {[1, 2, 3, 4, 5].map((n) => {
-                            const selected = lastSelected === n
-                            return (
-                              <button
-                                key={n}
-                                onClick={() => handleSelect(n)}
-                                className={`h-11 w-11 lg:h-12 lg:w-12 xl:h-14 xl:w-14 rounded-full border-2 transition-colors text-sm lg:text-base xl:text-lg font-semibold flex-shrink-0 ${
-                                  selected
-                                    ? "bg-[rgba(38,116,186,1)] text-white border-[rgba(38,116,186,1)]"
-                                    : "bg-white text-gray-700 border-gray-300 hover:border-gray-400"
-                                }`}
-                                onMouseEnter={() => {
-                                  hoverCountsRef.current[n] = (hoverCountsRef.current[n] || 0) + 1
-                                  lastViewTimeRef.current = new Date().toISOString()
-                                }}
-                              >
-                                {n}
-                              </button>
-                            )
-                          })}
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col items-start justify-center gap-2 px-2">
+                     <div className="flex flex-col items-start justify-center gap-2 px-2">
                         <div className="flex items-center gap-2 flex-shrink-0">
                           <div className="h-8 w-8 lg:h-9 lg:w-9 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs lg:text-sm font-semibold text-gray-700 flex-shrink-0">
                             1
@@ -955,6 +930,34 @@ export default function TasksPage() {
                           )}
                         </div>
                       </div>
+
+                    <div className="w-full max-w-2xl mx-auto mt-4">
+                      <div className="flex items-center justify-center mb-3">
+                        <div className="flex items-center justify-between w-full max-w-lg gap-2">
+                          {[1, 2, 3, 4, 5].map((n) => {
+                            const selected = lastSelected === n
+                            return (
+                              <button
+                                key={n}
+                                onClick={() => handleSelect(n)}
+                                className={`h-11 w-11 lg:h-12 lg:w-12 xl:h-14 xl:w-14 rounded-full border-2 transition-colors text-sm lg:text-base xl:text-lg font-semibold flex-shrink-0 ${
+                                  selected
+                                    ? "bg-[rgba(38,116,186,1)] text-white border-[rgba(38,116,186,1)]"
+                                    : "bg-white text-gray-700 border-gray-300 hover:border-gray-400"
+                                }`}
+                                onMouseEnter={() => {
+                                  hoverCountsRef.current[n] = (hoverCountsRef.current[n] || 0) + 1
+                                  lastViewTimeRef.current = new Date().toISOString()
+                                }}
+                              >
+                                {n}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+
+                     
                     </div>
                   </div>
                 )}

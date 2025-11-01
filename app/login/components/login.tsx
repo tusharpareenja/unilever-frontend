@@ -40,8 +40,15 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
   }
 
   const handleMicrosoftSignIn = async () => {
-    // TODO: Implement Microsoft sign-in functionality
-    setErrorMessage("Microsoft sign-in is coming soooooooon!")
+    try {
+      // Use NextAuth.js with callbackUrl to redirect to a custom handler page
+      await signIn("microsoft-entra-id", { 
+        callbackUrl: "/auth/callback"
+      })
+      
+    } catch (error) {
+      setErrorMessage("Microsoft sign-in failed. Please try again.")
+    }
   }
 
   const handleForgotPasswordSubmit = async (e: React.FormEvent<HTMLFormElement>) => {

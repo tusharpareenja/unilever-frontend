@@ -234,9 +234,9 @@ export default function Stepper({ currentStep = 5, className = "", onStepChange 
                   relative z-10 w-12 h-12 rounded-full border-2 flex items-center justify-center text-sm font-medium transition-all duration-300
                   ${
                     isCompleted
-                      ? "bg-[rgba(38,116,186,0.9)] border-[rgba(38,116,186,0.9)] text-white"
+                      ? "bg-[rgba(38,116,186,1)] border-[rgba(38,116,186,1)] text-white"
                       : isCurrent
-                        ? "bg-[rgba(38,116,186,0.9)] border-[rgba(38,116,186,0.9)] text-white"
+                        ? "bg-[rgba(38,116,186,1)] border-[rgba(38,116,186,1)] text-white"
                         : isClickable
                           ? "bg-white border-gray-300 text-gray-500 hover:border-gray-400"
                           : "bg-gray-100 border-gray-200 text-gray-400"

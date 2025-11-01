@@ -1,6 +1,6 @@
-
 import NextAuth from "next-auth"
 import Google from "next-auth/providers/google"
+import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id"
 import { Tokens } from "@/lib/api/LoginApi"
 
 // Extend NextAuth types
@@ -21,74 +21,65 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    })
+    }),
+    MicrosoftEntraID,
   ],
+
   callbacks: {
-    async signIn({ user, account, profile }) {
-      // This runs when user successfully authenticates with Google
-      if (account?.provider === "google") {
+    async signIn({ user, account }) {
+      if (account?.provider === "google" || account?.provider === "microsoft-entra-id") {
         try {
-          // Test if the backend is reachable first
-          const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://127.0.0.1:8000'
+          const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://127.0.0.1:8000"
           const apiUrl = `${baseUrl}/auth/oauth-login`
-          
-          // Call your backend OAuth endpoint
+
           const response = await fetch(apiUrl, {
-            method: 'POST',
+            method: "POST",
             headers: {
-              'Content-Type': 'application/json',
+              "Content-Type": "application/json",
             },
             body: JSON.stringify({
               email: user.email,
               name: user.name,
-              provider: 'google',
+              provider: account.provider,
               provider_id: account.providerAccountId,
-              profile_picture: user.image
-            })
-          });
+              profile_picture: user.image,
+            }),
+          })
 
           if (response.ok) {
-            const data = await response.json();
-            
-            // Store the backend tokens in the user object
-            user.backendTokens = data.tokens;
-            user.isNewUser = data.is_new_user;
-            
-            // Note: localStorage is not available in server-side callbacks
-            // The SessionHandler component will handle localStorage storage on the client side
-            
-            return true;
+            const data = await response.json()
+            user.backendTokens = data.tokens
+            user.isNewUser = data.is_new_user
+            return true
           } else {
-            const errorText = await response.text();
-            console.error('Backend OAuth failed:', errorText);
-            return false;
+            console.error("Backend OAuth failed:", await response.text())
+            return false
           }
         } catch (error) {
-          console.error('OAuth callback error:', error);
-          return false;
+          console.error("OAuth callback error:", error)
+          return false
         }
       }
-      return true;
+      return true
     },
-    
-    async jwt({ token, user, account }) {
-      // Persist the backend tokens in the JWT
+
+    async jwt({ token, user }) {
       if (user?.backendTokens) {
-        token.backendTokens = user.backendTokens;
-        token.isNewUser = user.isNewUser;
+        token.backendTokens = user.backendTokens
+        token.isNewUser = user.isNewUser
       }
-      return token;
+      return token
     },
-    
+
     async session({ session, token }) {
-      // Send backend tokens to the client
       if (token.backendTokens) {
-        session.backendTokens = token.backendTokens as Tokens;
-        session.isNewUser = token.isNewUser as boolean | undefined;
+        session.backendTokens = token.backendTokens as Tokens
+        session.isNewUser = token.isNewUser as boolean | undefined
       }
-      return session;
-    }
+      return session
+    },
   },
+
   pages: {
     signIn: "/login",
     error: "/login",
