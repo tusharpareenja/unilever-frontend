@@ -803,7 +803,7 @@ export default function TasksPage() {
                       style={{ paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}
                     >
                       <div className="flex items-center justify-center mb-2">
-                        <div className="flex items-center justify-between w-full max-w-sm gap-1">
+                        <div className="flex items-center justify-center gap-4">
                           {[1, 2, 3, 4, 5].map((n) => {
                             const selected = lastSelected === n
                             return (
@@ -1086,7 +1086,7 @@ export default function TasksPage() {
 
                     <div className="w-full max-w-2xl mx-auto mt-4">
                       <div className="flex items-center justify-center mb-3">
-                        <div className="flex items-center justify-between w-full max-w-lg gap-2">
+                        <div className="flex items-center justify-center gap-4">
                           {[1, 2, 3, 4, 5].map((n) => {
                             const selected = lastSelected === n
                             return (
