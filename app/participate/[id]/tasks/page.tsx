@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Image from "next/image"
 import { submitTaskSession, submitTasksBulk } from "@/lib/api/ResponseAPI"
@@ -50,6 +50,20 @@ export default function TasksPage() {
   const clickCountsRef = useRef<Record<number, number>>({})
   const firstViewTimeRef = useRef<string | null>(null)
   const lastViewTimeRef = useRef<string | null>(null)
+
+  // Background-fit overlay refs and state (mobile)
+  const previewContainerRef = useRef<HTMLDivElement>(null)
+  const bgImgRef = useRef<HTMLImageElement>(null)
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
+  const [bgFit, setBgFit] = useState({ left: 0, top: 0, width: 0, height: 0 })
+  const bgReadyRef = useRef(false)
+
+  // Background-fit overlay refs and state (desktop)
+  const previewContainerRefDesktop = useRef<HTMLDivElement>(null)
+  const bgImgRefDesktop = useRef<HTMLImageElement>(null)
+  const [containerSizeDesktop, setContainerSizeDesktop] = useState({ width: 0, height: 0 })
+  const [bgFitDesktop, setBgFitDesktop] = useState({ left: 0, top: 0, width: 0, height: 0 })
+  const bgReadyRefDesktop = useRef(false)
 
   useEffect(() => {
     firstViewTimeRef.current = new Date().toISOString()
@@ -174,16 +188,22 @@ export default function TasksPage() {
             .filter((k) => {
               const isShown = Number(shown[k]) === 1
               const hasContent = content?.[k] && content[k] !== null
-              const hasUrl = hasContent && content[k].url
+              // Check if we have either URL (original format) or transform (compacted format)
+              const hasData = hasContent && (content[k].url || content[k].transform)
 
-              return isShown && hasContent && hasUrl
+              return isShown && hasContent && hasData
             })
             .map((k) => {
               const layerData = content[k]
-
+              // Handle both formats: original (has url) and compacted (has transform)
+              const url = layerData.url || ''
+              const transform = layerData.transform || { x: 0, y: 0, width: 100, height: 100 }
+              
               return {
-                url: String(layerData.url),
+                url: String(url),
                 z: Number(layerData.z_index ?? 0),
+                layer_name: layerData.layer_name || null,
+                transform: transform,
               }
             })
             .sort((a, b) => a.z - b.z)
@@ -337,6 +357,145 @@ export default function TasksPage() {
 
     preloadCurrentTask()
   }, [currentTaskIndex, tasks])
+
+  // ResizeObserver for container size (mobile)
+  useEffect(() => {
+    if (!previewContainerRef.current || studyType !== "layer") return
+
+    const updateSize = () => {
+      if (previewContainerRef.current) {
+        setContainerSize({
+          width: previewContainerRef.current.offsetWidth,
+          height: previewContainerRef.current.offsetHeight,
+        })
+      }
+    }
+
+    const observer = new ResizeObserver(() => {
+      requestAnimationFrame(updateSize)
+    })
+
+    observer.observe(previewContainerRef.current)
+    updateSize()
+
+    // Also observe visualViewport for responsive mode changes
+    if (typeof window !== "undefined" && window.visualViewport) {
+      const handleResize = () => requestAnimationFrame(updateSize)
+      window.visualViewport.addEventListener("resize", handleResize)
+      return () => {
+        observer.disconnect()
+        window.visualViewport?.removeEventListener("resize", handleResize)
+      }
+    }
+
+    return () => observer.disconnect()
+  }, [studyType])
+
+  // Compute background fit box using useLayoutEffect (mobile)
+  useLayoutEffect(() => {
+    if (!bgImgRef.current || !previewContainerRef.current || studyType !== "layer" || !backgroundUrl) {
+      bgReadyRef.current = false
+      return
+    }
+
+    const computeFit = () => {
+      const img = bgImgRef.current
+      const container = previewContainerRef.current
+      if (!img || !container) return
+
+      const cw = container.offsetWidth || 0
+      const ch = container.offsetHeight || 0
+      if (!cw || !ch) return
+
+      const iw = img.naturalWidth || cw
+      const ih = img.naturalHeight || ch
+      const scale = Math.min(cw / iw, ch / ih)
+      const w = iw * scale
+      const h = ih * scale
+      const left = (cw - w) / 2
+      const top = (ch - h) / 2
+
+      setBgFit({ left, top, width: w, height: h })
+      bgReadyRef.current = true
+    }
+
+    requestAnimationFrame(() => {
+      if (bgImgRef.current?.complete) {
+        computeFit()
+      } else {
+        bgImgRef.current?.addEventListener("load", computeFit, { once: true })
+      }
+    })
+  }, [containerSize, backgroundUrl, studyType, currentTaskIndex])
+
+  // ResizeObserver for container size (desktop)
+  useEffect(() => {
+    if (!previewContainerRefDesktop.current || studyType !== "layer") return
+
+    const updateSize = () => {
+      if (previewContainerRefDesktop.current) {
+        setContainerSizeDesktop({
+          width: previewContainerRefDesktop.current.offsetWidth,
+          height: previewContainerRefDesktop.current.offsetHeight,
+        })
+      }
+    }
+
+    const observer = new ResizeObserver(() => {
+      requestAnimationFrame(updateSize)
+    })
+
+    observer.observe(previewContainerRefDesktop.current)
+    updateSize()
+
+    if (typeof window !== "undefined" && window.visualViewport) {
+      const handleResize = () => requestAnimationFrame(updateSize)
+      window.visualViewport.addEventListener("resize", handleResize)
+      return () => {
+        observer.disconnect()
+        window.visualViewport?.removeEventListener("resize", handleResize)
+      }
+    }
+
+    return () => observer.disconnect()
+  }, [studyType])
+
+  // Compute background fit box using useLayoutEffect (desktop)
+  useLayoutEffect(() => {
+    if (!bgImgRefDesktop.current || !previewContainerRefDesktop.current || studyType !== "layer" || !backgroundUrl) {
+      bgReadyRefDesktop.current = false
+      return
+    }
+
+    const computeFit = () => {
+      const img = bgImgRefDesktop.current
+      const container = previewContainerRefDesktop.current
+      if (!img || !container) return
+
+      const cw = container.offsetWidth || 0
+      const ch = container.offsetHeight || 0
+      if (!cw || !ch) return
+
+      const iw = img.naturalWidth || cw
+      const ih = img.naturalHeight || ch
+      const scale = Math.min(cw / iw, ch / ih)
+      const w = iw * scale
+      const h = ih * scale
+      const left = (cw - w) / 2
+      const top = (ch - h) / 2
+
+      setBgFitDesktop({ left, top, width: w, height: h })
+      bgReadyRefDesktop.current = true
+    }
+
+    requestAnimationFrame(() => {
+      if (bgImgRefDesktop.current?.complete) {
+        computeFit()
+      } else {
+        bgImgRefDesktop.current?.addEventListener("load", computeFit, { once: true })
+      }
+    })
+  }, [containerSizeDesktop, backgroundUrl, studyType, currentTaskIndex])
 
   function getTaskImageCache() {
     try {
@@ -596,9 +755,10 @@ export default function TasksPage() {
                     <div className="flex-1 flex items-center justify-center min-h-0 overflow-hidden px-2">
                       {studyType === "layer" ? (
                         <div className="relative w-full h-full flex items-center justify-center">
-                          <div className="relative w-full h-full max-w-full max-h-full">
+                          <div ref={previewContainerRef} className="relative w-full max-w-xs sm:max-w-sm md:max-w-md aspect-square" style={{ minHeight: 240 }}>
                             {backgroundUrl && (
                               <img
+                                ref={bgImgRef}
                                 src={getCachedUrl(backgroundUrl) || "/placeholder.svg"}
                                 alt="Background"
                                 decoding="async"
@@ -608,28 +768,71 @@ export default function TasksPage() {
                                 height={600}
                                 className="absolute inset-0 m-auto h-full w-full object-contain"
                                 style={{ zIndex: 0 }}
+                                onLoad={() => {
+                                  requestAnimationFrame(() => {
+                                    const cw = previewContainerRef.current?.offsetWidth || 0
+                                    const ch = previewContainerRef.current?.offsetHeight || 0
+                                    if (!cw || !ch) return
+                                    const iw = bgImgRef.current?.naturalWidth || cw
+                                    const ih = bgImgRef.current?.naturalHeight || ch
+                                    const scale = Math.min(cw / iw, ch / ih)
+                                    const w = iw * scale
+                                    const h = ih * scale
+                                    const left = (cw - w) / 2
+                                    const top = (ch - h) / 2
+                                    setBgFit({ left, top, width: w, height: h })
+                                    bgReadyRef.current = true
+                                  })
+                                }}
                               />
                             )}
-                            {task?.layeredImages?.map((img: any, idx: number) => {
-                              const resolved = getCachedUrl(img.url) || "/placeholder.svg"
+                            {(() => {
+                              const efwNum = bgFit.width || (previewContainerRef.current?.offsetWidth || 0)
+                              const efhNum = bgFit.height || (previewContainerRef.current?.offsetHeight || 0)
+                              const efl = bgFit.left ?? 0
+                              const eft = bgFit.top ?? 0
+                              const efw = efwNum || undefined
+                              const efh = efhNum || undefined
+                              const bgFitKey = `${efl}-${eft}-${efw}-${efh}-${currentTaskIndex}`
                               return (
-                                <img
-                                  key={`${img.url}-${idx}`}
-                                  src={resolved || "/placeholder.svg"}
-                                  alt={String(img.z)}
-                                  decoding="async"
-                                  loading="eager"
-                                  fetchPriority="high"
-                                  width={600}
-                                  height={600}
-                                  className="absolute inset-0 m-auto h-full w-full object-contain"
-                                  style={{ zIndex: (img.z ?? 0) + 1 }}
-                                  onError={() => {
-                                    console.error("Layer image failed to load:", img.url)
-                                  }}
-                                />
+                                <div
+                                  className="absolute overflow-hidden"
+                                  style={{ left: efl, top: eft, width: efw ?? '100%', height: efh ?? '100%', zIndex: 1 }}
+                                  key={bgFitKey}
+                                >
+                                  {task?.layeredImages?.map((img: any, idx: number) => {
+                                    const resolved = getCachedUrl(img.url) || "/placeholder.svg"
+                                    const t = img.transform || { x: 0, y: 0, width: 100, height: 100 }
+                                    const widthPct = Math.max(1, Math.min(100, Number(t.width) || 100))
+                                    const heightPct = Math.max(1, Math.min(100, Number(t.height) || 100))
+                                    const leftPct = Math.max(0, Math.min(100 - widthPct, Number(t.x) || 0))
+                                    const topPct = Math.max(0, Math.min(100 - heightPct, Number(t.y) || 0))
+                                    return (
+                                      <img
+                                        key={`${img.url}-${idx}`}
+                                        src={resolved || "/placeholder.svg"}
+                                        alt={String(img.z)}
+                                        decoding="async"
+                                        loading="eager"
+                                        fetchPriority="high"
+                                        className="absolute object-contain"
+                                        style={{
+                                          zIndex: (img.z ?? 0),
+                                          position: 'absolute',
+                                          top: `${topPct}%`,
+                                          left: `${leftPct}%`,
+                                          width: `${widthPct}%`,
+                                          height: `${heightPct}%`,
+                                        }}
+                                        onError={() => {
+                                          console.error("Layer image failed to load:", img.url)
+                                        }}
+                                      />
+                                    )
+                                  })}
+                                </div>
                               )
-                            })}
+                            })()}
                             {(tasks[currentTaskIndex + 1]?.layeredImages || []).map((img: any, idx: number) => {
                               const resolved = getCachedUrl(img.url) || "/placeholder.svg"
                               return (
@@ -856,10 +1059,11 @@ export default function TasksPage() {
                   <div className="space-y-4">
                     {studyType === "layer" ? (
                       <div className="flex justify-center">
-                        <div className="relative w-full max-w-lg aspect-square overflow-hidden">
+                        <div ref={previewContainerRefDesktop} className="relative w-full max-w-lg aspect-square overflow-hidden">
                           <div className="relative w-full h-full">
                             {backgroundUrl && (
                               <img
+                                ref={bgImgRefDesktop}
                                 src={getCachedUrl(backgroundUrl) || "/placeholder.svg"}
                                 alt="Background"
                                 decoding="async"
@@ -869,25 +1073,68 @@ export default function TasksPage() {
                                 height={800}
                                 className="absolute inset-0 m-auto h-full w-full object-contain"
                                 style={{ zIndex: 0 }}
+                                onLoad={() => {
+                                  requestAnimationFrame(() => {
+                                    const cw = previewContainerRefDesktop.current?.offsetWidth || 0
+                                    const ch = previewContainerRefDesktop.current?.offsetHeight || 0
+                                    if (!cw || !ch) return
+                                    const iw = bgImgRefDesktop.current?.naturalWidth || cw
+                                    const ih = bgImgRefDesktop.current?.naturalHeight || ch
+                                    const scale = Math.min(cw / iw, ch / ih)
+                                    const w = iw * scale
+                                    const h = ih * scale
+                                    const left = (cw - w) / 2
+                                    const top = (ch - h) / 2
+                                    setBgFitDesktop({ left, top, width: w, height: h })
+                                    bgReadyRefDesktop.current = true
+                                  })
+                                }}
                               />
                             )}
-                            {task?.layeredImages?.map((img: any, idx: number) => {
-                              const resolved = getCachedUrl(img.url) || "/placeholder.svg"
+                            {(() => {
+                              const efwNum = bgFitDesktop.width || (previewContainerRefDesktop.current?.offsetWidth || 0)
+                              const efhNum = bgFitDesktop.height || (previewContainerRefDesktop.current?.offsetHeight || 0)
+                              const efl = bgFitDesktop.left ?? 0
+                              const eft = bgFitDesktop.top ?? 0
+                              const efw = efwNum || undefined
+                              const efh = efhNum || undefined
+                              const bgFitKey = `${efl}-${eft}-${efw}-${efh}-${currentTaskIndex}-desktop`
                               return (
-                                <img
-                                  key={`${img.url}-${idx}`}
-                                  src={resolved || "/placeholder.svg"}
-                                  alt={String(img.z)}
-                                  decoding="async"
-                                  loading="eager"
-                                  fetchPriority="high"
-                                  width={600}
-                                  height={600}
-                                  className="absolute inset-0 m-auto h-full w-full object-contain"
-                                  style={{ zIndex: (img.z ?? 0) + 1 }}
-                                />
+                                <div
+                                  className="absolute overflow-hidden"
+                                  style={{ left: efl, top: eft, width: efw ?? '100%', height: efh ?? '100%', zIndex: 1 }}
+                                  key={bgFitKey}
+                                >
+                                  {task?.layeredImages?.map((img: any, idx: number) => {
+                                    const resolved = getCachedUrl(img.url) || "/placeholder.svg"
+                                    const t = img.transform || { x: 0, y: 0, width: 100, height: 100 }
+                                    const widthPct = Math.max(1, Math.min(100, Number(t.width) || 100))
+                                    const heightPct = Math.max(1, Math.min(100, Number(t.height) || 100))
+                                    const leftPct = Math.max(0, Math.min(100 - widthPct, Number(t.x) || 0))
+                                    const topPct = Math.max(0, Math.min(100 - heightPct, Number(t.y) || 0))
+                                    return (
+                                      <img
+                                        key={`${img.url}-${idx}`}
+                                        src={resolved || "/placeholder.svg"}
+                                        alt={String(img.z)}
+                                        decoding="async"
+                                        loading="eager"
+                                        fetchPriority="high"
+                                        className="absolute object-contain"
+                                        style={{
+                                          zIndex: (img.z ?? 0),
+                                          position: 'absolute',
+                                          top: `${topPct}%`,
+                                          left: `${leftPct}%`,
+                                          width: `${widthPct}%`,
+                                          height: `${heightPct}%`,
+                                        }}
+                                      />
+                                    )
+                                  })}
+                                </div>
                               )
-                            })}
+                            })()}
                             {(tasks[currentTaskIndex + 1]?.layeredImages || []).map((img: any, idx: number) => {
                               const resolved = getCachedUrl(img.url) || "/placeholder.svg"
                               return (

@@ -24,6 +24,7 @@ export interface AudienceSegmentationPayload {
   country: string
   gender_distribution: GenderDistributionPayload
   age_distribution: AgeDistributionPayload
+  aspect_ratio?: string
 }
 
 export interface ElementPayload {
@@ -75,6 +76,7 @@ export interface CreateStudyPayload {
   main_question: string
   orientation_text: string
   study_type: StudyType
+  aspect_ratio?: string
   rating_scale: RatingScalePayload
   audience_segmentation: AudienceSegmentationPayload
   elements: ElementPayload[]
@@ -451,6 +453,13 @@ export function buildStudyPayloadFromLocalStorage(): CreateStudyPayload {
   })
 
   const countries: string[] = Array.isArray(s6.countries) ? s6.countries : []
+  const aspectRatioFromLS = (() => {
+    try {
+      const ar = localStorage.getItem('cs_step5_layer_preview_aspect')
+      const map: Record<string, string> = { portrait: '3:4', landscape: '4:3', square: '1:1' }
+      return ar && map[ar] ? map[ar] : undefined
+    } catch { return undefined }
+  })()
 
   const payload: CreateStudyPayload = {
     title: s1.title || "",
@@ -459,6 +468,21 @@ export function buildStudyPayloadFromLocalStorage(): CreateStudyPayload {
     main_question: s2.mainQuestion || "",
     orientation_text: s2.orientationText || "",
     study_type: (s2.type as StudyType) || "grid",
+    ...( (() => {
+      try {
+        const map: Record<string, string> = { portrait: '3:4', landscape: '4:3', square: '1:1' }
+        const arKey = localStorage.getItem('cs_step5_layer_preview_aspect')
+        let value = arKey && map[arKey] ? map[arKey] : undefined
+        if (!value) {
+          const raw = localStorage.getItem('current_study_details')
+          if (raw) {
+            const cs = JSON.parse(raw)
+            value = cs?.study_info?.aspect_ratio || cs?.metadata?.aspect_ratio || undefined
+          }
+        }
+        return value ? { aspect_ratio: value } : {}
+      } catch { return {} }
+    })() ),
     rating_scale: {
       min_value: Number(s3.minValue ?? 1),
       max_value: Number(s3.maxValue ?? 5),
@@ -471,6 +495,17 @@ export function buildStudyPayloadFromLocalStorage(): CreateStudyPayload {
       country: countries.join(", "),
       gender_distribution,
       age_distribution,
+      ...(aspectRatioFromLS ? { aspect_ratio: aspectRatioFromLS } : {}),
+      ...( (() => {
+        if (aspectRatioFromLS) return {}
+        try {
+          const raw = localStorage.getItem('current_study_details')
+          if (!raw) return {}
+          const cs = JSON.parse(raw)
+          const value = cs?.study_info?.aspect_ratio || cs?.metadata?.aspect_ratio
+          return value ? { aspect_ratio: value } : {}
+        } catch { return {} }
+      })() ),
     },
     elements,
     study_layers,
@@ -577,6 +612,7 @@ export interface TaskGenerationPayload {
       order: number
     }>
   }>
+  aspect_ratio?: string
 }
 
 export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayload {
@@ -701,13 +737,22 @@ export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayl
           order: imgIdx,
         }
       }) || []
-      
+      // Derive layer-level transform from first image (percentages) if present
+      const first = Array.isArray(l.images) && l.images.length > 0 ? l.images[0] : null
+      const transform = first ? {
+        x: typeof first.x === 'number' ? first.x : 10,
+        y: typeof first.y === 'number' ? first.y : 10,
+        width: typeof first.width === 'number' ? first.width : 80,
+        height: typeof first.height === 'number' ? first.height : 80,
+      } : undefined
+
       return {
         layer_id: l.id || crypto.randomUUID?.() || Math.random().toString(36).slice(2),
         name: l.name || `Layer ${layerIdx + 1}`,
         description: l.description || "",
         z_index: typeof l.z === "number" ? l.z : layerIdx,
         order: typeof l.z === "number" ? l.z : layerIdx,
+        ...(transform ? { transform } : {}),
         images: imageObjects,
       }
     })
@@ -719,6 +764,13 @@ export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayl
   const s4 = get("cs_step4", []) as any[] // Classification questions
   
   const language = (s1.language || "en").toString().toLowerCase().startsWith("en") ? "en" : s1.language || "en"
+  const aspectRatioFromLS2 = (() => {
+    try {
+      const ar = localStorage.getItem('cs_step5_layer_preview_aspect')
+      const map: Record<string, string> = { portrait: '3:4', landscape: '4:3', square: '1:1' }
+      return ar && map[ar] ? map[ar] : undefined
+    } catch { return undefined }
+  })()
   
   // Build classification questions
   const classification_questions = s4
@@ -760,6 +812,7 @@ export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayl
       country: countries.join(", "),
       gender_distribution,
       age_distribution,
+      ...(aspectRatioFromLS2 ? { aspect_ratio: aspectRatioFromLS2 } : {}),
     },
     ...(categories.length > 0 && { categories }),
     ...(elements.length > 0 && { elements }),
@@ -767,7 +820,15 @@ export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayl
     ...(classification_questions.length > 0 && { classification_questions }),
     ...(((layerBackground && (layerBackground.secureUrl || layerBackground.previewUrl))) && {
       background_image_url: String(layerBackground.secureUrl || layerBackground.previewUrl)
-    })
+    }),
+    ...( (() => {
+      try {
+        const ar = localStorage.getItem('cs_step5_layer_preview_aspect')
+        const map: Record<string, string> = { portrait: '3:4', landscape: '4:3', square: '1:1' }
+        const value = ar && map[ar] ? map[ar] : undefined
+        return value ? { aspect_ratio: value } : {}
+      } catch { return {} }
+    })() )
   }
   
   console.log('Task generation payload:', payload)

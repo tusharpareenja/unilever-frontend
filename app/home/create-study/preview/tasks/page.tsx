@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, useMemo, useLayoutEffect } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { imageCacheManager } from "@/lib/utils/imageCacheManager"
@@ -22,7 +22,7 @@ type Task = {
   rightImageUrl?: string
   leftLabel?: string
   rightLabel?: string
-  layeredImages?: Array<{ url: string; z: number }>
+  layeredImages?: Array<{ url: string; z: number; layer_name?: string }>
   gridUrls?: string[]
   compositeLayerUrl?: string
   _elements_shown?: Record<string, unknown>
@@ -41,6 +41,26 @@ export default function TasksPage() {
   const [studyType, setStudyType] = useState<'grid' | 'layer' | undefined>(undefined)
   const [mainQuestion, setMainQuestion] = useState<string>("")
   const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null)
+  const [layerTransformsByName, setLayerTransformsByName] = useState<Record<string, { x: number; y: number; width: number; height: number }>>({})
+  // Anchoring to background fit box
+  const previewContainerRef = useRef<HTMLDivElement>(null)
+  const bgImgRef = useRef<HTMLImageElement>(null)
+  const [containerSize, setContainerSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 })
+  const [bgFit, setBgFit] = useState<{ left: number; top: number; width: number; height: number }>({ left: 0, top: 0, width: 0, height: 0 })
+  const bgReadyRef = useRef<boolean>(false)
+  const bgFitKey = `${Math.round(bgFit.width)}x${Math.round(bgFit.height)}`
+
+  // Read selected aspect ratio from Step 5 and map to CSS aspect class
+  const previewAspect = useMemo<'portrait' | 'landscape' | 'square'>(() => {
+    try {
+      const v = localStorage.getItem('cs_step5_layer_preview_aspect')
+      if (v === 'portrait' || v === 'landscape' || v === 'square') return v
+    } catch {}
+    return 'square'
+  }, [])
+  const aspectClass = useMemo(() => (
+    previewAspect === 'landscape' ? 'aspect-[4/3]' : previewAspect === 'square' ? 'aspect-square' : 'aspect-[3/4]'
+  ), [previewAspect])
 
   // Interaction tracking
   const hoverCountsRef = useRef<Record<number, number>>({})
@@ -117,6 +137,17 @@ export default function TasksPage() {
       const middle = (rs?.middleLabel ?? rs?.middle_label ?? rs?.middle ?? rs?.midLabel ?? rs?.mid_label) ?? ""
       setScaleLabels({ left: String(left ?? ''), right: String(right ?? ''), middle: String(middle ?? '') })
 
+      // Save preview layer transforms map if present
+      try {
+        const tmap = (matrix?.preview_layers_transforms && typeof matrix.preview_layers_transforms === 'object') ? matrix.preview_layers_transforms : {}
+        const norm: Record<string, { x: number; y: number; width: number; height: number }> = {}
+        Object.keys(tmap).forEach((k) => {
+          const v = (tmap as any)[k]
+          if (v) norm[String(k)] = { x: Number(v.x) || 0, y: Number(v.y) || 0, width: Number(v.width) || 100, height: Number(v.height) || 100 }
+        })
+        setLayerTransformsByName(norm)
+      } catch {}
+
       // Use preview data (1 respondent only) for display
       let respondentTasks: any[] = []
       if (Array.isArray(matrix)) {
@@ -160,6 +191,7 @@ export default function TasksPage() {
                 return {
                   url: String(layerData.url),
                   z: Number(layerData.z_index ?? 0),
+                  layer_name: String(layerData.layer_name || '').trim() || undefined,
                 }
               })
               .sort((a, b) => a.z - b.z)
@@ -310,6 +342,40 @@ export default function TasksPage() {
     preloadCurrentTask()
   }, [currentTaskIndex, tasks])
 
+  // Observe container size and recompute background fit (like Step 7)
+  useEffect(() => {
+    const updateSize = () => {
+      if (previewContainerRef.current) {
+        setContainerSize({
+          width: previewContainerRef.current.offsetWidth,
+          height: previewContainerRef.current.offsetHeight,
+        })
+      }
+    }
+    updateSize()
+    const ro = new ResizeObserver(updateSize)
+    if (previewContainerRef.current) ro.observe(previewContainerRef.current)
+    const vv: any = (window as any).visualViewport
+    const onVvResize = () => updateSize()
+    if (vv && vv.addEventListener) vv.addEventListener('resize', onVvResize)
+    return () => { ro.disconnect(); if (vv && vv.removeEventListener) vv.removeEventListener('resize', onVvResize) }
+  }, [])
+
+  useLayoutEffect(() => {
+    const cw = containerSize.width
+    const ch = containerSize.height
+    if (!cw || !ch) { setBgFit({ left: 0, top: 0, width: 0, height: 0 }); return }
+    const iw = bgImgRef.current?.naturalWidth || cw
+    const ih = bgImgRef.current?.naturalHeight || ch
+    if (!iw || !ih) { setBgFit({ left: 0, top: 0, width: cw, height: ch }); return }
+    const scale = Math.min(cw / iw, ch / ih)
+    const w = iw * scale
+    const h = ih * scale
+    const left = (cw - w) / 2
+    const top = (ch - h) / 2
+    requestAnimationFrame(() => setBgFit({ left, top, width: w, height: h }))
+  }, [containerSize])
+
   function getTaskImageCache() {
     try {
       const cached = sessionStorage.getItem("task_img_cache")
@@ -436,10 +502,12 @@ export default function TasksPage() {
                   <>
                     <div className="flex-1 flex items-center justify-center min-h-0 overflow-hidden px-2">
                       {studyType === "layer" ? (
-                        <div className="relative w-full h-full flex items-center justify-center">
-                          <div className="relative w-full h-full max-w-full max-h-full">
+                        <div className="relative w-full h-full flex items-center justify-center mt-2">
+                          {/* Ensure non-zero height on small screens and attach ref here */}
+                          <div ref={previewContainerRef} className={`relative w-full ${previewAspect==='landscape' ? 'max-w-sm sm:max-w-md md:max-w-lg' : 'max-w-xs sm:max-w-sm md:max-w-md'} ${aspectClass}`} style={{ minHeight: 240 }}>
                             {backgroundUrl && (
                               <img
+                                ref={bgImgRef}
                                 src={getCachedUrl(backgroundUrl) || "/placeholder.svg"}
                                 alt="Background"
                                 decoding="async"
@@ -449,28 +517,70 @@ export default function TasksPage() {
                                 height={600}
                                 className="absolute inset-0 m-auto h-full w-full object-contain"
                                 style={{ zIndex: 0 }}
+                                onLoad={() => {
+                                  const cw = previewContainerRef.current?.offsetWidth || 0
+                                  const ch = previewContainerRef.current?.offsetHeight || 0
+                                  if (!cw || !ch) return
+                                  const iw = bgImgRef.current?.naturalWidth || cw
+                                  const ih = bgImgRef.current?.naturalHeight || ch
+                                  const scale = Math.min(cw / iw, ch / ih)
+                                  const w = iw * scale
+                                  const h = ih * scale
+                                  const left = (cw - w) / 2
+                                  const top = (ch - h) / 2
+                                  setBgFit({ left, top, width: w, height: h })
+                                  bgReadyRef.current = true
+                                }}
                               />
                             )}
-                            {task?.layeredImages?.map((img: any, idx: number) => {
-                              const resolved = getCachedUrl(img.url) || "/placeholder.svg"
+                            {/* Overlay anchored to background fit box; fallback to container during resize */}
+                            {(() => {
+                              const efwNum = bgFit.width || (previewContainerRef.current?.offsetWidth || 0)
+                              const efhNum = bgFit.height || (previewContainerRef.current?.offsetHeight || 0)
+                              const efl = (bgFit.left ?? 0)
+                              const eft = (bgFit.top ?? 0)
+                              const efw = efwNum || undefined
+                              const efh = efhNum || undefined
                               return (
-                                <img
-                                  key={`${img.url}-${idx}`}
-                                  src={resolved || "/placeholder.svg"}
-                                  alt={String(img.z)}
-                                  decoding="async"
-                                  loading="eager"
-                                  fetchPriority="high"
-                                  width={600}
-                                  height={600}
-                                  className="absolute inset-0 m-auto h-full w-full object-contain"
-                                  style={{ zIndex: (img.z ?? 0) + 1 }}
-                                  onError={() => {
-                                    console.error("Layer image failed to load:", img.url)
-                                  }}
-                                />
+                                <div
+                                  className="absolute overflow-hidden"
+                                  style={{ left: efl, top: eft, width: efw ?? '100%', height: efh ?? '100%', zIndex: 1 }}
+                                  key={bgFitKey}
+                                >
+                                {task?.layeredImages?.map((img: any, idx: number) => {
+                                  const resolved = getCachedUrl(img.url) || "/placeholder.svg"
+                                  const raw = img.layer_name ? layerTransformsByName[img.layer_name] : undefined
+                                  const t = raw || { x: 0, y: 0, width: 100, height: 100 }
+                                  const widthPct = Math.max(1, Math.min(100, Number(t.width) || 100))
+                                  const heightPct = Math.max(1, Math.min(100, Number(t.height) || 100))
+                                  const leftPct = Math.max(0, Math.min(100 - widthPct, Number(t.x) || 0))
+                                  const topPct = Math.max(0, Math.min(100 - heightPct, Number(t.y) || 0))
+                                  return (
+                                    <img
+                                      key={`${img.url}-${idx}`}
+                                      src={resolved || "/placeholder.svg"}
+                                      alt={String(img.z)}
+                                      decoding="async"
+                                      loading="eager"
+                                      fetchPriority="high"
+                                      className="absolute object-contain"
+                                      style={{
+                                        zIndex: (img.z ?? 0),
+                                        position: 'absolute',
+                                        top: `${topPct}%`,
+                                        left: `${leftPct}%`,
+                                        width: `${widthPct}%`,
+                                        height: `${heightPct}%`,
+                                      }}
+                                      onError={() => {
+                                        console.error("Layer image failed to load:", img.url)
+                                      }}
+                                    />
+                                  )
+                                })}
+                                </div>
                               )
-                            })}
+                            })()}
                             {(tasks[currentTaskIndex + 1]?.layeredImages || []).map((img: any, idx: number) => {
                               const resolved = getCachedUrl(img.url) || "/placeholder.svg"
                               return (
@@ -644,7 +754,7 @@ export default function TasksPage() {
                       style={{ paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}
                     >
                       <div className="flex items-center justify-center mb-2">
-                        <div className="flex items-center justify-between w-full max-w-sm gap-1">
+                        <div className="flex items-center justify-center gap-4">
                           {[1, 2, 3, 4, 5].map((n) => {
                             const selected = lastSelected === n
                             return (
@@ -702,11 +812,12 @@ export default function TasksPage() {
                 ) : (
                   <div className="space-y-4">
                     {studyType === "layer" ? (
-                      <div className="flex justify-center">
-                        <div className="relative w-full max-w-lg aspect-square overflow-hidden">
+                      <div className="flex justify-center mt-4">
+                        <div ref={previewContainerRef} className={`relative w-full ${previewAspect==='landscape' ? 'max-w-xl' : 'max-w-lg'} ${aspectClass} overflow-hidden`}>
                           <div className="relative w-full h-full">
                             {backgroundUrl && (
                               <img
+                                ref={bgImgRef}
                                 src={getCachedUrl(backgroundUrl) || "/placeholder.svg"}
                                 alt="Background"
                                 decoding="async"
@@ -716,25 +827,65 @@ export default function TasksPage() {
                                 height={800}
                                 className="absolute inset-0 m-auto h-full w-full object-contain"
                                 style={{ zIndex: 0 }}
+                                onLoad={() => {
+                                  const cw = previewContainerRef.current?.offsetWidth || 0
+                                  const ch = previewContainerRef.current?.offsetHeight || 0
+                                  if (!cw || !ch) return
+                                  const iw = bgImgRef.current?.naturalWidth || cw
+                                  const ih = bgImgRef.current?.naturalHeight || ch
+                                  const scale = Math.min(cw / iw, ch / ih)
+                                  const w = iw * scale
+                                  const h = ih * scale
+                                  const left = (cw - w) / 2
+                                  const top = (ch - h) / 2
+                                  setBgFit({ left, top, width: w, height: h })
+                                  bgReadyRef.current = true
+                                }}
                               />
                             )}
-                            {task?.layeredImages?.map((img, idx) => {
-                              const resolved = getCachedUrl(img.url) || "/placeholder.svg"
+                            {(() => {
+                              const efw = bgFit.width || (previewContainerRef.current?.offsetWidth || 0)
+                              const efh = bgFit.height || (previewContainerRef.current?.offsetHeight || 0)
+                              const efl = (bgFit.left ?? 0)
+                              const eft = (bgFit.top ?? 0)
+                              if (!efw || !efh) return null
                               return (
-                                <img
-                                  key={`${img.url}-${idx}`}
-                                  src={resolved || "/placeholder.svg"}
-                                  alt={String(img.z)}
-                                  decoding="async"
-                                  loading="eager"
-                                  fetchPriority="high"
-                                  width={600}
-                                  height={600}
-                                  className="absolute inset-0 m-auto h-full w-full object-contain"
-                                  style={{ zIndex: (img.z ?? 0) + 1 }}
-                                />
+                                <div
+                                  className="absolute overflow-hidden"
+                                  style={{ left: efl, top: eft, width: efw, height: efh, zIndex: 1 }}
+                                  key={bgFitKey}
+                                >
+                                  {task?.layeredImages?.map((img: any, idx: number) => {
+                                    const resolved = getCachedUrl(img.url) || "/placeholder.svg"
+                                    const raw = img.layer_name ? layerTransformsByName[img.layer_name] : undefined
+                                    const t = raw || { x: 0, y: 0, width: 100, height: 100 }
+                                    const widthPct = Math.max(1, Math.min(100, Number(t.width) || 100))
+                                    const heightPct = Math.max(1, Math.min(100, Number(t.height) || 100))
+                                    const leftPct = Math.max(0, Math.min(100 - widthPct, Number(t.x) || 0))
+                                    const topPct = Math.max(0, Math.min(100 - heightPct, Number(t.y) || 0))
+                                    return (
+                                      <img
+                                        key={`${img.url}-${idx}`}
+                                        src={resolved || "/placeholder.svg"}
+                                        alt={String(img.z)}
+                                        decoding="async"
+                                        loading="eager"
+                                        fetchPriority="high"
+                                        className="absolute object-contain"
+                                        style={{
+                                          zIndex: (img.z ?? 0),
+                                          position: 'absolute',
+                                          top: `${topPct}%`,
+                                          left: `${leftPct}%`,
+                                          width: `${widthPct}%`,
+                                          height: `${heightPct}%`,
+                                        }}
+                                      />
+                                    )
+                                  })}
+                                </div>
                               )
-                            })}
+                            })()}
                             {(tasks[currentTaskIndex + 1]?.layeredImages || []).map((img, idx) => {
                               const resolved = getCachedUrl(img.url) || "/placeholder.svg"
                               return (
@@ -745,14 +896,7 @@ export default function TasksPage() {
                                   decoding="async"
                                   loading="eager"
                                   fetchPriority="high"
-                                  style={{
-                                    position: "absolute",
-                                    top: -99999,
-                                    left: -99999,
-                                    width: 1,
-                                    height: 1,
-                                    visibility: "hidden",
-                                  }}
+                                  style={{ position: "absolute", top: -99999, left: -99999, width: 1, height: 1, visibility: "hidden" }}
                                 />
                               )
                             })}
@@ -933,7 +1077,7 @@ export default function TasksPage() {
 
                     <div className="w-full max-w-2xl mx-auto mt-4">
                       <div className="flex items-center justify-center mb-3">
-                        <div className="flex items-center justify-between w-full max-w-lg gap-2">
+                        <div className="flex items-center justify-center gap-4">
                           {[1, 2, 3, 4, 5].map((n) => {
                             const selected = lastSelected === n
                             return (

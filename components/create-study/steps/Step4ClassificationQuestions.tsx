@@ -114,6 +114,7 @@ export function Step4ClassificationQuestions({ onNext, onBack, onDataChange }: S
 				<div>
 					<h3 className="text-lg font-semibold text-gray-800">Classification Questions</h3>
 					<p className="text-sm text-gray-600">Add demographic and classification questions to segment your respondents. These questions will be asked before the main study tasks.</p>
+					<p className="text-sm text-gray-600 mt-1">Age and Gender will be asked by default (no need to put them here).</p>
 				</div>
 				<Button className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)]" onClick={addQuestion}>+ Add Question</Button>
 			</div>

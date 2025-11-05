@@ -165,11 +165,104 @@ export default function ParticipateIntroPage() {
         const normalizedInfo = backgroundUrl
           ? { ...rawInfo, metadata: { ...(rawInfo.metadata || {}), background_image_url: backgroundUrl } }
           : rawInfo
+        // Extract layers and transforms from elements_shown_content in assigned_tasks
+        // This is the primary source since transforms are included in each task's elements_shown_content
+        const layerTransforms: Record<string, { x: number; y: number; width: number; height: number }> = {}
+        const derivedMap: Record<string, { name: string; z_index: number; transform: any }> = {}
+        
+        try {
+          const buckets: any[] = Array.isArray(respondentDetails?.assigned_tasks)
+            ? respondentDetails.assigned_tasks
+            : []
+          buckets.forEach((taskList: any[]) => {
+            if (!Array.isArray(taskList)) return
+            taskList.forEach((t: any) => {
+              const content = t?.elements_shown_content || {}
+              Object.values(content).forEach((v: any) => {
+                if (!v || typeof v !== 'object' || !v.transform) return
+                const lname = String(v.layer_name || '').trim()
+                if (!lname || derivedMap[lname]) return
+                const tf = v.transform
+                const transform = {
+                  x: Number(tf.x) || 0,
+                  y: Number(tf.y) || 0,
+                  width: Number(tf.width) || 100,
+                  height: Number(tf.height) || 100,
+                }
+                derivedMap[lname] = {
+                  name: lname,
+                  z_index: Number(v.z_index ?? 0),
+                  transform,
+                }
+                layerTransforms[lname] = transform
+              })
+            })
+          })
+        } catch {}
+
+        // Use layers from API if available, otherwise use derived from tasks
+        let layersArr: any[] = Array.isArray(respondentDetails?.layers) && respondentDetails.layers.length > 0
+          ? respondentDetails.layers
+          : Object.values(derivedMap)
+
+        // Build compact assigned_tasks: keep elements_shown as-is, but in elements_shown_content
+        // store ONLY the transform for keys where elements_shown === 1
+        const compactAssignedTasks: any[] = Array.isArray(respondentDetails?.assigned_tasks)
+          ? (respondentDetails.assigned_tasks as any[]).map((taskList: any[]) => {
+              if (!Array.isArray(taskList)) return []
+              return taskList.map((t: any) => {
+                const shown = t?.elements_shown || {}
+                const content = t?.elements_shown_content || {}
+                const compactContent: Record<string, any> = {}
+                try {
+                  Object.keys(shown || {}).forEach((k) => {
+                    if (Number(shown[k]) === 1) {
+                      const v = content?.[k]
+                      if (v && typeof v === 'object' && v.transform) {
+                        const tf = v.transform
+                        compactContent[k] = {
+                          url: String(v.url || ''),
+                          z_index: Number(v.z_index ?? 0),
+                          layer_name: String(v.layer_name || ''),
+                          transform: {
+                            x: Number(tf.x) || 0,
+                            y: Number(tf.y) || 0,
+                            width: Number(tf.width) || 100,
+                            height: Number(tf.height) || 100,
+                          },
+                        }
+                      }
+                    }
+                  })
+                } catch {}
+                return {
+                  task_id: t?.task_id,
+                  task_index: t?.task_index,
+                  elements_shown: shown,
+                  elements_shown_content: compactContent,
+                }
+              })
+            })
+          : []
+
+        // If compaction produced empty buckets, fall back to original assigned_tasks
+        const hasCompactTasks = Array.isArray(compactAssignedTasks) && compactAssignedTasks.some((arr: any) => Array.isArray(arr) && arr.length > 0)
+        const assignedTasksToStore = hasCompactTasks ? compactAssignedTasks : (Array.isArray(respondentDetails?.assigned_tasks) ? respondentDetails.assigned_tasks : [])
+
         // Store only the essential data to avoid localStorage quota issues
+        // Extract aspect_ratio from response (could be at root level or in metadata)
+        const aspectRatio = respondentDetails?.aspect_ratio || respondentDetails?.metadata?.aspect_ratio || null
+        
         const essentialData = {
-          study_info: normalizedInfo,
-          assigned_tasks: respondentDetails?.assigned_tasks || [],
-          classification_questions: respondentDetails?.classification_questions || []
+          study_info: { ...normalizedInfo, study_layers: layersArr },
+          assigned_tasks: assignedTasksToStore,
+          classification_questions: respondentDetails?.classification_questions || [],
+          layers: layersArr,
+          layers_transforms: layerTransforms,
+          ...(aspectRatio ? { aspect_ratio: aspectRatio } : {}),
+          ...(respondentDetails?.metadata ? { metadata: respondentDetails.metadata } : {}),
+          ...(respondentDetails?.respondent_id ? { respondent_id: respondentDetails.respondent_id } : {}),
+          ...(respondentDetails?.study_id ? { study_id: respondentDetails.study_id } : {})
         }
         
           
@@ -195,7 +288,8 @@ export default function ParticipateIntroPage() {
           // Store only essential data to avoid localStorage quota issues
           // Preserve existing classification_questions if they exist
           const existingData = localStorage.getItem('current_study_details')
-          const existingClassificationQuestions = existingData ? JSON.parse(existingData)?.classification_questions || [] : []
+          const parsedExistingDetails = existingData ? JSON.parse(existingData) : {}
+          const existingClassificationQuestions = parsedExistingDetails?.classification_questions || []
           
           const essentialData = {
             study_info: {
@@ -270,7 +364,8 @@ export default function ParticipateIntroPage() {
           // Store only essential data to avoid localStorage quota issues
           // Preserve existing classification_questions if they exist
           const existingData = localStorage.getItem('current_study_details')
-          const existingClassificationQuestions = existingData ? JSON.parse(existingData)?.classification_questions || [] : []
+          const parsedExistingDetails = existingData ? JSON.parse(existingData) : {}
+          const existingClassificationQuestions = parsedExistingDetails?.classification_questions || []
           
           const backgroundUrl = details?.metadata?.background_image_url || details?.background_image_url || null
           const essentialData = {
@@ -281,12 +376,23 @@ export default function ParticipateIntroPage() {
               rating_scale: details?.rating_scale,
               metadata: backgroundUrl ? { background_image_url: backgroundUrl } : undefined,
             },
-            assigned_tasks: userTasks,
-            classification_questions: existingClassificationQuestions
+            // Preserve compact assigned_tasks with transforms if already stored
+            assigned_tasks: Array.isArray(parsedExistingDetails?.assigned_tasks) ? parsedExistingDetails.assigned_tasks : userTasks,
+            classification_questions: existingClassificationQuestions,
           }
-          
+
           try {
-            localStorage.setItem('current_study_details', JSON.stringify(essentialData))
+            // Preserve layers and transforms if already stored from respondent details call
+            const existingRaw = localStorage.getItem('current_study_details')
+            const existing = existingRaw ? JSON.parse(existingRaw) : {}
+            const merged = {
+              ...existing,
+              ...essentialData,
+              study_info: { ...(existing?.study_info || {}), ...(essentialData.study_info || {}) },
+              layers: existing?.layers || [],
+              layers_transforms: existing?.layers_transforms || {},
+            }
+            localStorage.setItem('current_study_details', JSON.stringify(merged))
           } catch (e) {
             
           }

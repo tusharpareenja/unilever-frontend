@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, useMemo, useLayoutEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { buildTaskGenerationPayloadFromLocalStorage, generateTasks, generateTasksWithPolling, JobStatus } from "@/lib/api/StudyAPI"
 import JSZip from "jszip"
@@ -32,6 +32,21 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
   const isResuming = useRef<boolean>(false)
   const isLoadingFromCache = useRef<boolean>(false)
   const [showTimer, setShowTimer] = useState<boolean>(false)
+  // Preview anchoring to background fit box
+  const previewContainerRef = useRef<HTMLDivElement>(null)
+  const bgImgRef = useRef<HTMLImageElement>(null)
+  const [containerSize, setContainerSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 })
+  const [bgFit, setBgFit] = useState<{ left: number; top: number; width: number; height: number }>({ left: 0, top: 0, width: 0, height: 0 })
+  const bgFitKey = `${Math.round(bgFit.width)}x${Math.round(bgFit.height)}`
+  const bgReadyRef = useRef<boolean>(false)
+  // Read preview aspect saved in Step 5
+  const previewAspect = useMemo<'portrait' | 'landscape' | 'square'>(() => {
+    try {
+      const v = localStorage.getItem('cs_step5_layer_preview_aspect')
+      if (v === 'portrait' || v === 'landscape' || v === 'square') return v
+    } catch {}
+    return 'portrait'
+  }, [])
 
   // Job persistence functions
   const saveJobState = (jobId: string, status: JobStatus, startTime: number, studyId?: string) => {
@@ -337,12 +352,33 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
         previewTasksLength: previewTasks.length
       })
       
+      // Build transforms map from result.layers by name -> transform
+      const transformsMap: Record<string, { x: number; y: number; width: number; height: number }> = {}
+      try {
+        const layersArr = result?.layers
+        if (Array.isArray(layersArr)) {
+          layersArr.forEach((l: any) => {
+            if (l && l.name && l.transform) {
+              const t = l.transform
+              transformsMap[String(l.name)] = {
+                x: typeof t.x === 'number' ? t.x : 0,
+                y: typeof t.y === 'number' ? t.y : 0,
+                width: typeof t.width === 'number' ? t.width : 100,
+                height: typeof t.height === 'number' ? t.height : 100,
+              }
+            }
+          })
+        }
+      } catch {}
+
       const previewData = {
         metadata: result.metadata,
         preview_tasks: previewTasks,
         total_respondents: result.metadata?.number_of_respondents || 0,
         total_tasks: result.metadata?.total_tasks || 0,
-        full_matrix_available: true
+        full_matrix_available: true,
+        // Persist transforms with preview so we can render without full result later
+        preview_layers_transforms: transformsMap
       }
       console.log('[Step7] Preview data to save:', previewData)
       console.log('[Step7] Persisting cs_step7_matrix')
@@ -513,12 +549,32 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
             previewTasksLength: previewTasks.length
           })
 
+          // Build transforms map if layers present on immediate response
+          const transformsMap: Record<string, { x: number; y: number; width: number; height: number }> = {}
+          try {
+            const layersArr = data?.layers
+            if (Array.isArray(layersArr)) {
+              layersArr.forEach((l: any) => {
+                if (l && l.name && l.transform) {
+                  const t = l.transform
+                  transformsMap[String(l.name)] = {
+                    x: typeof t.x === 'number' ? t.x : 0,
+                    y: typeof t.y === 'number' ? t.y : 0,
+                    width: typeof t.width === 'number' ? t.width : 100,
+                    height: typeof t.height === 'number' ? t.height : 100,
+                  }
+                }
+              })
+            }
+          } catch {}
+
           const previewData = {
             metadata: data.metadata,
             preview_tasks: previewTasks,
             total_respondents: data.metadata?.number_of_respondents || 0,
             total_tasks: data.metadata?.total_tasks || 0,
-            full_matrix_available: true // Flag to indicate we have full data on backend
+            full_matrix_available: true, // Flag to indicate we have full data on backend
+            preview_layers_transforms: transformsMap
           }
           console.log('[Step7] Persisting cs_step7_matrix (immediate)')
           localStorage.setItem('cs_step7_matrix', JSON.stringify(previewData))
@@ -837,6 +893,108 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
   
   const elementsPerTask = meta.K ?? meta.elements_per_task ?? '-'
   const formattedCountdown = `${Math.floor(countdownSeconds / 60)}:${String(countdownSeconds % 60).padStart(2, '0')}`
+
+  // Map layer name -> transform from cached matrix preview (preferred) or result.layers
+  const layerTransformsByName = useMemo(() => {
+    const map: Record<string, { x: number; y: number; width: number; height: number }> = {}
+    try {
+      // Preferred: transforms saved with preview in localStorage matrix
+      const fromPreview = (matrix as any)?.preview_layers_transforms
+      if (fromPreview && typeof fromPreview === 'object') {
+        Object.keys(fromPreview).forEach((k) => {
+          const t = fromPreview[k]
+          if (t) {
+            map[String(k)] = {
+              x: typeof t.x === 'number' ? t.x : 0,
+              y: typeof t.y === 'number' ? t.y : 0,
+              width: typeof t.width === 'number' ? t.width : 100,
+              height: typeof t.height === 'number' ? t.height : 100,
+            }
+          }
+        })
+      }
+
+      if (Object.keys(map).length > 0) return map
+
+      // Fallback to result.layers if preview map not present
+      const layersArr = (matrix as any)?.layers
+      if (Array.isArray(layersArr)) {
+        layersArr.forEach((l: any) => {
+          if (l && l.name && l.transform) {
+            const t = l.transform
+            const norm = {
+              x: typeof t.x === 'number' ? t.x : 0,
+              y: typeof t.y === 'number' ? t.y : 0,
+              width: typeof t.width === 'number' ? t.width : 100,
+              height: typeof t.height === 'number' ? t.height : 100,
+            }
+            map[String(l.name)] = norm
+          }
+        })
+      }
+
+      // Additional fallback: Step 5 saved layers from localStorage
+      if (Object.keys(map).length === 0) {
+        try {
+          const raw = localStorage.getItem('cs_step5_layer')
+          if (raw) {
+            const layersLS = JSON.parse(raw)
+            if (Array.isArray(layersLS)) {
+              layersLS.forEach((l: any) => {
+                const base = l?.images?.[0]
+                if (!l?.name || !base) return
+                const norm = {
+                  x: typeof base.x === 'number' ? base.x : 0,
+                  y: typeof base.y === 'number' ? base.y : 0,
+                  width: typeof base.width === 'number' ? base.width : 100,
+                  height: typeof base.height === 'number' ? base.height : 100,
+                }
+                map[String(l.name)] = norm
+              })
+            }
+          }
+        } catch {}
+      }
+    } catch {}
+    return map
+  }, [matrix])
+
+  // Observe preview container size
+  useEffect(() => {
+    const updateSize = () => {
+      if (previewContainerRef.current) {
+        setContainerSize({
+          width: previewContainerRef.current.offsetWidth,
+          height: previewContainerRef.current.offsetHeight,
+        })
+      }
+    }
+    updateSize()
+    const ro = new ResizeObserver(updateSize)
+    if (previewContainerRef.current) ro.observe(previewContainerRef.current)
+    // Also listen to visualViewport changes (DevTools responsive mode)
+    const vv = (window as any).visualViewport
+    const onVvResize = () => updateSize()
+    if (vv && vv.addEventListener) vv.addEventListener('resize', onVvResize)
+    return () => { ro.disconnect(); if (vv && vv.removeEventListener) vv.removeEventListener('resize', onVvResize) }
+  }, [])
+
+  // Compute background fit box (object-contain) inside preview container
+  useLayoutEffect(() => {
+    const cw = containerSize.width
+    const ch = containerSize.height
+    if (!cw || !ch) { setBgFit({ left: 0, top: 0, width: 0, height: 0 }); return }
+    const iw = bgImgRef.current?.naturalWidth || cw
+    const ih = bgImgRef.current?.naturalHeight || ch
+    if (!iw || !ih) { setBgFit({ left: 0, top: 0, width: cw, height: ch }); return }
+    const scale = Math.min(cw / iw, ch / ih)
+    const w = iw * scale
+    const h = ih * scale
+    const left = (cw - w) / 2
+    const top = (ch - h) / 2
+    // Use RAF to ensure layout has settled before applying
+    requestAnimationFrame(() => setBgFit({ left, top, width: w, height: h }))
+  }, [containerSize])
 
   // Compute additional derived statistics from preview data (first respondent only)
   const previewTasksForStats = Array.isArray(respondentBuckets?.[0]) ? respondentBuckets[0] : []
@@ -1503,10 +1661,11 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                             </div>
                             <div className="relative bg-gray-100 min-h-[300px] overflow-hidden">
                               {visibleLayers.length > 0 ? (
-                                <div className="relative w-full h-[300px]">
+                                <div ref={previewContainerRef} className="relative w-full h-[300px]">
                                   {backgroundUrl && (
                                     // eslint-disable-next-line @next/next/no-img-element
                                     <img 
+                                      ref={bgImgRef}
                                       src={backgroundUrl}
                                       alt="Background"
                                       className="absolute inset-0 w-full h-full object-contain"
@@ -1518,33 +1677,70 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                                         width: '100%',
                                         height: '100%'
                                       }}
+                                      onLoad={() => {
+                                        const cw = previewContainerRef.current?.offsetWidth || 0
+                                        const ch = previewContainerRef.current?.offsetHeight || 0
+                                        if (!cw || !ch) return
+                                        const iw = bgImgRef.current?.naturalWidth || cw
+                                        const ih = bgImgRef.current?.naturalHeight || ch
+                                        const scale = Math.min(cw / iw, ch / ih)
+                                        const w = iw * scale
+                                        const h = ih * scale
+                                        const left = (cw - w) / 2
+                                        const top = (ch - h) / 2
+                                        setBgFit({ left, top, width: w, height: h })
+                                        bgReadyRef.current = true
+                                      }}
                                       onError={(e) => { e.currentTarget.style.display = 'none' }}
                                     />
                                   )}
-                                  {visibleLayers.map((layer, layerIdx) => (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img 
-                                      key={layerIdx} 
-                                      src={layer.url} 
-                                      alt={layer.layer_name}
-                                      className="absolute inset-0 w-full h-full object-contain"
-                                      style={{ 
-                                        zIndex: layer.z_index + 10, // Add offset to ensure proper stacking; background uses zIndex 0
-                                        position: 'absolute',
-                                        top: 0,
-                                        left: 0,
-                                        width: '100%',
-                                        height: '100%'
-                                      }}
-                                      onLoad={() => {
-                                        console.log(`Layer ${layer.layer_name} loaded with z-index: ${layer.z_index}`)
-                                      }}
-                                      onError={(e) => {
-                                        console.error(`Failed to load layer image: ${layer.url}`)
-                                        e.currentTarget.style.display = 'none'
-                                      }}
-                                    />
-                                  ))}
+                                  {/* Overlay to anchor transforms to background fit box (or virtual box if no background) */}
+                                  {(() => {
+                                    if (backgroundUrl) {
+                                      // Use measured object-contain fit when background exists
+                                      if (!bgFit.width || !bgFit.height) return null
+                                      const efl = bgFit.left
+                                      const eft = bgFit.top
+                                      const efw = bgFit.width
+                                      const efh = bgFit.height
+                                      const bgFitKeySafe = `${efl}-${eft}-${efw}-${efh}-${tIdx}`
+                                      return (
+                                        <div className="absolute overflow-hidden" style={{ left: efl, top: eft, width: efw, height: efh, zIndex: 1 }} key={bgFitKeySafe}>
+                                        {visibleLayers.map((layer, layerIdx) => {
+                                          const raw = layerTransformsByName[layer.layer_name] || { x: 0, y: 0, width: 100, height: 100 }
+                                          const widthPct = Math.max(1, Math.min(100, raw.width))
+                                          const heightPct = Math.max(1, Math.min(100, raw.height))
+                                          const leftPct = Math.max(0, Math.min(100 - widthPct, raw.x))
+                                          const topPct = Math.max(0, Math.min(100 - heightPct, raw.y))
+                                          return (
+                                            // eslint-disable-next-line @next/next/no-img-element
+                                            <img key={layerIdx} src={layer.url} alt={layer.layer_name} className="absolute object-contain" style={{ zIndex: (typeof layer.z_index === 'number' ? layer.z_index : 0), position: 'absolute', top: `${topPct}%`, left: `${leftPct}%`, width: `${widthPct}%`, height: `${heightPct}%` }} />
+                                          )
+                                        })}
+                                        </div>
+                                      )
+                                    }
+                                    // Virtual centered aspect box (no background)
+                                    const aspectClass = previewAspect === 'landscape' ? 'aspect-[4/3]' : previewAspect === 'square' ? 'aspect-square' : 'aspect-[3/4]'
+                                    const keySafe = `${aspectClass}-${tIdx}`
+                                    return (
+                                      <div className="absolute inset-0 flex items-center justify-center" key={keySafe}>
+                                        <div className={`relative ${aspectClass} h-full w-auto max-w-full max-h-full`}>
+                                          {visibleLayers.map((layer, layerIdx) => {
+                                            const raw = layerTransformsByName[layer.layer_name] || { x: 0, y: 0, width: 100, height: 100 }
+                                            const widthPct = Math.max(1, Math.min(100, raw.width))
+                                            const heightPct = Math.max(1, Math.min(100, raw.height))
+                                            const leftPct = Math.max(0, Math.min(100 - widthPct, raw.x))
+                                            const topPct = Math.max(0, Math.min(100 - heightPct, raw.y))
+                                            return (
+                                              // eslint-disable-next-line @next/next/no-img-element
+                                              <img key={layerIdx} src={layer.url} alt={layer.layer_name} className="absolute object-contain" style={{ zIndex: (typeof layer.z_index === 'number' ? layer.z_index : 0), position: 'absolute', top: `${topPct}%`, left: `${leftPct}%`, width: `${widthPct}%`, height: `${heightPct}%` }} />
+                                            )
+                                          })}
+                                        </div>
+                                      </div>
+                                    )
+                                  })()}
                                 </div>
                               ) : (
                                 <div className="flex items-center justify-center h-[300px] text-xs text-gray-400">

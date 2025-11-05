@@ -1,6 +1,7 @@
 "use client"
 
 import { Fragment, useEffect, useRef, useState } from "react"
+import { Rnd } from "react-rnd"
 import { Button } from "@/components/ui/button"
 import { uploadImages } from "@/lib/api/StudyAPI"
 
@@ -11,6 +12,88 @@ interface ElementItem {
   file?: File
   previewUrl?: string
   secureUrl?: string
+}
+
+// Simple large preview mirroring background-fit logic
+function LargePreview({ background, layers, aspect }: { background: { secureUrl?: string; previewUrl?: string } | null; layers: any[]; aspect: 'portrait' | 'landscape' | 'square' }) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const imgRef = useRef<HTMLImageElement>(null)
+  const [fit, setFit] = useState<{ left: number; top: number; width: number; height: number }>({ left: 0, top: 0, width: 0, height: 0 })
+  const aspectClass = aspect === 'portrait' ? 'aspect-[3/4]' : aspect === 'landscape' ? 'aspect-[4/3]' : 'aspect-square'
+
+  useEffect(() => {
+    const compute = () => {
+      const cw = containerRef.current?.offsetWidth || 0
+      const ch = containerRef.current?.offsetHeight || 0
+      if (!cw || !ch) return
+      const iw = imgRef.current?.naturalWidth || cw
+      const ih = imgRef.current?.naturalHeight || ch
+      const scale = Math.min(cw / iw, ch / ih)
+      const w = iw * scale
+      const h = ih * scale
+      const left = (cw - w) / 2
+      const top = (ch - h) / 2
+      setFit({ left, top, width: w, height: h })
+    }
+    compute()
+    const ro = new ResizeObserver(compute)
+    if (containerRef.current) ro.observe(containerRef.current)
+    return () => ro.disconnect()
+  }, [aspect])
+
+  return (
+    <div className={`relative w-full ${aspectClass} max-h-[80vh] max-w-[90vw] mx-auto overflow-hidden bg-slate-50 rounded-lg border`} ref={containerRef}>
+      {background && (background.secureUrl || background.previewUrl) && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          ref={imgRef}
+          src={background.secureUrl || background.previewUrl}
+          alt="Background"
+          className="absolute inset-0 w-full h-full object-contain"
+          style={{ zIndex: 0 }}
+          onLoad={() => {
+            const cw = containerRef.current?.offsetWidth || 0
+            const ch = containerRef.current?.offsetHeight || 0
+            const iw = imgRef.current?.naturalWidth || cw
+            const ih = imgRef.current?.naturalHeight || ch
+            const scale = Math.min(cw / iw, ch / ih)
+            const w = iw * scale
+            const h = ih * scale
+            const left = (cw - w) / 2
+            const top = (ch - h) / 2
+            setFit({ left, top, width: w, height: h })
+          }}
+        />
+      )}
+      <div className="absolute overflow-hidden" style={{ left: fit.left, top: fit.top, width: fit.width || '100%', height: fit.height || '100%', zIndex: 1 }}>
+        {layers.map((l: any) => {
+          const base = l.images?.[0]
+          if (!base) return null
+          const widthPct = Math.max(1, Math.min(100, Number(base.width ?? 100)))
+          const heightPct = Math.max(1, Math.min(100, Number(base.height ?? 100)))
+          const leftPct = Math.max(0, Math.min(100 - widthPct, Number(base.x ?? 0)))
+          const topPct = Math.max(0, Math.min(100 - heightPct, Number(base.y ?? 0)))
+          return (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={l.id}
+              src={base.secureUrl || base.previewUrl}
+              alt={l.name}
+              className="absolute object-contain"
+              style={{
+                zIndex: l.z ?? 0,
+                position: 'absolute',
+                top: `${topPct}%`,
+                left: `${leftPct}%`,
+                width: `${widthPct}%`,
+                height: `${heightPct}%`,
+              }}
+            />
+          )
+        })}
+      </div>
+    </div>
+  )
 }
 
 interface CategoryItem {
@@ -668,12 +751,24 @@ const CATEGORY_MAX = 10
 // ---------------- Layer Mode ----------------
 interface LayerModeProps { onNext: () => void; onBack: () => void; onDataChange?: () => void }
 
+type LayerImage = {
+  id: string
+  file?: File
+  previewUrl: string
+  secureUrl?: string
+  name?: string
+  x?: number // Position x (percentage of container width)
+  y?: number // Position y (percentage of container height)
+  width?: number // Width (percentage of container width)
+  height?: number // Height (percentage of container height)
+}
+
 type Layer = {
   id: string
   name: string
   description?: string
   z: number
-  images: { id: string; file?: File; previewUrl: string; secureUrl?: string; name?: string }[]
+  images: LayerImage[]
   open: boolean
 }
 
@@ -685,7 +780,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     try {
       const raw = localStorage.getItem('cs_step5_layer')
       if (raw) {
-        const saved = JSON.parse(raw) as Array<{ id: string; name: string; description?: string; z: number; images: Array<{ id: string; previewUrl?: string; secureUrl?: string; name?: string }> }>
+        const saved = JSON.parse(raw) as Array<{ id: string; name: string; description?: string; z: number; images: Array<{ id: string; previewUrl?: string; secureUrl?: string; name?: string; x?: number; y?: number; width?: number; height?: number }> }>
         if (Array.isArray(saved)) {
           return saved.map((l, idx) => ({
             id: l.id || crypto.randomUUID(),
@@ -696,7 +791,11 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
               id: img.id || crypto.randomUUID(), 
               previewUrl: img.previewUrl || img.secureUrl || '', 
               secureUrl: img.secureUrl,
-              name: img.name || `Image ${imgIdx + 1}`
+              name: img.name || `Image ${imgIdx + 1}`,
+              x: img.x ?? 0, // Default to 0% from left (same as background)
+              y: img.y ?? 0, // Default to 0% from top (same as background)
+              width: img.width ?? 100, // Default to 100% width (same as background)
+              height: img.height ?? 100 // Default to 100% height (same as background)
             })),
             open: false,
           }))
@@ -711,8 +810,112 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
   const [draftName, setDraftName] = useState("Layer 1")
   const [draftDescription, setDraftDescription] = useState("")
   const [draftImages, setDraftImages] = useState<Array<{ id: string; file?: File; previewUrl: string; secureUrl?: string; name: string }>>([])
+  const previewContainerRef = useRef<HTMLDivElement>(null)
+  const bgImgRef = useRef<HTMLImageElement>(null)
+  const [containerSize, setContainerSize] = useState<{ width: number; height: number }>({ width: 300, height: 400 })
+  const [bgFit, setBgFit] = useState<{ left: number; top: number; width: number; height: number }>({ left: 0, top: 0, width: 300, height: 400 })
+  const bgFitKey = `${Math.round(bgFit.width)}x${Math.round(bgFit.height)}`
   const [selectedImageIds, setSelectedImageIds] = useState<Record<string, string>>({}) // layerId -> selectedImageId
   const [nextLoading, setNextLoading] = useState(false)
+  const draggingRef = useRef<string | null>(null) // Track which layer is being dragged
+  const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null)
+  // Preview aspect + modal preview
+  const [previewAspect, setPreviewAspect] = useState<'portrait' | 'landscape' | 'square'>(() => {
+    try {
+      const saved = localStorage.getItem('cs_step5_layer_preview_aspect')
+      if (saved === 'portrait' || saved === 'landscape' || saved === 'square') return saved as any
+    } catch {}
+    return 'portrait'
+  })
+  const aspectClass = previewAspect === 'portrait' ? 'aspect-[3/4]' : previewAspect === 'landscape' ? 'aspect-[4/3]' : 'aspect-square'
+  const [showFullPreview, setShowFullPreview] = useState(false)
+  
+  // Helpers: unique name generators
+  const generateUniqueName = (base: string, usedNames: Set<string>): string => {
+    const trimmed = (base || '').trim() || 'Untitled'
+    if (!usedNames.has(trimmed)) return trimmed
+    let i = 1
+    let candidate = `${trimmed}(${i})`
+    while (usedNames.has(candidate)) {
+      i += 1
+      candidate = `${trimmed}(${i})`
+    }
+    return candidate
+  }
+  const uniqueLayerName = (proposed: string, excludeId?: string): string => {
+    const used = new Set<string>()
+    layers.forEach(l => { if (!excludeId || l.id !== excludeId) used.add((l.name || '').trim()) })
+    return generateUniqueName(proposed, used)
+  }
+  
+  // Deselect layer when clicking outside of the preview canvas entirely
+  useEffect(() => {
+    const handleGlobalMouseDown = (e: MouseEvent) => {
+      const container = previewContainerRef.current
+      if (!container) return
+      const target = e.target as Node | null
+      if (selectedLayerId && target && !container.contains(target)) {
+        setSelectedLayerId(null)
+      }
+    }
+    document.addEventListener('mousedown', handleGlobalMouseDown, true)
+    return () => document.removeEventListener('mousedown', handleGlobalMouseDown, true)
+  }, [selectedLayerId])
+  
+  // Update container size when it changes
+  useEffect(() => {
+    const updateSize = () => {
+      if (previewContainerRef.current) {
+        setContainerSize({
+          width: previewContainerRef.current.offsetWidth,
+          height: previewContainerRef.current.offsetHeight
+        })
+      }
+    }
+    
+    updateSize()
+    const resizeObserver = new ResizeObserver(updateSize)
+    if (previewContainerRef.current) {
+      resizeObserver.observe(previewContainerRef.current)
+    }
+    
+    return () => {
+      resizeObserver.disconnect()
+    }
+  }, [])
+
+  // Persist chosen aspect for Step 7 to use
+  useEffect(() => {
+    try { localStorage.setItem('cs_step5_layer_preview_aspect', previewAspect) } catch {}
+  }, [previewAspect])
+
+  // Compute background fit box (object-contain) within container
+  useEffect(() => {
+    const computeFit = () => {
+      const cw = containerSize.width
+      const ch = containerSize.height
+      // If no background image element, use full container
+      const hasBg = Boolean(bgImgRef.current)
+      if (!hasBg) {
+        setBgFit({ left: 0, top: 0, width: cw, height: ch })
+        return
+      }
+      const imgEl = bgImgRef.current
+      const iw = imgEl?.naturalWidth || cw
+      const ih = imgEl?.naturalHeight || ch
+      if (iw <= 0 || ih <= 0) {
+        setBgFit({ left: 0, top: 0, width: cw, height: ch })
+        return
+      }
+      const scale = Math.min(cw / iw, ch / ih)
+      const w = iw * scale
+      const h = ih * scale
+      const left = (cw - w) / 2
+      const top = (ch - h) / 2
+      setBgFit({ left, top, width: w, height: h })
+    }
+    computeFit()
+  }, [containerSize])
   // Hybrid uploader (layer): accumulate single-file adds per layer, debounce 2s
   const layerPendingRef = useRef<Record<string, Array<{ imageId: string; file: File }>>>({})
   const layerTimersRef = useRef<Record<string, ReturnType<typeof setTimeout> | null>>({})
@@ -738,6 +941,17 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
 
   const addLayer = () => {
     if (layers.length >= LAYER_MAX) return
+    // Compute next available default name like "Layer N"
+    const existing = new Set(layers.map(l => (l.name || '').trim()))
+    let n = layers.length + 1
+    let proposed = `Layer ${n}`
+    while (existing.has(proposed)) {
+      n += 1
+      proposed = `Layer ${n}`
+    }
+    setDraftName(proposed)
+    setDraftDescription("")
+    setDraftImages([])
     setShowModal(true)
   }
 
@@ -795,8 +1009,20 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     // Close immediately with whatever images drafted (keep file so we can finalize if still pending)
     const id = crypto.randomUUID()
     const nextZ = layers.length
-    const imgs = draftImages.map(i => ({ id: i.id, file: i.file, previewUrl: i.previewUrl, secureUrl: i.secureUrl, name: i.name }))
-    const layer: Layer = { id, name: draftName || `Layer ${nextZ + 1}`, description: draftDescription, z: nextZ, images: imgs, open: false }
+    const imgs = draftImages.map(i => ({ 
+      id: i.id, 
+      file: i.file, 
+      previewUrl: i.previewUrl, 
+      secureUrl: i.secureUrl, 
+      name: i.name,
+      x: 0, // Default position (same as background)
+      y: 0,
+      width: 100, // Default to 100% width (same as background)
+      height: 100 // Default to 100% height (same as background)
+    }))
+    const initialName = draftName || `Layer ${nextZ + 1}`
+    const name = uniqueLayerName(initialName)
+    const layer: Layer = { id, name, description: draftDescription, z: nextZ, images: imgs, open: false }
     setLayers(prev => reindexLayers([...prev, layer]))
     setShowModal(false)
     setDraftName("")
@@ -904,10 +1130,26 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       const url = URL.createObjectURL(file)
       const fileName = file.name.replace(/\.[^/.]+$/, "")
       ids.push(tempId)
-      setLayers(prev => prev.map(l => (l.id === layerId ? { 
-        ...l, 
-        images: [...l.images, { id: tempId, file, previewUrl: url, name: fileName }].sort((a, b) => (a.name || '').localeCompare(b.name || ''))
-      } : l)))
+      setLayers(prev => prev.map(l => {
+        if (l.id !== layerId) return l
+        const base = l.images[0]
+        const baseTransform = base ? {
+          x: base.x ?? 0,
+          y: base.y ?? 0,
+          width: base.width ?? 100,
+          height: base.height ?? 100
+        } : { x: 0, y: 0, width: 100, height: 100 }
+        return {
+          ...l,
+          images: [...l.images, {
+            id: tempId,
+            file,
+            previewUrl: url,
+            name: fileName,
+            ...baseTransform
+          }].sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+        }
+      }))
     })
     if (list.length > 1) {
       uploadImages(list).then((results) => {
@@ -973,6 +1215,18 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     return () => window.removeEventListener('beforeunload', handler)
   }, [layers])
 
+  // Function to update layer image position and size
+  // Applies the same transform to ALL images in the specified layer
+  const updateLayerImageTransform = (layerId: string, imageId: string, transform: { x?: number; y?: number; width?: number; height?: number }) => {
+    setLayers(prev => prev.map(layer => {
+      if (layer.id !== layerId) return layer
+      return {
+        ...layer,
+        images: layer.images.map(img => ({ ...img, ...transform }))
+      }
+    }))
+  }
+
   // persist layers
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -981,7 +1235,27 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       name: l.name, 
       description: l.description || '',
       z: l.z, 
-      images: l.images.map(i => ({ id: i.id, previewUrl: i.previewUrl, secureUrl: i.secureUrl, name: i.name })) 
+      // Save a layer-level transform (from the first image) for convenience
+      transform: (() => {
+        const base = l.images?.[0]
+        if (!base) return undefined
+        return {
+          x: base.x,
+          y: base.y,
+          width: base.width,
+          height: base.height,
+        }
+      })(),
+      images: l.images.map(i => ({ 
+        id: i.id, 
+        previewUrl: i.previewUrl, 
+        secureUrl: i.secureUrl, 
+        name: i.name,
+        x: i.x,
+        y: i.y,
+        width: i.width,
+        height: i.height
+      })) 
     }))
     localStorage.setItem('cs_step5_layer', JSON.stringify(minimal))
     // persist background separately
@@ -1011,21 +1285,207 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       </div>
 
       <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div className="md:col-span-1 border rounded-xl bg-white p-4 flex items-center justify-center">
-          {/* Preview canvas built from z order */}
-          <div className="relative w-full aspect-[3/4] bg-slate-50 rounded-lg overflow-hidden border">
+        <div className="md:col-span-1 rounded-xl bg-white p-4 flex flex-col">
+          {/* Preview canvas built from z order with draggable/resizable layers */}
+          <div 
+            ref={previewContainerRef}
+            className={`relative w-full ${aspectClass} max-h-[60vh] overflow-hidden bg-slate-50 rounded-lg border`}
+            style={{ position: 'relative' }}
+            onMouseDown={(e) => { if (e.currentTarget === e.target) setSelectedLayerId(null) }}
+          >
             {background && (background.secureUrl || background.previewUrl) && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={background.secureUrl || background.previewUrl} alt="Background" className="absolute inset-0 w-full h-full object-contain" style={{ zIndex: 0 }} />
+              <img
+                ref={bgImgRef}
+                src={background.secureUrl || background.previewUrl}
+                alt="Background"
+                className="absolute inset-0 w-full h-full object-contain"
+                style={{ zIndex: 0 }}
+                onLoad={() => {
+                  // recompute fit after image loads
+                  const cw = containerSize.width
+                  const ch = containerSize.height
+                  const iw = bgImgRef.current?.naturalWidth || cw
+                  const ih = bgImgRef.current?.naturalHeight || ch
+                  const scale = Math.min(cw / iw, ch / ih)
+                  const w = iw * scale
+                  const h = ih * scale
+                  const left = (cw - w) / 2
+                  const top = (ch - h) / 2
+                  setBgFit({ left, top, width: w, height: h })
+                }}
+              />
             )}
+
+            {/* Overlay fit box; children are constrained within */}
+            <div
+              className="absolute overflow-hidden"
+              style={{ left: bgFit.left, top: bgFit.top, width: bgFit.width, height: bgFit.height, zIndex: 1 }}
+            >
             {layers.map((l) => {
               const selectedImageId = selectedImageIds[l.id]
               const selectedImage = selectedImageId ? l.images.find(img => img.id === selectedImageId) : l.images[0]
-              return selectedImage ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img key={`${l.id}-${selectedImage.id}`} src={selectedImage.secureUrl || selectedImage.previewUrl} alt={l.name} className="absolute inset-0 w-full h-full object-contain" style={{ zIndex: (background ? l.z + 1 : l.z) }} />
-              ) : null
+              if (!selectedImage) return null
+              
+              // Convert percentage to pixels using background fit box
+              const x = ((selectedImage.x ?? 0) / 100) * bgFit.width
+              const y = ((selectedImage.y ?? 0) / 100) * bgFit.height
+              const width = ((selectedImage.width ?? 100) / 100) * bgFit.width
+              const height = ((selectedImage.height ?? 100) / 100) * bgFit.height
+              
+              const layerKey = `${l.id}-${selectedImage.id}`
+              const isSelected = selectedLayerId === l.id
+              const positionKey = `${(selectedImage.x ?? 0).toFixed(2)}-${(selectedImage.y ?? 0).toFixed(2)}-${(selectedImage.width ?? 100).toFixed(2)}-${(selectedImage.height ?? 100).toFixed(2)}`
+              
+              return (
+                <Rnd
+                  key={`${layerKey}-${positionKey}-${bgFitKey}`}
+                  default={{ x, y, width, height }}
+                  onMouseDown={(e) => { e.stopPropagation(); setSelectedLayerId(l.id) }}
+                  disableDragging={!isSelected}
+                  onDragStart={() => {
+                    draggingRef.current = layerKey
+                  }}
+                  onDragStop={(e, d) => {
+                    draggingRef.current = null
+                    // Convert pixels to percentage and save
+                    if (bgFit.width > 0 && bgFit.height > 0) {
+                      const xPercent = Math.max(0, Math.min(100, (d.x / bgFit.width) * 100))
+                      const yPercent = Math.max(0, Math.min(100, (d.y / bgFit.height) * 100))
+                      updateLayerImageTransform(l.id, selectedImage.id, { x: xPercent, y: yPercent })
+                    }
+                  }}
+                  onResizeStop={(e, direction, ref, delta, position) => {
+                    // Convert pixels to percentage and save
+                    if (bgFit.width > 0 && bgFit.height > 0) {
+                      const newWidth = parseInt(ref.style.width) || width
+                      const newHeight = parseInt(ref.style.height) || height
+                      const widthPercent = Math.max(5, Math.min(100, (newWidth / bgFit.width) * 100))
+                      const heightPercent = Math.max(5, Math.min(100, (newHeight / bgFit.height) * 100))
+                      const xPercent = Math.max(0, Math.min(100, (position.x / bgFit.width) * 100))
+                      const yPercent = Math.max(0, Math.min(100, (position.y / bgFit.height) * 100))
+                      updateLayerImageTransform(l.id, selectedImage.id, { 
+                        x: xPercent, 
+                        y: yPercent, 
+                        width: widthPercent, 
+                        height: heightPercent 
+                      })
+                    }
+                  }}
+                  style={{
+                    zIndex: background ? l.z + 1 : l.z,
+                    border: isSelected ? '2px solid rgba(37,99,235,1)' : 'none',
+                    boxShadow: isSelected ? '0 0 0 2px rgba(37,99,235,0.2)' : 'none',
+                    background: 'transparent',
+                    pointerEvents: 'auto'
+                  }}
+                  bounds="parent"
+                  minWidth={50}
+                  minHeight={50}
+                  lockAspectRatio={false}
+                  enableResizing={isSelected ? {
+                    top: true,
+                    right: true,
+                    bottom: true,
+                    left: true,
+                    topRight: true,
+                    bottomRight: true,
+                    bottomLeft: true,
+                    topLeft: true
+                  } : {
+                    top: false,
+                    right: false,
+                    bottom: false,
+                    left: false,
+                    topRight: false,
+                    bottomRight: false,
+                    bottomLeft: false,
+                    topLeft: false
+                  }}
+                  resizeHandleStyles={isSelected ? {
+                    // Edge handles: centered on each side
+                    top: {
+                      width: '24px', height: '10px', background: '#fff', borderRadius: '9999px',
+                      border: '1px solid rgba(0,0,0,0.15)', boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
+                      top: '-6px', left: '50%', transform: 'translate(-50%, -50%)'
+                    },
+                    bottom: {
+                      width: '24px', height: '10px', background: '#fff', borderRadius: '9999px',
+                      border: '1px solid rgba(0,0,0,0.15)', boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
+                      bottom: '-6px', left: '50%', transform: 'translate(-50%, 50%)'
+                    },
+                    left: {
+                      width: '10px', height: '24px', background: '#fff', borderRadius: '9999px',
+                      border: '1px solid rgba(0,0,0,0.15)', boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
+                      left: '-6px', top: '50%', transform: 'translate(-50%, -50%)'
+                    },
+                    right: {
+                      width: '10px', height: '24px', background: '#fff', borderRadius: '9999px',
+                      border: '1px solid rgba(0,0,0,0.15)', boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
+                      right: '-6px', top: '50%', transform: 'translate(50%, -50%)'
+                    },
+                    // Corner handles: circles at corners
+                    topLeft: {
+                      width: '12px', height: '12px', background: '#fff', borderRadius: '9999px',
+                      border: '1px solid rgba(0,0,0,0.15)', boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
+                      left: '-6px', top: '-6px'
+                    },
+                    topRight: {
+                      width: '12px', height: '12px', background: '#fff', borderRadius: '9999px',
+                      border: '1px solid rgba(0,0,0,0.15)', boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
+                      right: '-6px', top: '-6px'
+                    },
+                    bottomLeft: {
+                      width: '12px', height: '12px', background: '#fff', borderRadius: '9999px',
+                      border: '1px solid rgba(0,0,0,0.15)', boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
+                      left: '-6px', bottom: '-6px'
+                    },
+                    bottomRight: {
+                      width: '12px', height: '12px', background: '#fff', borderRadius: '9999px',
+                      border: '1px solid rgba(0,0,0,0.15)', boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
+                      right: '-6px', bottom: '-6px'
+                    }
+                  } : undefined}
+                >
+                  <div 
+                    className={`w-full h-full flex items-center justify-center bg-transparent ${isSelected ? 'cursor-move' : 'cursor-default'}`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img 
+                      src={selectedImage.secureUrl || selectedImage.previewUrl} 
+                      alt={l.name} 
+                      className="max-w-full max-h-full object-contain pointer-events-none select-none" 
+                      draggable={false}
+                    />
+                  </div>
+                </Rnd>
+              )
             })}
+            </div>
+          </div>
+          {/* Controls under the outer preview div */}
+          <div className="mt-3 w-full flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                title="Portrait"
+                onClick={() => setPreviewAspect('portrait')}
+                className={`w-9 h-9 rounded-full border flex items-center justify-center text-xs ${previewAspect === 'portrait' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300'}`}
+              >3:4</button>
+              <button
+                type="button"
+                title="Landscape"
+                onClick={() => setPreviewAspect('landscape')}
+                className={`w-9 h-9 rounded-full border flex items-center justify-center text-xs ${previewAspect === 'landscape' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300'}`}
+              >4:3</button>
+              <button
+                type="button"
+                title="Square"
+                onClick={() => setPreviewAspect('square')}
+                className={`w-9 h-9 rounded-full border flex items-center justify-center text-xs ${previewAspect === 'square' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300'}`}
+              >1:1</button>
+            </div>
+            <Button variant="outline" className="rounded-full px-4 py-1" onClick={() => setShowFullPreview(true)}>Preview</Button>
           </div>
         </div>
         <div className="md:col-span-2">
@@ -1058,7 +1518,10 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
               {overIndex === idx && (
                 <div className="h-2 rounded bg-[rgba(38,116,186,0.3)] border border-[rgba(38,116,186,0.5)] mb-2" />
               )}
-            <div className={`border rounded-xl bg-white ${dragIndex === idx ? 'opacity-70' : ''}`}>
+            <div 
+              className={`border rounded-xl bg-white ${dragIndex === idx ? 'opacity-70' : ''}`}
+              onClick={() => setSelectedLayerId(layer.id)}
+            >
               <div
                 className="flex items-center justify-between px-4 py-2 bg-slate-50 rounded-t-xl cursor-move"
                 draggable
@@ -1270,6 +1733,20 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                 {layers.length >= LAYER_MAX ? 'Max layers reached' : 'Save Layer'}
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fullscreen Preview Modal */}
+      {showFullPreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70" onClick={() => setShowFullPreview(false)} />
+          <div className="relative bg-white rounded-xl w-full max-w-5xl shadow-xl p-4 z-10">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-sm font-semibold text-gray-800">Preview</div>
+              <Button variant="outline" onClick={() => setShowFullPreview(false)}>Close</Button>
+            </div>
+            <LargePreview background={background} layers={layers} aspect={previewAspect} />
           </div>
         </div>
       )}
