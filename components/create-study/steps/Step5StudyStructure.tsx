@@ -1284,12 +1284,12 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
         <Button className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)]" onClick={addLayer} disabled={layers.length >= LAYER_MAX}>+ Add New Layer</Button>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div className="md:col-span-1 rounded-xl bg-white p-4 flex flex-col">
+      <div className="mt-4 grid grid-cols-1 md:grid-cols-5 gap-5">
+        <div className={`${previewAspect === 'landscape' ? 'md:col-span-3' : 'md:col-span-2'} rounded-xl bg-white p-4 flex flex-col`}>
           {/* Preview canvas built from z order with draggable/resizable layers */}
           <div 
             ref={previewContainerRef}
-            className={`relative w-full ${aspectClass} max-h-[60vh] overflow-hidden bg-slate-50 rounded-lg border`}
+            className={`relative w-full ${aspectClass} max-h-[75vh] overflow-hidden bg-slate-50 rounded-lg border`}
             style={{ position: 'relative' }}
             onMouseDown={(e) => { if (e.currentTarget === e.target) setSelectedLayerId(null) }}
           >
@@ -1488,7 +1488,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
             <Button variant="outline" className="rounded-full px-4 py-1" onClick={() => setShowFullPreview(true)}>Preview</Button>
           </div>
         </div>
-        <div className="md:col-span-2">
+        <div className={previewAspect === 'landscape' ? 'md:col-span-2' : 'md:col-span-3'}>
           {/* Background controls */}
           <div className="border rounded-xl bg-white p-4 mb-4">
             <div className="flex items-center justify-between mb-2">
@@ -1542,11 +1542,11 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                    <span className="truncate max-w-[40ch]">{layer.name || `Layer ${idx + 1}`}</span>
+                    <span className="truncate max-w-[20ch]">{layer.name || `Layer ${idx + 1}`}</span>
                     
                   </div>
                   {layer.description ? (
-                    <div className="text-xs text-gray-500 truncate max-w-[60ch]">{layer.description}</div>
+                    <div className="text-xs text-gray-500 truncate max-w-[25ch]">{layer.description}</div>
                   ) : null}
                 </div>
                 <div className="flex items-center gap-2">
