@@ -518,7 +518,7 @@ const CATEGORY_MAX = 10
         <div className="flex items-center justify-between mb-4">
           <div className="text-sm font-semibold text-gray-800">Category Management</div>
           <Button 
-            className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)]" 
+            className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] cursor-pointer" 
             onClick={() => {
               if (categories.length >= CATEGORY_MAX) return
               const newCategory: CategoryItem = {
@@ -548,7 +548,7 @@ const CATEGORY_MAX = 10
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => toggleCategoryCollapse(category.id)}
-                      className="flex items-center gap-2 hover:bg-gray-100 px-2 py-1 rounded"
+                      className="flex items-center gap-2 hover:bg-gray-100 px-2 py-1 rounded cursor-pointer"
                     >
                       <div className={`transform transition-transform ${collapsedCategories.has(category.id) ? 'rotate-0' : 'rotate-90'}`}>
                         ▶
@@ -566,7 +566,7 @@ const CATEGORY_MAX = 10
                       </div>
                     </button>
                   </div>
-                  <Button variant="outline" onClick={() => setCategories(prev => prev.filter(c => c.id !== category.id))} className="px-3 py-1">Remove</Button>
+                  <Button variant="outline" onClick={() => setCategories(prev => prev.filter(c => c.id !== category.id))} className="px-3 py-1 cursor-pointer">Remove</Button>
                 </div>
                 {!collapsedCategories.has(category.id) && (
                   <div className="p-4 space-y-4">
@@ -622,7 +622,7 @@ const CATEGORY_MAX = 10
                               variant="outline" 
                               size="sm" 
                               onClick={() => removeCategoryElement(category.id, element.id)}
-                              className="w-full mt-1 text-xs"
+                              className="w-full mt-1 text-xs cursor-pointer"
                             >
                               Remove
                             </Button>
@@ -706,7 +706,7 @@ const CATEGORY_MAX = 10
             {/* Centered Add Category at bottom */}
             <div className="flex items-center justify-center pt-2">
               <Button 
-                className="rounded-full px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)]" 
+                className="rounded-full px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] cursor-pointer" 
                 onClick={() => {
                   if (categories.length >= CATEGORY_MAX) return
                   const newCategory: CategoryItem = {
@@ -735,9 +735,9 @@ const CATEGORY_MAX = 10
       </div>
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mt-10">
-        <Button variant="outline" className="rounded-full px-6 w-full sm:w-auto" onClick={onBack}>Back</Button>
+        <Button variant="outline" className="rounded-full px-6 w-full sm:w-auto cursor-pointer" onClick={onBack}>Back</Button>
         <Button
-          className="rounded-full px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] w-full sm:w-auto"
+          className="rounded-full px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] w-full sm:w-auto cursor-pointer"
           onClick={handleNext}
           disabled={nextLoading || categories.length < CATEGORY_MIN || !areCategoriesValid()}
         >
@@ -1281,7 +1281,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
 
       <div className="flex items-center justify-between mt-4">
         <div className="text-sm font-semibold text-gray-800">Layer Management</div>
-        <Button className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)]" onClick={addLayer} disabled={layers.length >= LAYER_MAX}>+ Add New Layer</Button>
+        <Button className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] cursor-pointer" onClick={addLayer} disabled={layers.length >= LAYER_MAX}>+ Add New Layer</Button>
       </div>
 
       <div className="mt-4 grid grid-cols-1 md:grid-cols-5 gap-5">
@@ -1470,22 +1470,22 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                 type="button"
                 title="Portrait"
                 onClick={() => setPreviewAspect('portrait')}
-                className={`w-9 h-9 rounded-full border flex items-center justify-center text-xs ${previewAspect === 'portrait' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300'}`}
+                className={`w-9 h-9 rounded-full border flex items-center justify-center text-xs cursor-pointer ${previewAspect === 'portrait' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300'}`}
               >3:4</button>
               <button
                 type="button"
                 title="Landscape"
                 onClick={() => setPreviewAspect('landscape')}
-                className={`w-9 h-9 rounded-full border flex items-center justify-center text-xs ${previewAspect === 'landscape' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300'}`}
+                className={`w-9 h-9 rounded-full border flex items-center justify-center text-xs cursor-pointer ${previewAspect === 'landscape' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300'}`}
               >4:3</button>
               <button
                 type="button"
                 title="Square"
                 onClick={() => setPreviewAspect('square')}
-                className={`w-9 h-9 rounded-full border flex items-center justify-center text-xs ${previewAspect === 'square' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300'}`}
+                className={`w-9 h-9 rounded-full border flex items-center justify-center text-xs cursor-pointer ${previewAspect === 'square' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300'}`}
               >1:1</button>
             </div>
-            <Button variant="outline" className="rounded-full px-4 py-1" onClick={() => setShowFullPreview(true)}>Preview</Button>
+            <Button variant="outline" className="rounded-full px-4 py-1 cursor-pointer" onClick={() => setShowFullPreview(true)}>Preview</Button>
           </div>
         </div>
         <div className={previewAspect === 'landscape' ? 'md:col-span-2' : 'md:col-span-3'}>
@@ -1494,7 +1494,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
             <div className="flex items-center justify-between mb-2">
               <div className="text-sm font-semibold text-gray-800">Background (Optional)</div>
               {background && (
-                <Button variant="outline" onClick={removeBackground}>Remove</Button>
+                <Button variant="outline" onClick={removeBackground} className="cursor-pointer">Remove</Button>
               )}
             </div>
             {background && (background.secureUrl || background.previewUrl) ? (
@@ -1550,12 +1550,12 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                   ) : null}
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button variant="outline" onClick={() => removeLayer(layer.id)}>Remove</Button>
+                  <Button variant="outline" onClick={() => removeLayer(layer.id)} className="cursor-pointer">Remove</Button>
                   <button
                     type="button"
                     aria-label="Toggle layer"
                     onClick={() => setLayers(prev => prev.map(l => l.id === layer.id ? { ...l, open: !l.open } : l))}
-                    className="w-7 h-7 border rounded-md flex items-center justify-center"
+                    className="w-7 h-7 border rounded-md flex items-center justify-center cursor-pointer"
                   >
                     <span className={`transition-transform ${layer.open ? 'rotate-180' : ''}`}>﹀</span>
                   </button>
@@ -1592,7 +1592,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                           </div>
                           <button
                             onClick={() => removeImageFromLayer(layer.id, img.id)}
-                            className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                            className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-red-600 cursor-pointer"
                           >
                             ×
                           </button>
@@ -1700,7 +1700,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                         </div>
                         <button
                           onClick={(e) => { e.stopPropagation(); removeDraftImage(img.id) }}
-                          className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                          className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-red-600 cursor-pointer"
                           aria-label="Remove image"
                         >
                           ×
@@ -1724,9 +1724,9 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
               </div>
             </div>
             <div className="px-5 py-4 border-t flex items-center justify-between">
-              <Button variant="outline" onClick={() => setShowModal(false)} disabled={false}>Cancel</Button>
+              <Button variant="outline" onClick={() => setShowModal(false)} disabled={false} className="cursor-pointer">Cancel</Button>
               <Button 
-                className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)]" 
+                className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] cursor-pointer" 
                 onClick={saveLayer}
                 disabled={layers.length >= LAYER_MAX}
               >
@@ -1744,7 +1744,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
           <div className="relative bg-white rounded-xl w-full max-w-5xl shadow-xl p-4 z-10">
             <div className="flex items-center justify-between mb-3">
               <div className="text-sm font-semibold text-gray-800">Preview</div>
-              <Button variant="outline" onClick={() => setShowFullPreview(false)}>Close</Button>
+              <Button variant="outline" onClick={() => setShowFullPreview(false)} className="cursor-pointer">Close</Button>
             </div>
             <LargePreview background={background} layers={layers} aspect={previewAspect} />
           </div>
@@ -1754,7 +1754,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mt-10">
         <Button variant="outline" className="rounded-full cursor-pointer px-6 w-full sm:w-auto" onClick={onBack}>Back</Button>
         <Button 
-          className="rounded-full   cursor-pointer px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] w-full sm:w-auto" 
+          className="rounded-full cursor-pointer px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] w-full sm:w-auto" 
           onClick={handleNext} 
           disabled={nextLoading || layers.length < LAYER_MIN}
         >
