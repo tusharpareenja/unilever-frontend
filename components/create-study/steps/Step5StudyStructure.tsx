@@ -19,7 +19,7 @@ function LargePreview({ background, layers, aspect }: { background: { secureUrl?
   const containerRef = useRef<HTMLDivElement>(null)
   const imgRef = useRef<HTMLImageElement>(null)
   const [fit, setFit] = useState<{ left: number; top: number; width: number; height: number }>({ left: 0, top: 0, width: 0, height: 0 })
-  const aspectClass = aspect === 'portrait' ? 'aspect-[3/4]' : aspect === 'landscape' ? 'aspect-[4/3]' : 'aspect-square'
+  const aspectClass = aspect === 'portrait' ? 'aspect-[9/16]' : aspect === 'landscape' ? 'aspect-[16/9]' : 'aspect-square'
 
   useEffect(() => {
     const compute = () => {
@@ -827,7 +827,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     } catch {}
     return 'portrait'
   })
-  const aspectClass = previewAspect === 'portrait' ? 'aspect-[3/4]' : previewAspect === 'landscape' ? 'aspect-[4/3]' : 'aspect-square'
+  const aspectClass = previewAspect === 'portrait' ? 'aspect-[9/16]' : previewAspect === 'landscape' ? 'aspect-[16/9]' : 'aspect-square'
   const [showFullPreview, setShowFullPreview] = useState(false)
   
   // Helpers: unique name generators
@@ -1471,13 +1471,13 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                 title="Portrait"
                 onClick={() => setPreviewAspect('portrait')}
                 className={`w-9 h-9 rounded-full border flex items-center justify-center text-xs cursor-pointer ${previewAspect === 'portrait' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300'}`}
-              >3:4</button>
+              >9:16</button>
               <button
                 type="button"
                 title="Landscape"
                 onClick={() => setPreviewAspect('landscape')}
                 className={`w-9 h-9 rounded-full border flex items-center justify-center text-xs cursor-pointer ${previewAspect === 'landscape' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300'}`}
-              >4:3</button>
+              >16:9</button>
               <button
                 type="button"
                 title="Square"
