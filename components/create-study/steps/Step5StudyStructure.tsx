@@ -1519,7 +1519,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                 <div className="h-2 rounded bg-[rgba(38,116,186,0.3)] border border-[rgba(38,116,186,0.5)] mb-2" />
               )}
             <div 
-              className={`border rounded-xl bg-white ${dragIndex === idx ? 'opacity-70' : ''}`}
+              className={`border rounded-xl bg-white ${dragIndex === idx ? 'opacity-70' : ''} ${selectedLayerId === layer.id ? 'border-blue-500 ring-2 ring-blue-200' : ''}`}
               onClick={() => setSelectedLayerId(layer.id)}
             >
               <div
