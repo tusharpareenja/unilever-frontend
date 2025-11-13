@@ -761,6 +761,11 @@ type LayerImage = {
   y?: number // Position y (percentage of container height)
   width?: number // Width (percentage of container width)
   height?: number // Height (percentage of container height)
+  sourceType?: "text" | "upload"
+  textContent?: string
+  textColor?: string
+  textWeight?: '400' | '500' | '600' | '700'
+  textSize?: number
 }
 
 type Layer = {
@@ -771,6 +776,10 @@ type Layer = {
   images: LayerImage[]
   open: boolean
 }
+
+type LayerTextModalState =
+  | { layerId: string; mode: 'add' }
+  | { layerId: string; mode: 'edit'; imageId: string }
 
 function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
   // Dynamic limits from env with sensible defaults
@@ -787,16 +796,26 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
             name: l.name || `Layer ${idx + 1}`,
             description: l.description || "",
             z: typeof l.z === 'number' ? l.z : idx,
-            images: (l.images || []).map((img, imgIdx) => ({ 
-              id: img.id || crypto.randomUUID(), 
-              previewUrl: img.previewUrl || img.secureUrl || '', 
-              secureUrl: img.secureUrl,
-              name: img.name || `Image ${imgIdx + 1}`,
-              x: img.x ?? 0, // Default to 0% from left (same as background)
-              y: img.y ?? 0, // Default to 0% from top (same as background)
-              width: img.width ?? 100, // Default to 100% width (same as background)
-              height: img.height ?? 100 // Default to 100% height (same as background)
-            })),
+            images: (l.images || []).map((img, imgIdx) => {
+              const sourceType = ((img as { sourceType?: 'text' | 'upload' }).sourceType === 'text' ? 'text' : 'upload') as 'text' | 'upload'
+              return { 
+                id: img.id || crypto.randomUUID(), 
+                previewUrl: img.previewUrl || img.secureUrl || '', 
+                secureUrl: img.secureUrl,
+                name: img.name || `Image ${imgIdx + 1}`,
+                x: img.x ?? 0, // Default to 0% from left (same as background)
+                y: img.y ?? 0, // Default to 0% from top (same as background)
+                width: img.width ?? 100, // Default to 100% width (same as background)
+                height: img.height ?? 100, // Default to 100% height (same as background)
+                sourceType,
+          textContent: sourceType === 'text'
+            ? ((img as { textContent?: string }).textContent ?? (img as { name?: string }).name ?? '')
+            : undefined,
+                textColor: sourceType === 'text' ? (img as { textColor?: string }).textColor : undefined,
+                textWeight: sourceType === 'text' ? (img as { textWeight?: '400' | '500' | '600' | '700' }).textWeight : undefined,
+                textSize: sourceType === 'text' ? (img as { textSize?: number }).textSize : undefined,
+              }
+            }),
             open: false,
           }))
         }
@@ -810,7 +829,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
   const [draftType, setDraftType] = useState<'image' | 'text'>('image')
   const [draftName, setDraftName] = useState("Layer 1")
   const [draftDescription, setDraftDescription] = useState("")
-  const [draftImages, setDraftImages] = useState<Array<{ id: string; file?: File; previewUrl: string; secureUrl?: string; name: string }>>([])
+  const [draftImages, setDraftImages] = useState<Array<{ id: string; file?: File; previewUrl: string; secureUrl?: string; name: string; sourceType?: 'text' | 'upload' }>>([])
   const [draftText, setDraftText] = useState("")
   const [draftTextColor, setDraftTextColor] = useState("#000000")
   const [draftTextWeight, setDraftTextWeight] = useState<'400' | '500' | '600' | '700'>('600')
@@ -818,7 +837,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
   const [draftSaving, setDraftSaving] = useState(false)
   const [draftError, setDraftError] = useState<string | null>(null)
   const [layerAddMenu, setLayerAddMenu] = useState<string | null>(null)
-  const [showLayerTextModal, setShowLayerTextModal] = useState<{ layerId: string } | null>(null)
+  const [showLayerTextModal, setShowLayerTextModal] = useState<LayerTextModalState | null>(null)
   const [layerTextValue, setLayerTextValue] = useState("")
   const [layerTextColor, setLayerTextColor] = useState("#000000")
   const [layerTextWeight, setLayerTextWeight] = useState<'400' | '500' | '600' | '700'>('600')
@@ -828,6 +847,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
   const previewContainerRef = useRef<HTMLDivElement>(null)
   const bgImgRef = useRef<HTMLImageElement>(null)
   const [containerSize, setContainerSize] = useState<{ width: number; height: number }>({ width: 300, height: 400 })
+  const HANDLE_INSET = 8
   const [bgFit, setBgFit] = useState<{ left: number; top: number; width: number; height: number }>({ left: 0, top: 0, width: 300, height: 400 })
   const bgFitKey = `${Math.round(bgFit.width)}x${Math.round(bgFit.height)}`
   const [selectedImageIds, setSelectedImageIds] = useState<Record<string, string>>({}) // layerId -> selectedImageId
@@ -1003,7 +1023,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       const url = URL.createObjectURL(file)
       const fileName = file.name.replace(/\.[^/.]+$/, "")
       ids.push(tempId)
-      setDraftImages(prev => [...prev, { id: tempId, file, previewUrl: url, name: fileName }].sort((a, b) => (a.name || '').localeCompare(b.name || '')))
+      setDraftImages(prev => [...prev, { id: tempId, file, previewUrl: url, name: fileName, sourceType: 'upload' as const }].sort((a, b) => (a.name || '').localeCompare(b.name || '')))
     })
     if (list.length > 1) {
       uploadImages(list).then((results) => {
@@ -1132,14 +1152,40 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     }
   }
 
-  const openLayerTextModal = (layerId: string) => {
-    setShowLayerTextModal({ layerId })
+  const openLayerTextModal = (layerId: string, options?: { imageId?: string }) => {
+    setLayerAddMenu(null)
+    setLayerTextError(null)
+
+    if (options?.imageId) {
+      const targetLayer = layers.find(l => l.id === layerId)
+      const targetImage = targetLayer?.images.find(img => img.id === options.imageId && (img.sourceType ?? 'upload') === 'text')
+      if (!targetLayer || !targetImage) {
+        console.warn('Text layer/image not found for editing', { layerId, imageId: options.imageId })
+        setShowLayerTextModal({ layerId, mode: 'add' })
+        setLayerTextValue("")
+        setLayerTextColor("#000000")
+        setLayerTextWeight('600')
+        setLayerTextSize(48)
+        return
+      }
+
+      const existingText = typeof targetImage.textContent === 'string' && targetImage.textContent.trim().length > 0
+        ? targetImage.textContent
+        : (targetImage.name || "")
+
+      setShowLayerTextModal({ layerId, mode: 'edit', imageId: targetImage.id })
+      setLayerTextValue(existingText)
+      setLayerTextColor(targetImage.textColor || "#000000")
+      setLayerTextWeight(targetImage.textWeight || '600')
+      setLayerTextSize(targetImage.textSize || 48)
+      return
+    }
+
+    setShowLayerTextModal({ layerId, mode: 'add' })
     setLayerTextValue("")
     setLayerTextColor("#000000")
     setLayerTextWeight('600')
     setLayerTextSize(48)
-    setLayerTextError(null)
-    setLayerAddMenu(null)
   }
 
   const closeLayerTextModal = () => {
@@ -1160,17 +1206,10 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     }
     setLayerTextSaving(true)
     setLayerTextError(null)
-    const layerId = showLayerTextModal.layerId
+    const { layerId } = showLayerTextModal
     try {
       const targetLayer = layers.find(l => l.id === layerId)
       if (!targetLayer) throw new Error('Layer not found')
-      const base = targetLayer.images[0]
-      const baseTransform = base ? {
-        x: base.x ?? 0,
-        y: base.y ?? 0,
-        width: base.width ?? 100,
-        height: base.height ?? 100
-      } : { x: 0, y: 0, width: 100, height: 100 }
       const baseName = layerTextValue.split('\n')[0].trim() || 'Text'
       const { file, previewUrl } = await renderTextLayerImage({
         text: layerTextValue,
@@ -1184,23 +1223,59 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       if (secureUrl) {
         try { URL.revokeObjectURL(previewUrl) } catch (_) {}
       }
-      const imageId = crypto.randomUUID()
-      const image: LayerImage = {
-        id: imageId,
-        previewUrl: secureUrl || previewUrl,
-        secureUrl: secureUrl || undefined,
-        name: baseName,
-        x: baseTransform.x,
-        y: baseTransform.y,
-        width: baseTransform.width,
-        height: baseTransform.height,
+      if (showLayerTextModal.mode === 'add') {
+        const base = targetLayer.images[0]
+        const baseTransform = base ? {
+          x: base.x ?? 0,
+          y: base.y ?? 0,
+          width: base.width ?? 100,
+          height: base.height ?? 100
+        } : { x: 0, y: 0, width: 100, height: 100 }
+
+        const imageId = crypto.randomUUID()
+        const image: LayerImage = {
+          id: imageId,
+          previewUrl: secureUrl || previewUrl,
+          secureUrl: secureUrl || undefined,
+          name: baseName,
+          x: baseTransform.x,
+          y: baseTransform.y,
+          width: baseTransform.width,
+          height: baseTransform.height,
+          sourceType: 'text' as const,
+          textContent: layerTextValue,
+          textColor: layerTextColor,
+          textWeight: layerTextWeight,
+          textSize: layerTextSize
+        }
+        setLayers(prev => prev.map(l => {
+          if (l.id !== layerId) return l
+          const images = [...l.images, image].sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+          return { ...l, images }
+        }))
+        setSelectedImageIds(prev => ({ ...prev, [layerId]: imageId }))
+      } else {
+        const targetImage = targetLayer.images.find(img => img.id === showLayerTextModal.imageId)
+        if (!targetImage) throw new Error('Text image not found')
+        setLayers(prev => prev.map(l => {
+          if (l.id !== layerId) return l
+          const updatedImages = l.images.map(img => {
+            if (img.id !== showLayerTextModal.imageId) return img
+            return {
+              ...img,
+              previewUrl: secureUrl || previewUrl,
+              secureUrl: secureUrl || img.secureUrl,
+              name: baseName,
+              sourceType: 'text' as const,
+              textContent: layerTextValue,
+              textColor: layerTextColor,
+              textWeight: layerTextWeight,
+              textSize: layerTextSize,
+            }
+          }).sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+          return { ...l, images: updatedImages }
+        }))
       }
-      setLayers(prev => prev.map(l => {
-        if (l.id !== layerId) return l
-        const images = [...l.images, image].sort((a, b) => (a.name || '').localeCompare(b.name || ''))
-        return { ...l, images }
-      }))
-      setSelectedImageIds(prev => ({ ...prev, [layerId]: imageId }))
       closeLayerTextModal()
     } catch (error) {
       console.error('Failed to add text image to layer', error)
@@ -1249,6 +1324,11 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
           y: 0,
           width: 100,
           height: 100,
+          sourceType: 'text' as const,
+          textContent: draftText,
+          textColor: draftTextColor,
+          textWeight: draftTextWeight,
+          textSize: draftTextSize
         }
         const layer: Layer = { id: layerId, name, description: draftDescription, z: nextZ, images: [layerImage], open: false }
         setLayers(prev => reindexLayers([...prev, layer]))
@@ -1279,7 +1359,8 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       x: 0,
       y: 0,
       width: 100,
-      height: 100
+      height: 100,
+      sourceType: (i.sourceType ?? 'upload') as 'text' | 'upload'
     }))
     const initialName = draftName || `Layer ${nextZ + 1}`
     const name = uniqueLayerName(initialName)
@@ -1404,6 +1485,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
             file,
             previewUrl: url,
             name: fileName,
+            sourceType: 'upload' as const,
             ...baseTransform
           }].sort((a, b) => (a.name || '').localeCompare(b.name || ''))
         }
@@ -1444,6 +1526,18 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
         console.error('Layer debounced upload failed', e)
       }
     }, 1000)
+  }
+
+  const promptLayerImageUpload = (layerId: string) => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = 'image/*'
+    input.multiple = true
+    input.onchange = (event) => {
+      const files = (event.target as HTMLInputElement).files
+      if (files) addImagesToLayer(layerId, files)
+    }
+    input.click()
   }
 
   // Background upload helpers
@@ -1512,7 +1606,12 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
         x: i.x,
         y: i.y,
         width: i.width,
-        height: i.height
+        height: i.height,
+        sourceType: i.sourceType,
+        textContent: i.textContent ?? i.name ?? '',
+        textColor: i.textColor,
+        textWeight: i.textWeight,
+        textSize: i.textSize
       })) 
     }))
     localStorage.setItem('cs_step5_layer', JSON.stringify(minimal))
@@ -1665,43 +1764,43 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                     top: {
                       width: '24px', height: '10px', background: '#fff', borderRadius: '9999px',
                       border: '1px solid rgba(0,0,0,0.15)', boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
-                      top: '-6px', left: '50%', transform: 'translate(-50%, -50%)'
+                      top: `${HANDLE_INSET}px`, left: '50%', transform: 'translate(-50%, 0)'
                     },
                     bottom: {
                       width: '24px', height: '10px', background: '#fff', borderRadius: '9999px',
                       border: '1px solid rgba(0,0,0,0.15)', boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
-                      bottom: '-6px', left: '50%', transform: 'translate(-50%, 50%)'
+                      bottom: `${HANDLE_INSET}px`, left: '50%', transform: 'translate(-50%, 0)'
                     },
                     left: {
                       width: '10px', height: '24px', background: '#fff', borderRadius: '9999px',
                       border: '1px solid rgba(0,0,0,0.15)', boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
-                      left: '-6px', top: '50%', transform: 'translate(-50%, -50%)'
+                      left: `${HANDLE_INSET}px`, top: '50%', transform: 'translate(0, -50%)'
                     },
                     right: {
                       width: '10px', height: '24px', background: '#fff', borderRadius: '9999px',
                       border: '1px solid rgba(0,0,0,0.15)', boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
-                      right: '-6px', top: '50%', transform: 'translate(50%, -50%)'
+                      right: `${HANDLE_INSET}px`, top: '50%', transform: 'translate(0, -50%)'
                     },
                     // Corner handles: circles at corners
                     topLeft: {
                       width: '12px', height: '12px', background: '#fff', borderRadius: '9999px',
                       border: '1px solid rgba(0,0,0,0.15)', boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
-                      left: '-6px', top: '-6px'
+                      left: `${HANDLE_INSET}px`, top: `${HANDLE_INSET}px`
                     },
                     topRight: {
                       width: '12px', height: '12px', background: '#fff', borderRadius: '9999px',
                       border: '1px solid rgba(0,0,0,0.15)', boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
-                      right: '-6px', top: '-6px'
+                      right: `${HANDLE_INSET}px`, top: `${HANDLE_INSET}px`
                     },
                     bottomLeft: {
                       width: '12px', height: '12px', background: '#fff', borderRadius: '9999px',
                       border: '1px solid rgba(0,0,0,0.15)', boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
-                      left: '-6px', bottom: '-6px'
+                      left: `${HANDLE_INSET}px`, bottom: `${HANDLE_INSET}px`
                     },
                     bottomRight: {
                       width: '12px', height: '12px', background: '#fff', borderRadius: '9999px',
                       border: '1px solid rgba(0,0,0,0.15)', boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
-                      right: '-6px', bottom: '-6px'
+                      right: `${HANDLE_INSET}px`, bottom: `${HANDLE_INSET}px`
                     }
                   } : undefined}
                 >
@@ -1848,6 +1947,15 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img src={img.secureUrl || img.previewUrl} alt="layer" className="w-full h-full object-contain rounded-md" />
                           </div>
+                          {(img.sourceType ?? 'upload') === 'text' && (
+                            <button
+                              onClick={() => openLayerTextModal(layer.id, { imageId: img.id })}
+                              className="absolute -top-2 -left-2 w-5 h-5 bg-blue-500 text-white rounded-full text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-blue-600 cursor-pointer flex items-center justify-center"
+                              title="Edit text"
+                            >
+                              ✎
+                            </button>
+                          )}
                           <button
                             onClick={() => removeImageFromLayer(layer.id, img.id)}
                             className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-red-600 cursor-pointer"
@@ -1886,6 +1994,17 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                       }}
                       onClick={(e) => {
                         e.stopPropagation()
+                        const hasTextOnly = layer.images.length > 0 && layer.images.every(img => (img.sourceType ?? 'upload') === 'text')
+                        const hasImageOnly = layer.images.length === 0 || layer.images.every(img => (img.sourceType ?? 'upload') !== 'text')
+                        if (hasTextOnly) {
+                          openLayerTextModal(layer.id)
+                          return
+                        }
+                        if (hasImageOnly) {
+                          setLayerAddMenu(null)
+                          promptLayerImageUpload(layer.id)
+                          return
+                        }
                         setLayerAddMenu(prev => prev === layer.id ? null : layer.id)
                       }}
                       title="Add more content"
@@ -1899,15 +2018,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                             onClick={(e) => {
                               e.stopPropagation()
                               setLayerAddMenu(null)
-                              const input = document.createElement('input')
-                              input.type = 'file'
-                              input.accept = 'image/*'
-                              input.multiple = true
-                              input.onchange = (event) => {
-                                const files = (event.target as HTMLInputElement).files
-                                if (files) addImagesToLayer(layer.id, files)
-                              }
-                              input.click()
+                              promptLayerImageUpload(layer.id)
                             }}
                           >
                             Upload image(s)
