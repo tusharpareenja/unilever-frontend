@@ -807,9 +807,24 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [overIndex, setOverIndex] = useState<number | null>(null)
   const [showModal, setShowModal] = useState(false)
+  const [draftType, setDraftType] = useState<'image' | 'text'>('image')
   const [draftName, setDraftName] = useState("Layer 1")
   const [draftDescription, setDraftDescription] = useState("")
   const [draftImages, setDraftImages] = useState<Array<{ id: string; file?: File; previewUrl: string; secureUrl?: string; name: string }>>([])
+  const [draftText, setDraftText] = useState("")
+  const [draftTextColor, setDraftTextColor] = useState("#000000")
+  const [draftTextWeight, setDraftTextWeight] = useState<'400' | '500' | '600' | '700'>('600')
+  const [draftTextSize, setDraftTextSize] = useState(48)
+  const [draftSaving, setDraftSaving] = useState(false)
+  const [draftError, setDraftError] = useState<string | null>(null)
+  const [layerAddMenu, setLayerAddMenu] = useState<string | null>(null)
+  const [showLayerTextModal, setShowLayerTextModal] = useState<{ layerId: string } | null>(null)
+  const [layerTextValue, setLayerTextValue] = useState("")
+  const [layerTextColor, setLayerTextColor] = useState("#000000")
+  const [layerTextWeight, setLayerTextWeight] = useState<'400' | '500' | '600' | '700'>('600')
+  const [layerTextSize, setLayerTextSize] = useState(48)
+  const [layerTextSaving, setLayerTextSaving] = useState(false)
+  const [layerTextError, setLayerTextError] = useState<string | null>(null)
   const previewContainerRef = useRef<HTMLDivElement>(null)
   const bgImgRef = useRef<HTMLImageElement>(null)
   const [containerSize, setContainerSize] = useState<{ width: number; height: number }>({ width: 300, height: 400 })
@@ -861,6 +876,17 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     document.addEventListener('mousedown', handleGlobalMouseDown, true)
     return () => document.removeEventListener('mousedown', handleGlobalMouseDown, true)
   }, [selectedLayerId])
+
+  useEffect(() => {
+    if (!layerAddMenu) return
+    const handler = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null
+      if (target && target.closest('[data-layer-add-menu]')) return
+      setLayerAddMenu(null)
+    }
+    document.addEventListener('click', handler)
+    return () => document.removeEventListener('click', handler)
+  }, [layerAddMenu])
   
   // Update container size when it changes
   useEffect(() => {
@@ -949,9 +975,15 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       n += 1
       proposed = `Layer ${n}`
     }
+    setDraftType('image')
     setDraftName(proposed)
     setDraftDescription("")
     setDraftImages([])
+    setDraftText("")
+    setDraftTextColor("#000000")
+    setDraftTextWeight('600')
+    setDraftTextSize(48)
+    setDraftError(null)
     setShowModal(true)
   }
 
@@ -961,7 +993,9 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
   }
 
   const handleDraftFiles = (files: FileList | null) => {
+    if (draftType !== 'image') return
     if (!files) return
+    setDraftError(null)
     const list = Array.from(files)
     const ids: string[] = []
     list.forEach((file) => {
@@ -1005,29 +1039,253 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     }, 1000)
   }
 
-  const saveLayer = () => {
-    // Close immediately with whatever images drafted (keep file so we can finalize if still pending)
+  const renderTextLayerImage = async ({
+    text,
+    color,
+    fontWeight,
+    fontSize,
+    fileBaseName,
+  }: {
+    text: string
+    color: string
+    fontWeight: string
+    fontSize: number
+    fileBaseName: string
+  }): Promise<{ file: File; previewUrl: string }> => {
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('Canvas not supported in this browser')
+
+    const trimmedText = text.trimEnd()
+    const lines = trimmedText.length > 0 ? trimmedText.split('\n') : ['']
+    const fontFamily = '"Inter", "Helvetica Neue", Arial, sans-serif'
+    const font = `${fontWeight} ${fontSize}px ${fontFamily}`
+    ctx.font = font
+
+    const lineHeight = Math.round(fontSize * 1.3)
+    const paddingX = Math.max(24, Math.round(fontSize * 0.9))
+    const paddingY = Math.max(24, Math.round(fontSize * 0.9))
+
+    let maxLineWidth = 0
+    lines.forEach((line) => {
+      const metrics = ctx.measureText(line.length > 0 ? line : ' ')
+      maxLineWidth = Math.max(maxLineWidth, metrics.width)
+    })
+
+    const width = Math.max(Math.ceil(maxLineWidth + paddingX * 2), fontSize * 2)
+    const height = Math.max(Math.ceil(lines.length * lineHeight + paddingY * 2), fontSize * 2)
+
+    canvas.width = width
+    canvas.height = height
+
+    const ctx2 = canvas.getContext('2d')
+    if (!ctx2) throw new Error('Canvas not supported in this browser')
+    ctx2.clearRect(0, 0, width, height)
+    ctx2.font = font
+    ctx2.fillStyle = color
+    ctx2.textBaseline = 'top'
+    ctx2.textAlign = 'left'
+
+    lines.forEach((line, idx) => {
+      ctx2.fillText(line.length > 0 ? line : ' ', paddingX, paddingY + idx * lineHeight)
+    })
+
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((b) => {
+        if (b) resolve(b)
+        else reject(new Error('Failed to generate text layer image'))
+      }, 'image/png')
+    })
+
+    const previewUrl = URL.createObjectURL(blob)
+    const safeBase = fileBaseName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'text-layer'
+    const fileName = `${safeBase}.png`
+    const file = new File([blob], fileName, { type: 'image/png' })
+
+    return { file, previewUrl }
+  }
+
+  const resetDraftState = () => {
+    setShowModal(false)
+    setDraftType('image')
+    setDraftName("")
+    setDraftDescription("")
+    setDraftImages([])
+    setDraftText("")
+    setDraftTextColor("#000000")
+    setDraftTextWeight('600')
+    setDraftTextSize(48)
+    setDraftError(null)
+  }
+
+  const handleDraftTypeSwitch = (type: 'image' | 'text') => {
+    if (draftType === type) return
+    setDraftType(type)
+    setDraftError(null)
+    if (type === 'image') {
+      setDraftText("")
+    } else {
+      setDraftImages([])
+    }
+  }
+
+  const openLayerTextModal = (layerId: string) => {
+    setShowLayerTextModal({ layerId })
+    setLayerTextValue("")
+    setLayerTextColor("#000000")
+    setLayerTextWeight('600')
+    setLayerTextSize(48)
+    setLayerTextError(null)
+    setLayerAddMenu(null)
+  }
+
+  const closeLayerTextModal = () => {
+    setShowLayerTextModal(null)
+    setLayerTextValue("")
+    setLayerTextColor("#000000")
+    setLayerTextWeight('600')
+    setLayerTextSize(48)
+    setLayerTextError(null)
+    setLayerTextSaving(false)
+  }
+
+  const saveLayerTextToExistingLayer = async () => {
+    if (!showLayerTextModal || layerTextSaving) return
+    if (!layerTextValue.trim()) {
+      setLayerTextError('Enter some text to add')
+      return
+    }
+    setLayerTextSaving(true)
+    setLayerTextError(null)
+    const layerId = showLayerTextModal.layerId
+    try {
+      const targetLayer = layers.find(l => l.id === layerId)
+      if (!targetLayer) throw new Error('Layer not found')
+      const base = targetLayer.images[0]
+      const baseTransform = base ? {
+        x: base.x ?? 0,
+        y: base.y ?? 0,
+        width: base.width ?? 100,
+        height: base.height ?? 100
+      } : { x: 0, y: 0, width: 100, height: 100 }
+      const baseName = layerTextValue.split('\n')[0].trim() || 'Text'
+      const { file, previewUrl } = await renderTextLayerImage({
+        text: layerTextValue,
+        color: layerTextColor,
+        fontWeight: layerTextWeight,
+        fontSize: layerTextSize,
+        fileBaseName: baseName,
+      })
+      const [result] = await uploadImages([file])
+      const secureUrl = result?.secure_url || null
+      if (secureUrl) {
+        try { URL.revokeObjectURL(previewUrl) } catch (_) {}
+      }
+      const imageId = crypto.randomUUID()
+      const image: LayerImage = {
+        id: imageId,
+        previewUrl: secureUrl || previewUrl,
+        secureUrl: secureUrl || undefined,
+        name: baseName,
+        x: baseTransform.x,
+        y: baseTransform.y,
+        width: baseTransform.width,
+        height: baseTransform.height,
+      }
+      setLayers(prev => prev.map(l => {
+        if (l.id !== layerId) return l
+        const images = [...l.images, image].sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+        return { ...l, images }
+      }))
+      setSelectedImageIds(prev => ({ ...prev, [layerId]: imageId }))
+      closeLayerTextModal()
+    } catch (error) {
+      console.error('Failed to add text image to layer', error)
+      setLayerTextError('Unable to add text. Please try again.')
+      setLayerTextSaving(false)
+    } finally {
+      setLayerTextSaving(false)
+    }
+  }
+
+  const saveLayer = async () => {
+    if (draftSaving) return
+
+    if (draftType === 'text') {
+      if (!draftText.trim()) {
+        setDraftError('Enter some text to create a layer')
+        return
+      }
+      setDraftSaving(true)
+      setDraftError(null)
+      try {
+        const baseName = (draftName || draftText).split('\n')[0].trim() || 'Text Layer'
+        const { file, previewUrl } = await renderTextLayerImage({
+          text: draftText,
+          color: draftTextColor,
+          fontWeight: draftTextWeight,
+          fontSize: draftTextSize,
+          fileBaseName: baseName,
+        })
+        const [result] = await uploadImages([file])
+        const secureUrl = result?.secure_url || null
+        if (secureUrl) {
+          try { URL.revokeObjectURL(previewUrl) } catch (_) {}
+        }
+        const layerId = crypto.randomUUID()
+        const imageId = crypto.randomUUID()
+        const nextZ = layers.length
+        const initialName = draftName || `Layer ${nextZ + 1}`
+        const name = uniqueLayerName(initialName)
+        const layerImage: LayerImage = {
+          id: imageId,
+          previewUrl: secureUrl || previewUrl,
+          secureUrl: secureUrl || undefined,
+          name: baseName,
+          x: 0,
+          y: 0,
+          width: 100,
+          height: 100,
+        }
+        const layer: Layer = { id: layerId, name, description: draftDescription, z: nextZ, images: [layerImage], open: false }
+        setLayers(prev => reindexLayers([...prev, layer]))
+        resetDraftState()
+      } catch (error) {
+        console.error('Failed to create text layer', error)
+        setDraftError('Unable to create text layer. Please try again.')
+      } finally {
+        setDraftSaving(false)
+      }
+      return
+    }
+
+    if (draftImages.length === 0) {
+      setDraftError('Add at least one image to this layer')
+      return
+    }
+
+    setDraftError(null)
     const id = crypto.randomUUID()
     const nextZ = layers.length
-    const imgs = draftImages.map(i => ({ 
-      id: i.id, 
-      file: i.file, 
-      previewUrl: i.previewUrl, 
-      secureUrl: i.secureUrl, 
+    const imgs = draftImages.map(i => ({
+      id: i.id,
+      file: i.file,
+      previewUrl: i.previewUrl,
+      secureUrl: i.secureUrl,
       name: i.name,
-      x: 0, // Default position (same as background)
+      x: 0,
       y: 0,
-      width: 100, // Default to 100% width (same as background)
-      height: 100 // Default to 100% height (same as background)
+      width: 100,
+      height: 100
     }))
     const initialName = draftName || `Layer ${nextZ + 1}`
     const name = uniqueLayerName(initialName)
     const layer: Layer = { id, name, description: draftDescription, z: nextZ, images: imgs, open: false }
     setLayers(prev => reindexLayers([...prev, layer]))
-    setShowModal(false)
-    setDraftName("")
-    setDraftDescription("")
-    setDraftImages([])
+    resetDraftState()
   }
 
   const removeDraftImage = (imageId: string) => {
@@ -1607,9 +1865,11 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                       )
                     })}
                     <div 
-                      className="w-20 h-20 border-2 border-dashed rounded-md flex items-center justify-center text-gray-400 cursor-pointer hover:border-gray-300 transition-colors"
+                      data-layer-add-menu
+                      className="relative w-20 h-20 border-2 border-dashed rounded-md flex items-center justify-center text-gray-400 cursor-pointer hover:border-gray-300 transition-colors"
                       onDrop={(e) => {
                         e.preventDefault()
+                        setLayerAddMenu(null)
                         addImagesToLayer(layer.id, e.dataTransfer.files)
                       }}
                       onDragOver={(e) => {
@@ -1624,20 +1884,46 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                         e.preventDefault()
                         e.currentTarget.classList.remove('bg-blue-50', 'border-blue-300')
                       }}
-                      onClick={() => {
-                        const input = document.createElement('input')
-                        input.type = 'file'
-                        input.accept = 'image/*'
-                        input.multiple = true
-                        input.onchange = (e) => {
-                          const files = (e.target as HTMLInputElement).files
-                          if (files) addImagesToLayer(layer.id, files)
-                        }
-                        input.click()
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setLayerAddMenu(prev => prev === layer.id ? null : layer.id)
                       }}
-                      title="Click to add images"
+                      title="Add more content"
                     >
-                      +
+                      <span className="text-2xl leading-none">+</span>
+                      {layerAddMenu === layer.id && (
+                        <div className="absolute z-20 top-full left-1/2 -translate-x-1/2 mt-2 w-36 rounded-md border border-gray-200 bg-white shadow-lg p-2 space-y-1">
+                          <button
+                            type="button"
+                            className="w-full text-xs px-2 py-1 rounded-md text-left hover:bg-gray-100 cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setLayerAddMenu(null)
+                              const input = document.createElement('input')
+                              input.type = 'file'
+                              input.accept = 'image/*'
+                              input.multiple = true
+                              input.onchange = (event) => {
+                                const files = (event.target as HTMLInputElement).files
+                                if (files) addImagesToLayer(layer.id, files)
+                              }
+                              input.click()
+                            }}
+                          >
+                            Upload image(s)
+                          </button>
+                          <button
+                            type="button"
+                            className="w-full text-xs px-2 py-1 rounded-md text-left hover:bg-gray-100 cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              openLayerTextModal(layer.id)
+                            }}
+                          >
+                            Add text
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1659,78 +1945,300 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
 
       {showModal && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl w-full max-w-lg shadow-lg">
+          <div className="bg-white rounded-xl w-full max-w-lg max-h-[90vh] shadow-lg overflow-hidden">
             <div className="px-5 py-4 border-b font-semibold">Add New Layer</div>
-            <div className="p-5 space-y-4">
+            <div className="p-5 space-y-5 overflow-y-auto max-h-[70vh] pr-1">
               <div>
                 <label className="block text-sm font-semibold text-gray-800 mb-2">Layer Name <span className="text-red-500">*</span></label>
-                <input value={draftName} onChange={(e) => setDraftName(e.target.value)} className="w-full rounded-lg border border-gray-200 px-3 py-2" />
+                <input
+                  value={draftName}
+                  onChange={(e) => setDraftName(e.target.value)}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+                />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-800 mb-2">Description (Optional)</label>
-                <input value={draftDescription} onChange={(e) => setDraftDescription(e.target.value)} className="w-full rounded-lg border border-gray-200 px-3 py-2" />
-              </div>
-              <div 
-                className="border-2 border-dashed rounded-xl p-6 text-center cursor-pointer hover:border-[rgba(38,116,186,1)] hover:bg-blue-50 transition-colors"
-                onClick={() => document.getElementById('draft-file-input')?.click()}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  handleDraftFiles(e.dataTransfer.files)
-                }}
-              >
-                <div className="text-sm text-[rgba(38,116,186,1)]">Drag And Drop</div>
-                <div className="text-[10px] text-gray-500">Supports JPG, PNG (Max 10MB Each)</div>
-                <div className="mt-3 text-sm text-gray-600">Click anywhere to select files</div>
-                <input 
-                  id="draft-file-input"
-                  type="file" 
-                  multiple 
-                  accept="image/*" 
-                  onChange={(e) => handleDraftFiles(e.target.files)} 
-                  className="hidden"
+                <input
+                  value={draftDescription}
+                  onChange={(e) => setDraftDescription(e.target.value)}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
                 />
-                {draftImages.length > 0 && (
-                  <div className="mt-3 flex gap-3 flex-wrap justify-center">
-                    {draftImages.map(img => (
-                      <div key={img.id} className="relative group flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
-                        <div className="w-20 h-20 border rounded-md overflow-hidden">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={img.previewUrl} alt="preview" className="w-full h-full object-contain" />
+              </div>
+              <div>
+                <div className="text-sm font-semibold text-gray-800 mb-2">Layer Content</div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleDraftTypeSwitch('image')}
+                    className={`px-3 py-1.5 rounded-full border text-sm transition-colors ${
+                      draftType === 'image'
+                        ? 'bg-[rgba(38,116,186,1)] text-white border-[rgba(38,116,186,1)]'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    Image Upload
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDraftTypeSwitch('text')}
+                    className={`px-3 py-1.5 rounded-full border text-sm transition-colors ${
+                      draftType === 'text'
+                        ? 'bg-[rgba(38,116,186,1)] text-white border-[rgba(38,116,186,1)]'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    Text
+                  </button>
+                </div>
+              </div>
+
+              {draftType === 'image' ? (
+                <div
+                  className="border-2 border-dashed rounded-xl p-6 text-center cursor-pointer hover:border-[rgba(38,116,186,1)] hover:bg-blue-50 transition-colors"
+                  onClick={() => document.getElementById('draft-file-input')?.click()}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    handleDraftFiles(e.dataTransfer.files)
+                  }}
+                >
+                  <div className="text-sm text-[rgba(38,116,186,1)]">Drag And Drop</div>
+                  <div className="text-[10px] text-gray-500">Supports JPG, PNG (Max 10MB Each)</div>
+                  <div className="mt-3 text-sm text-gray-600">Click anywhere to select files</div>
+                  <input
+                    id="draft-file-input"
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={(e) => handleDraftFiles(e.target.files)}
+                    className="hidden"
+                  />
+                  {draftImages.length > 0 && (
+                    <div className="mt-3 flex gap-3 flex-wrap justify-center">
+                      {draftImages.map(img => (
+                        <div key={img.id} className="relative group flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
+                          <div className="w-20 h-20 border rounded-md overflow-hidden">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={img.previewUrl} alt="preview" className="w-full h-full object-contain" />
+                          </div>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); removeDraftImage(img.id) }}
+                            className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-red-600 cursor-pointer"
+                            aria-label="Remove image"
+                          >
+                            ×
+                          </button>
+                          <input
+                            type="text"
+                            value={img.name || ''}
+                            onClick={(e) => e.stopPropagation()}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onFocus={(e) => e.stopPropagation()}
+                            onChange={(e) => setDraftImages(prev => prev.map(draftImg =>
+                              draftImg.id === img.id ? { ...draftImg, name: e.target.value } : draftImg
+                            ))}
+                            className="w-20 mt-1 text-xs px-1 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            placeholder="Name"
+                          />
                         </div>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); removeDraftImage(img.id) }}
-                          className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-red-600 cursor-pointer"
-                          aria-label="Remove image"
-                        >
-                          ×
-                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-800 mb-2">Text Content <span className="text-red-500">*</span></label>
+                    <textarea
+                      value={draftText}
+                      onChange={(e) => {
+                        setDraftText(e.target.value)
+                        setDraftError(null)
+                      }}
+                      rows={4}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] resize-y min-h-[120px]"
+                      placeholder="Enter the text you want to render as a layer"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">Color</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={draftTextColor}
+                          onChange={(e) => setDraftTextColor(e.target.value)}
+                          className="w-10 h-10 border rounded-md cursor-pointer"
+                        />
                         <input
                           type="text"
-                          value={img.name || ''}
-                          onClick={(e) => e.stopPropagation()}
-                          onMouseDown={(e) => e.stopPropagation()}
-                          onFocus={(e) => e.stopPropagation()}
-                          onChange={(e) => setDraftImages(prev => prev.map(draftImg => 
-                            draftImg.id === img.id ? { ...draftImg, name: e.target.value } : draftImg
-                          ))}
-                          className="w-20 mt-1 text-xs px-1 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                          placeholder="Name"
+                          value={draftTextColor}
+                          onChange={(e) => setDraftTextColor(e.target.value)}
+                          className="w-full rounded-md border border-gray-200 px-2 py-1 text-xs"
                         />
                       </div>
-                    ))}
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">Weight</label>
+                      <select
+                        value={draftTextWeight}
+                        onChange={(e) => setDraftTextWeight(e.target.value as '400' | '500' | '600' | '700')}
+                        className="w-full rounded-md border border-gray-200 px-2 py-2 text-sm"
+                      >
+                        <option value="400">Regular</option>
+                        <option value="500">Medium</option>
+                        <option value="600">Semi Bold</option>
+                        <option value="700">Bold</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-3">Font Size</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="range"
+                          min={24}
+                          max={100}
+                          step={2}
+                          value={draftTextSize}
+                          onChange={(e) => setDraftTextSize(Number(e.target.value))}
+                          className="w-full max-w-[160px]"
+                        />
+                        <span className="text-xs text-gray-600 w-10 text-right">{draftTextSize}px</span>
+                      </div>
+                    </div>
                   </div>
-                )}
-              </div>
+                  <div>
+                    <div className="text-xs font-semibold text-gray-700 mb-2">Preview</div>
+                    <div className="border rounded-lg p-4 bg-slate-50 min-h-[120px] flex items-center justify-center text-center">
+                      <div
+                        style={{
+                          color: draftTextColor,
+                          fontWeight: Number(draftTextWeight),
+                          fontSize: `${draftTextSize}px`,
+                          lineHeight: 1.3,
+                          whiteSpace: 'pre-wrap',
+                        }}
+                        className="w-full break-words"
+                      >
+                        {draftText.trim() ? draftText : 'Your text will render here'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {draftError && <div className="text-xs text-red-500">{draftError}</div>}
             </div>
             <div className="px-5 py-4 border-t flex items-center justify-between">
-              <Button variant="outline" onClick={() => setShowModal(false)} disabled={false} className="cursor-pointer">Cancel</Button>
-              <Button 
-                className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] cursor-pointer" 
-                onClick={saveLayer}
-                disabled={layers.length >= LAYER_MAX}
+              <Button variant="outline" onClick={resetDraftState} disabled={draftSaving} className="cursor-pointer">Cancel</Button>
+              <Button
+                className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                onClick={() => void saveLayer()}
+                disabled={
+                  draftSaving ||
+                  layers.length >= LAYER_MAX ||
+                  (draftType === 'image' ? draftImages.length === 0 : !draftText.trim())
+                }
               >
-                {layers.length >= LAYER_MAX ? 'Max layers reached' : 'Save Layer'}
+                {draftSaving ? 'Saving...' : layers.length >= LAYER_MAX ? 'Max layers reached' : 'Save Layer'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showLayerTextModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl w-full max-w-md max-h-[90vh] shadow-lg overflow-hidden">
+            <div className="px-5 py-4 border-b font-semibold">Add Text Layer</div>
+            <div className="p-5 space-y-4 overflow-y-auto max-h-[70vh] pr-1">
+              <div>
+                <label className="block text-sm font-semibold text-gray-800 mb-2">Text Content <span className="text-red-500">*</span></label>
+                <textarea
+                  value={layerTextValue}
+                  onChange={(e) => {
+                    setLayerTextValue(e.target.value)
+                    setLayerTextError(null)
+                  }}
+                  rows={4}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] resize-y min-h-[120px]"
+                  placeholder="Enter the text you want to render as a layer"
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Color</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={layerTextColor}
+                      onChange={(e) => setLayerTextColor(e.target.value)}
+                      className="w-10 h-10 border rounded-md cursor-pointer"
+                    />
+                    <input
+                      type="text"
+                      value={layerTextColor}
+                      onChange={(e) => setLayerTextColor(e.target.value)}
+                      className="w-full rounded-md border border-gray-200 px-2 py-1 text-xs"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Weight</label>
+                  <select
+                    value={layerTextWeight}
+                    onChange={(e) => setLayerTextWeight(e.target.value as '400' | '500' | '600' | '700')}
+                    className="w-full rounded-md border border-gray-200 px-2 py-2 text-sm"
+                  >
+                    <option value="400">Regular</option>
+                    <option value="500">Medium</option>
+                    <option value="600">Semi Bold</option>
+                    <option value="700">Bold</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-3">Font Size</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="range"
+                      min={24}
+                      max={100}
+                      step={2}
+                      value={layerTextSize}
+                      onChange={(e) => setLayerTextSize(Number(e.target.value))}
+                      className="w-full max-w-[160px]"
+                    />
+                    <span className="text-xs text-gray-600 w-10 text-right">{layerTextSize}px</span>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <div className="text-xs font-semibold text-gray-700 mb-2">Preview</div>
+                <div className="border rounded-lg p-4 bg-slate-50 min-h-[120px] flex items-center justify-center text-center">
+                  <div
+                    style={{
+                      color: layerTextColor,
+                      fontWeight: Number(layerTextWeight),
+                      fontSize: `${layerTextSize}px`,
+                      lineHeight: 1.3,
+                      whiteSpace: 'pre-wrap',
+                    }}
+                    className="w-full break-words"
+                  >
+                    {layerTextValue.trim() ? layerTextValue : 'Your text will render here'}
+                  </div>
+                </div>
+              </div>
+              {layerTextError && <div className="text-xs text-red-500">{layerTextError}</div>}
+            </div>
+            <div className="px-5 py-4 border-t flex items-center justify-between">
+              <Button variant="outline" onClick={closeLayerTextModal} disabled={layerTextSaving} className="cursor-pointer">Cancel</Button>
+              <Button
+                className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                onClick={() => void saveLayerTextToExistingLayer()}
+                disabled={layerTextSaving || !layerTextValue.trim()}
+              >
+                {layerTextSaving ? 'Adding...' : 'Add Text'}
               </Button>
             </div>
           </div>
