@@ -766,6 +766,7 @@ type LayerImage = {
   textColor?: string
   textWeight?: '400' | '500' | '600' | '700'
   textSize?: number
+  textFont?: string
 }
 
 type Layer = {
@@ -814,6 +815,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                 textColor: sourceType === 'text' ? (img as { textColor?: string }).textColor : undefined,
                 textWeight: sourceType === 'text' ? (img as { textWeight?: '400' | '500' | '600' | '700' }).textWeight : undefined,
                 textSize: sourceType === 'text' ? (img as { textSize?: number }).textSize : undefined,
+                textFont: sourceType === 'text' ? ((img as { textFont?: string }).textFont || 'Inter') : undefined,
               }
             }),
             open: false,
@@ -826,6 +828,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [overIndex, setOverIndex] = useState<number | null>(null)
   const [showModal, setShowModal] = useState(false)
+  const [showLayerTypeMenu, setShowLayerTypeMenu] = useState(false)
   const [draftType, setDraftType] = useState<'image' | 'text'>('image')
   const [draftName, setDraftName] = useState("Layer 1")
   const [draftDescription, setDraftDescription] = useState("")
@@ -833,7 +836,8 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
   const [draftText, setDraftText] = useState("")
   const [draftTextColor, setDraftTextColor] = useState("#000000")
   const [draftTextWeight, setDraftTextWeight] = useState<'400' | '500' | '600' | '700'>('600')
-  const [draftTextSize, setDraftTextSize] = useState(48)
+  const [draftTextSize, setDraftTextSize] = useState(100)
+  const [draftTextFont, setDraftTextFont] = useState("Inter")
   const [draftSaving, setDraftSaving] = useState(false)
   const [draftError, setDraftError] = useState<string | null>(null)
   const [layerAddMenu, setLayerAddMenu] = useState<string | null>(null)
@@ -841,7 +845,8 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
   const [layerTextValue, setLayerTextValue] = useState("")
   const [layerTextColor, setLayerTextColor] = useState("#000000")
   const [layerTextWeight, setLayerTextWeight] = useState<'400' | '500' | '600' | '700'>('600')
-  const [layerTextSize, setLayerTextSize] = useState(48)
+  const [layerTextSize, setLayerTextSize] = useState(100)
+  const [layerTextFont, setLayerTextFont] = useState("Inter")
   const [layerTextSaving, setLayerTextSaving] = useState(false)
   const [layerTextError, setLayerTextError] = useState<string | null>(null)
   const previewContainerRef = useRef<HTMLDivElement>(null)
@@ -864,6 +869,18 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
   })
   const aspectClass = previewAspect === 'portrait' ? 'aspect-[9/16]' : previewAspect === 'landscape' ? 'aspect-[16/9]' : 'aspect-square'
   const [showFullPreview, setShowFullPreview] = useState(false)
+  const FONT_OPTIONS = [
+    "Inter",
+    "Arial",
+    "Helvetica",
+    "Times New Roman",
+    "Georgia",
+    "Courier New",
+    "Poppins",
+    "Roboto",
+    "Montserrat",
+    "Open Sans"
+  ]
   
   // Helpers: unique name generators
   const generateUniqueName = (base: string, usedNames: Set<string>): string => {
@@ -907,6 +924,17 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     document.addEventListener('click', handler)
     return () => document.removeEventListener('click', handler)
   }, [layerAddMenu])
+
+  useEffect(() => {
+    if (!showLayerTypeMenu) return
+    const handler = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null
+      if (target && target.closest('[data-layer-type-menu]')) return
+      setShowLayerTypeMenu(false)
+    }
+    document.addEventListener('click', handler)
+    return () => document.removeEventListener('click', handler)
+  }, [showLayerTypeMenu])
   
   // Update container size when it changes
   useEffect(() => {
@@ -987,6 +1015,10 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
 
   const addLayer = () => {
     if (layers.length >= LAYER_MAX) return
+    setShowLayerTypeMenu(true)
+  }
+
+  const selectLayerType = (type: 'image' | 'text') => {
     // Compute next available default name like "Layer N"
     const existing = new Set(layers.map(l => (l.name || '').trim()))
     let n = layers.length + 1
@@ -995,7 +1027,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       n += 1
       proposed = `Layer ${n}`
     }
-    setDraftType('image')
+    setDraftType(type)
     setDraftName(proposed)
     setDraftDescription("")
     setDraftImages([])
@@ -1003,7 +1035,9 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     setDraftTextColor("#000000")
     setDraftTextWeight('600')
     setDraftTextSize(48)
+    setDraftTextFont("Inter")
     setDraftError(null)
+    setShowLayerTypeMenu(false)
     setShowModal(true)
   }
 
@@ -1064,12 +1098,14 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     color,
     fontWeight,
     fontSize,
+    fontFamily,
     fileBaseName,
   }: {
     text: string
     color: string
     fontWeight: string
     fontSize: number
+    fontFamily?: string
     fileBaseName: string
   }): Promise<{ file: File; previewUrl: string }> => {
     const canvas = document.createElement('canvas')
@@ -1078,8 +1114,8 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
 
     const trimmedText = text.trimEnd()
     const lines = trimmedText.length > 0 ? trimmedText.split('\n') : ['']
-    const fontFamily = '"Inter", "Helvetica Neue", Arial, sans-serif'
-    const font = `${fontWeight} ${fontSize}px ${fontFamily}`
+    const chosenFontFamily = fontFamily && fontFamily.trim().length > 0 ? `"${fontFamily}", "Helvetica Neue", Arial, sans-serif` : '"Inter", "Helvetica Neue", Arial, sans-serif'
+    const font = `${fontWeight} ${fontSize}px ${chosenFontFamily}`
     ctx.font = font
 
     const lineHeight = Math.round(fontSize * 1.3)
@@ -1130,6 +1166,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
 
   const resetDraftState = () => {
     setShowModal(false)
+    setShowLayerTypeMenu(false)
     setDraftType('image')
     setDraftName("")
     setDraftDescription("")
@@ -1138,6 +1175,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     setDraftTextColor("#000000")
     setDraftTextWeight('600')
     setDraftTextSize(48)
+    setDraftTextFont("Inter")
     setDraftError(null)
   }
 
@@ -1149,6 +1187,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       setDraftText("")
     } else {
       setDraftImages([])
+      setDraftTextFont("Inter")
     }
   }
 
@@ -1178,6 +1217,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       setLayerTextColor(targetImage.textColor || "#000000")
       setLayerTextWeight(targetImage.textWeight || '600')
       setLayerTextSize(targetImage.textSize || 48)
+      setLayerTextFont(targetImage.textFont || "Inter")
       return
     }
 
@@ -1186,6 +1226,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     setLayerTextColor("#000000")
     setLayerTextWeight('600')
     setLayerTextSize(48)
+    setLayerTextFont("Inter")
   }
 
   const closeLayerTextModal = () => {
@@ -1194,6 +1235,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     setLayerTextColor("#000000")
     setLayerTextWeight('600')
     setLayerTextSize(48)
+    setLayerTextFont("Inter")
     setLayerTextError(null)
     setLayerTextSaving(false)
   }
@@ -1216,6 +1258,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
         color: layerTextColor,
         fontWeight: layerTextWeight,
         fontSize: layerTextSize,
+        fontFamily: layerTextFont,
         fileBaseName: baseName,
       })
       const [result] = await uploadImages([file])
@@ -1246,7 +1289,8 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
           textContent: layerTextValue,
           textColor: layerTextColor,
           textWeight: layerTextWeight,
-          textSize: layerTextSize
+          textSize: layerTextSize,
+          textFont: layerTextFont
         }
         setLayers(prev => prev.map(l => {
           if (l.id !== layerId) return l
@@ -1271,6 +1315,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
               textColor: layerTextColor,
               textWeight: layerTextWeight,
               textSize: layerTextSize,
+              textFont: layerTextFont,
             }
           }).sort((a, b) => (a.name || '').localeCompare(b.name || ''))
           return { ...l, images: updatedImages }
@@ -1303,6 +1348,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
           color: draftTextColor,
           fontWeight: draftTextWeight,
           fontSize: draftTextSize,
+          fontFamily: draftTextFont,
           fileBaseName: baseName,
         })
         const [result] = await uploadImages([file])
@@ -1328,7 +1374,8 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
           textContent: draftText,
           textColor: draftTextColor,
           textWeight: draftTextWeight,
-          textSize: draftTextSize
+          textSize: draftTextSize,
+          textFont: draftTextFont
         }
         const layer: Layer = { id: layerId, name, description: draftDescription, z: nextZ, images: [layerImage], open: false }
         setLayers(prev => reindexLayers([...prev, layer]))
@@ -1611,7 +1658,8 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
         textContent: i.textContent ?? i.name ?? '',
         textColor: i.textColor,
         textWeight: i.textWeight,
-        textSize: i.textSize
+        textSize: i.textSize,
+        textFont: i.textFont
       })) 
     }))
     localStorage.setItem('cs_step5_layer', JSON.stringify(minimal))
@@ -1638,7 +1686,27 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
 
       <div className="flex items-center justify-between mt-4">
         <div className="text-sm font-semibold text-gray-800">Layer Management</div>
-        <Button className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] cursor-pointer" onClick={addLayer} disabled={layers.length >= LAYER_MAX}>+ Add New Layer</Button>
+        <div className="relative" data-layer-type-menu>
+          <Button className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] cursor-pointer" onClick={addLayer} disabled={layers.length >= LAYER_MAX}>+ Add New Layer</Button>
+          {showLayerTypeMenu && (
+            <div className="absolute right-0 top-full mt-2 w-36 rounded-md border border-gray-200 bg-white shadow-lg p-2 space-y-1 z-20">
+              <button
+                type="button"
+                className="w-full text-xs px-2 py-1 rounded-md text-left hover:bg-gray-100 cursor-pointer"
+                onClick={() => selectLayerType('image')}
+              >
+                Image
+              </button>
+              <button
+                type="button"
+                className="w-full text-xs px-2 py-1 rounded-md text-left hover:bg-gray-100 cursor-pointer"
+                onClick={() => selectLayerType('text')}
+              >
+                Text
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="mt-4 grid grid-cols-1 md:grid-cols-5 gap-5">
@@ -2055,9 +2123,9 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl w-full max-w-lg max-h-[90vh] shadow-lg overflow-hidden">
-            <div className="px-5 py-4 border-b font-semibold">Add New Layer</div>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => { if (!draftSaving) { setShowModal(false); resetDraftState(); } }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b font-semibold">Add New {draftType === 'image' ? 'Image' : 'Text'} Layer</div>
             <div className="p-5 space-y-5 overflow-y-auto max-h-[70vh] pr-1">
               <div>
                 <label className="block text-sm font-semibold text-gray-800 mb-2">Layer Name <span className="text-red-500">*</span></label>
@@ -2074,33 +2142,6 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                   onChange={(e) => setDraftDescription(e.target.value)}
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
                 />
-              </div>
-              <div>
-                <div className="text-sm font-semibold text-gray-800 mb-2">Layer Content</div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleDraftTypeSwitch('image')}
-                    className={`px-3 py-1.5 rounded-full border text-sm transition-colors ${
-                      draftType === 'image'
-                        ? 'bg-[rgba(38,116,186,1)] text-white border-[rgba(38,116,186,1)]'
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    Image Upload
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDraftTypeSwitch('text')}
-                    className={`px-3 py-1.5 rounded-full border text-sm transition-colors ${
-                      draftType === 'text'
-                        ? 'bg-[rgba(38,116,186,1)] text-white border-[rgba(38,116,186,1)]'
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    Text
-                  </button>
-                </div>
               </div>
 
               {draftType === 'image' ? (
@@ -2157,7 +2198,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                   )}
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-6">
                   <div>
                     <label className="block text-sm font-semibold text-gray-800 mb-2">Text Content <span className="text-red-500">*</span></label>
                     <textarea
@@ -2167,78 +2208,116 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                         setDraftError(null)
                       }}
                       rows={4}
-                      className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] resize-y min-h-[120px]"
+                      className="w-full rounded-lg border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] resize-y min-h-[120px] text-base"
                       placeholder="Enter the text you want to render as a layer"
                     />
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1">Color</label>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="color"
-                          value={draftTextColor}
-                          onChange={(e) => setDraftTextColor(e.target.value)}
-                          className="w-10 h-10 border rounded-md cursor-pointer"
-                        />
-                        <input
-                          type="text"
-                          value={draftTextColor}
-                          onChange={(e) => setDraftTextColor(e.target.value)}
-                          className="w-full rounded-md border border-gray-200 px-2 py-1 text-xs"
-                        />
+
+                  <div className="border-t pt-5">
+                    <h4 className="text-sm font-semibold text-gray-800 mb-4">Text Styling</h4>
+                    <div className="grid grid-cols-1 gap-5">
+                      {/* Color Row */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Color</label>
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="color"
+                              value={draftTextColor}
+                              onChange={(e) => setDraftTextColor(e.target.value)}
+                              className="w-40 h-10 border border-gray-200 rounded-lg cursor-pointer"
+                            />
+                            
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Font Weight</label>
+                          <select
+                            value={draftTextWeight}
+                            onChange={(e) => setDraftTextWeight(e.target.value as '400' | '500' | '600' | '700')}
+                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+                          >
+                            <option value="400">Regular</option>
+                            <option value="500">Medium</option>
+                            <option value="600">Semi Bold</option>
+                            <option value="700">Bold</option>
+                          </select>
+                        </div>
                       </div>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1">Weight</label>
-                      <select
-                        value={draftTextWeight}
-                        onChange={(e) => setDraftTextWeight(e.target.value as '400' | '500' | '600' | '700')}
-                        className="w-full rounded-md border border-gray-200 px-2 py-2 text-sm"
-                      >
-                        <option value="400">Regular</option>
-                        <option value="500">Medium</option>
-                        <option value="600">Semi Bold</option>
-                        <option value="700">Bold</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-3">Font Size</label>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="range"
-                          min={24}
-                          max={100}
-                          step={2}
-                          value={draftTextSize}
-                          onChange={(e) => setDraftTextSize(Number(e.target.value))}
-                          className="w-full max-w-[160px]"
-                        />
-                        <span className="text-xs text-gray-600 w-10 text-right">{draftTextSize}px</span>
+
+                      {/* Font Size and Font Family Row */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Font Size:{" "}
+                            <span className="font-semibold text-[rgba(38,116,186,1)]">{draftTextSize}px</span>
+                          </label>
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="range"
+                              min="12"
+                              max="100"
+                              value={draftTextSize}
+                              onChange={(e) => setDraftTextSize(Number(e.target.value))}
+                              className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
+                            />
+                            <input
+                              type="number"
+                              min="12"
+                              max="100"
+                              value={draftTextSize}
+                              onChange={(e) => setDraftTextSize(Number(e.target.value))}
+                              className="w-20 rounded-lg border border-gray-200 px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Font Family</label>
+                          <select
+                            value={draftTextFont}
+                            onChange={(e) => setDraftTextFont(e.target.value)}
+                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+                          >
+                            {FONT_OPTIONS.map(font => (
+                              <option key={font} value={font}>{font}</option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
                     </div>
                   </div>
-                  <div>
-                    <div className="text-xs font-semibold text-gray-700 mb-2">Preview</div>
-                    <div className="border rounded-lg p-4 bg-slate-50 min-h-[120px] flex items-center justify-center text-center">
-                      <div
-                        style={{
-                          color: draftTextColor,
-                          fontWeight: Number(draftTextWeight),
-                          fontSize: `${draftTextSize}px`,
-                          lineHeight: 1.3,
-                          whiteSpace: 'pre-wrap',
-                        }}
-                        className="w-full break-words"
-                      >
-                        {draftText.trim() ? draftText : 'Your text will render here'}
-                      </div>
+
+                  {/* Preview Section */}
+                  <div className="border-t pt-5">
+                    <label className="block text-sm font-semibold text-gray-800 mb-3">Preview</label>
+                    <div className="bg-gray-50 rounded-lg p-6 border border-gray-200 min-h-[120px] flex items-center justify-center">
+                      {draftText ? (
+                        <div
+                          style={{
+                            color: draftTextColor,
+                            fontWeight: draftTextWeight,
+                            fontSize: `${draftTextSize}px`,
+                            fontFamily: draftTextFont,
+                          }}
+                          className="text-center max-w-full break-words"
+                        >
+                          {draftText}
+                        </div>
+                      ) : (
+                        <div className="text-gray-400 text-sm">Your text preview will appear here</div>
+                      )}
                     </div>
                   </div>
                 </div>
               )}
 
-              {draftError && <div className="text-xs text-red-500">{draftError}</div>}
+              {draftError && (
+                <div className="text-red-600 text-sm bg-red-50 px-4 py-2 rounded-lg border border-red-200">
+                  {draftError}
+                </div>
+              )}
             </div>
             <div className="px-5 py-4 border-t flex items-center justify-between">
               <Button variant="outline" onClick={resetDraftState} disabled={draftSaving} className="cursor-pointer">Cancel</Button>
@@ -2259,10 +2338,10 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       )}
 
       {showLayerTextModal && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl w-full max-w-md max-h-[90vh] shadow-lg overflow-hidden">
-            <div className="px-5 py-4 border-b font-semibold">Add Text Layer</div>
-            <div className="p-5 space-y-4 overflow-y-auto max-h-[70vh] pr-1">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => { if (!layerTextSaving) { closeLayerTextModal(); } }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b font-semibold">Edit Text Layer</div>
+            <div className="p-5 space-y-6 overflow-y-auto max-h-[70vh] pr-1">
               <div>
                 <label className="block text-sm font-semibold text-gray-800 mb-2">Text Content <span className="text-red-500">*</span></label>
                 <textarea
@@ -2272,84 +2351,128 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                     setLayerTextError(null)
                   }}
                   rows={4}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] resize-y min-h-[120px]"
+                  className="w-full rounded-lg border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] resize-y min-h-[120px] text-base"
                   placeholder="Enter the text you want to render as a layer"
                 />
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Color</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={layerTextColor}
-                      onChange={(e) => setLayerTextColor(e.target.value)}
-                      className="w-10 h-10 border rounded-md cursor-pointer"
-                    />
-                    <input
-                      type="text"
-                      value={layerTextColor}
-                      onChange={(e) => setLayerTextColor(e.target.value)}
-                      className="w-full rounded-md border border-gray-200 px-2 py-1 text-xs"
-                    />
+
+              <div className="border-t pt-5">
+                <h4 className="text-sm font-semibold text-gray-800 mb-4">Text Styling</h4>
+                <div className="grid grid-cols-1 gap-5">
+                  {/* Color Row */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Color</label>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="color"
+                          value={layerTextColor}
+                          onChange={(e) => setLayerTextColor(e.target.value)}
+                          className="w-12 h-12 border border-gray-200 rounded-lg cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          value={layerTextColor}
+                          onChange={(e) => setLayerTextColor(e.target.value)}
+                          className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+                          placeholder="#000000"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Font Weight</label>
+                      <select
+                        value={layerTextWeight}
+                        onChange={(e) => setLayerTextWeight(e.target.value as '400' | '500' | '600' | '700')}
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+                      >
+                        <option value="400">Regular (400)</option>
+                        <option value="500">Medium (500)</option>
+                        <option value="600">Semi Bold (600)</option>
+                        <option value="700">Bold (700)</option>
+                      </select>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Weight</label>
-                  <select
-                    value={layerTextWeight}
-                    onChange={(e) => setLayerTextWeight(e.target.value as '400' | '500' | '600' | '700')}
-                    className="w-full rounded-md border border-gray-200 px-2 py-2 text-sm"
-                  >
-                    <option value="400">Regular</option>
-                    <option value="500">Medium</option>
-                    <option value="600">Semi Bold</option>
-                    <option value="700">Bold</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-3">Font Size</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="range"
-                      min={24}
-                      max={100}
-                      step={2}
-                      value={layerTextSize}
-                      onChange={(e) => setLayerTextSize(Number(e.target.value))}
-                      className="w-full max-w-[160px]"
-                    />
-                    <span className="text-xs text-gray-600 w-10 text-right">{layerTextSize}px</span>
+
+                  {/* Font Size and Font Family Row */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Font Size: <span className="font-semibold text-[rgba(38,116,186,1)]">{layerTextSize}px</span>
+                      </label>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="range"
+                          min="12"
+                          max="120"
+                          value={layerTextSize}
+                          onChange={(e) => setLayerTextSize(Number(e.target.value))}
+                          className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
+                        />
+                        <input
+                          type="number"
+                          min="12"
+                          max="120"
+                          value={layerTextSize}
+                          onChange={(e) => setLayerTextSize(Number(e.target.value))}
+                          className="w-20 rounded-lg border border-gray-200 px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Font Family</label>
+                      <select
+                        value={layerTextFont}
+                        onChange={(e) => setLayerTextFont(e.target.value)}
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+                      >
+                        {FONT_OPTIONS.map(font => (
+                          <option key={font} value={font}>{font}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 </div>
               </div>
-              <div>
-                <div className="text-xs font-semibold text-gray-700 mb-2">Preview</div>
-                <div className="border rounded-lg p-4 bg-slate-50 min-h-[120px] flex items-center justify-center text-center">
-                  <div
-                    style={{
-                      color: layerTextColor,
-                      fontWeight: Number(layerTextWeight),
-                      fontSize: `${layerTextSize}px`,
-                      lineHeight: 1.3,
-                      whiteSpace: 'pre-wrap',
-                    }}
-                    className="w-full break-words"
-                  >
-                    {layerTextValue.trim() ? layerTextValue : 'Your text will render here'}
-                  </div>
+
+              {/* Preview Section */}
+              <div className="border-t pt-5">
+                <label className="block text-sm font-semibold text-gray-800 mb-3">Preview</label>
+                <div className="bg-gray-50 rounded-lg p-6 border border-gray-200 min-h-[120px] flex items-center justify-center">
+                  {layerTextValue ? (
+                    <div
+                      style={{
+                        color: layerTextColor,
+                        fontWeight: layerTextWeight,
+                        fontSize: `${layerTextSize}px`,
+                        fontFamily: layerTextFont,
+                      }}
+                      className="text-center max-w-full break-words"
+                    >
+                      {layerTextValue}
+                    </div>
+                  ) : (
+                    <div className="text-gray-400 text-sm">Your text preview will appear here</div>
+                  )}
                 </div>
               </div>
-              {layerTextError && <div className="text-xs text-red-500">{layerTextError}</div>}
+
+              {layerTextError && (
+                <div className="text-red-600 text-sm bg-red-50 px-4 py-2 rounded-lg border border-red-200">
+                  {layerTextError}
+                </div>
+              )}
             </div>
-            <div className="px-5 py-4 border-t flex items-center justify-between">
+            <div className="px-5 py-4 border-t flex justify-end gap-3">
               <Button variant="outline" onClick={closeLayerTextModal} disabled={layerTextSaving} className="cursor-pointer">Cancel</Button>
               <Button
-                className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] cursor-pointer"
                 onClick={() => void saveLayerTextToExistingLayer()}
                 disabled={layerTextSaving || !layerTextValue.trim()}
               >
-                {layerTextSaving ? 'Adding...' : 'Add Text'}
+                {layerTextSaving ? 'Saving...' : 'Save Changes'}
               </Button>
             </div>
           </div>
