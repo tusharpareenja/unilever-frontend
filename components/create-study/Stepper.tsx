@@ -36,10 +36,27 @@ function isStepCompleted(stepId: number): boolean {
       case 4: {
         const data = localStorage.getItem('cs_step4')
         if (!data) return false
-        const parsed = JSON.parse(data)
-        return Array.isArray(parsed) && parsed.length > 0 && parsed.every((q: any) => 
-          q.title && q.options && q.options.length >= 2 && q.options.every((o: any) => o.text)
-        )
+        try {
+          const parsed = JSON.parse(data)
+          if (!Array.isArray(parsed) || parsed.length === 0) return false
+          
+          return parsed.every((q: any) => {
+            // Accept both frontend format (title, options) and backend format (question_text, answer_options)
+            const questionText = q.title || q.question_text || ''
+            const opts = q.options || q.answer_options || []
+            
+            // Check if question has text and at least 2 options with text
+            return (
+              questionText && 
+              questionText.trim().length > 0 &&
+              Array.isArray(opts) &&
+              opts.length >= 2 &&
+              opts.every((o: any) => (o.text || o.option_text) && (o.text || o.option_text).trim().length > 0)
+            )
+          })
+        } catch {
+          return false
+        }
       }
       case 5: {
         const gridData = localStorage.getItem('cs_step5_grid')
@@ -51,26 +68,36 @@ function isStepCompleted(stepId: number): boolean {
         
         if (step2.type === 'grid') {
           if (!gridData) return false
-          const grid = JSON.parse(gridData)
+          let grid: any
+          try {
+            grid = JSON.parse(gridData)
+          } catch {
+            return false
+          }
           
           // Check if it's the new category format or legacy format
-          const isCategoryFormat = grid.length > 0 && grid[0].title && grid[0].elements
+          const isCategoryFormat = grid.length > 0 && grid[0] && grid[0].title && grid[0].elements
           
           if (isCategoryFormat) {
             // New category format: check categories and their elements
+            // Accept either secureUrl, previewUrl, or textContent as valid element content
+            const hasValidElement = (element: any) => {
+              return Boolean(element && (element.secureUrl || element.previewUrl || element.textContent))
+            }
+
             return Array.isArray(grid) && 
-                   grid.length >= 3 && // Minimum 3 categories
+                   grid.length >= 4 && // Minimum 4 categories (match Step5 limits)
                    grid.every((category: any) => 
                      category.title && 
                      category.title.trim().length > 0 && 
                      category.elements && 
                      Array.isArray(category.elements) &&
                      category.elements.length > 0 &&
-                     category.elements.every((element: any) => element.secureUrl)
+                     category.elements.every((element: any) => hasValidElement(element))
                    )
           } else {
-            // Legacy format: check direct elements
-            return Array.isArray(grid) && grid.length > 0 && grid.every((e: any) => e.secureUrl)
+            // Legacy format: check direct elements (accept previewUrl or secureUrl or text content)
+            return Array.isArray(grid) && grid.length > 0 && grid.every((e: any) => (e && (e.secureUrl || e.previewUrl || e.textContent)))
           }
         } else {
           if (!layerData) return false

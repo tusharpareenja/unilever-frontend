@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
+import { updateStudyAsync, putUpdateStudyAsync } from "@/lib/api/StudyAPI"
 
 interface Option {
 	id: string
@@ -195,7 +196,50 @@ export function Step4ClassificationQuestions({ onNext, onBack, onDataChange }: S
 				<Button variant="outline" className="rounded-full cursor-pointer px-6 w-full sm:w-auto" onClick={onBack}>Back</Button>
 				<Button
 					className="rounded-full cursor-pointer px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)]"
-					onClick={onNext}
+					onClick={() => {
+								if (canProceed) {
+									const studyIdRaw = localStorage.getItem('cs_study_id')
+									if (studyIdRaw) {
+										// parse study id if stringified
+										let studyId = studyIdRaw
+										try {
+											const parsed = JSON.parse(studyIdRaw)
+											if (typeof parsed === 'string') studyId = parsed
+										} catch {}
+
+										// Build classification_questions payload from current state
+										const classification_questions = questions
+											.filter(q => q.title && q.title.trim().length > 0)
+											.map((q, idx) => ({
+												question_id: String(q.id || `Q${idx + 1}`).substring(0, 10),
+												question_text: q.title || "",
+												question_type: "multiple_choice",
+												is_required: q.required !== false,
+												order: idx + 1,
+												answer_options: (q.options || [])
+													.filter(o => o.text && o.text.trim().length > 0)
+													.map((o, optIdx) => ({ id: String(o.id || String.fromCharCode(65 + optIdx)).substring(0, 10), text: o.text || "", order: optIdx + 1 }))
+											}))
+
+										// Include study_type and step metadata to help server
+										let studyType = 'grid'
+										try {
+											const s2raw = localStorage.getItem('cs_step2')
+											if (s2raw) studyType = JSON.parse(s2raw).type || 'grid'
+										} catch {}
+
+										const payload: any = {
+											last_step: 4,
+											study_type: studyType,
+											classification_questions: classification_questions.length > 0 ? classification_questions : undefined,
+										}
+
+										// Fire background PUT update that includes classification_questions
+										putUpdateStudyAsync(studyId, payload, 4)
+									}
+									onNext()
+								}
+					}}
 					disabled={!canProceed}
 				>
 					Next

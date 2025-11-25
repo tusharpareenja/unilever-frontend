@@ -5,10 +5,43 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_BASE_URL
+
 interface Step1BasicDetailsProps {
   onNext: () => void
   onCancel: () => void
   onDataChange?: () => void
+}
+
+function readTokens(): { access_token?: string; refresh_token?: string; token_type?: string } | null {
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('tokens') : null
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+async function createStudyMinimal(title: string, background: string, language: string) {
+  const tokens = readTokens()
+  if (!tokens) throw new Error("Authentication token not found")
+  
+  const res = await fetch(`${API_BASE_URL}/studies/minimal`, {
+    method: "POST",
+    
+    headers: {
+      "Content-Type": "application/json",
+       "Authorization": `Bearer ${tokens.access_token}`
+    },
+    body: JSON.stringify({
+      title,
+      background,
+      language: language.toLowerCase().substring(0, 2),
+    }),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data?.detail || "Failed to create study")
+  return data
 }
 
 export function Step1BasicDetails({ onNext, onCancel, onDataChange }: Step1BasicDetailsProps) {
@@ -21,7 +54,44 @@ export function Step1BasicDetails({ onNext, onCancel, onDataChange }: Step1Basic
     return ""
   })
   const [language, setLanguage] = useState(() => {
-    try { const v = localStorage.getItem('cs_step1'); if (v) { const o = JSON.parse(v); return o.language || "ENGLISH" } } catch {};
+    try {
+      const v = localStorage.getItem('cs_step1')
+      if (v) {
+        const o = JSON.parse(v)
+        let lang = o.language || "ENGLISH"
+
+        // Map language codes to full names
+        const languageMap: Record<string, string> = {
+          'en': 'ENGLISH',
+          'es': 'SPANISH',
+          'fr': 'FRENCH',
+          'de': 'GERMAN',
+          'it': 'ITALIAN',
+          'pt': 'PORTUGUESE',
+          'nl': 'DUTCH',
+          'ru': 'RUSSIAN',
+          'zh': 'CHINESE',
+          'ja': 'JAPANESE',
+          'ko': 'KOREAN',
+          'ar': 'ARABIC',
+          'hi': 'HINDI',
+          'sv': 'SWEDISH',
+          'no': 'NORWEGIAN',
+          'da': 'DANISH',
+          'fi': 'FINNISH',
+          'pl': 'POLISH',
+          'cs': 'CZECH',
+          'hu': 'HUNGARIAN'
+        }
+
+        // If language is a code, map it to full name
+        if (lang.length <= 2) {
+          lang = languageMap[lang.toLowerCase()] || 'ENGLISH'
+        }
+
+        return lang
+      }
+    } catch {}
     return "ENGLISH"
   })
   const [agree, setAgree] = useState(() => {
@@ -29,12 +99,41 @@ export function Step1BasicDetails({ onNext, onCancel, onDataChange }: Step1Basic
     return false
   })
   const [showTerms, setShowTerms] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
     localStorage.setItem('cs_step1', JSON.stringify({ title, description, language, agree }))
     onDataChange?.()
   }, [title, description, language, agree, onDataChange])
+
+  const handleNext = async () => {
+    if (loading) return
+    setError(null)
+
+    // Check if cs_study_id already exists in localStorage
+    const existingStudyId = localStorage.getItem('cs_study_id')
+    if (existingStudyId) {
+      // Study already exists, skip API call and proceed
+      console.log('Study already exists with ID:', existingStudyId)
+      onNext()
+      return
+    }
+
+    setLoading(true)
+    try {
+      const response = await createStudyMinimal(title, description, language)
+      const studyId = response.id || response.study_id
+      if (!studyId) throw new Error("No study ID returned")
+      localStorage.setItem('cs_study_id', studyId)
+      onNext()
+    } catch (err: any) {
+      setError(err.message || "Failed to create study")
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div>
@@ -107,10 +206,17 @@ export function Step1BasicDetails({ onNext, onCancel, onDataChange }: Step1Basic
       </div>
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mt-10">
-        <Button variant="outline" className="rounded-full px-6 w-full sm:w-auto cursor-pointer" onClick={onCancel}>Cancel</Button>
-        <Button className="cursor-pointer rounded-full px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] w-full sm:w-auto" onClick={onNext} disabled={!title || !description || !agree}>
-          Next
-        </Button>
+        <Button variant="outline" className="rounded-full px-6 w-full sm:w-auto cursor-pointer" onClick={onCancel} disabled={loading}>Cancel</Button>
+        <div className="flex flex-col items-stretch gap-2 w-full sm:w-auto">
+          {error && <p className="text-xs text-red-500 text-center">{error}</p>}
+          <Button 
+            className="cursor-pointer rounded-full px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] w-full sm:w-auto disabled:opacity-60"
+            onClick={handleNext} 
+            disabled={!title || !description || !agree || loading}
+          >
+            {loading ? "Creating..." : "Next"}
+          </Button>
+        </div>
       </div>
 
       {/* Terms and Conditions Modal */}

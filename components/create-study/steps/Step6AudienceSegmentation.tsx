@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { putUpdateStudyAsync } from "@/lib/api/StudyAPI"
 
 const COUNTRIES = [
 	"Afghanistan","Albania","Algeria","Andorra","Angola","Argentina","Armenia","Australia","Austria","Azerbaijan",
@@ -269,7 +270,59 @@ export function Step6AudienceSegmentation({ onNext, onBack, onDataChange }: Step
 
 			<div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mt-10">
 				<Button variant="outline" className="rounded-full cursor-pointer px-6 w-full sm:w-auto" onClick={onBack}>Back</Button>
-				<Button className="rounded-full px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] w-full sm:w-auto cursor-pointer" onClick={onNext} disabled={!canProceed}>Next</Button>
+								<Button
+									className="rounded-full px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] w-full sm:w-auto cursor-pointer"
+									onClick={() => {
+										try {
+											// Read study id robustly (handle plain string or JSON string)
+											let studyId: string | null = null
+											try {
+												const raw = localStorage.getItem('cs_study_id')
+												if (raw) {
+													try { studyId = JSON.parse(raw) } catch { studyId = raw }
+												}
+											} catch {}
+
+											// Build audience_segmentation payload from current local state
+											const age_distribution: Record<string, number> = {}
+											Object.keys(ageSelections).forEach((label) => {
+												const v = ageSelections[label]
+												// Only include checked age groups
+												if (v.checked) {
+													const num = typeof v?.percent === 'string' ? Number(v.percent.replace(/[^0-9.-]/g, '')) : Number(v?.percent || 0)
+													age_distribution[label] = isNaN(num) ? 0 : num
+												}
+											})
+
+											const payload = {
+												last_step: 6,
+												audience_segmentation: {
+													
+													number_of_respondents: Number(respondents || 0),
+													country: Array.isArray(countries) ? countries.join(', ') : String(countries || ''),
+													gender_distribution: { male: Number(genderMale || 0), female: Number(genderFemale || 0) },
+													age_distribution,
+												}
+											}
+
+											if (studyId) {
+												// Fire-and-forget background PUT update
+												putUpdateStudyAsync(String(studyId), payload)
+												console.log('[Step6] Scheduled background PUT update for audience_segmentation', payload)
+											} else {
+												console.log('[Step6] No study id found in localStorage; skipping background PUT')
+											}
+										} catch (err) {
+											console.warn('[Step6] Failed to schedule background PUT update', err)
+										}
+
+										// Proceed immediately without waiting for the background update
+										onNext()
+									}}
+									disabled={!canProceed}
+								>
+									Next
+								</Button>
 			</div>
 		</div>
 	)

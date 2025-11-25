@@ -7,14 +7,59 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ChevronDown, Plus, LogOut } from "lucide-react"
 import { useAuth } from "@/lib/auth/AuthContext"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 
 export function DashboardHeader() {
   const { user, logout } = useAuth()
   const [showDropdown, setShowDropdown] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const pathname = usePathname()
+  const router = useRouter()
   const isCreateStudyRoute = pathname?.startsWith('/home/create-study')
+
+  const handleCreateNewStudy = () => {
+    // Clear all create-study related localStorage items to start fresh from Step 1
+    const keysToRemove = [
+      'cs_step1',
+      'cs_step2',
+      'cs_step3',
+      'cs_step4',
+      'cs_step5_grid',
+      'cs_step5_layer',
+      'cs_step5_layer_background',
+      'cs_step5_layer_preview_aspect',
+      'cs_step6',
+      'cs_step7_tasks',
+      'cs_step7_matrix',
+      'cs_step7_job_state',
+      'cs_step7_timer_state',
+      'cs_current_step',
+      'cs_backup_steps',
+      'cs_flash_message',
+      'cs_resuming_draft',
+      'cs_study_id',
+      'cs_is_fresh_start'
+    ]
+
+    keysToRemove.forEach(key => {
+      try {
+        localStorage.removeItem(key)
+      } catch {}
+    })
+
+    // Also clear sessionStorage to remove study tracking
+    try {
+      sessionStorage.removeItem('cs_previous_study_id')
+    } catch {}
+
+    // Set flag to indicate this is a fresh start (no resuming)
+    try {
+      localStorage.setItem('cs_is_fresh_start', 'true')
+    } catch {}
+
+    // Navigate to create-study page
+    router.push('/home/create-study')
+  }
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -65,17 +110,14 @@ export function DashboardHeader() {
           )} */}
           {!isCreateStudyRoute && (
             <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-              <Link href="/home/create-study">
-                <Button className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] text-white px-4 py-2 rounded-lg flex items-center space-x-2">
-                  <Plus className="w-4 h-4" />
-                  
-                  <span className="hidden sm:inline cursor-pointer">Create New Study</span>
-                  <span className="sm:hidden cursor-pointer">Create</span>
-                  
-                  
-                  
-                </Button>
-              </Link>
+              <Button
+                onClick={handleCreateNewStudy}
+                className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] text-white px-4 py-2 rounded-lg flex items-center space-x-2"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline cursor-pointer">Create New Study</span>
+                <span className="sm:hidden cursor-pointer">Create</span>
+              </Button>
             </motion.div>
           )}
 

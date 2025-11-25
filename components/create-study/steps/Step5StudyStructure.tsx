@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useRef, useState } from "react"
 import { Rnd } from "react-rnd"
 import { Button } from "@/components/ui/button"
-import { uploadImages } from "@/lib/api/StudyAPI"
+import { uploadImages, putUpdateStudyAsync, putUpdateStudy, buildStudyPayloadFromLocalStorage } from "@/lib/api/StudyAPI"
 
 interface ElementItem {
   id: string
@@ -464,9 +464,75 @@ const CATEGORY_MAX = 10
 
   const handleNext = async () => {
     setNextLoading(true)
-    await ensureCategoryUploads()
-    setNextLoading(false)
-    onNext()
+    try {
+      // Ensure all category uploads (including preview-only entries) complete
+      const uploadedCategories = await ensureCategoryUploadsEnhanced()
+
+      const rawStudyId = localStorage.getItem('cs_study_id')
+      if (rawStudyId) {
+        // Parse study_id: handle both plain string and JSON-stringified format
+        let studyId = rawStudyId
+        try {
+          const parsed = JSON.parse(rawStudyId)
+          if (typeof parsed === 'string') studyId = parsed
+        } catch {
+          // Already a plain string, use as-is
+        }
+
+        // Build payload directly from uploaded categories to ensure all secureUrls are present
+        // Map to backend contract: ElementPayload and CategoryPayload
+        const updatePayload: any = { study_type: 'grid' }
+        const categoriesToSend = uploadedCategories && uploadedCategories.length > 0 ? uploadedCategories : categories
+
+        if (categoriesToSend && categoriesToSend.length > 0) {
+          updatePayload.categories = categoriesToSend.map((c, idx) => ({
+            category_id: String(c.id),
+            name: c.title || `Category ${idx + 1}`,
+            order: idx
+          }))
+          // Collect all elements from all categories with secureUrl
+          const categorizedElements = categoriesToSend.flatMap((c, catIdx) =>
+            (c.elements || [])
+              .filter(el => el.secureUrl) // Only include elements that have been uploaded
+              .map((el, idx) => ({
+                element_id: String(el.id),
+                name: el.name || '',
+                description: el.description || '',
+                element_type: 'image',
+                content: el.secureUrl,
+                alt_text: el.name || '',
+                category_id: String(c.id)
+              }))
+          )
+          if (categorizedElements.length > 0) {
+            updatePayload.elements = categorizedElements
+            console.log('[Step5] Grid payload with categories and elements:', { categories: updatePayload.categories.length, elements: categorizedElements.length, payload: updatePayload })
+          }
+        }
+
+        // Also handle legacy format with direct elements
+        if (elements && elements.length > 0 && (!updatePayload.elements || updatePayload.elements.length === 0)) {
+          updatePayload.elements = elements
+            .filter(e => e.secureUrl)
+            .map(e => ({
+              element_id: String(e.id),
+              name: e.name || '',
+              description: e.description || '',
+              element_type: 'image',
+              content: e.secureUrl,
+              alt_text: e.name || '',
+              category_id: 'default-category'
+            }))
+        }
+
+        putUpdateStudyAsync(studyId, updatePayload, 5)
+      }
+    } catch (e) {
+      console.error('Failed in handleNext (grid):', e)
+    } finally {
+      setNextLoading(false)
+      onNext()
+    }
   }
 
   // Ensure all category elements have secureUrl (upload pending ones)
@@ -498,6 +564,74 @@ const CATEGORY_MAX = 10
       }))
     } catch (e) {
       console.error('ensureCategoryUploads error', e)
+    }
+  }
+
+  // Enhanced: upload category images even when only previewUrl exists (no File)
+  // Returns the updated categories with secureUrls set
+  const ensureCategoryUploadsEnhanced = async (): Promise<CategoryItem[]> => {
+    const pendingEntries: Array<{ categoryId: string; elementId: string; file?: File; previewUrl?: string }> = []
+    categories.forEach(c =>
+      c.elements.forEach(e => {
+        if (!e.secureUrl) {
+          if (e.file) pendingEntries.push({ categoryId: c.id, elementId: e.id, file: e.file })
+          else if (e.previewUrl) pendingEntries.push({ categoryId: c.id, elementId: e.id, previewUrl: e.previewUrl })
+        }
+      })
+    )
+
+    // If no uploads needed, return current categories
+    if (pendingEntries.length === 0) return categories
+
+    // Prepare files: fetch blobs for previewUrls where file is not present
+    const filesToUpload: File[] = []
+    const mapIndex: Array<{ categoryId: string; elementId: string }> = []
+
+    for (const entry of pendingEntries) {
+      if (entry.file) {
+        filesToUpload.push(entry.file)
+        mapIndex.push({ categoryId: entry.categoryId, elementId: entry.elementId })
+      } else if (entry.previewUrl) {
+        try {
+          const res = await fetch(entry.previewUrl)
+          if (!res.ok) throw new Error('Failed to fetch preview URL')
+          const blob = await res.blob()
+          const ext = (entry.previewUrl.split('.').pop() || 'png').split('?')[0]
+          const filename = `${entry.elementId || 'elem'}.${ext}`
+          const file = new File([blob], filename, { type: blob.type || 'image/png' })
+          filesToUpload.push(file)
+          mapIndex.push({ categoryId: entry.categoryId, elementId: entry.elementId })
+        } catch (err) {
+          console.warn('Failed to fetch preview URL for upload:', entry.previewUrl, err)
+        }
+      }
+    }
+
+    if (filesToUpload.length === 0) return categories
+
+    try {
+      const results = await uploadImages(filesToUpload)
+      // Create updated categories with secureUrls
+      const updatedCategories = categories.map(category => {
+        const updatedElements = category.elements.map(element => {
+          const idx = mapIndex.findIndex(m => m.categoryId === category.id && m.elementId === element.id)
+          if (idx !== -1) {
+            return { ...element, secureUrl: results[idx]?.secure_url || element.secureUrl }
+          }
+          return element
+        })
+        return { ...category, elements: updatedElements }
+      })
+
+      // Update state for persistence
+      setCategories(updatedCategories)
+
+      console.log('[Step5] Upload complete, returning updated categories with secureUrls')
+      return updatedCategories
+    } catch (e) {
+      console.error('ensureCategoryUploadsEnhanced error', e)
+      // Return current categories even on error
+      return categories
     }
   }
 
@@ -767,6 +901,10 @@ type LayerImage = {
   textWeight?: '400' | '500' | '600' | '700'
   textSize?: number
   textFont?: string
+  textBackgroundColor?: string
+  textBackgroundRadius?: number
+  textStrokeColor?: string
+  textStrokeWidth?: number
 }
 
 type Layer = {
@@ -776,6 +914,7 @@ type Layer = {
   z: number
   images: LayerImage[]
   open: boolean
+  transform?: { x: number; y: number; width: number; height: number }
 }
 
 type LayerTextModalState =
@@ -790,18 +929,24 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     try {
       const raw = localStorage.getItem('cs_step5_layer')
       if (raw) {
-        const saved = JSON.parse(raw) as Array<{ id: string; name: string; description?: string; z: number; images: Array<{ id: string; previewUrl?: string; secureUrl?: string; name?: string; x?: number; y?: number; width?: number; height?: number }> }>
+        const saved = JSON.parse(raw) as Array<{ id: string; name: string; description?: string; z: number; transform?: { x: number; y: number; width: number; height: number }; images: Array<{ id: string; previewUrl?: string; secureUrl?: string; name?: string; x?: number; y?: number; width?: number; height?: number; sourceType?: 'text' | 'upload'; textContent?: string; textColor?: string; textWeight?: '400' | '500' | '600' | '700'; textSize?: number; textFont?: string; textBackgroundColor?: string; textBackgroundRadius?: number; textStrokeColor?: string; textStrokeWidth?: number }> }>
         if (Array.isArray(saved)) {
           return saved.map((l, idx) => ({
             id: l.id || crypto.randomUUID(),
             name: l.name || `Layer ${idx + 1}`,
             description: l.description || "",
             z: typeof l.z === 'number' ? l.z : idx,
+            transform: l.transform ? {
+              x: typeof l.transform.x === 'number' ? l.transform.x : 0,
+              y: typeof l.transform.y === 'number' ? l.transform.y : 0,
+              width: typeof l.transform.width === 'number' ? l.transform.width : 100,
+              height: typeof l.transform.height === 'number' ? l.transform.height : 100,
+            } : undefined,
             images: (l.images || []).map((img, imgIdx) => {
               const sourceType = ((img as { sourceType?: 'text' | 'upload' }).sourceType === 'text' ? 'text' : 'upload') as 'text' | 'upload'
-              return { 
-                id: img.id || crypto.randomUUID(), 
-                previewUrl: img.previewUrl || img.secureUrl || '', 
+              return {
+                id: img.id || crypto.randomUUID(),
+                previewUrl: img.previewUrl || img.secureUrl || '',
                 secureUrl: img.secureUrl,
                 name: img.name || `Image ${imgIdx + 1}`,
                 x: img.x ?? 0, // Default to 0% from left (same as background)
@@ -816,6 +961,10 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                 textWeight: sourceType === 'text' ? (img as { textWeight?: '400' | '500' | '600' | '700' }).textWeight : undefined,
                 textSize: sourceType === 'text' ? (img as { textSize?: number }).textSize : undefined,
                 textFont: sourceType === 'text' ? ((img as { textFont?: string }).textFont || 'Inter') : undefined,
+                textBackgroundColor: sourceType === 'text' ? (img as { textBackgroundColor?: string }).textBackgroundColor : undefined,
+                textBackgroundRadius: sourceType === 'text' ? (img as { textBackgroundRadius?: number }).textBackgroundRadius : undefined,
+                textStrokeColor: sourceType === 'text' ? (img as { textStrokeColor?: string }).textStrokeColor : undefined,
+                textStrokeWidth: sourceType === 'text' ? (img as { textStrokeWidth?: number }).textStrokeWidth : undefined,
               }
             }),
             open: false,
@@ -825,6 +974,9 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     } catch {}
     return []
   })
+  // Keep a ref to the latest layers so async upload helpers can read fresh state
+  const layersRef = useRef<Layer[]>(layers)
+  useEffect(() => { layersRef.current = layers }, [layers])
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [overIndex, setOverIndex] = useState<number | null>(null)
   const [showModal, setShowModal] = useState(false)
@@ -838,6 +990,10 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
   const [draftTextWeight, setDraftTextWeight] = useState<'400' | '500' | '600' | '700'>('600')
   const [draftTextSize, setDraftTextSize] = useState(100)
   const [draftTextFont, setDraftTextFont] = useState("Inter")
+  const [draftTextBackgroundColor, setDraftTextBackgroundColor] = useState("")
+  const [draftTextBackgroundRadius, setDraftTextBackgroundRadius] = useState(0)
+  const [draftTextStrokeColor, setDraftTextStrokeColor] = useState("#000000")
+  const [draftTextStrokeWidth, setDraftTextStrokeWidth] = useState(1)
   const [draftSaving, setDraftSaving] = useState(false)
   const [draftError, setDraftError] = useState<string | null>(null)
   const [layerAddMenu, setLayerAddMenu] = useState<string | null>(null)
@@ -847,6 +1003,10 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
   const [layerTextWeight, setLayerTextWeight] = useState<'400' | '500' | '600' | '700'>('600')
   const [layerTextSize, setLayerTextSize] = useState(100)
   const [layerTextFont, setLayerTextFont] = useState("Inter")
+  const [layerTextBackgroundColor, setLayerTextBackgroundColor] = useState("")
+  const [layerTextBackgroundRadius, setLayerTextBackgroundRadius] = useState(0)
+  const [layerTextStrokeColor, setLayerTextStrokeColor] = useState("#000000")
+  const [layerTextStrokeWidth, setLayerTextStrokeWidth] = useState(1)
   const [layerTextSaving, setLayerTextSaving] = useState(false)
   const [layerTextError, setLayerTextError] = useState<string | null>(null)
   const previewContainerRef = useRef<HTMLDivElement>(null)
@@ -1057,7 +1217,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       const url = URL.createObjectURL(file)
       const fileName = file.name.replace(/\.[^/.]+$/, "")
       ids.push(tempId)
-      setDraftImages(prev => [...prev, { id: tempId, file, previewUrl: url, name: fileName, sourceType: 'upload' as const }].sort((a, b) => (a.name || '').localeCompare(b.name || '')))
+      setDraftImages(prev => [...prev, { id: tempId, file, previewUrl: url, name: fileName, sourceType: 'upload' as const }])
     })
     if (list.length > 1) {
       uploadImages(list).then((results) => {
@@ -1065,7 +1225,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
           const idx = ids.indexOf(img.id)
           if (idx !== -1) return { ...img, secureUrl: results[idx]?.secure_url || img.secureUrl }
           return img
-        }).sort((a, b) => (a.name || '').localeCompare(b.name || '')))
+        }))
       }).catch((e) => console.error('Draft batch upload failed', e))
       return
     }
@@ -1086,7 +1246,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
           const idx = pending.findIndex(p => p.imageId === img.id)
           if (idx !== -1) return { ...img, secureUrl: results[idx]?.secure_url || img.secureUrl }
           return img
-        }).sort((a, b) => (a.name || '').localeCompare(b.name || '')))
+        }))
       } catch (e) {
         console.error('Draft debounced upload failed', e)
       }
@@ -1100,6 +1260,10 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     fontSize,
     fontFamily,
     fileBaseName,
+    backgroundColor,
+    backgroundRadius,
+    strokeColor,
+    strokeWidth,
   }: {
     text: string
     color: string
@@ -1107,6 +1271,10 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     fontSize: number
     fontFamily?: string
     fileBaseName: string
+    backgroundColor?: string
+    backgroundRadius?: number
+    strokeColor?: string
+    strokeWidth?: number
   }): Promise<{ file: File; previewUrl: string }> => {
     const canvas = document.createElement('canvas')
     const ctx = canvas.getContext('2d')
@@ -1114,13 +1282,15 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
 
     const trimmedText = text.trimEnd()
     const lines = trimmedText.length > 0 ? trimmedText.split('\n') : ['']
-    const chosenFontFamily = fontFamily && fontFamily.trim().length > 0 ? `"${fontFamily}", "Helvetica Neue", Arial, sans-serif` : '"Inter", "Helvetica Neue", Arial, sans-serif'
+    // For canvas, use simple font family names without quotes (canvas doesn't handle quotes well)
+    const chosenFontFamily = fontFamily && fontFamily.trim().length > 0 ? fontFamily : 'Arial'
     const font = `${fontWeight} ${fontSize}px ${chosenFontFamily}`
     ctx.font = font
 
     const lineHeight = Math.round(fontSize * 1.3)
     const paddingX = Math.max(24, Math.round(fontSize * 0.9))
     const paddingY = Math.max(24, Math.round(fontSize * 0.9))
+    const effectiveStrokeWidth = strokeWidth && strokeColor ? Math.max(0, strokeWidth) : 0
 
     let maxLineWidth = 0
     lines.forEach((line) => {
@@ -1128,8 +1298,8 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       maxLineWidth = Math.max(maxLineWidth, metrics.width)
     })
 
-    const width = Math.max(Math.ceil(maxLineWidth + paddingX * 2), fontSize * 2)
-    const height = Math.max(Math.ceil(lines.length * lineHeight + paddingY * 2), fontSize * 2)
+    const width = Math.max(Math.ceil(maxLineWidth + paddingX * 2 + effectiveStrokeWidth * 2), fontSize * 2)
+    const height = Math.max(Math.ceil(lines.length * lineHeight + paddingY * 2 + effectiveStrokeWidth * 2), fontSize * 2)
 
     canvas.width = width
     canvas.height = height
@@ -1137,11 +1307,47 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     const ctx2 = canvas.getContext('2d')
     if (!ctx2) throw new Error('Canvas not supported in this browser')
     ctx2.clearRect(0, 0, width, height)
+
+    // Draw background with radius if provided
+    if (backgroundColor && backgroundColor.trim().length > 0) {
+      const bgRadius = backgroundRadius ?? 0
+      const bgX = 0
+      const bgY = 0
+      const bgWidth = width
+      const bgHeight = height
+
+      // Draw rounded rectangle background
+      ctx2.fillStyle = backgroundColor
+      ctx2.beginPath()
+      ctx2.moveTo(bgX + bgRadius, bgY)
+      ctx2.lineTo(bgX + bgWidth - bgRadius, bgY)
+      ctx2.quadraticCurveTo(bgX + bgWidth, bgY, bgX + bgWidth, bgY + bgRadius)
+      ctx2.lineTo(bgX + bgWidth, bgY + bgHeight - bgRadius)
+      ctx2.quadraticCurveTo(bgX + bgWidth, bgY + bgHeight, bgX + bgWidth - bgRadius, bgY + bgHeight)
+      ctx2.lineTo(bgX + bgRadius, bgY + bgHeight)
+      ctx2.quadraticCurveTo(bgX, bgY + bgHeight, bgX, bgY + bgHeight - bgRadius)
+      ctx2.lineTo(bgX, bgY + bgRadius)
+      ctx2.quadraticCurveTo(bgX, bgY, bgX + bgRadius, bgY)
+      ctx2.closePath()
+      ctx2.fill()
+    }
+
     ctx2.font = font
-    ctx2.fillStyle = color
     ctx2.textBaseline = 'top'
     ctx2.textAlign = 'left'
 
+    // Draw text with stroke if provided
+    if (effectiveStrokeWidth > 0 && strokeColor && strokeColor.trim().length > 0) {
+      ctx2.strokeStyle = strokeColor
+      ctx2.lineWidth = effectiveStrokeWidth
+      ctx2.lineJoin = 'round'
+      lines.forEach((line, idx) => {
+        ctx2.strokeText(line.length > 0 ? line : ' ', paddingX, paddingY + idx * lineHeight)
+      })
+    }
+
+    // Draw text fill
+    ctx2.fillStyle = color
     lines.forEach((line, idx) => {
       ctx2.fillText(line.length > 0 ? line : ' ', paddingX, paddingY + idx * lineHeight)
     })
@@ -1176,6 +1382,10 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     setDraftTextWeight('600')
     setDraftTextSize(48)
     setDraftTextFont("Inter")
+    setDraftTextBackgroundColor("")
+    setDraftTextBackgroundRadius(0)
+    setDraftTextStrokeColor("#000000")
+    setDraftTextStrokeWidth(1)
     setDraftError(null)
   }
 
@@ -1188,6 +1398,13 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     } else {
       setDraftImages([])
       setDraftTextFont("Inter")
+      setDraftTextColor("#000000")
+      setDraftTextWeight('600')
+      setDraftTextSize(100)
+      setDraftTextBackgroundColor("")
+      setDraftTextBackgroundRadius(0)
+      setDraftTextStrokeColor("#000000")
+      setDraftTextStrokeWidth(1)
     }
   }
 
@@ -1205,6 +1422,10 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
         setLayerTextColor("#000000")
         setLayerTextWeight('600')
         setLayerTextSize(48)
+        setLayerTextBackgroundColor("")
+        setLayerTextBackgroundRadius(0)
+        setLayerTextStrokeColor("#000000")
+        setLayerTextStrokeWidth(1)
         return
       }
 
@@ -1218,6 +1439,10 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       setLayerTextWeight(targetImage.textWeight || '600')
       setLayerTextSize(targetImage.textSize || 48)
       setLayerTextFont(targetImage.textFont || "Inter")
+      setLayerTextBackgroundColor(targetImage.textBackgroundColor || "")
+      setLayerTextBackgroundRadius(targetImage.textBackgroundRadius || 0)
+      setLayerTextStrokeColor(targetImage.textStrokeColor || "")
+      setLayerTextStrokeWidth(targetImage.textStrokeWidth || 0)
       return
     }
 
@@ -1227,6 +1452,10 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     setLayerTextWeight('600')
     setLayerTextSize(48)
     setLayerTextFont("Inter")
+    setLayerTextBackgroundColor("")
+    setLayerTextBackgroundRadius(0)
+    setLayerTextStrokeColor("#000000")
+    setLayerTextStrokeWidth(1)
   }
 
   const closeLayerTextModal = () => {
@@ -1236,6 +1465,10 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     setLayerTextWeight('600')
     setLayerTextSize(48)
     setLayerTextFont("Inter")
+    setLayerTextBackgroundColor("")
+    setLayerTextBackgroundRadius(0)
+    setLayerTextStrokeColor("")
+    setLayerTextStrokeWidth(0)
     setLayerTextError(null)
     setLayerTextSaving(false)
   }
@@ -1260,6 +1493,10 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
         fontSize: layerTextSize,
         fontFamily: layerTextFont,
         fileBaseName: baseName,
+        backgroundColor: layerTextBackgroundColor,
+        backgroundRadius: layerTextBackgroundRadius,
+        strokeColor: layerTextStrokeColor,
+        strokeWidth: layerTextStrokeWidth,
       })
       const [result] = await uploadImages([file])
       const secureUrl = result?.secure_url || null
@@ -1290,11 +1527,15 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
           textColor: layerTextColor,
           textWeight: layerTextWeight,
           textSize: layerTextSize,
-          textFont: layerTextFont
+          textFont: layerTextFont,
+          textBackgroundColor: layerTextBackgroundColor,
+          textBackgroundRadius: layerTextBackgroundRadius,
+          textStrokeColor: layerTextStrokeColor,
+          textStrokeWidth: layerTextStrokeWidth
         }
         setLayers(prev => prev.map(l => {
           if (l.id !== layerId) return l
-          const images = [...l.images, image].sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+          const images = [...l.images, image]
           return { ...l, images }
         }))
         setSelectedImageIds(prev => ({ ...prev, [layerId]: imageId }))
@@ -1316,8 +1557,12 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
               textWeight: layerTextWeight,
               textSize: layerTextSize,
               textFont: layerTextFont,
+              textBackgroundColor: layerTextBackgroundColor,
+              textBackgroundRadius: layerTextBackgroundRadius,
+              textStrokeColor: layerTextStrokeColor,
+              textStrokeWidth: layerTextStrokeWidth,
             }
-          }).sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+          })
           return { ...l, images: updatedImages }
         }))
       }
@@ -1350,6 +1595,10 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
           fontSize: draftTextSize,
           fontFamily: draftTextFont,
           fileBaseName: baseName,
+          backgroundColor: draftTextBackgroundColor,
+          backgroundRadius: draftTextBackgroundRadius,
+          strokeColor: draftTextStrokeColor,
+          strokeWidth: draftTextStrokeWidth,
         })
         const [result] = await uploadImages([file])
         const secureUrl = result?.secure_url || null
@@ -1375,7 +1624,11 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
           textColor: draftTextColor,
           textWeight: draftTextWeight,
           textSize: draftTextSize,
-          textFont: draftTextFont
+          textFont: draftTextFont,
+          textBackgroundColor: draftTextBackgroundColor,
+          textBackgroundRadius: draftTextBackgroundRadius,
+          textStrokeColor: draftTextStrokeColor,
+          textStrokeWidth: draftTextStrokeWidth
         }
         const layer: Layer = { id: layerId, name, description: draftDescription, z: nextZ, images: [layerImage], open: false }
         setLayers(prev => reindexLayers([...prev, layer]))
@@ -1421,23 +1674,45 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
   }
 
   const ensureLayerUploads = async () => {
-    // Find all images across layers missing secureUrl but with file
-    const pending: Array<{ layerId: string; imageId: string; file: File }> = []
-    layers.forEach(l => l.images.forEach(img => { if (!img.secureUrl && img.file) pending.push({ layerId: l.id, imageId: img.id, file: img.file }) }))
-    if (pending.length === 0) return
-    
-    // Upload all files in parallel for much faster processing
-    const files = pending.map(p => p.file)
-    
+    // Find all images across layers missing secureUrl but with file or previewUrl
+    const pendingEntries: Array<{ layerId: string; imageId: string; file?: File; previewUrl?: string }> = []
+    layers.forEach(l => l.images.forEach(img => { if (!img.secureUrl) pendingEntries.push({ layerId: l.id, imageId: img.id, file: img.file, previewUrl: img.previewUrl }) }))
+    if (pendingEntries.length === 0) return
+
+    const filesToUpload: File[] = []
+    const mapIndex: Array<{ layerId: string; imageId: string }> = []
+
+    for (const entry of pendingEntries) {
+      if (entry.file) {
+        filesToUpload.push(entry.file)
+        mapIndex.push({ layerId: entry.layerId, imageId: entry.imageId })
+      } else if (entry.previewUrl) {
+        try {
+          const res = await fetch(entry.previewUrl)
+          if (!res.ok) throw new Error('Failed to fetch preview URL')
+          const blob = await res.blob()
+          const ext = (entry.previewUrl.split('.').pop() || 'png').split('?')[0]
+          const filename = `${entry.imageId || 'img'}.${ext}`
+          const file = new File([blob], filename, { type: blob.type || 'image/png' })
+          filesToUpload.push(file)
+          mapIndex.push({ layerId: entry.layerId, imageId: entry.imageId })
+        } catch (err) {
+          console.warn('Failed to fetch preview URL for upload:', entry.previewUrl, err)
+        }
+      }
+    }
+
+    if (filesToUpload.length === 0) return
+
     try {
-      const results = await uploadImages(files)
-      
+      const results = await uploadImages(filesToUpload)
+
       // Update all layers with their corresponding secure URLs
       setLayers(prev => prev.map(layer => {
         const updatedImages = layer.images.map(img => {
-          const pendingIndex = pending.findIndex(p => p.layerId === layer.id && p.imageId === img.id)
-          if (pendingIndex !== -1) {
-            return { ...img, secureUrl: results[pendingIndex]?.secure_url || img.secureUrl }
+          const idx = mapIndex.findIndex(m => m.layerId === layer.id && m.imageId === img.id)
+          if (idx !== -1) {
+            return { ...img, secureUrl: results[idx]?.secure_url || img.secureUrl }
           }
           return img
         })
@@ -1450,8 +1725,83 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
 
   const handleNext = async () => {
     setNextLoading(true)
+    // Ensure all layer image uploads (including preview-only entries) complete
     await ensureLayerUploads()
     setNextLoading(false)
+    try {
+      const rawStudyId = localStorage.getItem('cs_study_id')
+      if (rawStudyId) {
+        // Parse study_id: handle both plain string and JSON-stringified format
+        let studyId = rawStudyId
+        try {
+          const parsed = JSON.parse(rawStudyId)
+          if (typeof parsed === 'string') studyId = parsed
+        } catch {
+          // Already a plain string, use as-is
+        }
+
+        // Build payload directly from in-memory layers & background using backend field names
+        const updatePayload: any = { study_type: 'layer' }
+        const sourceLayers = layersRef.current || []
+        const mappedLayers: any[] = []
+        // Background should not be sent as a layer object; instead include as `background_image_url`
+        // The backend expects the background image separately, so don't push it into study_layers
+
+        sourceLayers.forEach((l, layerIdx) => {
+          const images = (l.images || []).filter((img: any) => img.secureUrl).map((img: any, imgIdx: number) => ({
+            image_id: img.id || crypto.randomUUID(),
+            name: img.name || `Image ${imgIdx + 1}`,
+            url: img.secureUrl,
+            alt_text: img.name || `Image ${imgIdx + 1}`,
+            order: imgIdx,
+            x: typeof img.x === 'number' ? img.x : 0,
+            y: typeof img.y === 'number' ? img.y : 0,
+            width: typeof img.width === 'number' ? img.width : 100,
+            height: typeof img.height === 'number' ? img.height : 100
+          }))
+
+          const layerObj: any = {
+            layer_id: l.id || crypto.randomUUID(),
+            name: l.name || `Layer ${layerIdx + 1}`,
+            description: l.description || '',
+            z_index: typeof l.z === 'number' ? l.z : layerIdx + (background ? 1 : 0),
+            order: typeof l.z === 'number' ? l.z : layerIdx + (background ? 1 : 0),
+            images
+          }
+
+          // Include transform data if available
+          // Calculate from first image if not stored on layer
+          if (l.transform) {
+            layerObj.transform = {
+              x: l.transform.x || 0,
+              y: l.transform.y || 0,
+              width: l.transform.width || 0,
+              height: l.transform.height || 0
+            }
+          } else if (l.images && l.images.length > 0) {
+            const firstImg = l.images[0]
+            if (firstImg && (typeof firstImg.x === 'number' || typeof firstImg.y === 'number' || typeof firstImg.width === 'number' || typeof firstImg.height === 'number')) {
+              layerObj.transform = {
+                x: firstImg.x || 0,
+                y: firstImg.y || 0,
+                width: firstImg.width || 0,
+                height: firstImg.height || 0
+              }
+            }
+          }
+
+          mappedLayers.push(layerObj)
+        })
+
+        if (mappedLayers.length > 0) updatePayload.study_layers = mappedLayers
+        if (background && (background.secureUrl || background.previewUrl)) {
+          updatePayload.background_image_url = background.secureUrl || background.previewUrl
+        }
+        putUpdateStudyAsync(studyId, updatePayload, 5)
+      }
+    } catch (e) {
+      console.error('Failed to schedule background study update (layer):', e)
+    }
     onNext()
   }
 
@@ -1494,7 +1844,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
   const updateImageName = (layerId: string, imageId: string, name: string) => {
     setLayers(prev => prev.map(layer => {
       if (layer.id !== layerId) return layer
-      return { ...layer, images: layer.images.map(img => img.id === imageId ? { ...img, name } : img).sort((a, b) => (a.name || '').localeCompare(b.name || '')) }
+      return { ...layer, images: layer.images.map(img => img.id === imageId ? { ...img, name } : img) }
     }))
   }
 
@@ -1534,7 +1884,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
             name: fileName,
             sourceType: 'upload' as const,
             ...baseTransform
-          }].sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+          }]
         }
       }))
     })
@@ -1546,7 +1896,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
             const idx = ids.indexOf(img.id)
             if (idx !== -1) return { ...img, secureUrl: results[idx]?.secure_url || img.secureUrl }
             return img
-          }).sort((a, b) => (a.name || '').localeCompare(b.name || '')) }
+          }) }
         }))
       }).catch((e) => console.error('Layer batch upload failed', e))
       return
@@ -1567,7 +1917,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
             const idx = pending.findIndex(p => p.imageId === img.id)
             if (idx !== -1) return { ...img, secureUrl: results[idx]?.secure_url || img.secureUrl }
             return img
-          }).sort((a, b) => (a.name || '').localeCompare(b.name || '')) }
+          }) }
         }))
       } catch (e) {
         console.error('Layer debounced upload failed', e)
@@ -1629,40 +1979,58 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
   // persist layers
   useEffect(() => {
     if (typeof window === 'undefined') return
-    const minimal = layers.map(l => ({ 
-      id: l.id, 
-      name: l.name, 
-      description: l.description || '',
-      z: l.z, 
-      // Save a layer-level transform (from the first image) for convenience
-      transform: (() => {
-        const base = l.images?.[0]
-        if (!base) return undefined
-        return {
-          x: base.x,
-          y: base.y,
-          width: base.width,
-          height: base.height,
+    ;(async () => {
+      // If any image in layers lacks secureUrl, attempt to upload them first
+      const hasMissing = layersRef.current.some(l => (l.images || []).some((img: any) => !img.secureUrl))
+      if (hasMissing) {
+        try {
+          await ensureLayerUploads()
+        } catch (e) {
+          console.warn('Layer uploads attempted but some images may still be missing secureUrl:', e)
         }
-      })(),
-      images: l.images.map(i => ({ 
-        id: i.id, 
-        previewUrl: i.previewUrl, 
-        secureUrl: i.secureUrl, 
-        name: i.name,
-        x: i.x,
-        y: i.y,
-        width: i.width,
-        height: i.height,
-        sourceType: i.sourceType,
-        textContent: i.textContent ?? i.name ?? '',
-        textColor: i.textColor,
-        textWeight: i.textWeight,
-        textSize: i.textSize,
-        textFont: i.textFont
-      })) 
-    }))
-    localStorage.setItem('cs_step5_layer', JSON.stringify(minimal))
+      }
+
+      // Use the freshest layers from ref (ensureLayerUploads updated state)
+      const sourceLayers = layersRef.current
+      const minimal = sourceLayers.map(l => ({
+        id: l.id,
+        name: l.name,
+        description: l.description || '',
+        z: l.z,
+        // Save layer-level transform: use existing transform if available, otherwise derive from first image
+        transform: l.transform || (() => {
+          const base = l.images?.[0]
+          if (!base) return undefined
+          return {
+            x: base.x,
+            y: base.y,
+            width: base.width,
+            height: base.height,
+          }
+        })(),
+        images: l.images.map(i => ({
+          id: i.id,
+          previewUrl: i.previewUrl,
+          secureUrl: i.secureUrl,
+          name: i.name,
+          x: i.x,
+          y: i.y,
+          width: i.width,
+          height: i.height,
+          sourceType: i.sourceType,
+          textContent: i.textContent ?? i.name ?? '',
+          textColor: i.textColor,
+          textWeight: i.textWeight,
+          textSize: i.textSize,
+          textFont: i.textFont,
+          textBackgroundColor: i.textBackgroundColor,
+          textBackgroundRadius: i.textBackgroundRadius,
+          textStrokeColor: i.textStrokeColor,
+          textStrokeWidth: i.textStrokeWidth
+        })) 
+      }))
+      localStorage.setItem('cs_step5_layer', JSON.stringify(minimal))
+    })()
     // persist background separately
     if (background && (background.secureUrl || background.previewUrl)) {
       localStorage.setItem('cs_step5_layer_background', JSON.stringify({
@@ -2225,7 +2593,14 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                               type="color"
                               value={draftTextColor}
                               onChange={(e) => setDraftTextColor(e.target.value)}
-                              className="w-40 h-10 border border-gray-200 rounded-lg cursor-pointer"
+                              className="w-12 h-12 border border-gray-200 rounded-lg cursor-pointer"
+                            />
+                             <input
+                              type="text"
+                              value={layerTextColor}
+                              onChange={(e) => setLayerTextColor(e.target.value)}
+                              className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+                              placeholder="#000000"
                             />
                             
                           </div>
@@ -2286,13 +2661,94 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                           </select>
                         </div>
                       </div>
+
+                      {/* Background and Stroke Styling Row */}
+                      <div className="border-t pt-5 mt-5">
+                        <h5 className="text-sm font-bold text-gray-900 mb-5 pb-3 border-b-2 border-[rgba(38,116,186,0.2)]">Background & Stroke Effects</h5>
+
+                        {/* Background Section */}
+                        <div className="mb-6 p-4 rounded-lg">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-semibold text-gray-800 mb-3">Background Color</label>
+                              <div className="flex items-center gap-3">
+                                <input
+                                  type="color"
+                                  value={draftTextBackgroundColor || "#ffffff"}
+                                  onChange={(e) => setDraftTextBackgroundColor(e.target.value)}
+                                  className="w-14 h-14 rounded-2xl cursor-pointer hover:border-[rgba(38,116,186,1)] transition-colors"
+                                />
+                                <div className="text-sm">
+                                  <p className="text-gray-700 font-medium">{draftTextBackgroundColor || "No background"}</p>
+                                  <p className="text-xs text-gray-500 mt-1">Clear value for no background</p>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-sm font-semibold text-gray-800 mb-3">
+                                Background Radius
+                              </label>
+                              <div className="flex items-center gap-3">
+                                <input
+                                  type="range"
+                                  min="0"
+                                  max="50"
+                                  value={draftTextBackgroundRadius}
+                                  onChange={(e) => setDraftTextBackgroundRadius(Number(e.target.value))}
+                                  className="flex-1 h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
+                                />
+                                <span className="text-sm font-semibold text-[rgba(38,116,186,1)] w-10 text-right">{draftTextBackgroundRadius}px</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Stroke Section */}
+                        <div className="p-4 rounded-lg">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-semibold text-gray-800 mb-3">Stroke Color</label>
+                              <div className="flex items-center gap-3">
+                                <input
+                                  type="color"
+                                  value={draftTextStrokeColor || "#000000"}
+                                  onChange={(e) => setDraftTextStrokeColor(e.target.value)}
+                                  className="w-14 h-14 rounded-2xl cursor-pointer hover:border-[rgba(38,116,186,1)] transition-colors"
+                                />
+                                <div className="text-sm">
+                                  <p className="text-gray-700 font-medium">{draftTextStrokeColor || "#000000"}</p>
+                                  <p className="text-xs text-gray-500 mt-1">Clear value for no stroke</p>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-sm font-semibold text-gray-800 mb-3">
+                                Stroke Width
+                              </label>
+                              <div className="flex items-center gap-3">
+                                <input
+                                  type="range"
+                                  min="0"
+                                  max="10"
+                                  value={draftTextStrokeWidth}
+                                  onChange={(e) => setDraftTextStrokeWidth(Number(e.target.value))}
+                                  className="flex-1 h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
+                                />
+                                <span className="text-sm font-semibold text-[rgba(38,116,186,1)] w-10 text-right">{draftTextStrokeWidth}px</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
                   {/* Preview Section */}
                   <div className="border-t pt-5">
-                    <label className="block text-sm font-semibold text-gray-800 mb-3">Preview</label>
-                    <div className="bg-gray-50 rounded-lg p-6 border border-gray-200 min-h-[120px] flex items-center justify-center">
+                    <label className="block text-sm font-semibold text-gray-800 mb-3">Preview (This is how it will look when saved)</label>
+                    <div className="bg-gray-50 rounded-lg p-6 border border-gray-200 min-h-[150px] flex items-center justify-center overflow-auto">
                       {draftText ? (
                         <div
                           style={{
@@ -2300,8 +2756,18 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                             fontWeight: draftTextWeight,
                             fontSize: `${draftTextSize}px`,
                             fontFamily: draftTextFont,
+                            backgroundColor: draftTextBackgroundColor || "transparent",
+                            borderRadius: draftTextBackgroundRadius > 0 ? `${draftTextBackgroundRadius}px` : "0",
+                            padding: draftTextBackgroundColor ? `${Math.max(24, Math.round(draftTextSize * 0.9))}px ${Math.max(24, Math.round(draftTextSize * 0.9))}px` : "0",
+                            lineHeight: `${Math.round(draftTextSize * 1.3)}px`,
+                            textAlign: "left",
+                            whiteSpace: "pre-wrap",
+                            wordWrap: "break-word",
+                            WebkitTextStroke: draftTextStrokeColor && draftTextStrokeWidth > 0
+                              ? `${draftTextStrokeWidth}px ${draftTextStrokeColor}`
+                              : "none",
+                            display: "inline-block",
                           }}
-                          className="text-center max-w-full break-words"
                         >
                           {draftText}
                         </div>
@@ -2368,13 +2834,13 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                           type="color"
                           value={layerTextColor}
                           onChange={(e) => setLayerTextColor(e.target.value)}
-                          className="w-12 h-12 border border-gray-200 rounded-lg cursor-pointer"
+                          className="w-12 h-12 rounded-2xl cursor-pointer"
                         />
                         <input
                           type="text"
                           value={layerTextColor}
                           onChange={(e) => setLayerTextColor(e.target.value)}
-                          className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+                          className="flex-1 rounded-lg border border-gray-500 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
                           placeholder="#000000"
                         />
                       </div>
@@ -2434,13 +2900,94 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                       </select>
                     </div>
                   </div>
+
+                  {/* Background and Stroke Styling Row */}
+                  <div className="border-t pt-5 mt-5">
+                    <h5 className="text-sm font-bold text-gray-900 mb-5 pb-3 border-b-2 border-[rgba(38,116,186,0.2)]">Background & Stroke Effects</h5>
+
+                    {/* Background Section */}
+                    <div className="mb-6 p-4  rounded-lg">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-800 mb-3">Background Color</label>
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="color"
+                              value={layerTextBackgroundColor || "#ffffff"}
+                              onChange={(e) => setLayerTextBackgroundColor(e.target.value)}
+                              className="w-14 h-14 rounded-2xl cursor-pointer hover:border-[rgba(38,116,186,1)] transition-colors"
+                            />
+                            <div className="text-sm">
+                              <p className="text-gray-700 font-medium">{layerTextBackgroundColor || "No background"}</p>
+                              <p className="text-xs text-gray-500 mt-1">Clear value for no background</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-800 mb-3">
+                            Background Radius
+                          </label>
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="range"
+                              min="0"
+                              max="50"
+                              value={layerTextBackgroundRadius}
+                              onChange={(e) => setLayerTextBackgroundRadius(Number(e.target.value))}
+                              className="flex-1 h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
+                            />
+                            <span className="text-sm font-semibold text-[rgba(38,116,186,1)] w-10 text-right">{layerTextBackgroundRadius}px</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Stroke Section */}
+                    <div className="p-4 rounded-lg">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-800 mb-3">Stroke Color</label>
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="color"
+                              value={layerTextStrokeColor || "#000000"}
+                              onChange={(e) => setLayerTextStrokeColor(e.target.value)}
+                              className="w-14 h-14  rounded-2xl cursor-pointer hover:border-[rgba(38,116,186,1)] transition-colors"
+                            />
+                            <div className="text-sm">
+                              <p className="text-gray-700 font-medium">{layerTextStrokeColor || "#000000"}</p>
+                              <p className="text-xs text-gray-500 mt-1">Clear value for no stroke</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-800 mb-3">
+                            Stroke Width
+                          </label>
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="range"
+                              min="0"
+                              max="10"
+                              value={layerTextStrokeWidth}
+                              onChange={(e) => setLayerTextStrokeWidth(Number(e.target.value))}
+                              className="flex-1 h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
+                            />
+                            <span className="text-sm font-semibold text-[rgba(38,116,186,1)] w-10 text-right">{layerTextStrokeWidth}px</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
               {/* Preview Section */}
               <div className="border-t pt-5">
-                <label className="block text-sm font-semibold text-gray-800 mb-3">Preview</label>
-                <div className="bg-gray-50 rounded-lg p-6 border border-gray-200 min-h-[120px] flex items-center justify-center">
+                <label className="block text-sm font-semibold text-gray-800 mb-3">Preview (This is how it will look when saved)</label>
+                <div className="bg-gray-50 rounded-lg p-6 border border-gray-200 min-h-[150px] flex items-center justify-center overflow-auto">
                   {layerTextValue ? (
                     <div
                       style={{
@@ -2448,8 +2995,18 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                         fontWeight: layerTextWeight,
                         fontSize: `${layerTextSize}px`,
                         fontFamily: layerTextFont,
+                        backgroundColor: layerTextBackgroundColor || "transparent",
+                        borderRadius: layerTextBackgroundRadius > 0 ? `${layerTextBackgroundRadius}px` : "0",
+                        padding: layerTextBackgroundColor ? `${Math.max(24, Math.round(layerTextSize * 0.9))}px ${Math.max(24, Math.round(layerTextSize * 0.9))}px` : "0",
+                        lineHeight: `${Math.round(layerTextSize * 1.3)}px`,
+                        textAlign: "left",
+                        whiteSpace: "pre-wrap",
+                        wordWrap: "break-word",
+                        WebkitTextStroke: layerTextStrokeColor && layerTextStrokeWidth > 0
+                          ? `${layerTextStrokeWidth}px ${layerTextStrokeColor}`
+                          : "none",
+                        display: "inline-block",
                       }}
-                      className="text-center max-w-full break-words"
                     >
                       {layerTextValue}
                     </div>

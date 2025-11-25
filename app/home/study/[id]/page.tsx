@@ -107,7 +107,7 @@ export default function StudyManagementPage() {
 
       // Use PUT endpoint as requested for status changes (activate/pause)
       try {
-        const updatedStudy = await putUpdateStudy(studyId, { status: newStatus })
+        const updatedStudy = await putUpdateStudy(studyId, { status: newStatus }, 8)
         setStudy(updatedStudy)
       } catch (err: unknown) {
         // Fallback: some servers disallow PUT when active; try PATCH status update
@@ -132,7 +132,7 @@ export default function StudyManagementPage() {
     }
   }
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string | undefined) => {
     switch (status) {
       case "active": return "text-green-600"
       case "paused": return "text-orange-600"
@@ -142,13 +142,13 @@ export default function StudyManagementPage() {
     }
   }
 
-  const getStatusDisplay = (status: string) => {
+  const getStatusDisplay = (status: string | undefined) => {
     switch (status) {
       case "draft": return "Paused"
       case "active": return "Active"
       case "paused": return "Paused"
       case "completed": return "Completed"
-      default: return status
+      default: return status || "Unknown"
     }
   }
 
@@ -293,9 +293,9 @@ export default function StudyManagementPage() {
   }
 
   // Display helpers
-  const createdDisplay = new Date(study.created_at)
+  const createdDisplay = study.created_at ? new Date(study.created_at)
     .toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })
-    .replace(", ", ",")
+    .replace(", ", ",") : 'N/A'
 
   return (
     <AuthGuard requireAuth={true}>

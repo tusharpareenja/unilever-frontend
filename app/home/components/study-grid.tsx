@@ -6,6 +6,7 @@ import { Calendar, Share2, Eye } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { StudyListItem } from "@/lib/api/StudyAPI"
 import { format } from "date-fns"
+import { useState } from "react"
 
 interface StudyGridProps {
   studies: StudyListItem[]
@@ -17,19 +18,95 @@ interface StudyGridProps {
   error: string | null
 }
 
-export function StudyGrid({ 
-  studies, 
-  activeTab, 
-  searchQuery, 
-  selectedType, 
-  selectedTime, 
-  loading, 
-  error 
+export function StudyGrid({
+  studies,
+  activeTab,
+  searchQuery,
+  selectedType,
+  selectedTime,
+  loading,
+  error
 }: StudyGridProps) {
   const router = useRouter()
+  const [loadingStudyId, setLoadingStudyId] = useState<string | null>(null)
 
-  const handleViewDetails = (studyId: string) => {
-    router.push(`/home/study/${studyId}`)
+  const clearCreateStudyLocalStorage = () => {
+    // Clear all create-study related localStorage items to start fresh from Step 1
+    const keysToRemove = [
+      'cs_step1',
+      'cs_step2',
+      'cs_step3',
+      'cs_step4',
+      'cs_step5_grid',
+      'cs_step5_layer',
+      'cs_step5_layer_background',
+      'cs_step5_layer_preview_aspect',
+      'cs_step6',
+      'cs_step7_tasks',
+      'cs_step7_matrix',
+      'cs_step7_job_state',
+      'cs_step7_timer_state',
+      'cs_current_step',
+      'cs_backup_steps',
+      'cs_flash_message',
+      'cs_resuming_draft',
+      'cs_study_id',
+      'cs_is_fresh_start'  // Flag to indicate fresh start
+    ]
+
+    keysToRemove.forEach(key => {
+      try {
+        localStorage.removeItem(key)
+      } catch {}
+    })
+
+    // Set flag to indicate this is a fresh start (no resuming)
+    try {
+      localStorage.setItem('cs_is_fresh_start', 'true')
+    } catch {}
+  }
+
+  const handleViewDetails = (study: StudyListItem) => {
+    // If study is draft, redirect to create-study page with last_step
+    if (study.status === 'draft') {
+      setLoadingStudyId(study.id)
+
+      // Get last_step from study object or from cache
+      let lastStep = study.last_step || 1
+
+      // Try to get from cache if not in study object
+      if (!study.last_step) {
+        try {
+          const cached = localStorage.getItem('home_studies_cache')
+          if (cached) {
+            const studies = JSON.parse(cached) as StudyListItem[]
+            const cachedStudy = studies.find(s => s.id === study.id)
+            if (cachedStudy?.last_step) {
+              lastStep = cachedStudy.last_step
+            }
+          }
+        } catch {}
+      }
+
+      // Store study_id and flag for create-study page to load data
+      localStorage.setItem('cs_study_id', study.id)
+      localStorage.setItem('cs_current_step', String(lastStep))
+      localStorage.setItem('cs_resuming_draft', 'true')
+      // Clear the fresh start flag to allow normal resuming
+      localStorage.removeItem('cs_is_fresh_start')
+
+      // Navigate to create-study page
+      router.push('/home/create-study')
+    } else {
+      router.push(`/home/study/${study.id}`)
+    }
+  }
+
+  const handleCreateNewStudy = () => {
+    // Clear all create-study localStorage to start fresh from Step 1
+    clearCreateStudyLocalStorage()
+    // Navigate to create-study page
+    router.push('/home/create-study')
   }
 
   const handleShare = (studyId: string) => {
@@ -151,8 +228,8 @@ export function StudyGrid({
                 You haven&apos;t created any studies yet. Create your first study to get started with research and data collection.
               </p>
             </div>
-            <Button 
-              onClick={() => window.location.href = '/home/create-study'}
+            <Button
+              onClick={handleCreateNewStudy}
               className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] text-white px-6 py-2 rounded-lg"
             >
               Create Your First Study
@@ -181,8 +258,8 @@ export function StudyGrid({
                   Clear Filters
                 </Button>
               )}
-              <Button 
-                onClick={() => window.location.href = '/home/create-study'}
+              <Button
+                onClick={handleCreateNewStudy}
                 className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] text-white px-4 py-2 rounded-lg"
               >
                 Create New Study
@@ -273,12 +350,22 @@ export function StudyGrid({
           {/* Actions */}
           <div className="flex items-center justify-between">
             <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-              <Button 
-                onClick={() => handleViewDetails(study.id)}
-                className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] text-white px-6 py-2 rounded-lg flex items-center space-x-2 flex-1 mr-3"
+              <Button
+                onClick={() => handleViewDetails(study)}
+                disabled={study.status === 'draft' && loadingStudyId === study.id}
+                className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] text-white px-6 py-2 rounded-lg flex items-center space-x-2 flex-1 mr-3 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Eye className="w-4 h-4" />
-                <span className="cursor-pointer">View Details</span>
+                {loadingStudyId === study.id && study.status === 'draft' ? (
+                  <>
+                    <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span className="cursor-pointer">Loading...</span>
+                  </>
+                ) : (
+                  <>
+                    <Eye className="w-4 h-4" />
+                    <span className="cursor-pointer">{study.status === 'draft' ? 'Continue Editing' : 'View Details'}</span>
+                  </>
+                )}
               </Button>
             </motion.div>
 

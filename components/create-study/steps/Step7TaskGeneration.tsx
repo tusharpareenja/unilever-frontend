@@ -371,15 +371,20 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
         }
       } catch {}
 
-      const previewData = {
+      const previewData: any = {
         metadata: result.metadata,
         preview_tasks: previewTasks,
         total_respondents: result.metadata?.number_of_respondents || 0,
         total_tasks: result.metadata?.total_tasks || 0,
-        full_matrix_available: true,
         // Persist transforms with preview so we can render without full result later
         preview_layers_transforms: transformsMap
       }
+
+      // If the full tasks matrix is present on the result, persist it too so CSV/exports
+      // can include all respondents when resuming. Keep preview_tasks for fast rendering.
+      // Do NOT persist the full `tasks` matrix to localStorage (can be large).
+      // Keep only `preview_tasks` and metadata so UI can render a preview fast.
+      // Full task matrix should be fetched from the backend via `getStudyDetails` when needed.
       console.log('[Step7] Preview data to save:', previewData)
       console.log('[Step7] Persisting cs_step7_matrix')
       localStorage.setItem('cs_step7_matrix', JSON.stringify(previewData))
@@ -568,14 +573,17 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
             }
           } catch {}
 
-          const previewData = {
+          const previewData: any = {
             metadata: data.metadata,
             preview_tasks: previewTasks,
             total_respondents: data.metadata?.number_of_respondents || 0,
             total_tasks: data.metadata?.total_tasks || 0,
-            full_matrix_available: true, // Flag to indicate we have full data on backend
             preview_layers_transforms: transformsMap
           }
+
+          // Do NOT persist the full `tasks` matrix to localStorage (can be large).
+          // Persist only preview and metadata; fetch full tasks from backend when required.
+
           console.log('[Step7] Persisting cs_step7_matrix (immediate)')
           localStorage.setItem('cs_step7_matrix', JSON.stringify(previewData))
           
@@ -776,33 +784,32 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
   // Countdown timer logic: calculates remaining time based on job start time
   useEffect(() => {
     if (!active) return
-    
+
     // Don't start timer if we're loading from cache
     if (isLoadingFromCache.current) {
       console.log('[Step7] Loading from cache, skipping timer initialization')
       return
     }
-    
+
     // Check if cached matrix exists in localStorage (even if not loaded in state yet)
     const cachedMatrix = localStorage.getItem('cs_step7_matrix')
     if (cachedMatrix) {
       console.log('[Step7] Cached matrix found, skipping timer initialization')
       return
     }
-    
+
     // Don't start timer if matrix is already loaded (tasks completed)
     if (matrix) {
       console.log('[Step7] Matrix already loaded, skipping timer initialization')
       return
     }
-    
-    // Only recalculate timer when component becomes active or when matrix changes
-    // Don't recalculate on every jobStartTime change
-    if (!timerInitialized.current || matrix !== null) {
+
+    // Reset timer initialization flag when returning to active step (allows timer to restart on revisit)
+    if (active && !timerInitialized.current) {
       // Check if we have a saved timer state first (for resumed jobs)
       const savedTimerState = loadTimerState()
       let initialCountdown: number
-      
+
       if (savedTimerState && savedTimerState.seconds !== undefined) {
         // Use saved timer value for resumed jobs
         console.log('[Step7] Using saved timer value:', savedTimerState.seconds)
@@ -820,15 +827,15 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
         }
         initialCountdown = calculateInitialCountdown()
       }
-      
+
       setCountdownSeconds(initialCountdown)
       countdownRef.current = initialCountdown
       timerInitialized.current = true
     }
-    
+
     // Start 5-second timer saving
     startTimerSaving()
-    
+
     const id = window.setInterval(() => {
       setCountdownSeconds((prev) => {
         const newValue = prev > 0 ? prev - 1 : (!matrix ? 600 : 600)
@@ -836,10 +843,14 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
         return newValue
       })
     }, 1000)
-    
+
     return () => {
       window.clearInterval(id)
       stopTimerSaving()
+      // Reset timer flag when leaving the step so it can reinitialize on next visit
+      if (!active) {
+        timerInitialized.current = false
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, !!matrix])
@@ -1213,14 +1224,21 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
     await generateNow();
   }
 
+  // State for CSV download loading
+  const [isDownloadingCSV, setIsDownloadingCSV] = useState(false)
+
   // Function to download CSV matrix
   const downloadMatrixCSV = async () => {
+    if (isDownloadingCSV) return
+
     try {
+      setIsDownloadingCSV(true)
+
       if (!matrix) {
         alert('No task generation data found. Please generate tasks first.')
         return
       }
-      
+
       // Check if we're still polling (tasks not ready)
       if (isPolling || (jobStatus && jobStatus.status !== 'completed')) {
         alert('Tasks are still being generated. Please wait for completion before downloading CSV.')
@@ -1236,13 +1254,17 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
         console.log('[CSV] Using cached preview data - this will only show first respondent')
         console.log('[CSV] To get all respondents, please regenerate tasks or wait for full completion')
         
-        // Try to get the study ID and fetch full data
-        const studyId = localStorage.getItem('cs_study_id')
-        if (studyId) {
+        // Try to get the study ID and fetch full data from the backend when CSV requested.
+        const studyIdRaw = localStorage.getItem('cs_study_id')
+        if (studyIdRaw) {
+          // Parse studyId if it was JSON-stringified, otherwise use raw
+          let parsedStudyId: any = studyIdRaw
+          try { parsedStudyId = JSON.parse(studyIdRaw) } catch {}
+
           try {
-            console.log('[CSV] Attempting to fetch full study data for CSV generation')
+            console.log('[CSV] Attempting to fetch full study data for CSV generation, id=', parsedStudyId)
             const { getStudyDetails } = await import('@/lib/api/StudyAPI')
-            const fullStudyData = await getStudyDetails(JSON.parse(studyId))
+            const fullStudyData = await getStudyDetails(parsedStudyId)
             if (fullStudyData && fullStudyData.tasks) {
               console.log('[CSV] Successfully fetched full study data with', Object.keys(fullStudyData.tasks).length, 'respondents')
               tasks = fullStudyData.tasks
@@ -1504,6 +1526,8 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
     } catch (error) {
       console.error('Error generating CSV:', error)
       alert('Error generating CSV file. Please try again.')
+    } finally {
+      setIsDownloadingCSV(false)
     }
   }
     
@@ -1921,13 +1945,20 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
             >
               View Matrix Statistics
             </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => downloadMatrixCSV().catch(console.error)} 
+            <Button
+              variant="outline"
+              onClick={() => downloadMatrixCSV().catch(console.error)}
               className="flex-shrink-0"
-              disabled={isGenerating || isPolling}
+              disabled={isGenerating || isPolling || isDownloadingCSV}
             >
-              📥 Download Matrix CSV
+              {isDownloadingCSV ? (
+                <>
+                  <span className="inline-block w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin mr-2" />
+                  Downloading...
+                </>
+              ) : (
+                <>📥 Download Matrix CSV</>
+              )}
             </Button>
           </div>
         </div>

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { putUpdateStudyAsync } from "@/lib/api/StudyAPI"
 
 interface Step3RatingScaleProps {
   onNext: () => void
@@ -170,7 +171,28 @@ export function Step3RatingScale({ onNext, onBack, onDataChange }: Step3RatingSc
         </Button>
         <Button
           className="rounded-full cursor-pointer px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] w-full sm:w-auto"
-          onClick={onNext}
+          onClick={() => {
+            if (canProceed) {
+              const stored = localStorage.getItem('cs_study_id')
+              let studyId: string | undefined = undefined
+              if (stored) {
+                try { const parsed = JSON.parse(stored); studyId = typeof parsed === 'string' ? parsed : String(parsed) } catch { studyId = stored }
+              }
+              if (studyId) {
+                // Fire PUT update in background including rating scale
+                putUpdateStudyAsync(studyId, {
+                  rating_scale: {
+                    min_value: minValue,
+                    max_value: maxValue,
+                    min_label: minLabel || "",
+                    max_label: maxLabel || "",
+                    middle_label: middleLabel || "",
+                  }
+                }, 3)
+              }
+              onNext()
+            }
+          }}
           disabled={!canProceed}
         >
           Next

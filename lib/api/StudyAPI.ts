@@ -50,6 +50,17 @@ export interface StudyLayerPayload {
   z_index: number
   order: number
   images: string[] // uploaded image URLs
+  transform?: {
+    x: number
+    y: number
+    width: number
+    height: number
+  }
+  // Fallback properties if transform is not provided
+  x?: number
+  y?: number
+  width?: number
+  height?: number
 }
 
 // NEW: Classification Question Types
@@ -577,6 +588,7 @@ export interface TaskGenerationElementPayload {
 
 export interface TaskGenerationPayload {
   study_id?: string
+  last_step?: number 
   title: string
   background: string
   language: string
@@ -621,8 +633,18 @@ export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayl
   const grid = get<any[]>("cs_step5_grid", [])
   const layer = get<any[]>("cs_step5_layer", [])
   const layerBackground = get<any | null>("cs_step5_layer_background", null)
-  const existingStudyId = get<string | null>("cs_study_id", null)
-  
+  // Try to read existing study id from localStorage.
+  // The app sometimes stores a plain string or a JSON string — handle both.
+  let existingStudyId = get<string | null>("cs_study_id", null)
+  if (!existingStudyId) {
+    try {
+      const raw = localStorage.getItem('cs_study_id')
+      if (raw) {
+        try { existingStudyId = JSON.parse(raw) } catch { existingStudyId = raw }
+      }
+    } catch {}
+  }
+
   console.log('Task generation payload builder - Step 2:', s2)
   console.log('Task generation payload builder - Grid:', grid)
   console.log('Task generation payload builder - Layer:', layer)
@@ -794,6 +816,7 @@ export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayl
 
   const payload: TaskGenerationPayload = {
     ...(existingStudyId ? { study_id: String(existingStudyId) } : {}),
+    last_step: 7,
     title: s1.title || "",
     background: s1.description || "",
     language,
@@ -1175,10 +1198,32 @@ export interface StudyDetails {
   main_question: string
   orientation_text: string
   study_type: StudyType
-  rating_scale: RatingScalePayload
-  audience_segmentation: AudienceSegmentationPayload
+  background_image_url?: string | null
+  aspect_ratio?: string
+  rating_scale: {
+    min_value: number
+    max_value: number
+    min_label: string
+    max_label: string
+    middle_label?: string
+  }
+  audience_segmentation: {
+    number_of_respondents: number
+    country?: string
+    gender_distribution?: {
+      male: number
+      female: number
+    }
+    age_distribution?: {
+      [key: string]: number
+    }
+    aspect_ratio?: string
+    screener_questions?: any[]
+    quota_groups?: any[]
+  }
+  categories?: any[]
   elements: Array<ElementPayload & { id: string }>
-  study_layers: Array<StudyLayerPayload & { 
+  study_layers: Array<StudyLayerPayload & {
     id: string
     images: Array<{
       image_id: string
@@ -1188,20 +1233,23 @@ export interface StudyDetails {
       order: number
       id: string
     }>
-  }>
-  classification_questions?: Array<ClassificationQuestionPayload & { id: string }> // NEW: Include classification questions in study details
-  tasks: Record<string, any[]>
-  creator_id: string
-  status: "draft" | "active" | "paused" | "completed"
-  share_token: string
-  share_url: string
-  created_at: string
-  updated_at: string
-  launched_at: string | null
-  completed_at: string | null
-  total_responses: number
-  completed_responses: number
-  abandoned_responses: number
+  }> | null
+  classification_questions?: Array<ClassificationQuestionPayload & { id: string }>
+  tasks?: Record<string, any[]>
+  creator_id?: string
+  status?: "draft" | "active" | "paused" | "completed"
+  share_token?: string
+  share_url?: string
+  created_at?: string
+  updated_at?: string
+  launched_at?: string | null
+  completed_at?: string | null
+  total_responses?: number
+  completed_responses?: number
+  abandoned_responses?: number
+  jobId?: string
+  progress?: number
+  startTime?: number
 }
 
 export interface UpdateStudyStatusPayload {
@@ -1213,6 +1261,7 @@ export type UpdateStudyPutPayload = Partial<{
   title: string
   background: string
   language: string
+  last_step: number
   main_question: string
   orientation_text: string
   study_type: StudyType
@@ -1228,23 +1277,42 @@ export type UpdateStudyPutPayload = Partial<{
 export async function getStudyDetails(studyId: string): Promise<StudyDetails> {
   // console.log('=== HTTP REQUEST TO /studies/{id} ===')
   // console.log('URL:', `${API_BASE_URL}/studies/${studyId}`)
-  
+
   const res = await fetchWithAuth(`${API_BASE_URL}/studies/${studyId}`, {
     method: "GET",
     headers: { "Content-Type": "application/json" },
   })
-  
+
   const text = await res.text().catch(() => "")
   let data: any = {}
   try { data = text ? JSON.parse(text) : {} } catch { data = { detail: text } }
-  
+
   if (!res.ok) {
     const msg = (data && (data.detail || data.message)) || text || `Get study details failed (${res.status})`
     // console.log('Get study details error:', msg, data)
     throw Object.assign(new Error(typeof msg === 'string' ? msg : JSON.stringify(msg)), { status: res.status, data })
   }
-  
+
   // console.log('Get study details success:', data)
+  return data
+}
+
+// Get study preview for continue editing
+export async function getStudyPreview(studyId: string): Promise<StudyDetails> {
+  const res = await fetchWithAuth(`${API_BASE_URL}/studies/${studyId}/preview`, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  })
+
+  const text = await res.text().catch(() => "")
+  let data: any = {}
+  try { data = text ? JSON.parse(text) : {} } catch { data = { detail: text } }
+
+  if (!res.ok) {
+    const msg = (data && (data.detail || data.message)) || text || `Get study preview failed (${res.status})`
+    throw Object.assign(new Error(typeof msg === 'string' ? msg : JSON.stringify(msg)), { status: res.status, data })
+  }
+
   return data
 }
 
@@ -1277,29 +1345,76 @@ export async function updateStudyStatus(studyId: string, status: "active" | "pau
 }
 
 // PUT update study (e.g., activate via status change)
-export async function putUpdateStudy(studyId: string, payload: UpdateStudyPutPayload): Promise<StudyDetails> {
-      // console.log('=== HTTP REQUEST TO /studies/{id} (PUT) ===')
-      // console.log('URL:', `${API_BASE_URL}/studies/${studyId}`)
-      // console.log('Payload keys:', Object.keys(payload))
-  
+export async function putUpdateStudy(studyId: string, payload: UpdateStudyPutPayload, last_step: number): Promise<StudyDetails> {
+  // Prepare a safe payload: some backend validations reject fields depending on study type
+  // e.g., `study_layers` should only be sent for `layer` studies. Read local step2 to decide.
+  let safePayload: any = payload || {}
+
+  // IMPORTANT: If study_type is explicitly in the payload, trust it completely
+  // This allows us to update the study type before sending type-specific fields
+  if (!safePayload.study_type) {
+    // Only apply defensive logic if study_type is NOT explicitly provided
+    try {
+      const s2 = get("cs_step2", { type: "grid" }) as any
+      const studyType = (s2?.type || "grid").toString()
+      console.log('[API] No study_type in payload, using localStorage:', studyType)
+
+      if (studyType === "grid") {
+        // Strip layer-specific fields to avoid backend validation errors
+        if (safePayload.hasOwnProperty('study_layers')) {
+          delete safePayload.study_layers
+          console.log('[API] Removed study_layers from PUT payload for grid study')
+        }
+        if (safePayload.hasOwnProperty('background_image_url')) {
+          delete safePayload.background_image_url
+          console.log('[API] Removed background_image_url from PUT payload for grid study')
+        }
+      }
+    } catch (e) {
+      // If anything goes wrong reading localStorage, proceed with original payload
+      console.warn('[API] Could not determine study type from localStorage, sending original payload', e)
+      safePayload = payload
+    }
+  } else {
+    console.log('[API] study_type explicitly provided in payload:', safePayload.study_type)
+    console.log('[API] Skipping defensive logic, trusting payload completely')
+  }
+
+  // Add last_step if provided
+  if (last_step !== undefined) {
+    safePayload.last_step = last_step
+  }
+
+  console.log('[API] PUT study update - Study ID:', studyId)
+  console.log('[API] PUT study update - Final payload:', JSON.stringify(safePayload, null, 2))
+
   const res = await fetchWithAuth(`${API_BASE_URL}/studies/${studyId}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(safePayload),
   })
-  
+
   const text = await res.text().catch(() => "")
   let data: any = {}
   try { data = text ? JSON.parse(text) : {} } catch { data = { detail: text } }
-  
+
   if (!res.ok) {
     const msg = (data && (data.detail || data.message)) || text || `PUT study update failed (${res.status})`
-    // console.log('PUT study update error:', msg, data)
+    console.log('[API] PUT study update error:', msg, data)
+    console.log('[API] PUT study update error - Payload was:', JSON.stringify(safePayload, null, 2))
     throw Object.assign(new Error(typeof msg === 'string' ? msg : JSON.stringify(msg)), { status: res.status, data })
   }
   
   // console.log('PUT study update success:', data)
   return data
+}
+
+// Fire-and-forget wrapper for PUT updates
+export function putUpdateStudyAsync(studyId: string, payload: UpdateStudyPutPayload, last_step?: number) {
+  if (typeof window === 'undefined') return
+  putUpdateStudy(studyId, payload, last_step ?? 8).catch((err) => {
+    console.error('Background PUT update failed:', err)
+  })
 }
 
 export async function getStudyDetailsWithoutAuth(studyId: string): Promise<StudyDetails> {
@@ -1411,6 +1526,7 @@ export interface StudyListItem {
   total_responses: number
   completed_responses: number
   abandoned_responses: number
+  last_step?: number
 }
 
 export interface StudiesResponse {
@@ -1471,4 +1587,50 @@ export async function getStudyBasicDetails(studyId: string): Promise<any> {
     console.error('Error fetching study basic details:', error)
     throw error
   }
+}
+
+// Update Study - Step 2
+export interface UpdateStudyPayload {
+  type: "grid" | "layer"
+  last_step?: number
+  main_question: string
+  orientation_text: string
+}
+
+export async function updateStudy(studyId: string, payload: UpdateStudyPayload): Promise<any> {
+  // const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null
+  // if (!token) throw new Error("Authentication token not found")
+
+  // Transform payload to match backend expectations
+  // Backend expects 'study_type' but we're sending 'type'
+  const backendPayload: any = {
+    ...payload,
+    study_type: payload.type, // Ensure study_type is set
+  }
+
+  console.log('[API] updateStudy - Sending payload:', JSON.stringify(backendPayload, null, 2))
+
+  const res = await fetchWithAuth(`${API_BASE_URL}/studies/${studyId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      // "Authorization": `Bearer ${token}`,
+    },
+    body: JSON.stringify(backendPayload),
+  })
+
+  const data = await res.json()
+  if (!res.ok) {
+    console.log('[API] updateStudy error:', data)
+    throw new Error(data?.detail || "Failed to update study")
+  }
+  return data
+}
+
+// Fire and forget update - runs in background without waiting
+export function updateStudyAsync(studyId: string, payload: UpdateStudyPayload) {
+  if (typeof window === 'undefined') return
+  updateStudy(studyId, payload).catch((err) => {
+    console.error("Background study update failed:", err.message)
+  })
 }

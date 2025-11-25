@@ -13,6 +13,83 @@ import { Step5StudyStructure } from "@/components/create-study/steps/Step5StudyS
 import { Step6AudienceSegmentation } from "@/components/create-study/steps/Step6AudienceSegmentation"
 import { Step7TaskGeneration } from "@/components/create-study/steps/Step7TaskGeneration"
 import { Step8LaunchPreview } from "@/components/create-study/steps/Step8LaunchPreview"
+import { getStudyPreview } from "@/lib/api/StudyAPI"
+
+// Type definitions for backend responses
+interface ClassificationQuestion {
+  id?: string
+  question_id?: string
+  title?: string
+  question_text?: string
+  required?: boolean
+  is_required?: boolean
+  options?: AnswerOption[]
+  answer_options?: AnswerOption[]
+}
+
+interface AnswerOption {
+  id?: string
+  text?: string
+  option_text?: string
+  order?: number
+}
+
+interface GridElement {
+  id?: string
+  name?: string
+  title?: string
+  textContent?: string
+  content?: string
+  secureUrl?: string
+  image_url?: string
+  previewUrl?: string
+  url?: string
+  data?: string
+  category_id?: string | number
+  categoryId?: string | number
+  category?: string | number
+  category_name?: string
+}
+
+interface GridCategory {
+  id?: string
+  title?: string
+  name?: string
+  description?: string
+  elements?: GridElement[]
+}
+
+interface LayerImage {
+  id?: string
+  image_id?: string
+  name?: string
+  url?: string
+  x?: number
+  y?: number
+  width?: number
+  height?: number
+}
+
+interface StudyLayer {
+  id?: string
+  layer_id?: string
+  name?: string
+  layer_name?: string
+  description?: string
+  z_index?: number
+  z?: number
+  images?: LayerImage[]
+  transform?: {
+    x: number
+    y: number
+    width: number
+    height: number
+  }
+  x?: number
+  y?: number
+  width?: number
+  height?: number
+}
 
 // Utility function to notify stepper of data changes
 const notifyStepDataChanged = () => {
@@ -21,47 +98,512 @@ const notifyStepDataChanged = () => {
   }
 }
 
+// Utility function to load draft study data from backend
+const loadDraftStudyData = async (studyId: string) => {
+  try {
+    console.log('Loading draft study data for ID:', studyId)
+    const studyDetails = await getStudyPreview(studyId)
+    console.log('Received study details:', studyDetails)
+
+    // Populate Step 1 - Basic Details
+    localStorage.setItem('cs_step1', JSON.stringify({
+      title: studyDetails.title || '',
+      description: studyDetails.background || '',
+      language: studyDetails.language || 'en',
+      agree: true
+    }))
+
+    // Populate Step 2 - Study Type
+    localStorage.setItem('cs_step2', JSON.stringify({
+      type: studyDetails.study_type || 'grid',
+      mainQuestion: studyDetails.main_question || '',
+      orientationText: studyDetails.orientation_text || 'Welcome to the study!',
+    }))
+
+    // Populate Step 3 - Rating Scale
+    if (studyDetails.rating_scale) {
+      localStorage.setItem('cs_step3', JSON.stringify({
+        minValue: studyDetails.rating_scale.min_value || 1,
+        maxValue: studyDetails.rating_scale.max_value || 5,
+        minLabel: studyDetails.rating_scale.min_label || '',
+        middleLabel: studyDetails.rating_scale.middle_label || '',
+        maxLabel: studyDetails.rating_scale.max_label || '',
+      }))
+    }
+
+    // Populate Step 4 - Classification Questions
+    if (studyDetails.classification_questions && Array.isArray(studyDetails.classification_questions)) {
+      // Transform backend format (question_id, question_text, answer_options) to frontend format (id, title, options)
+      const transformedQuestions = studyDetails.classification_questions.map((q: ClassificationQuestion) => ({
+        id: q.id || q.question_id || crypto.randomUUID(),
+        title: q.title || q.question_text || '',
+        required: q.required !== false && q.is_required !== false,
+        options: (q.options || q.answer_options || [])
+          .sort((a: AnswerOption, b: AnswerOption) => (a.order || 0) - (b.order || 0))
+          .map((opt: AnswerOption) => ({
+            id: opt.id || crypto.randomUUID(),
+            text: opt.text || opt.option_text || ''
+          }))
+      }))
+      localStorage.setItem('cs_step4', JSON.stringify(transformedQuestions))
+    } else {
+      localStorage.setItem('cs_step4', JSON.stringify([]))
+    }
+
+    // Populate Step 5 - Study Structure (Grid or Layer)
+    if (studyDetails.study_type === 'grid') {
+      try {
+        // If backend provided categories, map them to the frontend category+elements shape
+        if (studyDetails.categories && Array.isArray(studyDetails.categories)) {
+          const globalElements = Array.isArray(studyDetails.elements) ? studyDetails.elements : []
+
+          const convertElement = (el: GridElement, idx: number) => {
+            // Canonicalize URL: prefer secureUrl, then image_url, then previewUrl, then any other data field
+            const url = el.secureUrl || el.image_url || el.previewUrl || el.url || el.data || el.content || el.textContent || ''
+            const isText = Boolean((el.textContent || el.content) && !url)
+            return {
+              id: el.id || `element-${idx}`,
+              name: el.name || el.title || el.textContent || '',
+              // Save the same URL into both previewUrl and secureUrl so downstream builders see a value
+              previewUrl: url || '',
+              secureUrl: url || '',
+              sourceType: isText ? 'text' : 'upload',
+              textContent: el.textContent || el.content || el.name || '',
+            }
+          }
+
+          // Build a list of converted global elements with original refs
+          const convertedGlobal = globalElements.map((el: GridElement, idx: number) => ({ _orig: el, data: convertElement(el, idx) }))
+
+          const transformedCategories = studyDetails.categories.map((cat: GridCategory, cIdx: number) => {
+            const catEls = Array.isArray(cat.elements) ? cat.elements : []
+            const convertedFromCat = catEls.map((el: GridElement, eIdx: number) => convertElement(el, eIdx))
+
+            // Find any global elements that reference this category by id or name
+            const matched = convertedGlobal
+              .filter(ci => {
+                const el = ci._orig
+                if (!el) return false
+                const cid = String(cat.id || '')
+                // Common category reference fields
+                return (
+                  String(el.category_id || el.categoryId || el.category || el.category_name || '') === cid ||
+                  String(el.category_name || el.category || '') === String(cat.title || cat.name || '')
+                )
+              })
+              .map(ci => ci.data)
+
+            // Combine and dedupe by id
+            const all = [...convertedFromCat, ...matched]
+            const seen = new Set<string>()
+            const deduped = all.filter((a) => {
+              if (!a || !a.id) return false
+              if (seen.has(a.id)) return false
+              seen.add(a.id)
+              return true
+            })
+
+            return {
+              id: cat.id || `category-${cIdx}`,
+              title: cat.title || cat.name || `Category ${cIdx + 1}`,
+              description: cat.description || '',
+              elements: deduped,
+            }
+          })
+
+          // Append any remaining unassigned global elements to the first category (or create one)
+          const assignedIds = new Set<string>(transformedCategories.flatMap((c) => c.elements.map((e) => e.id)))
+          const unassigned = convertedGlobal.map(c => c.data).filter((d) => !assignedIds.has(d.id))
+          if (unassigned.length > 0) {
+            if (transformedCategories.length > 0) {
+              transformedCategories[0].elements = [...transformedCategories[0].elements, ...unassigned]
+            } else {
+              transformedCategories.push({ id: 'category-1', title: 'Category 1', description: '', elements: unassigned })
+            }
+          }
+
+          localStorage.setItem('cs_step5_grid', JSON.stringify(transformedCategories))
+        } else if (studyDetails.elements && Array.isArray(studyDetails.elements)) {
+          // No categories provided: wrap all elements into a single default category
+          const elements = studyDetails.elements.map((el: GridElement, idx: number) => {
+            const url = el.secureUrl || el.image_url || el.previewUrl || el.url || el.data || el.content || ''
+            return {
+              id: el.id || `element-${idx}`,
+              name: el.name || '',
+              previewUrl: url || '',
+              secureUrl: url || '',
+              sourceType: 'upload',
+              textContent: el.name || '',
+            }
+          })
+          const defaultCategory = [{ id: 'category-1', title: 'Category 1', description: '', elements }]
+          localStorage.setItem('cs_step5_grid', JSON.stringify(defaultCategory))
+        } else {
+          localStorage.setItem('cs_step5_grid', JSON.stringify([]))
+        }
+      } catch (e) {
+        console.error('Failed to populate cs_step5_grid from study details', e)
+        localStorage.setItem('cs_step5_grid', JSON.stringify([]))
+      }
+      localStorage.setItem('cs_step5_layer', JSON.stringify([]))
+    } else if (studyDetails.study_type === 'layer' && studyDetails.study_layers) {
+      // Handle layer study structure - transform to frontend format
+      const layers = Array.isArray(studyDetails.study_layers) ? studyDetails.study_layers : []
+      const transformedLayers = layers.map((layer: StudyLayer, layerIdx: number) => {
+        // Extract transform from layer - log for debugging
+        console.log(`[LoadDraft] Processing layer ${layerIdx}:`, {
+          layer_id: layer.layer_id,
+          has_transform: !!layer.transform,
+          transform_data: layer.transform,
+          z_index: layer.z_index
+        })
+
+        // Extract transform from layer - handle both nested and direct properties
+        let layerTransform = layer.transform
+
+        // If transform is an object with x, y, width, height, use it
+        if (layerTransform && typeof layerTransform === 'object' &&
+            (typeof layerTransform.x === 'number' || typeof layerTransform.y === 'number' ||
+             typeof layerTransform.width === 'number' || typeof layerTransform.height === 'number')) {
+          layerTransform = {
+            x: layerTransform.x ?? 0,
+            y: layerTransform.y ?? 0,
+            width: layerTransform.width ?? 100,
+            height: layerTransform.height ?? 100
+          }
+        } else {
+          // Fallback to direct properties or defaults
+          layerTransform = {
+            x: layer.x ?? 0,
+            y: layer.y ?? 0,
+            width: layer.width ?? 100,
+            height: layer.height ?? 100
+          }
+        }
+
+        return {
+          id: layer.id || layer.layer_id || `layer-${layerIdx}`,
+          name: layer.name || layer.layer_name || `Layer ${layerIdx + 1}`,
+          description: layer.description || '',
+          z: typeof layer.z_index === 'number' ? layer.z_index : layerIdx,
+          transform: layerTransform,
+          images: (layer.images || []).map((img: LayerImage, imgIdx: number) => ({
+            id: img.id || img.image_id || `img-${layerIdx}-${imgIdx}`,
+            previewUrl: img.url || '',
+            secureUrl: img.url || '',
+            name: img.name || '',
+            x: typeof img.x === 'number' ? img.x : layerTransform.x,
+            y: typeof img.y === 'number' ? img.y : layerTransform.y,
+            width: typeof img.width === 'number' ? img.width : layerTransform.width,
+            height: typeof img.height === 'number' ? img.height : layerTransform.height,
+            sourceType: 'upload',
+            textContent: img.name || '',
+          }))
+        }
+      })
+      console.log('[LoadDraft] Transformed layers with transform data:', transformedLayers)
+      localStorage.setItem('cs_step5_layer', JSON.stringify(transformedLayers))
+      localStorage.setItem('cs_step5_grid', JSON.stringify([]))
+
+      // Store background image if available
+      if (studyDetails.background_image_url) {
+        localStorage.setItem('cs_step5_layer_background', JSON.stringify({
+          id: 'background',
+          previewUrl: studyDetails.background_image_url,
+          secureUrl: studyDetails.background_image_url,
+          name: 'Background Image',
+        }))
+      }
+
+      // Store aspect ratio
+      if (studyDetails.aspect_ratio) {
+        const aspectMap: Record<string, string> = {
+          '3:4': 'portrait',
+          '4:3': 'landscape',
+          '1:1': 'square',
+        }
+        localStorage.setItem('cs_step5_layer_preview_aspect', aspectMap[studyDetails.aspect_ratio] || 'portrait')
+      }
+    }
+
+    // Populate Step 6 - Audience Segmentation
+    if (studyDetails.audience_segmentation) {
+      const ageSelections: Record<string, { checked: boolean; percent: string }> = {}
+      if (studyDetails.audience_segmentation.age_distribution) {
+        Object.keys(studyDetails.audience_segmentation.age_distribution).forEach(ageRange => {
+          const value = studyDetails.audience_segmentation.age_distribution![ageRange]
+          ageSelections[ageRange] = {
+            checked: value > 0,
+            percent: value > 0 ? String(value) : '',
+          }
+        })
+      } else {
+        // Default age ranges
+        ['18 - 24', '25 - 34', '35 - 44', '45 - 54', '55 - 64', '65+'].forEach(range => {
+          ageSelections[range] = { checked: false, percent: '' }
+        })
+      }
+
+      const audienceData = {
+        respondents: studyDetails.audience_segmentation.number_of_respondents || 0,
+        countries: studyDetails.audience_segmentation.country ? [studyDetails.audience_segmentation.country] : [],
+        genderMale: studyDetails.audience_segmentation.gender_distribution?.male || 50,
+        genderFemale: studyDetails.audience_segmentation.gender_distribution?.female || 50,
+        ageSelections,
+      }
+
+      localStorage.setItem('cs_step6', JSON.stringify(audienceData))
+    }
+
+    // Store a preview of tasks (first respondent) and mark step 7 completed.
+    // Do NOT persist the full `tasks` matrix to localStorage because it can be very large.
+    if (studyDetails.tasks) {
+      // Also store task generation completion flag
+      localStorage.setItem('cs_step7_tasks', JSON.stringify({
+        completed: true,
+        timestamp: Date.now(),
+      }))
+
+      // Transform and store a lightweight task preview for UI rendering only
+      const taskMatrix = {
+        metadata: {
+          total_respondents: Object.keys(studyDetails.tasks).length,
+          completed_at: new Date().toISOString(),
+          message: 'Task generation completed successfully',
+        },
+        preview_tasks: studyDetails.tasks['1'] || [],
+        total_respondents: Object.keys(studyDetails.tasks).length,
+        total_tasks: studyDetails.tasks['1']?.length || 0,
+      }
+      localStorage.setItem('cs_step7_matrix', JSON.stringify(taskMatrix))
+    }
+
+    // Store job ID if present in the study details
+    if (studyDetails.jobId) {
+      const jobState = {
+        jobId: studyDetails.jobId,
+        progress: studyDetails.progress || 0,
+        startTime: studyDetails.startTime || Date.now(),
+        status: studyDetails.status || null,
+        studyId: studyId,
+        timestamp: Date.now()
+      }
+      localStorage.setItem('cs_step7_job_state', JSON.stringify(jobState))
+      console.log('[LoadDraft] Stored job state in localStorage:', jobState)
+    }
+
+    console.log('Draft study data loaded successfully into localStorage')
+  } catch (error) {
+    console.error('Failed to load draft study data:', error)
+    throw error
+  }
+}
+
 export default function CreateStudyPage() {
   const [currentStep, setCurrentStep] = useState(1)
   const [studyType, setStudyType] = useState<"grid" | "layer">("grid")
+  const [isLoadingDraft, setIsLoadingDraft] = useState(false)
+  const [draftLoadError, setDraftLoadError] = useState<string | null>(null)
 
   // Synchronous restore from backup before children mount
   const didRestoreBackupRef = useRef(false)
   if (typeof window !== 'undefined' && !didRestoreBackupRef.current) {
     try {
-      const backupRaw = localStorage.getItem('cs_backup_steps')
-      if (backupRaw) {
-        const backup = JSON.parse(backupRaw) as Record<string, unknown>
-        const stepKeys = ['cs_step1','cs_step2','cs_step3','cs_step4','cs_step5_grid','cs_step5_layer','cs_step6']
-        stepKeys.forEach((k) => {
-          if (!localStorage.getItem(k) && backup && Object.prototype.hasOwnProperty.call(backup, k)) {
-            const v = backup[k]
-            if (v != null) {
-              try { localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v)) } catch {}
+      // Check if this is a fresh start (user clicked "Create New Study")
+      const isFreshStart = localStorage.getItem('cs_is_fresh_start') === 'true'
+
+      if (!isFreshStart) {
+        // Only restore backup if NOT a fresh start
+        const backupRaw = localStorage.getItem('cs_backup_steps')
+        if (backupRaw) {
+          const backup = JSON.parse(backupRaw) as Record<string, unknown>
+          const stepKeys = ['cs_step1','cs_step2','cs_step3','cs_step4','cs_step5_grid','cs_step5_layer','cs_step6']
+          stepKeys.forEach((k) => {
+            if (!localStorage.getItem(k) && backup && Object.prototype.hasOwnProperty.call(backup, k)) {
+              const v = backup[k]
+              if (v != null) {
+                try { localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v)) } catch {}
+              }
             }
-          }
-        })
+          })
+        }
+      } else {
+        // If fresh start, clear all backup and step data
+        try {
+          localStorage.removeItem('cs_backup_steps')
+          const keysToRemove = [
+            'cs_step1',
+            'cs_step2',
+            'cs_step3',
+            'cs_step4',
+            'cs_step5_grid',
+            'cs_step5_layer',
+            'cs_step5_layer_background',
+            'cs_step5_layer_preview_aspect',
+            'cs_step6',
+            'cs_step7_tasks',
+            'cs_step7_matrix',
+            'cs_step7_job_state',
+            'cs_step7_timer_state'
+          ]
+          keysToRemove.forEach(key => {
+            try {
+              localStorage.removeItem(key)
+            } catch {}
+          })
+        } catch {}
       }
     } catch {}
     didRestoreBackupRef.current = true
   }
 
   // Hydrate study type and last step from localStorage to avoid resets on refresh
+  // Also load draft study data from backend if resuming a draft
   useEffect(() => {
     if (typeof window === 'undefined') return
-    try {
-      const s2 = localStorage.getItem('cs_step2')
-      if (s2) {
-        const v = JSON.parse(s2)
-        if (v?.type === 'layer' || v?.type === 'grid') setStudyType(v.type)
+
+    const initializePage = async () => {
+      try {
+        // Check if this is a fresh start (user clicked "Create New Study")
+        const isFreshStart = localStorage.getItem('cs_is_fresh_start') === 'true'
+
+        // Check if we're resuming a draft study
+        const studyId = localStorage.getItem('cs_study_id')
+        const isResumingDraft = localStorage.getItem('cs_resuming_draft') === 'true'
+
+        if (studyId && isResumingDraft) {
+          // Load study data from backend
+          // This will populate all step data from the backend for this specific study
+          setIsLoadingDraft(true)
+          setDraftLoadError(null)
+
+          // Parse study_id: handle both plain string and JSON-stringified format
+          let parsedStudyId = studyId
+          try {
+            const parsed = JSON.parse(studyId)
+            if (typeof parsed === 'string') {
+              parsedStudyId = parsed
+            }
+          } catch {
+            // Already a plain string, use as-is
+          }
+
+          console.log('[CreateStudy] Loading draft study for study_id:', parsedStudyId)
+
+          // Get the previously loaded study ID to check if we're switching studies
+          const previousStudyId = sessionStorage.getItem('cs_previous_study_id')
+
+          // If we're switching to a different study, clear the old data first
+          if (previousStudyId && previousStudyId !== studyId) {
+            console.log('[CreateStudy] Switching from study', previousStudyId, 'to study', studyId)
+            const keysToRemove = [
+              'cs_step1',
+              'cs_step2',
+              'cs_step3',
+              'cs_step4',
+              'cs_step5_grid',
+              'cs_step5_layer',
+              'cs_step5_layer_background',
+              'cs_step5_layer_preview_aspect',
+              'cs_step6',
+              'cs_step7_tasks',
+              'cs_step7_matrix',
+              'cs_step7_job_state',
+              'cs_step7_timer_state',
+              'cs_backup_steps',
+              'cs_flash_message'
+            ]
+            keysToRemove.forEach(key => {
+              try {
+                localStorage.removeItem(key)
+              } catch {}
+            })
+          }
+
+          try {
+            await loadDraftStudyData(parsedStudyId)
+
+            // Verify that key data was actually written to localStorage
+            const step1Data = localStorage.getItem('cs_step1')
+            if (!step1Data) {
+              throw new Error('Failed to load study data: Basic details not found')
+            }
+
+            console.log('[CreateStudy] Successfully loaded draft study data for study_id:', studyId)
+
+            // Store the current study ID so we can detect switches next time
+            sessionStorage.setItem('cs_previous_study_id', studyId)
+
+            // Clear the flag
+            localStorage.removeItem('cs_resuming_draft')
+            setIsLoadingDraft(false)
+
+            // Refresh page instantly to load data into inputs
+            window.location.reload()
+          } catch (err) {
+            const errorMsg = err instanceof Error ? err.message : 'Failed to load draft study data'
+            console.error('[CreateStudy] Error loading draft study:', errorMsg, err)
+            setDraftLoadError(errorMsg)
+            // Clear the resuming draft flag so user can try again
+            localStorage.removeItem('cs_resuming_draft')
+            setIsLoadingDraft(false)
+            return
+          }
+        } else if (isFreshStart || (!studyId && !isResumingDraft)) {
+          // Fresh start - clear any old study data to ensure clean state
+          const keysToRemove = [
+            'cs_step1',
+            'cs_step2',
+            'cs_step3',
+            'cs_step4',
+            'cs_step5_grid',
+            'cs_step5_layer',
+            'cs_step5_layer_background',
+            'cs_step5_layer_preview_aspect',
+            'cs_step6',
+            'cs_step7_tasks',
+            'cs_step7_matrix',
+            'cs_step7_job_state',
+            'cs_step7_timer_state',
+            'cs_backup_steps',
+            'cs_flash_message'
+          ]
+          keysToRemove.forEach(key => {
+            try {
+              localStorage.removeItem(key)
+            } catch {}
+          })
+          // Clear the fresh start flag
+          localStorage.removeItem('cs_is_fresh_start')
+          // Clear the previous study ID so next resume loads fresh
+          sessionStorage.removeItem('cs_previous_study_id')
+          // Reset to step 1
+          setCurrentStep(1)
+        }
+
+        // Hydrate study type (only if not in fresh start)
+        if (!isFreshStart) {
+          const s2 = localStorage.getItem('cs_step2')
+          if (s2) {
+            const v = JSON.parse(s2)
+            if (v?.type === 'layer' || v?.type === 'grid') setStudyType(v.type)
+          }
+
+          // Hydrate current step
+          const savedStep = localStorage.getItem('cs_current_step')
+          if (savedStep) {
+            const stepNum = Number(savedStep)
+            if (!Number.isNaN(stepNum) && stepNum >= 1 && stepNum <= 8) setCurrentStep(stepNum)
+          }
+        }
+      } catch (error) {
+        console.error('Error initializing page:', error)
       }
-      const savedStep = localStorage.getItem('cs_current_step')
-      if (savedStep) {
-        const stepNum = Number(savedStep)
-        if (!Number.isNaN(stepNum) && stepNum >= 1 && stepNum <= 8) setCurrentStep(stepNum)
-      }
-    } catch {}
+    }
+
+    initializePage()
   }, [])
+
 
   // Persist current step for refresh continuity
   useEffect(() => {
@@ -106,6 +648,12 @@ export default function CreateStudyPage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="bg-white rounded-xl shadow-sm border border-[rgba(209,223,235,1)]">
             <div className="px-4 sm:px-6 lg:px-8 py-5 border-b border-[rgba(209,223,235,1)] sticky top-0 z-50 bg-white">
+              {/* Error message if draft loading failed */}
+              {draftLoadError && (
+                <div className="mb-3 rounded-md px-3 py-2 text-sm bg-red-50 text-red-700 border border-red-200">
+                  <strong>Error loading draft:</strong> {draftLoadError}
+                </div>
+              )}
               {/* Flash message from step redirects */}
               {typeof window !== 'undefined' && (() => {
                 try {
@@ -137,7 +685,16 @@ export default function CreateStudyPage() {
                 />
               </div>
               <div className={currentStep === 3 ? "block" : "hidden"} aria-hidden={currentStep !== 3}>
-                <Step3RatingScale onNext={() => setCurrentStep(4)} onBack={() => setCurrentStep(2)} onDataChange={notifyStepDataChanged} />
+                {isLoadingDraft ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="text-center">
+                      <div className="w-12 h-12 border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
+                      <p className="text-gray-600">Loading study data...</p>
+                    </div>
+                  </div>
+                ) : (
+                  <Step3RatingScale key={`step3-${isLoadingDraft}`} onNext={() => setCurrentStep(4)} onBack={() => setCurrentStep(2)} onDataChange={notifyStepDataChanged} />
+                )}
               </div>
               <div className={currentStep === 4 ? "block" : "hidden"} aria-hidden={currentStep !== 4}>
                 <Step4ClassificationQuestions onNext={() => setCurrentStep(5)} onBack={() => setCurrentStep(3)} onDataChange={notifyStepDataChanged} />
@@ -146,7 +703,16 @@ export default function CreateStudyPage() {
                 <Step5StudyStructure onNext={() => setCurrentStep(6)} onBack={() => setCurrentStep(4)} mode={studyType} onDataChange={notifyStepDataChanged} />
               </div>
               <div className={currentStep === 6 ? "block" : "hidden"} aria-hidden={currentStep !== 6}>
-                <Step6AudienceSegmentation onNext={() => setCurrentStep(7)} onBack={() => setCurrentStep(5)} onDataChange={notifyStepDataChanged} />
+                {isLoadingDraft ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="text-center">
+                      <div className="w-12 h-12 border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
+                      <p className="text-gray-600">Loading study data...</p>
+                    </div>
+                  </div>
+                ) : (
+                  <Step6AudienceSegmentation key={`step6-${isLoadingDraft}`} onNext={() => setCurrentStep(7)} onBack={() => setCurrentStep(5)} onDataChange={notifyStepDataChanged} />
+                )}
               </div>
               <div className={currentStep === 7 ? "block" : "hidden"} aria-hidden={currentStep !== 7}>
                 <Step7TaskGeneration active={currentStep === 7} onNext={() => setCurrentStep(8)} onBack={() => setCurrentStep(6)} onDataChange={notifyStepDataChanged} />

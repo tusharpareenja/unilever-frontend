@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
+import { updateStudyAsync } from "@/lib/api/StudyAPI"
 
 interface Step2StudyTypeProps {
   onNext: (selected: StudyType, mainQuestion: string, orientationText: string) => void
@@ -167,7 +168,21 @@ export function Step2StudyType({ onNext, onBack, value, onDataChange }: Step2Stu
         <Button variant="outline" className="rounded-full px-6 w-full sm:w-auto cursor-pointer" onClick={onBack}>Back</Button>
         <Button
           className="rounded-full px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] w-full sm:w-auto cursor-pointer"
-          onClick={() => type && onNext(type, mainQuestion, orientationText)}
+          onClick={() => {
+            if (type && mainQuestion && orientationText) {
+              const studyId = localStorage.getItem('cs_study_id')
+              if (studyId) {
+                // Fire API in background and redirect immediately
+                updateStudyAsync(studyId, {
+                  last_step: 2,
+                  type,
+                  main_question: mainQuestion,
+                  orientation_text: orientationText,
+                })
+              }
+              onNext(type, mainQuestion, orientationText)
+            }
+          }}
           disabled={!type || !mainQuestion || !orientationText}
         >
           Next

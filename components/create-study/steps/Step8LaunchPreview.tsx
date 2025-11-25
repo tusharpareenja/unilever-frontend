@@ -30,9 +30,17 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
   const step2 = get('cs_step2', { type: 'grid', mainQuestion: '', orientationText: '' })
   const step3 = get('cs_step3', { minValue: 1, maxValue: 5, minLabel: '', maxLabel: '', middleLabel: '' })
   const step4 = get('cs_step4', [])
-  const grid = get<any[]>('cs_step5_grid', [])
-  const layer = get<any[]>('cs_step5_layer', [])
+  const gridData = get<any>('cs_step5_grid', [])
+  const layerData = get<any>('cs_step5_layer', [])
   const step6 = get('cs_step6', { respondents: 0, countries: [], genderMale: 0, genderFemale: 0, ageSelections: {} })
+
+  // Handle both legacy array format and new object format {elements: [...], categories: [...]}
+  const grid = Array.isArray(gridData)
+    ? gridData
+    : (gridData?.categories && gridData.categories.length > 0
+      ? gridData.categories
+      : gridData?.elements || [])
+  const layer = Array.isArray(layerData) ? layerData : (layerData?.study_layers || [])
 
   const hasLayer = step2.type === 'layer'
   
@@ -64,7 +72,16 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
     try {
       // Prefer fast launch if we already have a study_id from Step 7
       const storedIdRaw = localStorage.getItem('cs_study_id')
-      const existingStudyId = storedIdRaw ? JSON.parse(storedIdRaw) as string : undefined
+      let existingStudyId: string | undefined = undefined
+      if (storedIdRaw) {
+        try {
+          const parsed = JSON.parse(storedIdRaw)
+          existingStudyId = typeof parsed === 'string' ? parsed : String(parsed)
+        } catch {
+          // Not a JSON string — use raw value
+          existingStudyId = storedIdRaw
+        }
+      }
 
       let studyId = existingStudyId
 
@@ -405,7 +422,7 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
           {hasLayer ? (
             <div className="space-y-4">
               <div className="text-sm text-gray-600 mb-3">Layers Configuration ({layer.length} layers)</div>
-              {layer.map((l, i) => (
+              {layer.map((l: any, i: number) => (
                 <div key={l.id} className="border rounded-lg bg-gray-50 p-4">
                   <div className="text-sm font-medium mb-3">{l.name} (z-{l.z})</div>
                   <div className="flex flex-wrap gap-3">
@@ -469,7 +486,7 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
                 <>
                   <div className="text-sm text-gray-600 mb-3">Elements Configuration ({grid.length} elements)</div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {grid.map((e, idx) => (
+                    {grid.map((e: any, idx: number) => (
                       <div key={e.id || idx} className="aspect-square bg-gray-100 flex items-center justify-center p-2 rounded-md border">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img 
