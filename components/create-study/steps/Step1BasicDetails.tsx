@@ -214,7 +214,7 @@ export function Step1BasicDetails({ onNext, onCancel, onDataChange }: Step1Basic
             onClick={handleNext} 
             disabled={!title || !description || !agree || loading}
           >
-            {loading ? "Creating..." : "Next"}
+            {loading ? "Saving..." : "Save & Next"}
           </Button>
         </div>
       </div>

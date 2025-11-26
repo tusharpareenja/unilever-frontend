@@ -195,7 +195,7 @@ export function Step3RatingScale({ onNext, onBack, onDataChange }: Step3RatingSc
           }}
           disabled={!canProceed}
         >
-          Next
+          Save & Next
         </Button>
       </div>
     </div>

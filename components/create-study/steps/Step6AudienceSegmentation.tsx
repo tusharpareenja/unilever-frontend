@@ -321,7 +321,7 @@ export function Step6AudienceSegmentation({ onNext, onBack, onDataChange }: Step
 									}}
 									disabled={!canProceed}
 								>
-									Next
+									Save & Next
 								</Button>
 			</div>
 		</div>

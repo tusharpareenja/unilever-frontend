@@ -114,9 +114,9 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
   // Dynamic limits from env with sensible defaults
   const GRID_MIN = Number.parseInt(process.env.NEXT_PUBLIC_GRID_MIN_ELEMENTS || '4') || 4
   const GRID_MAX = Number.parseInt(process.env.NEXT_PUBLIC_GRID_MAX_ELEMENTS || '20') || 20
-const CATEGORY_MIN = 4
-const CATEGORY_MAX = 10
-  
+  const CATEGORY_MIN = 4
+  const CATEGORY_MAX = 10
+
   const [categories, setCategories] = useState<CategoryItem[]>(() => {
     try {
       const raw = localStorage.getItem('cs_step5_grid')
@@ -135,10 +135,10 @@ const CATEGORY_MAX = 10
           }))
         }))
       }
-    } catch {}
+    } catch { }
     return []
   })
-  
+
   // Legacy support for old format
   const [elements, setElements] = useState<ElementItem[]>(() => {
     try {
@@ -156,14 +156,14 @@ const CATEGORY_MAX = 10
           }))
         }
       }
-    } catch {}
+    } catch { }
     return []
   })
   const [uploading, setUploading] = useState(false)
   const [nextLoading, setNextLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement | null>(null)
   const gridHasHydratedRef = useRef(false)
-  
+
   // Track which categories are collapsed
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set())
 
@@ -182,10 +182,10 @@ const CATEGORY_MAX = 10
   // Validation functions
   const areCategoriesValid = () => {
     if (categories.length < CATEGORY_MIN) return false
-    return categories.every(category => 
-      category.title && 
+    return categories.every(category =>
+      category.title &&
       category.title.trim().length > 0 &&
-      category.elements && 
+      category.elements &&
       category.elements.length > 0
     )
   }
@@ -194,14 +194,14 @@ const CATEGORY_MAX = 10
     if (categories.length < CATEGORY_MIN) {
       return `Add at least ${CATEGORY_MIN} categories`
     }
-    const invalidCategories = categories.filter(category => 
+    const invalidCategories = categories.filter(category =>
       !category.title || category.title.trim().length === 0
     )
     if (invalidCategories.length > 0) {
       return 'Complete category titles'
     }
     // Check if any category is missing images
-    const hasEmptyCategories = categories.some(category => 
+    const hasEmptyCategories = categories.some(category =>
       !category.elements || category.elements.length === 0
     )
     if (hasEmptyCategories) {
@@ -318,22 +318,22 @@ const CATEGORY_MAX = 10
     if (mode !== 'grid') return
     if (typeof window === 'undefined') return
     if (!gridHasHydratedRef.current) return
-    
-    
-    
-    const minimal = categories.map(c => ({ 
-      id: c.id, 
+
+
+
+    const minimal = categories.map(c => ({
+      id: c.id,
       title: c.title,
       description: c.description,
-      elements: c.elements.map(e => ({ 
-        id: e.id, 
-        name: e.name, 
-        description: e.description, 
+      elements: c.elements.map(e => ({
+        id: e.id,
+        name: e.name,
+        description: e.description,
         previewUrl: e.previewUrl,
-        secureUrl: e.secureUrl 
+        secureUrl: e.secureUrl
       }))
     }))
-    
+
     localStorage.setItem('cs_step5_grid', JSON.stringify(minimal))
     onDataChange?.()
   }, [categories, mode, onDataChange])
@@ -342,12 +342,12 @@ const CATEGORY_MAX = 10
   const ensureGridUploads = async () => {
     const pending = elements.filter(e => !e.secureUrl && e.file)
     if (pending.length === 0) return
-    
+
     const files = pending.map(p => p.file!)
-    
+
     try {
       const results = await uploadImages(files)
-      
+
       setElements(prev => prev.map(el => {
         const i = pending.findIndex(p => p.id === el.id)
         if (i !== -1) return { ...el, secureUrl: results[i]?.secure_url || el.secureUrl }
@@ -360,36 +360,36 @@ const CATEGORY_MAX = 10
 
   // Category management functions
   const handleCategoryFiles = async (categoryId: string, files: FileList) => {
-    
-    
+
+
     const list = Array.from(files)
     const selectionIds: string[] = []
-    
+
     list.forEach((file) => {
       const tempId = crypto.randomUUID()
       const url = URL.createObjectURL(file)
       const fileName = file.name.replace(/\.[^/.]+$/, "")
-      const newElement: ElementItem = { 
-        id: tempId, 
-        name: fileName, 
-        description: "", 
-        file, 
-        previewUrl: url 
+      const newElement: ElementItem = {
+        id: tempId,
+        name: fileName,
+        description: "",
+        file,
+        previewUrl: url
       }
       selectionIds.push(tempId)
-      
-      
-      
+
+
+
       setCategories(prev => {
-        const updated = prev.map(c => 
-          c.id === categoryId 
-            ? { 
-                ...c, 
-                elements: [...c.elements, newElement].sort((a, b) => (a.name || '').localeCompare(b.name || ''))
-              }
+        const updated = prev.map(c =>
+          c.id === categoryId
+            ? {
+              ...c,
+              elements: [...c.elements, newElement].sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+            }
             : c
         )
-        
+
         return updated
       })
     })
@@ -398,16 +398,16 @@ const CATEGORY_MAX = 10
     if (list.length > 1) {
       try {
         const results = await uploadImages(list)
-        setCategories(prev => prev.map(c => 
-          c.id === categoryId 
-            ? { 
-                ...c, 
-                elements: c.elements.map((e) => {
-                  const idx = selectionIds.indexOf(e.id)
-                  if (idx !== -1) return { ...e, secureUrl: results[idx]?.secure_url || e.secureUrl }
-                  return e
-                }).sort((a, b) => (a.name || '').localeCompare(b.name || ''))
-              }
+        setCategories(prev => prev.map(c =>
+          c.id === categoryId
+            ? {
+              ...c,
+              elements: c.elements.map((e) => {
+                const idx = selectionIds.indexOf(e.id)
+                if (idx !== -1) return { ...e, secureUrl: results[idx]?.secure_url || e.secureUrl }
+                return e
+              }).sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+            }
             : c
         ))
       } catch (e) {
@@ -425,16 +425,16 @@ const CATEGORY_MAX = 10
       if (pending.length === 0) return
       try {
         const results = await uploadImages(pending.map(p => p.file))
-        setCategories(prev => prev.map(c => 
-          c.id === categoryId 
-            ? { 
-                ...c, 
-                elements: c.elements.map((e) => {
-                  const idx = pending.findIndex(p => p.id === e.id)
-                  if (idx !== -1) return { ...e, secureUrl: results[idx]?.secure_url || e.secureUrl }
-                  return e
-                }).sort((a, b) => (a.name || '').localeCompare(b.name || ''))
-              }
+        setCategories(prev => prev.map(c =>
+          c.id === categoryId
+            ? {
+              ...c,
+              elements: c.elements.map((e) => {
+                const idx = pending.findIndex(p => p.id === e.id)
+                if (idx !== -1) return { ...e, secureUrl: results[idx]?.secure_url || e.secureUrl }
+                return e
+              }).sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+            }
             : c
         ))
       } catch (e) {
@@ -444,19 +444,19 @@ const CATEGORY_MAX = 10
   }
 
   const updateCategoryElement = (categoryId: string, elementId: string, patch: Partial<ElementItem>) => {
-    setCategories(prev => prev.map(c => 
-      c.id === categoryId 
-        ? { 
-            ...c, 
-            elements: c.elements.map(e => e.id === elementId ? { ...e, ...patch } : e).sort((a, b) => (a.name || '').localeCompare(b.name || ''))
-          }
+    setCategories(prev => prev.map(c =>
+      c.id === categoryId
+        ? {
+          ...c,
+          elements: c.elements.map(e => e.id === elementId ? { ...e, ...patch } : e).sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+        }
         : c
     ))
   }
 
   const removeCategoryElement = (categoryId: string, elementId: string) => {
-    setCategories(prev => prev.map(c => 
-      c.id === categoryId 
+    setCategories(prev => prev.map(c =>
+      c.id === categoryId
         ? { ...c, elements: c.elements.filter(e => e.id !== elementId) }
         : c
     ))
@@ -538,20 +538,20 @@ const CATEGORY_MAX = 10
   // Ensure all category elements have secureUrl (upload pending ones)
   const ensureCategoryUploads = async () => {
     const pending: Array<{ categoryId: string; elementId: string; file: File }> = []
-    categories.forEach(c => 
-      c.elements.forEach(e => { 
+    categories.forEach(c =>
+      c.elements.forEach(e => {
         if (!e.secureUrl && e.file) {
           pending.push({ categoryId: c.id, elementId: e.id, file: e.file })
         }
       })
     )
     if (pending.length === 0) return
-    
+
     const files = pending.map(p => p.file)
-    
+
     try {
       const results = await uploadImages(files)
-      
+
       setCategories(prev => prev.map(category => {
         const updatedElements = category.elements.map(element => {
           const pendingIndex = pending.findIndex(p => p.categoryId === category.id && p.elementId === element.id)
@@ -651,8 +651,8 @@ const CATEGORY_MAX = 10
       <div className="mt-6">
         <div className="flex items-center justify-between mb-4">
           <div className="text-sm font-semibold text-gray-800">Category Management</div>
-          <Button 
-            className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] cursor-pointer" 
+          <Button
+            className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] cursor-pointer"
             onClick={() => {
               if (categories.length >= CATEGORY_MAX) return
               const newCategory: CategoryItem = {
@@ -662,7 +662,7 @@ const CATEGORY_MAX = 10
                 elements: []
               }
               setCategories(prev => [...prev, newCategory])
-              
+
               // Auto-collapse all other categories when adding a new one
               setCollapsedCategories(new Set(categories.map(c => c.id)))
             }}
@@ -710,11 +710,10 @@ const CATEGORY_MAX = 10
                         <input
                           value={category.title}
                           onChange={(e) => setCategories(prev => prev.map(c => c.id === category.id ? { ...c, title: e.target.value } : c))}
-                          className={`w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] ${
-                            !category.title || category.title.trim().length === 0 
-                              ? 'border-red-300 bg-red-50' 
-                              : 'border-gray-200'
-                          }`}
+                          className={`w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] ${!category.title || category.title.trim().length === 0
+                            ? 'border-red-300 bg-red-50'
+                            : 'border-gray-200'
+                            }`}
                           placeholder="Enter category title"
                         />
                       </div>
@@ -734,37 +733,72 @@ const CATEGORY_MAX = 10
                         <div className="text-sm font-semibold text-gray-800">Elements ({category.elements.length})</div>
                       </div>
 
-                    {category.elements.length > 0 ? (
-                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                        {category.elements.map((element, elIdx) => (
-                          <div key={element.id} className="border rounded-lg p-3">
-                            <div className="aspect-square bg-gray-100 flex items-center justify-center mb-2 rounded-lg">
-                              {(element.secureUrl || element.previewUrl) ? (
-                                /* eslint-disable-next-line @next/next/no-img-element */
-                                <img src={element.secureUrl || element.previewUrl} alt={element.name} className="max-w-full max-h-full object-contain" />
-                              ) : (
-                                <div className="text-gray-400 text-xs">No Image</div>
-                              )}
+                      {category.elements.length > 0 ? (
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                          {category.elements.map((element, elIdx) => (
+                            <div key={element.id} className="border rounded-lg p-3">
+                              <div className="aspect-square bg-gray-100 flex items-center justify-center mb-2 rounded-lg">
+                                {(element.secureUrl || element.previewUrl) ? (
+                                  /* eslint-disable-next-line @next/next/no-img-element */
+                                  <img src={element.secureUrl || element.previewUrl} alt={element.name} className="max-w-full max-h-full object-contain" />
+                                ) : (
+                                  <div className="text-gray-400 text-xs">No Image</div>
+                                )}
+                              </div>
+                              <input
+                                value={element.name}
+                                onChange={(e) => updateCategoryElement(category.id, element.id, { name: e.target.value })}
+                                className="w-full text-xs px-2 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-[rgba(38,116,186,0.3)]"
+                                placeholder="Element name"
+                              />
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => removeCategoryElement(category.id, element.id)}
+                                className="w-full mt-1 text-xs cursor-pointer"
+                              >
+                                Remove
+                              </Button>
                             </div>
-                            <input
-                              value={element.name}
-                              onChange={(e) => updateCategoryElement(category.id, element.id, { name: e.target.value })}
-                              className="w-full text-xs px-2 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-[rgba(38,116,186,0.3)]"
-                              placeholder="Element name"
-                            />
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              onClick={() => removeCategoryElement(category.id, element.id)}
-                              className="w-full mt-1 text-xs cursor-pointer"
-                            >
-                              Remove
-                            </Button>
+                          ))}
+                          {/* Add more elements button */}
+                          <div
+                            className="border-2 border-dashed border-gray-300 rounded-lg p-3 cursor-pointer hover:bg-gray-50 transition-colors flex flex-col items-center justify-center min-h-[120px]"
+                            onDrop={(e) => {
+                              e.preventDefault()
+                              handleCategoryFiles(category.id, e.dataTransfer.files)
+                            }}
+                            onDragOver={(e) => {
+                              e.preventDefault()
+                              e.dataTransfer.dropEffect = 'copy'
+                            }}
+                            onDragEnter={(e) => {
+                              e.preventDefault()
+                              e.currentTarget.classList.add('bg-blue-50', 'border-blue-300')
+                            }}
+                            onDragLeave={(e) => {
+                              e.preventDefault()
+                              e.currentTarget.classList.remove('bg-blue-50', 'border-blue-300')
+                            }}
+                            onClick={() => {
+                              const input = document.createElement('input')
+                              input.type = 'file'
+                              input.accept = 'image/*'
+                              input.multiple = true
+                              input.onchange = (e) => {
+                                const files = (e.target as HTMLInputElement).files
+                                if (files) handleCategoryFiles(category.id, files)
+                              }
+                              input.click()
+                            }}
+                          >
+                            <div className="text-gray-400 text-2xl mb-1">+</div>
+                            <div className="text-xs text-gray-500 text-center">Click anywhere to add more</div>
                           </div>
-                        ))}
-                        {/* Add more elements button */}
-                        <div 
-                          className="border-2 border-dashed border-gray-300 rounded-lg p-3 cursor-pointer hover:bg-gray-50 transition-colors flex flex-col items-center justify-center min-h-[120px]"
+                        </div>
+                      ) : (
+                        <div
+                          className="border-2 border-dashed rounded-lg p-6 text-center text-gray-500 cursor-pointer hover:bg-gray-50 transition-colors"
                           onDrop={(e) => {
                             e.preventDefault()
                             handleCategoryFiles(category.id, e.dataTransfer.files)
@@ -793,45 +827,10 @@ const CATEGORY_MAX = 10
                             input.click()
                           }}
                         >
-                          <div className="text-gray-400 text-2xl mb-1">+</div>
-                          <div className="text-xs text-gray-500 text-center">Click anywhere to add more</div>
+                          <div className="text-sm">No elements added yet</div>
+                          <div className="text-xs">Click anywhere to upload images or drag & drop</div>
                         </div>
-                      </div>
-                    ) : (
-                      <div 
-                        className="border-2 border-dashed rounded-lg p-6 text-center text-gray-500 cursor-pointer hover:bg-gray-50 transition-colors"
-                        onDrop={(e) => {
-                          e.preventDefault()
-                          handleCategoryFiles(category.id, e.dataTransfer.files)
-                        }}
-                        onDragOver={(e) => {
-                          e.preventDefault()
-                          e.dataTransfer.dropEffect = 'copy'
-                        }}
-                        onDragEnter={(e) => {
-                          e.preventDefault()
-                          e.currentTarget.classList.add('bg-blue-50', 'border-blue-300')
-                        }}
-                        onDragLeave={(e) => {
-                          e.preventDefault()
-                          e.currentTarget.classList.remove('bg-blue-50', 'border-blue-300')
-                        }}
-                        onClick={() => {
-                          const input = document.createElement('input')
-                          input.type = 'file'
-                          input.accept = 'image/*'
-                          input.multiple = true
-                          input.onchange = (e) => {
-                            const files = (e.target as HTMLInputElement).files
-                            if (files) handleCategoryFiles(category.id, files)
-                          }
-                          input.click()
-                        }}
-                      >
-                        <div className="text-sm">No elements added yet</div>
-                        <div className="text-xs">Click anywhere to upload images or drag & drop</div>
-                      </div>
-                    )}
+                      )}
                     </div>
                   </div>
                 )}
@@ -839,8 +838,8 @@ const CATEGORY_MAX = 10
             ))}
             {/* Centered Add Category at bottom */}
             <div className="flex items-center justify-center pt-2">
-              <Button 
-                className="rounded-full px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] cursor-pointer" 
+              <Button
+                className="rounded-full px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] cursor-pointer"
                 onClick={() => {
                   if (categories.length >= CATEGORY_MAX) return
                   const newCategory: CategoryItem = {
@@ -914,6 +913,7 @@ type Layer = {
   z: number
   images: LayerImage[]
   open: boolean
+  visible?: boolean
   transform?: { x: number; y: number; width: number; height: number }
 }
 
@@ -954,9 +954,9 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                 width: img.width ?? 100, // Default to 100% width (same as background)
                 height: img.height ?? 100, // Default to 100% height (same as background)
                 sourceType,
-          textContent: sourceType === 'text'
-            ? ((img as { textContent?: string }).textContent ?? (img as { name?: string }).name ?? '')
-            : undefined,
+                textContent: sourceType === 'text'
+                  ? ((img as { textContent?: string }).textContent ?? (img as { name?: string }).name ?? '')
+                  : undefined,
                 textColor: sourceType === 'text' ? (img as { textColor?: string }).textColor : undefined,
                 textWeight: sourceType === 'text' ? (img as { textWeight?: '400' | '500' | '600' | '700' }).textWeight : undefined,
                 textSize: sourceType === 'text' ? (img as { textSize?: number }).textSize : undefined,
@@ -968,10 +968,11 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
               }
             }),
             open: false,
+            visible: (l as any).visible !== false,
           }))
         }
       }
-    } catch {}
+    } catch { }
     return []
   })
   // Keep a ref to the latest layers so async upload helpers can read fresh state
@@ -1024,7 +1025,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     try {
       const saved = localStorage.getItem('cs_step5_layer_preview_aspect')
       if (saved === 'portrait' || saved === 'landscape' || saved === 'square') return saved as any
-    } catch {}
+    } catch { }
     return 'portrait'
   })
   const aspectClass = previewAspect === 'portrait' ? 'aspect-[9/16]' : previewAspect === 'landscape' ? 'aspect-[16/9]' : 'aspect-square'
@@ -1041,7 +1042,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     "Montserrat",
     "Open Sans"
   ]
-  
+
   // Helpers: unique name generators
   const generateUniqueName = (base: string, usedNames: Set<string>): string => {
     const trimmed = (base || '').trim() || 'Untitled'
@@ -1059,7 +1060,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     layers.forEach(l => { if (!excludeId || l.id !== excludeId) used.add((l.name || '').trim()) })
     return generateUniqueName(proposed, used)
   }
-  
+
   // Deselect layer when clicking outside of the preview canvas entirely
   useEffect(() => {
     const handleGlobalMouseDown = (e: MouseEvent) => {
@@ -1095,7 +1096,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     document.addEventListener('click', handler)
     return () => document.removeEventListener('click', handler)
   }, [showLayerTypeMenu])
-  
+
   // Update container size when it changes
   useEffect(() => {
     const updateSize = () => {
@@ -1106,13 +1107,13 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
         })
       }
     }
-    
+
     updateSize()
     const resizeObserver = new ResizeObserver(updateSize)
     if (previewContainerRef.current) {
       resizeObserver.observe(previewContainerRef.current)
     }
-    
+
     return () => {
       resizeObserver.disconnect()
     }
@@ -1120,7 +1121,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
 
   // Persist chosen aspect for Step 7 to use
   useEffect(() => {
-    try { localStorage.setItem('cs_step5_layer_preview_aspect', previewAspect) } catch {}
+    try { localStorage.setItem('cs_step5_layer_preview_aspect', previewAspect) } catch { }
   }, [previewAspect])
 
   // Compute background fit box (object-contain) within container
@@ -1169,7 +1170,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
           }
         }
       }
-    } catch {}
+    } catch { }
     return null
   })
 
@@ -1336,20 +1337,24 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     ctx2.textBaseline = 'top'
     ctx2.textAlign = 'left'
 
+    // Calculate vertical offset to center text in line-height (CSS behavior)
+    // Canvas draws at top of em-square (ignoring leading), CSS centers in line-height
+    const verticalOffset = (lineHeight - fontSize) / 2
+
     // Draw text with stroke if provided
     if (effectiveStrokeWidth > 0 && strokeColor && strokeColor.trim().length > 0) {
       ctx2.strokeStyle = strokeColor
-      ctx2.lineWidth = effectiveStrokeWidth
+      ctx2.lineWidth = effectiveStrokeWidth * 2
       ctx2.lineJoin = 'round'
       lines.forEach((line, idx) => {
-        ctx2.strokeText(line.length > 0 ? line : ' ', paddingX, paddingY + idx * lineHeight)
+        ctx2.strokeText(line.length > 0 ? line : ' ', paddingX, paddingY + idx * lineHeight + verticalOffset)
       })
     }
 
     // Draw text fill
     ctx2.fillStyle = color
     lines.forEach((line, idx) => {
-      ctx2.fillText(line.length > 0 ? line : ' ', paddingX, paddingY + idx * lineHeight)
+      ctx2.fillText(line.length > 0 ? line : ' ', paddingX, paddingY + idx * lineHeight + verticalOffset)
     })
 
     const blob = await new Promise<Blob>((resolve, reject) => {
@@ -1501,7 +1506,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       const [result] = await uploadImages([file])
       const secureUrl = result?.secure_url || null
       if (secureUrl) {
-        try { URL.revokeObjectURL(previewUrl) } catch (_) {}
+        try { URL.revokeObjectURL(previewUrl) } catch (_) { }
       }
       if (showLayerTextModal.mode === 'add') {
         const base = targetLayer.images[0]
@@ -1603,7 +1608,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
         const [result] = await uploadImages([file])
         const secureUrl = result?.secure_url || null
         if (secureUrl) {
-          try { URL.revokeObjectURL(previewUrl) } catch (_) {}
+          try { URL.revokeObjectURL(previewUrl) } catch (_) { }
         }
         const layerId = crypto.randomUUID()
         const imageId = crypto.randomUUID()
@@ -1848,6 +1853,29 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     }))
   }
 
+  const duplicateLayerImage = (layerId: string, imageId: string) => {
+    setLayers(prev => prev.map(layer => {
+      if (layer.id !== layerId) return layer
+      const targetImage = layer.images.find(img => img.id === imageId)
+      if (!targetImage) return layer
+
+      const newImageId = crypto.randomUUID()
+      const newImage: LayerImage = {
+        ...targetImage,
+        id: newImageId,
+        name: `${targetImage.name} (Copy)`,
+        // Offset slightly to make duplication visible
+        x: (targetImage.x ?? 0) + 2,
+        y: (targetImage.y ?? 0) + 2,
+      }
+
+      return {
+        ...layer,
+        images: [...layer.images, newImage]
+      }
+    }))
+  }
+
   const moveLayer = (fromIdx: number, toIdx: number) => {
     setLayers(prev => {
       const copy = [...prev]
@@ -1892,11 +1920,13 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       uploadImages(list).then((results) => {
         setLayers(prev => prev.map(l => {
           if (l.id !== layerId) return l
-          return { ...l, images: l.images.map((img) => {
-            const idx = ids.indexOf(img.id)
-            if (idx !== -1) return { ...img, secureUrl: results[idx]?.secure_url || img.secureUrl }
-            return img
-          }) }
+          return {
+            ...l, images: l.images.map((img) => {
+              const idx = ids.indexOf(img.id)
+              if (idx !== -1) return { ...img, secureUrl: results[idx]?.secure_url || img.secureUrl }
+              return img
+            })
+          }
         }))
       }).catch((e) => console.error('Layer batch upload failed', e))
       return
@@ -1913,11 +1943,13 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
         const results = await uploadImages(pending.map(p => p.file))
         setLayers(prev => prev.map(l => {
           if (l.id !== layerId) return l
-          return { ...l, images: l.images.map((img) => {
-            const idx = pending.findIndex(p => p.imageId === img.id)
-            if (idx !== -1) return { ...img, secureUrl: results[idx]?.secure_url || img.secureUrl }
-            return img
-          }) }
+          return {
+            ...l, images: l.images.map((img) => {
+              const idx = pending.findIndex(p => p.imageId === img.id)
+              if (idx !== -1) return { ...img, secureUrl: results[idx]?.secure_url || img.secureUrl }
+              return img
+            })
+          }
         }))
       } catch (e) {
         console.error('Layer debounced upload failed', e)
@@ -1979,58 +2011,59 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
   // persist layers
   useEffect(() => {
     if (typeof window === 'undefined') return
-    ;(async () => {
-      // If any image in layers lacks secureUrl, attempt to upload them first
-      const hasMissing = layersRef.current.some(l => (l.images || []).some((img: any) => !img.secureUrl))
-      if (hasMissing) {
-        try {
-          await ensureLayerUploads()
-        } catch (e) {
-          console.warn('Layer uploads attempted but some images may still be missing secureUrl:', e)
-        }
-      }
-
-      // Use the freshest layers from ref (ensureLayerUploads updated state)
-      const sourceLayers = layersRef.current
-      const minimal = sourceLayers.map(l => ({
-        id: l.id,
-        name: l.name,
-        description: l.description || '',
-        z: l.z,
-        // Save layer-level transform: use existing transform if available, otherwise derive from first image
-        transform: l.transform || (() => {
-          const base = l.images?.[0]
-          if (!base) return undefined
-          return {
-            x: base.x,
-            y: base.y,
-            width: base.width,
-            height: base.height,
+      ; (async () => {
+        // If any image in layers lacks secureUrl, attempt to upload them first
+        const hasMissing = layersRef.current.some(l => (l.images || []).some((img: any) => !img.secureUrl))
+        if (hasMissing) {
+          try {
+            await ensureLayerUploads()
+          } catch (e) {
+            console.warn('Layer uploads attempted but some images may still be missing secureUrl:', e)
           }
-        })(),
-        images: l.images.map(i => ({
-          id: i.id,
-          previewUrl: i.previewUrl,
-          secureUrl: i.secureUrl,
-          name: i.name,
-          x: i.x,
-          y: i.y,
-          width: i.width,
-          height: i.height,
-          sourceType: i.sourceType,
-          textContent: i.textContent ?? i.name ?? '',
-          textColor: i.textColor,
-          textWeight: i.textWeight,
-          textSize: i.textSize,
-          textFont: i.textFont,
-          textBackgroundColor: i.textBackgroundColor,
-          textBackgroundRadius: i.textBackgroundRadius,
-          textStrokeColor: i.textStrokeColor,
-          textStrokeWidth: i.textStrokeWidth
-        })) 
-      }))
-      localStorage.setItem('cs_step5_layer', JSON.stringify(minimal))
-    })()
+        }
+
+        // Use the freshest layers from ref (ensureLayerUploads updated state)
+        const sourceLayers = layersRef.current
+        const minimal = sourceLayers.map(l => ({
+          id: l.id,
+          name: l.name,
+          description: l.description || '',
+          z: l.z,
+          // Save layer-level transform: use existing transform if available, otherwise derive from first image
+          transform: l.transform || (() => {
+            const base = l.images?.[0]
+            if (!base) return undefined
+            return {
+              x: base.x,
+              y: base.y,
+              width: base.width,
+              height: base.height,
+            }
+          })(),
+          images: l.images.map(i => ({
+            id: i.id,
+            previewUrl: i.previewUrl,
+            secureUrl: i.secureUrl,
+            name: i.name,
+            x: i.x,
+            y: i.y,
+            width: i.width,
+            height: i.height,
+            sourceType: i.sourceType,
+            textContent: i.textContent ?? i.name ?? '',
+            textColor: i.textColor,
+            textWeight: i.textWeight,
+            textSize: i.textSize,
+            textFont: i.textFont,
+            textBackgroundColor: i.textBackgroundColor,
+            textBackgroundRadius: i.textBackgroundRadius,
+            textStrokeColor: i.textStrokeColor,
+            textStrokeWidth: i.textStrokeWidth
+          })),
+          visible: l.visible !== false
+        }))
+        localStorage.setItem('cs_step5_layer', JSON.stringify(minimal))
+      })()
     // persist background separately
     if (background && (background.secureUrl || background.previewUrl)) {
       localStorage.setItem('cs_step5_layer_background', JSON.stringify({
@@ -2080,7 +2113,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       <div className="mt-4 grid grid-cols-1 md:grid-cols-5 gap-5">
         <div className={`${previewAspect === 'landscape' ? 'md:col-span-3' : 'md:col-span-2'} rounded-xl bg-white p-4 flex flex-col`}>
           {/* Preview canvas built from z order with draggable/resizable layers */}
-          <div 
+          <div
             ref={previewContainerRef}
             className={`relative w-full ${aspectClass} max-h-[75vh] overflow-hidden bg-slate-50 rounded-lg border`}
             style={{ position: 'relative' }}
@@ -2115,145 +2148,146 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
               className="absolute overflow-hidden"
               style={{ left: bgFit.left, top: bgFit.top, width: bgFit.width, height: bgFit.height, zIndex: 1 }}
             >
-            {layers.map((l) => {
-              const selectedImageId = selectedImageIds[l.id]
-              const selectedImage = selectedImageId ? l.images.find(img => img.id === selectedImageId) : l.images[0]
-              if (!selectedImage) return null
-              
-              // Convert percentage to pixels using background fit box
-              const x = ((selectedImage.x ?? 0) / 100) * bgFit.width
-              const y = ((selectedImage.y ?? 0) / 100) * bgFit.height
-              const width = ((selectedImage.width ?? 100) / 100) * bgFit.width
-              const height = ((selectedImage.height ?? 100) / 100) * bgFit.height
-              
-              const layerKey = `${l.id}-${selectedImage.id}`
-              const isSelected = selectedLayerId === l.id
-              const positionKey = `${(selectedImage.x ?? 0).toFixed(2)}-${(selectedImage.y ?? 0).toFixed(2)}-${(selectedImage.width ?? 100).toFixed(2)}-${(selectedImage.height ?? 100).toFixed(2)}`
-              
-              return (
-                <Rnd
-                  key={`${layerKey}-${positionKey}-${bgFitKey}`}
-                  default={{ x, y, width, height }}
-                  onMouseDown={(e) => { e.stopPropagation(); setSelectedLayerId(l.id) }}
-                  disableDragging={!isSelected}
-                  onDragStart={() => {
-                    draggingRef.current = layerKey
-                  }}
-                  onDragStop={(e, d) => {
-                    draggingRef.current = null
-                    // Convert pixels to percentage and save
-                    if (bgFit.width > 0 && bgFit.height > 0) {
-                      const xPercent = Math.max(0, Math.min(100, (d.x / bgFit.width) * 100))
-                      const yPercent = Math.max(0, Math.min(100, (d.y / bgFit.height) * 100))
-                      updateLayerImageTransform(l.id, selectedImage.id, { x: xPercent, y: yPercent })
-                    }
-                  }}
-                  onResizeStop={(e, direction, ref, delta, position) => {
-                    // Convert pixels to percentage and save
-                    if (bgFit.width > 0 && bgFit.height > 0) {
-                      const newWidth = parseInt(ref.style.width) || width
-                      const newHeight = parseInt(ref.style.height) || height
-                      const widthPercent = Math.max(5, Math.min(100, (newWidth / bgFit.width) * 100))
-                      const heightPercent = Math.max(5, Math.min(100, (newHeight / bgFit.height) * 100))
-                      const xPercent = Math.max(0, Math.min(100, (position.x / bgFit.width) * 100))
-                      const yPercent = Math.max(0, Math.min(100, (position.y / bgFit.height) * 100))
-                      updateLayerImageTransform(l.id, selectedImage.id, { 
-                        x: xPercent, 
-                        y: yPercent, 
-                        width: widthPercent, 
-                        height: heightPercent 
-                      })
-                    }
-                  }}
-                  style={{
-                    zIndex: background ? l.z + 1 : l.z,
-                    border: isSelected ? '2px solid rgba(37,99,235,1)' : 'none',
-                    boxShadow: isSelected ? '0 0 0 2px rgba(37,99,235,0.2)' : 'none',
-                    background: 'transparent',
-                    pointerEvents: 'auto'
-                  }}
-                  bounds="parent"
-                  minWidth={50}
-                  minHeight={50}
-                  lockAspectRatio={false}
-                  enableResizing={isSelected ? {
-                    top: true,
-                    right: true,
-                    bottom: true,
-                    left: true,
-                    topRight: true,
-                    bottomRight: true,
-                    bottomLeft: true,
-                    topLeft: true
-                  } : {
-                    top: false,
-                    right: false,
-                    bottom: false,
-                    left: false,
-                    topRight: false,
-                    bottomRight: false,
-                    bottomLeft: false,
-                    topLeft: false
-                  }}
-                  resizeHandleStyles={isSelected ? {
-                    // Edge handles: centered on each side
-                    top: {
-                      width: '24px', height: '10px', background: '#fff', borderRadius: '9999px',
-                      border: '1px solid rgba(0,0,0,0.15)', boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
-                      top: `${HANDLE_INSET}px`, left: '50%', transform: 'translate(-50%, 0)'
-                    },
-                    bottom: {
-                      width: '24px', height: '10px', background: '#fff', borderRadius: '9999px',
-                      border: '1px solid rgba(0,0,0,0.15)', boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
-                      bottom: `${HANDLE_INSET}px`, left: '50%', transform: 'translate(-50%, 0)'
-                    },
-                    left: {
-                      width: '10px', height: '24px', background: '#fff', borderRadius: '9999px',
-                      border: '1px solid rgba(0,0,0,0.15)', boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
-                      left: `${HANDLE_INSET}px`, top: '50%', transform: 'translate(0, -50%)'
-                    },
-                    right: {
-                      width: '10px', height: '24px', background: '#fff', borderRadius: '9999px',
-                      border: '1px solid rgba(0,0,0,0.15)', boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
-                      right: `${HANDLE_INSET}px`, top: '50%', transform: 'translate(0, -50%)'
-                    },
-                    // Corner handles: circles at corners
-                    topLeft: {
-                      width: '12px', height: '12px', background: '#fff', borderRadius: '9999px',
-                      border: '1px solid rgba(0,0,0,0.15)', boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
-                      left: `${HANDLE_INSET}px`, top: `${HANDLE_INSET}px`
-                    },
-                    topRight: {
-                      width: '12px', height: '12px', background: '#fff', borderRadius: '9999px',
-                      border: '1px solid rgba(0,0,0,0.15)', boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
-                      right: `${HANDLE_INSET}px`, top: `${HANDLE_INSET}px`
-                    },
-                    bottomLeft: {
-                      width: '12px', height: '12px', background: '#fff', borderRadius: '9999px',
-                      border: '1px solid rgba(0,0,0,0.15)', boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
-                      left: `${HANDLE_INSET}px`, bottom: `${HANDLE_INSET}px`
-                    },
-                    bottomRight: {
-                      width: '12px', height: '12px', background: '#fff', borderRadius: '9999px',
-                      border: '1px solid rgba(0,0,0,0.15)', boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
-                      right: `${HANDLE_INSET}px`, bottom: `${HANDLE_INSET}px`
-                    }
-                  } : undefined}
-                >
-                  <div 
-                    className={`w-full h-full flex items-center justify-center bg-transparent ${isSelected ? 'cursor-move' : 'cursor-default'}`}
+              {layers.map((l) => {
+                if (l.visible === false) return null
+                const selectedImageId = selectedImageIds[l.id]
+                const selectedImage = selectedImageId ? l.images.find(img => img.id === selectedImageId) : l.images[0]
+                if (!selectedImage) return null
+
+                // Convert percentage to pixels using background fit box
+                const x = ((selectedImage.x ?? 0) / 100) * bgFit.width
+                const y = ((selectedImage.y ?? 0) / 100) * bgFit.height
+                const width = ((selectedImage.width ?? 100) / 100) * bgFit.width
+                const height = ((selectedImage.height ?? 100) / 100) * bgFit.height
+
+                const layerKey = `${l.id}-${selectedImage.id}`
+                const isSelected = selectedLayerId === l.id
+                const positionKey = `${(selectedImage.x ?? 0).toFixed(2)}-${(selectedImage.y ?? 0).toFixed(2)}-${(selectedImage.width ?? 100).toFixed(2)}-${(selectedImage.height ?? 100).toFixed(2)}`
+
+                return (
+                  <Rnd
+                    key={`${layerKey}-${positionKey}-${bgFitKey}`}
+                    default={{ x, y, width, height }}
+                    onMouseDown={(e) => { e.stopPropagation(); setSelectedLayerId(l.id) }}
+                    disableDragging={!isSelected}
+                    onDragStart={() => {
+                      draggingRef.current = layerKey
+                    }}
+                    onDragStop={(e, d) => {
+                      draggingRef.current = null
+                      // Convert pixels to percentage and save
+                      if (bgFit.width > 0 && bgFit.height > 0) {
+                        const xPercent = Math.max(0, Math.min(100, (d.x / bgFit.width) * 100))
+                        const yPercent = Math.max(0, Math.min(100, (d.y / bgFit.height) * 100))
+                        updateLayerImageTransform(l.id, selectedImage.id, { x: xPercent, y: yPercent })
+                      }
+                    }}
+                    onResizeStop={(e, direction, ref, delta, position) => {
+                      // Convert pixels to percentage and save
+                      if (bgFit.width > 0 && bgFit.height > 0) {
+                        const newWidth = parseInt(ref.style.width) || width
+                        const newHeight = parseInt(ref.style.height) || height
+                        const widthPercent = Math.max(5, Math.min(100, (newWidth / bgFit.width) * 100))
+                        const heightPercent = Math.max(5, Math.min(100, (newHeight / bgFit.height) * 100))
+                        const xPercent = Math.max(0, Math.min(100, (position.x / bgFit.width) * 100))
+                        const yPercent = Math.max(0, Math.min(100, (position.y / bgFit.height) * 100))
+                        updateLayerImageTransform(l.id, selectedImage.id, {
+                          x: xPercent,
+                          y: yPercent,
+                          width: widthPercent,
+                          height: heightPercent
+                        })
+                      }
+                    }}
+                    style={{
+                      zIndex: background ? l.z + 1 : l.z,
+                      border: isSelected ? '2px solid rgba(37,99,235,1)' : 'none',
+                      boxShadow: isSelected ? '0 0 0 2px rgba(37,99,235,0.2)' : 'none',
+                      background: 'transparent',
+                      pointerEvents: 'auto'
+                    }}
+                    bounds="parent"
+                    minWidth={50}
+                    minHeight={50}
+                    lockAspectRatio={false}
+                    enableResizing={isSelected ? {
+                      top: true,
+                      right: true,
+                      bottom: true,
+                      left: true,
+                      topRight: true,
+                      bottomRight: true,
+                      bottomLeft: true,
+                      topLeft: true
+                    } : {
+                      top: false,
+                      right: false,
+                      bottom: false,
+                      left: false,
+                      topRight: false,
+                      bottomRight: false,
+                      bottomLeft: false,
+                      topLeft: false
+                    }}
+                    resizeHandleStyles={isSelected ? {
+                      // Edge handles: centered on each side
+                      top: {
+                        width: '24px', height: '10px', background: '#fff', borderRadius: '9999px',
+                        border: '1px solid rgba(0,0,0,0.15)', boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
+                        top: `${HANDLE_INSET}px`, left: '50%', transform: 'translate(-50%, 0)'
+                      },
+                      bottom: {
+                        width: '24px', height: '10px', background: '#fff', borderRadius: '9999px',
+                        border: '1px solid rgba(0,0,0,0.15)', boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
+                        bottom: `${HANDLE_INSET}px`, left: '50%', transform: 'translate(-50%, 0)'
+                      },
+                      left: {
+                        width: '10px', height: '24px', background: '#fff', borderRadius: '9999px',
+                        border: '1px solid rgba(0,0,0,0.15)', boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
+                        left: `${HANDLE_INSET}px`, top: '50%', transform: 'translate(0, -50%)'
+                      },
+                      right: {
+                        width: '10px', height: '24px', background: '#fff', borderRadius: '9999px',
+                        border: '1px solid rgba(0,0,0,0.15)', boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
+                        right: `${HANDLE_INSET}px`, top: '50%', transform: 'translate(0, -50%)'
+                      },
+                      // Corner handles: circles at corners
+                      topLeft: {
+                        width: '12px', height: '12px', background: '#fff', borderRadius: '9999px',
+                        border: '1px solid rgba(0,0,0,0.15)', boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
+                        left: `${HANDLE_INSET}px`, top: `${HANDLE_INSET}px`
+                      },
+                      topRight: {
+                        width: '12px', height: '12px', background: '#fff', borderRadius: '9999px',
+                        border: '1px solid rgba(0,0,0,0.15)', boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
+                        right: `${HANDLE_INSET}px`, top: `${HANDLE_INSET}px`
+                      },
+                      bottomLeft: {
+                        width: '12px', height: '12px', background: '#fff', borderRadius: '9999px',
+                        border: '1px solid rgba(0,0,0,0.15)', boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
+                        left: `${HANDLE_INSET}px`, bottom: `${HANDLE_INSET}px`
+                      },
+                      bottomRight: {
+                        width: '12px', height: '12px', background: '#fff', borderRadius: '9999px',
+                        border: '1px solid rgba(0,0,0,0.15)', boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
+                        right: `${HANDLE_INSET}px`, bottom: `${HANDLE_INSET}px`
+                      }
+                    } : undefined}
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img 
-                      src={selectedImage.secureUrl || selectedImage.previewUrl} 
-                      alt={l.name} 
-                      className="max-w-full max-h-full object-contain pointer-events-none select-none" 
-                      draggable={false}
-                    />
-                  </div>
-                </Rnd>
-              )
-            })}
+                    <div
+                      className={`w-full h-full flex items-center justify-center bg-transparent ${isSelected ? 'cursor-move' : 'cursor-default'}`}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={selectedImage.secureUrl || selectedImage.previewUrl}
+                        alt={l.name}
+                        className="max-w-full max-h-full object-contain pointer-events-none select-none"
+                        draggable={false}
+                      />
+                    </div>
+                  </Rnd>
+                )
+              })}
             </div>
           </div>
           {/* Controls under the outer preview div */}
@@ -2311,176 +2345,196 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
               {overIndex === idx && (
                 <div className="h-2 rounded bg-[rgba(38,116,186,0.3)] border border-[rgba(38,116,186,0.5)] mb-2" />
               )}
-            <div 
-              className={`border rounded-xl bg-white ${dragIndex === idx ? 'opacity-70' : ''} ${selectedLayerId === layer.id ? 'border-blue-500 ring-2 ring-blue-200' : ''}`}
-              onClick={() => setSelectedLayerId(layer.id)}
-            >
               <div
-                className="flex items-center justify-between px-4 py-2 bg-slate-50 rounded-t-xl cursor-move"
-                draggable
-                onDragStart={(e) => { setDragIndex(idx); setOverIndex(idx); e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', String(idx)); } catch (_) {} }}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  e.dataTransfer.dropEffect = 'move'
-                  if (dragIndex === null) return
-                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                  const isBefore = e.clientY < rect.top + rect.height / 2
-                  let targetIndex = isBefore ? idx : idx + 1
-                  if (targetIndex < 0) targetIndex = 0
-                  if (targetIndex > layers.length) targetIndex = layers.length
-                  setOverIndex(targetIndex)
-                }}
-                onDrop={(e) => { e.preventDefault(); if (dragIndex !== null && overIndex !== null) { let to = overIndex; if (dragIndex < to) to = to - 1; if (to !== dragIndex) moveLayer(dragIndex, to) } setDragIndex(null); setOverIndex(null) }}
-                onDragEnd={() => { if (dragIndex !== null && overIndex !== null) { let to = overIndex; if (dragIndex < to) to = to - 1; if (to !== dragIndex) moveLayer(dragIndex, to) } setDragIndex(null); setOverIndex(null) }}
+                className={`border rounded-xl bg-white ${dragIndex === idx ? 'opacity-70' : ''} ${selectedLayerId === layer.id ? 'border-blue-500 ring-2 ring-blue-200' : ''}`}
+                onClick={() => setSelectedLayerId(layer.id)}
               >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                    <span className="truncate max-w-[20ch]">{layer.name || `Layer ${idx + 1}`}</span>
-                    
-                  </div>
-                  {layer.description ? (
-                    <div className="text-xs text-gray-500 truncate max-w-[25ch]">{layer.description}</div>
-                  ) : null}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" onClick={() => removeLayer(layer.id)} className="cursor-pointer">Remove</Button>
-                  <button
-                    type="button"
-                    aria-label="Toggle layer"
-                    onClick={() => setLayers(prev => prev.map(l => l.id === layer.id ? { ...l, open: !l.open } : l))}
-                    className="w-7 h-7 border rounded-md flex items-center justify-center cursor-pointer"
-                  >
-                    <span className={`transition-transform ${layer.open ? 'rotate-180' : ''}`}>﹀</span>
-                  </button>
-                </div>
-              </div>
-              {layer.open && (
-              <div className="p-4 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-800 mb-2">Layer Name <span className="text-red-500">*</span></label>
-                    <input value={layer.name} onChange={(e) => setLayers(prev => prev.map(l => l.id === layer.id ? { ...l, name: e.target.value } : l))} className="w-full rounded-lg border border-gray-200 px-3 py-2" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-800 mb-2">Description (Optional)</label>
-                    <input value={layer.description || ''} onChange={(e) => setLayers(prev => prev.map(l => l.id === layer.id ? { ...l, description: e.target.value } : l))} className="w-full rounded-lg border border-gray-200 px-3 py-2" />
-                  </div>
-                </div>
+                <div
+                  className="flex items-center justify-between px-4 py-2 bg-slate-50 rounded-t-xl cursor-move"
+                  draggable
+                  onDragStart={(e) => { setDragIndex(idx); setOverIndex(idx); e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', String(idx)); } catch (_) { } }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move'
+                    if (dragIndex === null) return
+                    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                    const isBefore = e.clientY < rect.top + rect.height / 2
+                    let targetIndex = isBefore ? idx : idx + 1
+                    if (targetIndex < 0) targetIndex = 0
+                    if (targetIndex > layers.length) targetIndex = layers.length
+                    setOverIndex(targetIndex)
+                  }}
+                  onDrop={(e) => { e.preventDefault(); if (dragIndex !== null && overIndex !== null) { let to = overIndex; if (dragIndex < to) to = to - 1; if (to !== dragIndex) moveLayer(dragIndex, to) } setDragIndex(null); setOverIndex(null) }}
+                  onDragEnd={() => { if (dragIndex !== null && overIndex !== null) { let to = overIndex; if (dragIndex < to) to = to - 1; if (to !== dragIndex) moveLayer(dragIndex, to) } setDragIndex(null); setOverIndex(null) }}
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                      <span className="truncate max-w-[20ch]">{layer.name || `Layer ${idx + 1}`}</span>
 
-                <div>
-                  <div className="text-sm font-medium text-gray-700 mb-2">Images</div>
-                  <div className="flex flex-wrap gap-3">
-                    {layer.images.map(img => {
-                      const isSelected = selectedImageIds[layer.id] === img.id || (!selectedImageIds[layer.id] && layer.images[0]?.id === img.id)
-                      return (
-                        <div key={img.id} className="relative group">
-                          <div 
-                            className={`w-20 h-20 rounded-md border-2 cursor-pointer transition-all ${
-                              isSelected ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-200 hover:border-gray-300'
-                            }`}
-                            onClick={() => selectImage(layer.id, img.id)}
-                          >
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={img.secureUrl || img.previewUrl} alt="layer" className="w-full h-full object-contain rounded-md" />
-                          </div>
-                          {(img.sourceType ?? 'upload') === 'text' && (
-                            <button
-                              onClick={() => openLayerTextModal(layer.id, { imageId: img.id })}
-                              className="absolute -top-2 -left-2 w-5 h-5 bg-blue-500 text-white rounded-full text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-blue-600 cursor-pointer flex items-center justify-center"
-                              title="Edit text"
-                            >
-                              ✎
-                            </button>
-                          )}
-                          <button
-                            onClick={() => removeImageFromLayer(layer.id, img.id)}
-                            className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-red-600 cursor-pointer"
-                          >
-                            ×
-                          </button>
-                          <input
-                            type="text"
-                            value={img.name || ''}
-                            onChange={(e) => updateImageName(layer.id, img.id, e.target.value)}
-                            className="w-20 mt-1 text-xs px-1 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            placeholder="Image name"
-                          />
-                        </div>
-                      )
-                    })}
-                    <div 
-                      data-layer-add-menu
-                      className="relative w-20 h-20 border-2 border-dashed rounded-md flex items-center justify-center text-gray-400 cursor-pointer hover:border-gray-300 transition-colors"
-                      onDrop={(e) => {
-                        e.preventDefault()
-                        setLayerAddMenu(null)
-                        addImagesToLayer(layer.id, e.dataTransfer.files)
-                      }}
-                      onDragOver={(e) => {
-                        e.preventDefault()
-                        e.dataTransfer.dropEffect = 'copy'
-                      }}
-                      onDragEnter={(e) => {
-                        e.preventDefault()
-                        e.currentTarget.classList.add('bg-blue-50', 'border-blue-300')
-                      }}
-                      onDragLeave={(e) => {
-                        e.preventDefault()
-                        e.currentTarget.classList.remove('bg-blue-50', 'border-blue-300')
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        const hasTextOnly = layer.images.length > 0 && layer.images.every(img => (img.sourceType ?? 'upload') === 'text')
-                        const hasImageOnly = layer.images.length === 0 || layer.images.every(img => (img.sourceType ?? 'upload') !== 'text')
-                        if (hasTextOnly) {
-                          openLayerTextModal(layer.id)
-                          return
-                        }
-                        if (hasImageOnly) {
-                          setLayerAddMenu(null)
-                          promptLayerImageUpload(layer.id)
-                          return
-                        }
-                        setLayerAddMenu(prev => prev === layer.id ? null : layer.id)
-                      }}
-                      title="Add more content"
+                    </div>
+                    {layer.description ? (
+                      <div className="text-xs text-gray-500 truncate max-w-[25ch]">{layer.description}</div>
+                    ) : null}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setLayers(prev => prev.map(l => l.id === layer.id ? { ...l, visible: !l.visible } : l)) }}
+                      className="w-7 h-7 border rounded-md flex items-center justify-center cursor-pointer hover:bg-gray-50 text-gray-600"
+                      title={layer.visible !== false ? "Hide layer" : "Show layer"}
                     >
-                      <span className="text-2xl leading-none">+</span>
-                      {layerAddMenu === layer.id && (
-                        <div className="absolute z-20 top-full left-1/2 -translate-x-1/2 mt-2 w-36 rounded-md border border-gray-200 bg-white shadow-lg p-2 space-y-1">
-                          <button
-                            type="button"
-                            className="w-full text-xs px-2 py-1 rounded-md text-left hover:bg-gray-100 cursor-pointer"
-                            onClick={(e) => {
-                              e.stopPropagation()
+                      {layer.visible !== false ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" /><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" /><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7c.44 0 .87-.03 1.28-.09" /><line x1="2" x2="22" y1="2" y2="22" /></svg>
+                      )}
+                    </button>
+                    <Button variant="outline" onClick={() => removeLayer(layer.id)} className="cursor-pointer">Remove</Button>
+                    <button
+                      type="button"
+                      aria-label="Toggle layer"
+                      onClick={() => setLayers(prev => prev.map(l => l.id === layer.id ? { ...l, open: !l.open } : l))}
+                      className="w-7 h-7 border rounded-md flex items-center justify-center cursor-pointer"
+                    >
+                      <span className={`transition-transform ${layer.open ? 'rotate-180' : ''}`}>﹀</span>
+                    </button>
+                  </div>
+                </div>
+                {layer.open && (
+                  <div className="p-4 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-800 mb-2">Layer Name <span className="text-red-500">*</span></label>
+                        <input value={layer.name} onChange={(e) => setLayers(prev => prev.map(l => l.id === layer.id ? { ...l, name: e.target.value } : l))} className="w-full rounded-lg border border-gray-200 px-3 py-2" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-800 mb-2">Description (Optional)</label>
+                        <input value={layer.description || ''} onChange={(e) => setLayers(prev => prev.map(l => l.id === layer.id ? { ...l, description: e.target.value } : l))} className="w-full rounded-lg border border-gray-200 px-3 py-2" />
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-sm font-medium text-gray-700 mb-2">Images</div>
+                      <div className="flex flex-wrap gap-3">
+                        {layer.images.map(img => {
+                          const isSelected = selectedImageIds[layer.id] === img.id || (!selectedImageIds[layer.id] && layer.images[0]?.id === img.id)
+                          return (
+                            <div key={img.id} className="relative group">
+                              <div
+                                className={`w-20 h-20 rounded-md border-2 cursor-pointer transition-all ${isSelected ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-200 hover:border-gray-300'
+                                  }`}
+                                onClick={() => selectImage(layer.id, img.id)}
+                              >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={img.secureUrl || img.previewUrl} alt="layer" className="w-full h-full object-contain rounded-md" />
+                              </div>
+                              {(img.sourceType ?? 'upload') === 'text' && (
+                                <button
+                                  onClick={() => openLayerTextModal(layer.id, { imageId: img.id })}
+                                  className="absolute -top-2 -left-2 w-5 h-5 bg-blue-500 text-white rounded-full text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-blue-600 cursor-pointer flex items-center justify-center z-10"
+                                  title="Edit text"
+                                >
+                                  ✎
+                                </button>
+                              )}
+                              <button
+                                onClick={() => removeImageFromLayer(layer.id, img.id)}
+                                className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-red-600 cursor-pointer z-10"
+                              >
+                                ×
+                              </button>
+                              {(img.sourceType ?? 'upload') === 'text' && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); duplicateLayerImage(layer.id, img.id) }}
+                                  className="absolute -bottom-2 -right-2 w-5 h-5 bg-green-500 text-white rounded-full text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-green-600 cursor-pointer flex items-center justify-center z-10"
+                                  title="Duplicate"
+                                >
+                                  ⧉
+                                </button>
+                              )}
+                              <input
+                                type="text"
+                                value={img.name || ''}
+                                onChange={(e) => updateImageName(layer.id, img.id, e.target.value)}
+                                className="w-20 mt-1 text-xs px-1 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                placeholder="Image name"
+                              />
+                            </div>
+                          )
+                        })}
+                        <div
+                          data-layer-add-menu
+                          className="relative w-20 h-20 border-2 border-dashed rounded-md flex items-center justify-center text-gray-400 cursor-pointer hover:border-gray-300 transition-colors"
+                          onDrop={(e) => {
+                            e.preventDefault()
+                            setLayerAddMenu(null)
+                            addImagesToLayer(layer.id, e.dataTransfer.files)
+                          }}
+                          onDragOver={(e) => {
+                            e.preventDefault()
+                            e.dataTransfer.dropEffect = 'copy'
+                          }}
+                          onDragEnter={(e) => {
+                            e.preventDefault()
+                            e.currentTarget.classList.add('bg-blue-50', 'border-blue-300')
+                          }}
+                          onDragLeave={(e) => {
+                            e.preventDefault()
+                            e.currentTarget.classList.remove('bg-blue-50', 'border-blue-300')
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            const hasTextOnly = layer.images.length > 0 && layer.images.every(img => (img.sourceType ?? 'upload') === 'text')
+                            const hasImageOnly = layer.images.length === 0 || layer.images.every(img => (img.sourceType ?? 'upload') !== 'text')
+                            if (hasTextOnly) {
+                              openLayerTextModal(layer.id)
+                              return
+                            }
+                            if (hasImageOnly) {
                               setLayerAddMenu(null)
                               promptLayerImageUpload(layer.id)
-                            }}
-                          >
-                            Upload image(s)
-                          </button>
-                          <button
-                            type="button"
-                            className="w-full text-xs px-2 py-1 rounded-md text-left hover:bg-gray-100 cursor-pointer"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              openLayerTextModal(layer.id)
-                            }}
-                          >
-                            Add text
-                          </button>
+                              return
+                            }
+                            setLayerAddMenu(prev => prev === layer.id ? null : layer.id)
+                          }}
+                          title="Add more content"
+                        >
+                          <span className="text-2xl leading-none">+</span>
+                          {layerAddMenu === layer.id && (
+                            <div className="absolute z-20 top-full left-1/2 -translate-x-1/2 mt-2 w-36 rounded-md border border-gray-200 bg-white shadow-lg p-2 space-y-1">
+                              <button
+                                type="button"
+                                className="w-full text-xs px-2 py-1 rounded-md text-left hover:bg-gray-100 cursor-pointer"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setLayerAddMenu(null)
+                                  promptLayerImageUpload(layer.id)
+                                }}
+                              >
+                                Upload image(s)
+                              </button>
+                              <button
+                                type="button"
+                                className="w-full text-xs px-2 py-1 rounded-md text-left hover:bg-gray-100 cursor-pointer"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  openLayerTextModal(layer.id)
+                                }}
+                              >
+                                Add text
+                              </button>
+                            </div>
+                          )}
                         </div>
-                      )}
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
+                <div className="px-4 py-2 text-xs text-gray-500 border-t">Drag and drop layers to reorder.</div>
               </div>
+              {idx === layers.length - 1 && overIndex === layers.length && (
+                <div className="h-2 rounded bg-[rgba(38,116,186,0.3)] border border-[rgba(38,116,186,0.5)] mt-2" />
               )}
-              <div className="px-4 py-2 text-xs text-gray-500 border-t">Drag and drop layers to reorder.</div>
-            </div>
-            {idx === layers.length - 1 && overIndex === layers.length && (
-              <div className="h-2 rounded bg-[rgba(38,116,186,0.3)] border border-[rgba(38,116,186,0.5)] mt-2" />
-            )}
             </Fragment>
           ))}
 
@@ -2492,291 +2546,303 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
 
       {showModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => { if (!draftSaving) { setShowModal(false); resetDraftState(); } }}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className={`bg-white rounded-2xl shadow-2xl ${draftType === 'text' ? 'w-full max-w-6xl h-[90vh] max-h-[90vh] flex flex-col' : 'w-full max-w-2xl'}`} onClick={(e) => e.stopPropagation()}>
             <div className="px-5 py-4 border-b font-semibold">Add New {draftType === 'image' ? 'Image' : 'Text'} Layer</div>
-            <div className="p-5 space-y-5 overflow-y-auto max-h-[70vh] pr-1">
-              <div>
-                <label className="block text-sm font-semibold text-gray-800 mb-2">Layer Name <span className="text-red-500">*</span></label>
-                <input
-                  value={draftName}
-                  onChange={(e) => setDraftName(e.target.value)}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-800 mb-2">Description (Optional)</label>
-                <input
-                  value={draftDescription}
-                  onChange={(e) => setDraftDescription(e.target.value)}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
-                />
-              </div>
-
+            <div className={draftType === 'text' ? 'flex-1 flex flex-col overflow-hidden p-5 gap-4' : 'p-5 space-y-5 overflow-y-auto max-h-[70vh] pr-1'}>
               {draftType === 'image' ? (
-                <div
-                  className="border-2 border-dashed rounded-xl p-6 text-center cursor-pointer hover:border-[rgba(38,116,186,1)] hover:bg-blue-50 transition-colors"
-                  onClick={() => document.getElementById('draft-file-input')?.click()}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => {
-                    e.preventDefault()
-                    handleDraftFiles(e.dataTransfer.files)
-                  }}
-                >
-                  <div className="text-sm text-[rgba(38,116,186,1)]">Drag And Drop</div>
-                  <div className="text-[10px] text-gray-500">Supports JPG, PNG (Max 10MB Each)</div>
-                  <div className="mt-3 text-sm text-gray-600">Click anywhere to select files</div>
-                  <input
-                    id="draft-file-input"
-                    type="file"
-                    multiple
-                    accept="image/*"
-                    onChange={(e) => handleDraftFiles(e.target.files)}
-                    className="hidden"
-                  />
-                  {draftImages.length > 0 && (
-                    <div className="mt-3 flex gap-3 flex-wrap justify-center">
-                      {draftImages.map(img => (
-                        <div key={img.id} className="relative group flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
-                          <div className="w-20 h-20 border rounded-md overflow-hidden">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={img.previewUrl} alt="preview" className="w-full h-full object-contain" />
-                          </div>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); removeDraftImage(img.id) }}
-                            className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-red-600 cursor-pointer"
-                            aria-label="Remove image"
-                          >
-                            ×
-                          </button>
-                          <input
-                            type="text"
-                            value={img.name || ''}
-                            onClick={(e) => e.stopPropagation()}
-                            onMouseDown={(e) => e.stopPropagation()}
-                            onFocus={(e) => e.stopPropagation()}
-                            onChange={(e) => setDraftImages(prev => prev.map(draftImg =>
-                              draftImg.id === img.id ? { ...draftImg, name: e.target.value } : draftImg
-                            ))}
-                            className="w-20 mt-1 text-xs px-1 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            placeholder="Name"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-6">
+                <>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-800 mb-2">Text Content <span className="text-red-500">*</span></label>
-                    <textarea
-                      value={draftText}
-                      onChange={(e) => {
-                        setDraftText(e.target.value)
-                        setDraftError(null)
-                      }}
-                      rows={4}
-                      className="w-full rounded-lg border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] resize-y min-h-[120px] text-base"
-                      placeholder="Enter the text you want to render as a layer"
+                    <label className="block text-sm font-semibold text-gray-800 mb-2">Layer Name <span className="text-red-500">*</span></label>
+                    <input
+                      value={draftName}
+                      onChange={(e) => setDraftName(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
                     />
                   </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-800 mb-2">Description (Optional)</label>
+                    <input
+                      value={draftDescription}
+                      onChange={(e) => setDraftDescription(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+                    />
+                  </div>
+                  <div
+                    className="border-2 border-dashed rounded-xl p-6 text-center cursor-pointer hover:border-[rgba(38,116,186,1)] hover:bg-blue-50 transition-colors"
+                    onClick={() => document.getElementById('draft-file-input')?.click()}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault()
+                      handleDraftFiles(e.dataTransfer.files)
+                    }}
+                  >
+                    <div className="text-sm text-[rgba(38,116,186,1)]">Drag And Drop</div>
+                    <div className="text-[10px] text-gray-500">Supports JPG, PNG (Max 10MB Each)</div>
+                    <div className="mt-3 text-sm text-gray-600">Click anywhere to select files</div>
+                    <input
+                      id="draft-file-input"
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      onChange={(e) => handleDraftFiles(e.target.files)}
+                      className="hidden"
+                    />
+                    {draftImages.length > 0 && (
+                      <div className="mt-3 flex gap-3 flex-wrap justify-center">
+                        {draftImages.map(img => (
+                          <div key={img.id} className="relative group flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
+                            <div className="w-20 h-20 border rounded-md overflow-hidden">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={img.previewUrl} alt="preview" className="w-full h-full object-contain" />
+                            </div>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); removeDraftImage(img.id) }}
+                              className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-red-600 cursor-pointer"
+                              aria-label="Remove image"
+                            >
+                              ×
+                            </button>
+                            <input
+                              type="text"
+                              value={img.name || ''}
+                              onClick={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onFocus={(e) => e.stopPropagation()}
+                              onChange={(e) => setDraftImages(prev => prev.map(draftImg =>
+                                draftImg.id === img.id ? { ...draftImg, name: e.target.value } : draftImg
+                              ))}
+                              className="w-20 mt-1 text-xs px-1 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              placeholder="Name"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Top - Layer Info */}
+                  <div className="flex-shrink-0 grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-800 mb-2">Layer Name <span className="text-red-500">*</span></label>
+                      <input
+                        value={draftName}
+                        onChange={(e) => setDraftName(e.target.value)}
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-800 mb-2">Description (Optional)</label>
+                      <input
+                        value={draftDescription}
+                        onChange={(e) => setDraftDescription(e.target.value)}
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+                      />
+                    </div>
+                  </div>
 
-                  <div className="border-t pt-5">
-                    <h4 className="text-sm font-semibold text-gray-800 mb-4">Text Styling</h4>
-                    <div className="grid grid-cols-1 gap-5">
-                      {/* Color Row */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Color</label>
+                  {/* Middle - Main Content */}
+                  <div className="flex-1 flex overflow-hidden gap-6">
+                    {/* Left Side - Text Input & Preview */}
+                    <div className="flex-1 flex flex-col gap-4 overflow-hidden">
+                      <div className="flex-shrink-0">
+                        <label className="block text-sm font-semibold text-gray-800 mb-2">Text Content <span className="text-red-500">*</span></label>
+                        <textarea
+                          value={draftText}
+                          onChange={(e) => {
+                            setDraftText(e.target.value)
+                            setDraftError(null)
+                          }}
+                          rows={4}
+                          className="w-full rounded-lg border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] resize-none h-32 text-base"
+                          placeholder="Enter the text you want to render as a layer"
+                        />
+                      </div>
+
+                      {/* Preview Section */}
+                      <div className="flex-1 flex flex-col overflow-hidden gap-2">
+                        <label className="block text-sm font-semibold text-gray-800">Preview (This is how it will look when saved)</label>
+                        <div className="flex-1 bg-gray-50 rounded-lg p-6 border border-gray-200 overflow-auto flex items-center justify-center">
+                          {draftText ? (
+                            <div
+                              style={{
+                                color: draftTextColor,
+                                fontWeight: draftTextWeight,
+                                fontSize: `${draftTextSize}px`,
+                                fontFamily: draftTextFont,
+                                backgroundColor: draftTextBackgroundColor || "transparent",
+                                borderRadius: draftTextBackgroundRadius > 0 ? `${draftTextBackgroundRadius}px` : "0",
+                                padding: draftTextBackgroundColor ? `${Math.max(24, Math.round(draftTextSize * 0.9))}px ${Math.max(24, Math.round(draftTextSize * 0.9))}px` : "0",
+                                lineHeight: `${Math.round(draftTextSize * 1.3)}px`,
+                                textAlign: "left",
+                                whiteSpace: "pre-wrap",
+                                wordWrap: "break-word",
+                                WebkitTextStroke: draftTextStrokeColor && draftTextStrokeWidth > 0
+                                  ? `${draftTextStrokeWidth}px ${draftTextStrokeColor}`
+                                  : "none",
+                                display: "inline-block",
+                              }}
+                            >
+                              {draftText}
+                            </div>
+                          ) : (
+                            <div className="text-gray-400 text-sm">Your text preview will appear here</div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right Side - Designing Tools */}
+                    <div className="w-80 overflow-y-auto pr-2 flex flex-col gap-5">
+                      <div>
+                        <h4 className="text-sm font-semibold text-gray-800 mb-4">Text Styling</h4>
+                        <div className="space-y-4">
+                          {/* Color */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Color</label>
+                            <div className="flex items-center gap-3">
+                              <input
+                                type="color"
+                                value={draftTextColor}
+                                onChange={(e) => setDraftTextColor(e.target.value)}
+                                className="w-12 h-12 rounded-2xl cursor-pointer flex-shrink-0"
+                              />
+                              <input
+                                type="text"
+                                value={draftTextColor}
+                                onChange={(e) => setDraftTextColor(e.target.value)}
+                                className="flex-1 rounded-lg border border-gray-500 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+                                placeholder="#000000"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Font Weight */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Font Weight</label>
+                            <select
+                              value={draftTextWeight}
+                              onChange={(e) => setDraftTextWeight(e.target.value as '400' | '500' | '600' | '700')}
+                              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+                            >
+                              <option value="400">Regular (400)</option>
+                              <option value="500">Medium (500)</option>
+                              <option value="600">Semi Bold (600)</option>
+                              <option value="700">Bold (700)</option>
+                            </select>
+                          </div>
+
+                          {/* Font Family */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Font Family</label>
+                            <select
+                              value={draftTextFont}
+                              onChange={(e) => setDraftTextFont(e.target.value)}
+                              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+                            >
+                              {FONT_OPTIONS.map(font => (
+                                <option key={font} value={font}>{font}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* Font Size */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Font Size: <span className="font-semibold text-[rgba(38,116,186,1)]">{draftTextSize}px</span>
+                            </label>
+                            <div className="flex items-center gap-3">
+                              <input
+                                type="range"
+                                min="12"
+                                max="100"
+                                value={draftTextSize}
+                                onChange={(e) => setDraftTextSize(Number(e.target.value))}
+                                className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
+                              />
+                              <input
+                                type="number"
+                                min="12"
+                                max="100"
+                                value={draftTextSize}
+                                onChange={(e) => setDraftTextSize(Number(e.target.value))}
+                                className="w-16 rounded-lg border border-gray-200 px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Background & Stroke Effects */}
+                      <div className="border-t pt-4">
+                        <h5 className="text-sm font-bold text-gray-900 mb-3">Background & Stroke</h5>
+
+                        {/* Background Color */}
+                        <div className="mb-4">
+                          <label className="block text-sm font-semibold text-gray-800 mb-2">Background Color</label>
                           <div className="flex items-center gap-3">
                             <input
                               type="color"
-                              value={draftTextColor}
-                              onChange={(e) => setDraftTextColor(e.target.value)}
-                              className="w-12 h-12 border border-gray-200 rounded-lg cursor-pointer"
+                              value={draftTextBackgroundColor || "#ffffff"}
+                              onChange={(e) => setDraftTextBackgroundColor(e.target.value)}
+                              className="w-12 h-12 rounded-2xl cursor-pointer flex-shrink-0 hover:border-[rgba(38,116,186,1)] transition-colors"
                             />
-                             <input
-                              type="text"
-                              value={layerTextColor}
-                              onChange={(e) => setLayerTextColor(e.target.value)}
-                              className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
-                              placeholder="#000000"
-                            />
-                            
+                            <div className="text-xs flex-1">
+                              <p className="text-gray-700 font-medium text-xs">{draftTextBackgroundColor || "No bg"}</p>
+                            </div>
                           </div>
                         </div>
 
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Font Weight</label>
-                          <select
-                            value={draftTextWeight}
-                            onChange={(e) => setDraftTextWeight(e.target.value as '400' | '500' | '600' | '700')}
-                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
-                          >
-                            <option value="400">Regular</option>
-                            <option value="500">Medium</option>
-                            <option value="600">Semi Bold</option>
-                            <option value="700">Bold</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      {/* Font Size and Font Family Row */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Font Size:{" "}
-                            <span className="font-semibold text-[rgba(38,116,186,1)]">{draftTextSize}px</span>
+                        {/* Background Radius */}
+                        <div className="mb-4">
+                          <label className="block text-sm font-semibold text-gray-800 mb-2">
+                            Background Radius: <span className="text-[rgba(38,116,186,1)]">{draftTextBackgroundRadius}px</span>
                           </label>
+                          <input
+                            type="range"
+                            min="0"
+                            max="50"
+                            value={draftTextBackgroundRadius}
+                            onChange={(e) => setDraftTextBackgroundRadius(Number(e.target.value))}
+                            className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
+                          />
+                        </div>
+
+                        {/* Stroke Color */}
+                        <div className="mb-4">
+                          <label className="block text-sm font-semibold text-gray-800 mb-2">Stroke Color</label>
                           <div className="flex items-center gap-3">
                             <input
-                              type="range"
-                              min="12"
-                              max="100"
-                              value={draftTextSize}
-                              onChange={(e) => setDraftTextSize(Number(e.target.value))}
-                              className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
+                              type="color"
+                              value={draftTextStrokeColor || "#000000"}
+                              onChange={(e) => setDraftTextStrokeColor(e.target.value)}
+                              className="w-12 h-12 rounded-2xl cursor-pointer flex-shrink-0 hover:border-[rgba(38,116,186,1)] transition-colors"
                             />
-                            <input
-                              type="number"
-                              min="12"
-                              max="100"
-                              value={draftTextSize}
-                              onChange={(e) => setDraftTextSize(Number(e.target.value))}
-                              className="w-20 rounded-lg border border-gray-200 px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
-                            />
+                            <div className="text-xs flex-1">
+                              <p className="text-gray-700 font-medium text-xs">{draftTextStrokeColor || "#000000"}</p>
+                            </div>
                           </div>
                         </div>
 
+                        {/* Stroke Width */}
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Font Family</label>
-                          <select
-                            value={draftTextFont}
-                            onChange={(e) => setDraftTextFont(e.target.value)}
-                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
-                          >
-                            {FONT_OPTIONS.map(font => (
-                              <option key={font} value={font}>{font}</option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-
-                      {/* Background and Stroke Styling Row */}
-                      <div className="border-t pt-5 mt-5">
-                        <h5 className="text-sm font-bold text-gray-900 mb-5 pb-3 border-b-2 border-[rgba(38,116,186,0.2)]">Background & Stroke Effects</h5>
-
-                        {/* Background Section */}
-                        <div className="mb-6 p-4 rounded-lg">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                              <label className="block text-sm font-semibold text-gray-800 mb-3">Background Color</label>
-                              <div className="flex items-center gap-3">
-                                <input
-                                  type="color"
-                                  value={draftTextBackgroundColor || "#ffffff"}
-                                  onChange={(e) => setDraftTextBackgroundColor(e.target.value)}
-                                  className="w-14 h-14 rounded-2xl cursor-pointer hover:border-[rgba(38,116,186,1)] transition-colors"
-                                />
-                                <div className="text-sm">
-                                  <p className="text-gray-700 font-medium">{draftTextBackgroundColor || "No background"}</p>
-                                  <p className="text-xs text-gray-500 mt-1">Clear value for no background</p>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div>
-                              <label className="block text-sm font-semibold text-gray-800 mb-3">
-                                Background Radius
-                              </label>
-                              <div className="flex items-center gap-3">
-                                <input
-                                  type="range"
-                                  min="0"
-                                  max="50"
-                                  value={draftTextBackgroundRadius}
-                                  onChange={(e) => setDraftTextBackgroundRadius(Number(e.target.value))}
-                                  className="flex-1 h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
-                                />
-                                <span className="text-sm font-semibold text-[rgba(38,116,186,1)] w-10 text-right">{draftTextBackgroundRadius}px</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Stroke Section */}
-                        <div className="p-4 rounded-lg">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                              <label className="block text-sm font-semibold text-gray-800 mb-3">Stroke Color</label>
-                              <div className="flex items-center gap-3">
-                                <input
-                                  type="color"
-                                  value={draftTextStrokeColor || "#000000"}
-                                  onChange={(e) => setDraftTextStrokeColor(e.target.value)}
-                                  className="w-14 h-14 rounded-2xl cursor-pointer hover:border-[rgba(38,116,186,1)] transition-colors"
-                                />
-                                <div className="text-sm">
-                                  <p className="text-gray-700 font-medium">{draftTextStrokeColor || "#000000"}</p>
-                                  <p className="text-xs text-gray-500 mt-1">Clear value for no stroke</p>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div>
-                              <label className="block text-sm font-semibold text-gray-800 mb-3">
-                                Stroke Width
-                              </label>
-                              <div className="flex items-center gap-3">
-                                <input
-                                  type="range"
-                                  min="0"
-                                  max="10"
-                                  value={draftTextStrokeWidth}
-                                  onChange={(e) => setDraftTextStrokeWidth(Number(e.target.value))}
-                                  className="flex-1 h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
-                                />
-                                <span className="text-sm font-semibold text-[rgba(38,116,186,1)] w-10 text-right">{draftTextStrokeWidth}px</span>
-                              </div>
-                            </div>
-                          </div>
+                          <label className="block text-sm font-semibold text-gray-800 mb-2">
+                            Stroke Width: <span className="text-[rgba(38,116,186,1)]">{draftTextStrokeWidth}px</span>
+                          </label>
+                          <input
+                            type="range"
+                            min="0"
+                            max="10"
+                            value={draftTextStrokeWidth}
+                            onChange={(e) => setDraftTextStrokeWidth(Number(e.target.value))}
+                            className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
+                          />
                         </div>
                       </div>
                     </div>
                   </div>
-
-                  {/* Preview Section */}
-                  <div className="border-t pt-5">
-                    <label className="block text-sm font-semibold text-gray-800 mb-3">Preview (This is how it will look when saved)</label>
-                    <div className="bg-gray-50 rounded-lg p-6 border border-gray-200 min-h-[150px] flex items-center justify-center overflow-auto">
-                      {draftText ? (
-                        <div
-                          style={{
-                            color: draftTextColor,
-                            fontWeight: draftTextWeight,
-                            fontSize: `${draftTextSize}px`,
-                            fontFamily: draftTextFont,
-                            backgroundColor: draftTextBackgroundColor || "transparent",
-                            borderRadius: draftTextBackgroundRadius > 0 ? `${draftTextBackgroundRadius}px` : "0",
-                            padding: draftTextBackgroundColor ? `${Math.max(24, Math.round(draftTextSize * 0.9))}px ${Math.max(24, Math.round(draftTextSize * 0.9))}px` : "0",
-                            lineHeight: `${Math.round(draftTextSize * 1.3)}px`,
-                            textAlign: "left",
-                            whiteSpace: "pre-wrap",
-                            wordWrap: "break-word",
-                            WebkitTextStroke: draftTextStrokeColor && draftTextStrokeWidth > 0
-                              ? `${draftTextStrokeWidth}px ${draftTextStrokeColor}`
-                              : "none",
-                            display: "inline-block",
-                          }}
-                        >
-                          {draftText}
-                        </div>
-                      ) : (
-                        <div className="text-gray-400 text-sm">Your text preview will appear here</div>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                </>
               )}
 
               {draftError && (
@@ -2805,28 +2871,73 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
 
       {showLayerTextModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => { if (!layerTextSaving) { closeLayerTextModal(); } }}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl h-[90vh] max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="px-5 py-4 border-b font-semibold">Edit Text Layer</div>
-            <div className="p-5 space-y-6 overflow-y-auto max-h-[70vh] pr-1">
-              <div>
-                <label className="block text-sm font-semibold text-gray-800 mb-2">Text Content <span className="text-red-500">*</span></label>
-                <textarea
-                  value={layerTextValue}
-                  onChange={(e) => {
-                    setLayerTextValue(e.target.value)
-                    setLayerTextError(null)
-                  }}
-                  rows={4}
-                  className="w-full rounded-lg border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] resize-y min-h-[120px] text-base"
-                  placeholder="Enter the text you want to render as a layer"
-                />
+
+            {/* Main Content Area */}
+            <div className="flex-1 flex overflow-hidden gap-6 p-5">
+
+              {/* Left Side - Text Input & Preview */}
+              <div className="flex-1 flex flex-col gap-4 overflow-hidden">
+                <div className="flex-shrink-0">
+                  <label className="block text-sm font-semibold text-gray-800 mb-2">Text Content <span className="text-red-500">*</span></label>
+                  <textarea
+                    value={layerTextValue}
+                    onChange={(e) => {
+                      setLayerTextValue(e.target.value)
+                      setLayerTextError(null)
+                    }}
+                    rows={4}
+                    className="w-full rounded-lg border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] resize-none h-32 text-base"
+                    placeholder="Enter the text you want to render as a layer"
+                  />
+                </div>
+
+                {/* Preview Section */}
+                <div className="flex-1 flex flex-col overflow-hidden">
+                  <label className="block text-sm font-semibold text-gray-800 mb-2">Preview (This is how it will look when saved)</label>
+                  <div className="flex-1 bg-gray-50 rounded-lg p-6 border border-gray-200 overflow-auto flex items-center justify-center">
+                    {layerTextValue ? (
+                      <div
+                        style={{
+                          color: layerTextColor,
+                          fontWeight: layerTextWeight,
+                          fontSize: `${layerTextSize}px`,
+                          fontFamily: layerTextFont,
+                          backgroundColor: layerTextBackgroundColor || "transparent",
+                          borderRadius: layerTextBackgroundRadius > 0 ? `${layerTextBackgroundRadius}px` : "0",
+                          padding: layerTextBackgroundColor ? `${Math.max(24, Math.round(layerTextSize * 0.9))}px ${Math.max(24, Math.round(layerTextSize * 0.9))}px` : "0",
+                          lineHeight: `${Math.round(layerTextSize * 1.3)}px`,
+                          textAlign: "left",
+                          whiteSpace: "pre-wrap",
+                          wordWrap: "break-word",
+                          WebkitTextStroke: layerTextStrokeColor && layerTextStrokeWidth > 0
+                            ? `${layerTextStrokeWidth}px ${layerTextStrokeColor}`
+                            : "none",
+                          display: "inline-block",
+                        }}
+                      >
+                        {layerTextValue}
+                      </div>
+                    ) : (
+                      <div className="text-gray-400 text-sm">Your text preview will appear here</div>
+                    )}
+                  </div>
+                </div>
+
+                {layerTextError && (
+                  <div className="text-red-600 text-sm bg-red-50 px-4 py-2 rounded-lg border border-red-200 flex-shrink-0">
+                    {layerTextError}
+                  </div>
+                )}
               </div>
 
-              <div className="border-t pt-5">
-                <h4 className="text-sm font-semibold text-gray-800 mb-4">Text Styling</h4>
-                <div className="grid grid-cols-1 gap-5">
-                  {/* Color Row */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Right Side - Designing Tools */}
+              <div className="w-80 overflow-y-auto pr-2 flex flex-col gap-5">
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-800 mb-4">Text Styling</h4>
+                  <div className="space-y-4">
+                    {/* Color */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Color</label>
                       <div className="flex items-center gap-3">
@@ -2834,7 +2945,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                           type="color"
                           value={layerTextColor}
                           onChange={(e) => setLayerTextColor(e.target.value)}
-                          className="w-12 h-12 rounded-2xl cursor-pointer"
+                          className="w-12 h-12 rounded-2xl cursor-pointer flex-shrink-0"
                         />
                         <input
                           type="text"
@@ -2846,6 +2957,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                       </div>
                     </div>
 
+                    {/* Font Weight */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Font Weight</label>
                       <select
@@ -2859,10 +2971,22 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                         <option value="700">Bold (700)</option>
                       </select>
                     </div>
-                  </div>
 
-                  {/* Font Size and Font Family Row */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Font Family */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Font Family</label>
+                      <select
+                        value={layerTextFont}
+                        onChange={(e) => setLayerTextFont(e.target.value)}
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+                      >
+                        {FONT_OPTIONS.map(font => (
+                          <option key={font} value={font}>{font}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Font Size */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Font Size: <span className="font-semibold text-[rgba(38,116,186,1)]">{layerTextSize}px</span>
@@ -2882,147 +3006,84 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                           max="120"
                           value={layerTextSize}
                           onChange={(e) => setLayerTextSize(Number(e.target.value))}
-                          className="w-20 rounded-lg border border-gray-200 px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+                          className="w-16 rounded-lg border border-gray-200 px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
                         />
                       </div>
                     </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Font Family</label>
-                      <select
-                        value={layerTextFont}
-                        onChange={(e) => setLayerTextFont(e.target.value)}
-                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
-                      >
-                        {FONT_OPTIONS.map(font => (
-                          <option key={font} value={font}>{font}</option>
-                        ))}
-                      </select>
-                    </div>
                   </div>
+                </div>
 
-                  {/* Background and Stroke Styling Row */}
-                  <div className="border-t pt-5 mt-5">
-                    <h5 className="text-sm font-bold text-gray-900 mb-5 pb-3 border-b-2 border-[rgba(38,116,186,0.2)]">Background & Stroke Effects</h5>
+                {/* Background & Stroke Effects */}
+                <div className="border-t pt-4">
+                  <h5 className="text-sm font-bold text-gray-900 mb-3">Background & Stroke</h5>
 
-                    {/* Background Section */}
-                    <div className="mb-6 p-4  rounded-lg">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-semibold text-gray-800 mb-3">Background Color</label>
-                          <div className="flex items-center gap-3">
-                            <input
-                              type="color"
-                              value={layerTextBackgroundColor || "#ffffff"}
-                              onChange={(e) => setLayerTextBackgroundColor(e.target.value)}
-                              className="w-14 h-14 rounded-2xl cursor-pointer hover:border-[rgba(38,116,186,1)] transition-colors"
-                            />
-                            <div className="text-sm">
-                              <p className="text-gray-700 font-medium">{layerTextBackgroundColor || "No background"}</p>
-                              <p className="text-xs text-gray-500 mt-1">Clear value for no background</p>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-semibold text-gray-800 mb-3">
-                            Background Radius
-                          </label>
-                          <div className="flex items-center gap-3">
-                            <input
-                              type="range"
-                              min="0"
-                              max="50"
-                              value={layerTextBackgroundRadius}
-                              onChange={(e) => setLayerTextBackgroundRadius(Number(e.target.value))}
-                              className="flex-1 h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
-                            />
-                            <span className="text-sm font-semibold text-[rgba(38,116,186,1)] w-10 text-right">{layerTextBackgroundRadius}px</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Stroke Section */}
-                    <div className="p-4 rounded-lg">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-semibold text-gray-800 mb-3">Stroke Color</label>
-                          <div className="flex items-center gap-3">
-                            <input
-                              type="color"
-                              value={layerTextStrokeColor || "#000000"}
-                              onChange={(e) => setLayerTextStrokeColor(e.target.value)}
-                              className="w-14 h-14  rounded-2xl cursor-pointer hover:border-[rgba(38,116,186,1)] transition-colors"
-                            />
-                            <div className="text-sm">
-                              <p className="text-gray-700 font-medium">{layerTextStrokeColor || "#000000"}</p>
-                              <p className="text-xs text-gray-500 mt-1">Clear value for no stroke</p>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-semibold text-gray-800 mb-3">
-                            Stroke Width
-                          </label>
-                          <div className="flex items-center gap-3">
-                            <input
-                              type="range"
-                              min="0"
-                              max="10"
-                              value={layerTextStrokeWidth}
-                              onChange={(e) => setLayerTextStrokeWidth(Number(e.target.value))}
-                              className="flex-1 h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
-                            />
-                            <span className="text-sm font-semibold text-[rgba(38,116,186,1)] w-10 text-right">{layerTextStrokeWidth}px</span>
-                          </div>
-                        </div>
+                  {/* Background Color */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-semibold text-gray-800 mb-2">Background Color</label>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="color"
+                        value={layerTextBackgroundColor || "#ffffff"}
+                        onChange={(e) => setLayerTextBackgroundColor(e.target.value)}
+                        className="w-12 h-12 rounded-2xl cursor-pointer flex-shrink-0 hover:border-[rgba(38,116,186,1)] transition-colors"
+                      />
+                      <div className="text-xs flex-1">
+                        <p className="text-gray-700 font-medium text-xs">{layerTextBackgroundColor || "No bg"}</p>
                       </div>
                     </div>
                   </div>
-                </div>
-              </div>
 
-              {/* Preview Section */}
-              <div className="border-t pt-5">
-                <label className="block text-sm font-semibold text-gray-800 mb-3">Preview (This is how it will look when saved)</label>
-                <div className="bg-gray-50 rounded-lg p-6 border border-gray-200 min-h-[150px] flex items-center justify-center overflow-auto">
-                  {layerTextValue ? (
-                    <div
-                      style={{
-                        color: layerTextColor,
-                        fontWeight: layerTextWeight,
-                        fontSize: `${layerTextSize}px`,
-                        fontFamily: layerTextFont,
-                        backgroundColor: layerTextBackgroundColor || "transparent",
-                        borderRadius: layerTextBackgroundRadius > 0 ? `${layerTextBackgroundRadius}px` : "0",
-                        padding: layerTextBackgroundColor ? `${Math.max(24, Math.round(layerTextSize * 0.9))}px ${Math.max(24, Math.round(layerTextSize * 0.9))}px` : "0",
-                        lineHeight: `${Math.round(layerTextSize * 1.3)}px`,
-                        textAlign: "left",
-                        whiteSpace: "pre-wrap",
-                        wordWrap: "break-word",
-                        WebkitTextStroke: layerTextStrokeColor && layerTextStrokeWidth > 0
-                          ? `${layerTextStrokeWidth}px ${layerTextStrokeColor}`
-                          : "none",
-                        display: "inline-block",
-                      }}
-                    >
-                      {layerTextValue}
+                  {/* Background Radius */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-semibold text-gray-800 mb-2">
+                      Background Radius: <span className="text-[rgba(38,116,186,1)]">{layerTextBackgroundRadius}px</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="50"
+                      value={layerTextBackgroundRadius}
+                      onChange={(e) => setLayerTextBackgroundRadius(Number(e.target.value))}
+                      className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Stroke Color */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-semibold text-gray-800 mb-2">Stroke Color</label>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="color"
+                        value={layerTextStrokeColor || "#000000"}
+                        onChange={(e) => setLayerTextStrokeColor(e.target.value)}
+                        className="w-12 h-12 rounded-2xl cursor-pointer flex-shrink-0 hover:border-[rgba(38,116,186,1)] transition-colors"
+                      />
+                      <div className="text-xs flex-1">
+                        <p className="text-gray-700 font-medium text-xs">{layerTextStrokeColor || "#000000"}</p>
+                      </div>
                     </div>
-                  ) : (
-                    <div className="text-gray-400 text-sm">Your text preview will appear here</div>
-                  )}
+                  </div>
+
+                  {/* Stroke Width */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-800 mb-2">
+                      Stroke Width: <span className="text-[rgba(38,116,186,1)]">{layerTextStrokeWidth}px</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="10"
+                      value={layerTextStrokeWidth}
+                      onChange={(e) => setLayerTextStrokeWidth(Number(e.target.value))}
+                      className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
+                    />
+                  </div>
                 </div>
               </div>
-
-              {layerTextError && (
-                <div className="text-red-600 text-sm bg-red-50 px-4 py-2 rounded-lg border border-red-200">
-                  {layerTextError}
-                </div>
-              )}
             </div>
-            <div className="px-5 py-4 border-t flex justify-end gap-3">
+
+            {/* Footer */}
+            <div className="px-5 py-4 border-t flex justify-end gap-3 flex-shrink-0">
               <Button variant="outline" onClick={closeLayerTextModal} disabled={layerTextSaving} className="cursor-pointer">Cancel</Button>
               <Button
                 className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] cursor-pointer"
@@ -3052,12 +3113,12 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mt-10">
         <Button variant="outline" className="rounded-full cursor-pointer px-6 w-full sm:w-auto" onClick={onBack}>Back</Button>
-        <Button 
-          className="rounded-full cursor-pointer px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] w-full sm:w-auto" 
-          onClick={handleNext} 
+        <Button
+          className="rounded-full cursor-pointer px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] w-full sm:w-auto"
+          onClick={handleNext}
           disabled={nextLoading || layers.length < LAYER_MIN}
         >
-          {nextLoading ? 'Uploading...' : (layers.length < LAYER_MIN ? `Add at least ${LAYER_MIN}` : 'Next')}
+          {nextLoading ? 'Uploading...' : (layers.length < LAYER_MIN ? `Add at least ${LAYER_MIN}` : 'Save & Next')}
         </Button>
       </div>
     </div>

@@ -242,7 +242,7 @@ export function Step4ClassificationQuestions({ onNext, onBack, onDataChange }: S
 					}}
 					disabled={!canProceed}
 				>
-					Next
+					Save & Next
 				</Button>
 			</div>
 		</div>

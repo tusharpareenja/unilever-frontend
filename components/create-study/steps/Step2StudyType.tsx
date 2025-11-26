@@ -185,7 +185,7 @@ export function Step2StudyType({ onNext, onBack, value, onDataChange }: Step2Stu
           }}
           disabled={!type || !mainQuestion || !orientationText}
         >
-          Next
+          Save & Next
         </Button>
       </div>
     </div>

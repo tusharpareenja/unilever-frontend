@@ -2038,7 +2038,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
           {!matrix ? 'Generate Tasks First' : 
            isPolling || isGenerating ? 'Generating...' : 
            (jobStatus && jobStatus.status !== 'completed') ? 'Tasks Not Ready' : 
-           'Next'}
+           'Save & Next'}
         </Button>
       </div>
     </div>
