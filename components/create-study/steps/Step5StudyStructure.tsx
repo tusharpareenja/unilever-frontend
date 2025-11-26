@@ -897,7 +897,7 @@ type LayerImage = {
   sourceType?: "text" | "upload"
   textContent?: string
   textColor?: string
-  textWeight?: '400' | '500' | '600' | '700'
+  textWeight?: '300' | '400' | '600' | '700'
   textSize?: number
   textFont?: string
   textBackgroundColor?: string
@@ -958,7 +958,11 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                   ? ((img as { textContent?: string }).textContent ?? (img as { name?: string }).name ?? '')
                   : undefined,
                 textColor: sourceType === 'text' ? (img as { textColor?: string }).textColor : undefined,
-                textWeight: sourceType === 'text' ? (img as { textWeight?: '400' | '500' | '600' | '700' }).textWeight : undefined,
+                textWeight: sourceType === 'text' ? (() => {
+                  const w = (img as { textWeight?: '300' | '400' | '500' | '600' | '700' }).textWeight
+                  // Migrate legacy '500' to '400' for compatibility
+                  return w === '500' ? '400' : (w as '300' | '400' | '600' | '700' | undefined)
+                })() : undefined,
                 textSize: sourceType === 'text' ? (img as { textSize?: number }).textSize : undefined,
                 textFont: sourceType === 'text' ? ((img as { textFont?: string }).textFont || 'Inter') : undefined,
                 textBackgroundColor: sourceType === 'text' ? (img as { textBackgroundColor?: string }).textBackgroundColor : undefined,
@@ -988,7 +992,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
   const [draftImages, setDraftImages] = useState<Array<{ id: string; file?: File; previewUrl: string; secureUrl?: string; name: string; sourceType?: 'text' | 'upload' }>>([])
   const [draftText, setDraftText] = useState("")
   const [draftTextColor, setDraftTextColor] = useState("#000000")
-  const [draftTextWeight, setDraftTextWeight] = useState<'400' | '500' | '600' | '700'>('600')
+  const [draftTextWeight, setDraftTextWeight] = useState<'300' | '400' | '600' | '700'>('600')
   const [draftTextSize, setDraftTextSize] = useState(100)
   const [draftTextFont, setDraftTextFont] = useState("Inter")
   const [draftTextBackgroundColor, setDraftTextBackgroundColor] = useState("")
@@ -1001,7 +1005,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
   const [showLayerTextModal, setShowLayerTextModal] = useState<LayerTextModalState | null>(null)
   const [layerTextValue, setLayerTextValue] = useState("")
   const [layerTextColor, setLayerTextColor] = useState("#000000")
-  const [layerTextWeight, setLayerTextWeight] = useState<'400' | '500' | '600' | '700'>('600')
+  const [layerTextWeight, setLayerTextWeight] = useState<'300' | '400' | '600' | '700'>('600')
   const [layerTextSize, setLayerTextSize] = useState(100)
   const [layerTextFont, setLayerTextFont] = useState("Inter")
   const [layerTextBackgroundColor, setLayerTextBackgroundColor] = useState("")
@@ -1289,8 +1293,12 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     ctx.font = font
 
     const lineHeight = Math.round(fontSize * 1.3)
-    const paddingX = Math.max(24, Math.round(fontSize * 0.9))
-    const paddingY = Math.max(24, Math.round(fontSize * 0.9))
+
+    // CSS logic: padding is only applied if there is a background color
+    const hasBackground = backgroundColor && backgroundColor.trim().length > 0
+    const paddingX = hasBackground ? Math.max(24, Math.round(fontSize * 0.9)) : 0
+    const paddingY = hasBackground ? Math.max(24, Math.round(fontSize * 0.9)) : 0
+
     const effectiveStrokeWidth = strokeWidth && strokeColor ? Math.max(0, strokeWidth) : 0
 
     let maxLineWidth = 0
@@ -1299,8 +1307,10 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       maxLineWidth = Math.max(maxLineWidth, metrics.width)
     })
 
-    const width = Math.max(Math.ceil(maxLineWidth + paddingX * 2 + effectiveStrokeWidth * 2), fontSize * 2)
-    const height = Math.max(Math.ceil(lines.length * lineHeight + paddingY * 2 + effectiveStrokeWidth * 2), fontSize * 2)
+    // Add buffer for stroke to prevent clipping at edges
+    const strokeBuffer = effectiveStrokeWidth
+    const width = Math.max(Math.ceil(maxLineWidth + paddingX * 2 + strokeBuffer * 2), fontSize * 2)
+    const height = Math.max(Math.ceil(lines.length * lineHeight + paddingY * 2 + strokeBuffer * 2), fontSize * 2)
 
     canvas.width = width
     canvas.height = height
@@ -1310,8 +1320,14 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     ctx2.clearRect(0, 0, width, height)
 
     // Draw background with radius if provided
-    if (backgroundColor && backgroundColor.trim().length > 0) {
+    if (hasBackground) {
       const bgRadius = backgroundRadius ?? 0
+      // Background fills the whole canvas minus the stroke buffer if we want to be precise, 
+      // but usually the background should encompass the text. 
+      // In CSS, padding is inside the background. 
+      // Here, width/height includes padding.
+      // We'll draw the background over the full size, maybe inset by a tiny bit if stroke is huge?
+      // Actually, let's just draw it full size.
       const bgX = 0
       const bgY = 0
       const bgWidth = width
@@ -1344,17 +1360,22 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     // Draw text with stroke if provided
     if (effectiveStrokeWidth > 0 && strokeColor && strokeColor.trim().length > 0) {
       ctx2.strokeStyle = strokeColor
-      ctx2.lineWidth = effectiveStrokeWidth * 2
+      // CSS text-stroke is centered on the edge. Canvas lineWidth is also centered.
+      // However, visually 1px CSS often looks thinner than 2px Canvas.
+      // Let's try 1:1 mapping first, as the previous *2 was definitely too thick.
+      ctx2.lineWidth = effectiveStrokeWidth
       ctx2.lineJoin = 'round'
+      ctx2.miterLimit = 2
       lines.forEach((line, idx) => {
-        ctx2.strokeText(line.length > 0 ? line : ' ', paddingX, paddingY + idx * lineHeight + verticalOffset)
+        // Offset by strokeBuffer to ensure we don't clip
+        ctx2.strokeText(line.length > 0 ? line : ' ', paddingX + strokeBuffer, paddingY + idx * lineHeight + verticalOffset + strokeBuffer)
       })
     }
 
     // Draw text fill
     ctx2.fillStyle = color
     lines.forEach((line, idx) => {
-      ctx2.fillText(line.length > 0 ? line : ' ', paddingX, paddingY + idx * lineHeight + verticalOffset)
+      ctx2.fillText(line.length > 0 ? line : ' ', paddingX + strokeBuffer, paddingY + idx * lineHeight + verticalOffset + strokeBuffer)
     })
 
     const blob = await new Promise<Blob>((resolve, reject) => {
@@ -2682,6 +2703,9 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                                   ? `${draftTextStrokeWidth}px ${draftTextStrokeColor}`
                                   : "none",
                                 display: "inline-block",
+                                paintOrder: "stroke fill",
+                                // @ts-ignore - WebKit prefix for paint-order
+                                WebkitPaintOrder: "stroke fill",
                               }}
                             >
                               {draftText}
@@ -2723,11 +2747,11 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                             <label className="block text-sm font-medium text-gray-700 mb-2">Font Weight</label>
                             <select
                               value={draftTextWeight}
-                              onChange={(e) => setDraftTextWeight(e.target.value as '400' | '500' | '600' | '700')}
+                              onChange={(e) => setDraftTextWeight(e.target.value as '300' | '400' | '600' | '700')}
                               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
                             >
+                              <option value="300">Light (300)</option>
                               <option value="400">Regular (400)</option>
-                              <option value="500">Medium (500)</option>
                               <option value="600">Semi Bold (600)</option>
                               <option value="700">Bold (700)</option>
                             </select>
@@ -2915,6 +2939,9 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                             ? `${layerTextStrokeWidth}px ${layerTextStrokeColor}`
                             : "none",
                           display: "inline-block",
+                          paintOrder: "stroke fill",
+                          // @ts-ignore - WebKit prefix for paint-order
+                          WebkitPaintOrder: "stroke fill",
                         }}
                       >
                         {layerTextValue}
@@ -2962,11 +2989,11 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                       <label className="block text-sm font-medium text-gray-700 mb-2">Font Weight</label>
                       <select
                         value={layerTextWeight}
-                        onChange={(e) => setLayerTextWeight(e.target.value as '400' | '500' | '600' | '700')}
+                        onChange={(e) => setLayerTextWeight(e.target.value as '300' | '400' | '600' | '700')}
                         className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
                       >
+                        <option value="300">Light (300)</option>
                         <option value="400">Regular (400)</option>
-                        <option value="500">Medium (500)</option>
                         <option value="600">Semi Bold (600)</option>
                         <option value="700">Bold (700)</option>
                       </select>
