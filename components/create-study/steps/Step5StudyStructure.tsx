@@ -207,7 +207,7 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
     if (hasEmptyCategories) {
       return 'Add at least one image to each category'
     }
-    return 'Next'
+    return 'Save & Next'
   }
   // Hybrid uploader (grid): accumulate single-file adds for 2s, batch upload
   const gridPendingRef = useRef<Array<{ id: string; file: File }>>([])
@@ -914,6 +914,7 @@ type Layer = {
   images: LayerImage[]
   open: boolean
   visible?: boolean
+  layer_type?: 'image' | 'text'
   transform?: { x: number; y: number; width: number; height: number }
 }
 
@@ -957,22 +958,32 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                 textContent: sourceType === 'text'
                   ? ((img as { textContent?: string }).textContent ?? (img as { name?: string }).name ?? '')
                   : undefined,
-                textColor: sourceType === 'text' ? (img as { textColor?: string }).textColor : undefined,
+                textColor: sourceType === 'text' ? ((img as { textColor?: string | null }).textColor ?? undefined) : undefined,
                 textWeight: sourceType === 'text' ? (() => {
-                  const w = (img as { textWeight?: '300' | '400' | '500' | '600' | '700' }).textWeight
+                  const w = (img as { textWeight?: '300' | '400' | '500' | '600' | '700' | null }).textWeight
+                  if (!w) return undefined
                   // Migrate legacy '500' to '400' for compatibility
-                  return w === '500' ? '400' : (w as '300' | '400' | '600' | '700' | undefined)
+                  return w === '500' ? '400' : (w as '300' | '400' | '600' | '700')
                 })() : undefined,
-                textSize: sourceType === 'text' ? (img as { textSize?: number }).textSize : undefined,
+                textSize: sourceType === 'text' ? ((img as { textSize?: number | null }).textSize ?? undefined) : undefined,
                 textFont: sourceType === 'text' ? ((img as { textFont?: string }).textFont || 'Inter') : undefined,
-                textBackgroundColor: sourceType === 'text' ? (img as { textBackgroundColor?: string }).textBackgroundColor : undefined,
-                textBackgroundRadius: sourceType === 'text' ? (img as { textBackgroundRadius?: number }).textBackgroundRadius : undefined,
-                textStrokeColor: sourceType === 'text' ? (img as { textStrokeColor?: string }).textStrokeColor : undefined,
-                textStrokeWidth: sourceType === 'text' ? (img as { textStrokeWidth?: number }).textStrokeWidth : undefined,
+                textBackgroundColor: sourceType === 'text' ? ((img as { textBackgroundColor?: string | null }).textBackgroundColor ?? undefined) : undefined,
+                textBackgroundRadius: sourceType === 'text' ? ((img as { textBackgroundRadius?: number | null }).textBackgroundRadius ?? undefined) : undefined,
+                textStrokeColor: sourceType === 'text' ? ((img as { textStrokeColor?: string | null }).textStrokeColor ?? undefined) : undefined,
+                textStrokeWidth: sourceType === 'text' ? ((img as { textStrokeWidth?: number | null }).textStrokeWidth ?? undefined) : undefined,
               }
             }),
             open: false,
             visible: (l as any).visible !== false,
+            // Restore layer_type from localStorage or calculate from images
+            layer_type: (() => {
+              const savedLayerType = (l as any).layer_type
+              if (savedLayerType === 'text' || savedLayerType === 'image') return savedLayerType
+              // Calculate from images if not saved
+              const hasImages = (l.images || []).length > 0
+              const allText = hasImages && (l.images || []).every((img: any) => (img.sourceType ?? 'upload') === 'text')
+              return allText ? 'text' : 'image'
+            })()
           }))
         }
       }
@@ -1562,7 +1573,8 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
         setLayers(prev => prev.map(l => {
           if (l.id !== layerId) return l
           const images = [...l.images, image]
-          return { ...l, images }
+          const allText = images.every(i => (i.sourceType ?? 'upload') === 'text')
+          return { ...l, images, layer_type: allText ? 'text' : 'image' }
         }))
         setSelectedImageIds(prev => ({ ...prev, [layerId]: imageId }))
       } else {
@@ -1589,7 +1601,8 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
               textStrokeWidth: layerTextStrokeWidth,
             }
           })
-          return { ...l, images: updatedImages }
+          const allText = updatedImages.every(i => (i.sourceType ?? 'upload') === 'text')
+          return { ...l, images: updatedImages, layer_type: allText ? 'text' : 'image' }
         }))
       }
       closeLayerTextModal()
@@ -1656,7 +1669,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
           textStrokeColor: draftTextStrokeColor,
           textStrokeWidth: draftTextStrokeWidth
         }
-        const layer: Layer = { id: layerId, name, description: draftDescription, z: nextZ, images: [layerImage], open: false }
+        const layer: Layer = { id: layerId, name, description: draftDescription, z: nextZ, images: [layerImage], open: false, layer_type: 'text' }
         setLayers(prev => reindexLayers([...prev, layer]))
         resetDraftState()
       } catch (error) {
@@ -1690,7 +1703,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     }))
     const initialName = draftName || `Layer ${nextZ + 1}`
     const name = uniqueLayerName(initialName)
-    const layer: Layer = { id, name, description: draftDescription, z: nextZ, images: imgs, open: false }
+    const layer: Layer = { id, name, description: draftDescription, z: nextZ, images: imgs, open: false, layer_type: 'image' }
     setLayers(prev => reindexLayers([...prev, layer]))
     resetDraftState()
   }
@@ -1783,13 +1796,32 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
             x: typeof img.x === 'number' ? img.x : 0,
             y: typeof img.y === 'number' ? img.y : 0,
             width: typeof img.width === 'number' ? img.width : 100,
-            height: typeof img.height === 'number' ? img.height : 100
+            height: typeof img.height === 'number' ? img.height : 100,
+            config: (img.sourceType ?? 'upload') === 'text' ? {
+              text_content: img.textContent || img.name,
+              text_color: img.textColor,
+              text_weight: img.textWeight,
+              text_size: img.textSize,
+              text_font: img.textFont,
+              text_background_color: img.textBackgroundColor,
+              text_background_radius: img.textBackgroundRadius,
+              text_stroke_color: img.textStrokeColor,
+              text_stroke_width: img.textStrokeWidth,
+              additionalProp1: {}
+            } : undefined
           }))
+
+          // Determine layer_type based on sourceType of images
+          // If all images in the layer have sourceType 'text', mark as 'text', otherwise 'image'
+          const hasImages = (l.images || []).length > 0
+          const allText = hasImages && (l.images || []).every((img: any) => (img.sourceType ?? 'upload') === 'text')
+          const layerType = allText ? 'text' : 'image'
 
           const layerObj: any = {
             layer_id: l.id || crypto.randomUUID(),
             name: l.name || `Layer ${layerIdx + 1}`,
             description: l.description || '',
+            layer_type: layerType,
             z_index: typeof l.z === 'number' ? l.z : layerIdx + (background ? 1 : 0),
             order: typeof l.z === 'number' ? l.z : layerIdx + (background ? 1 : 0),
             images
@@ -1863,7 +1895,8 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
           return newState
         })
       }
-      return { ...layer, images: newImages }
+      const allText = newImages.length > 0 && newImages.every(img => (img.sourceType ?? 'upload') === 'text')
+      return { ...layer, images: newImages, layer_type: allText ? 'text' : 'image' }
     }))
   }
 
@@ -2061,27 +2094,39 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
               height: base.height,
             }
           })(),
-          images: l.images.map(i => ({
-            id: i.id,
-            previewUrl: i.previewUrl,
-            secureUrl: i.secureUrl,
-            name: i.name,
-            x: i.x,
-            y: i.y,
-            width: i.width,
-            height: i.height,
-            sourceType: i.sourceType,
-            textContent: i.textContent ?? i.name ?? '',
-            textColor: i.textColor,
-            textWeight: i.textWeight,
-            textSize: i.textSize,
-            textFont: i.textFont,
-            textBackgroundColor: i.textBackgroundColor,
-            textBackgroundRadius: i.textBackgroundRadius,
-            textStrokeColor: i.textStrokeColor,
-            textStrokeWidth: i.textStrokeWidth
-          })),
-          visible: l.visible !== false
+          images: l.images.map(i => {
+            const imageObj: any = {
+              id: i.id,
+              previewUrl: i.previewUrl,
+              secureUrl: i.secureUrl,
+              name: i.name,
+              x: i.x,
+              y: i.y,
+              width: i.width,
+              height: i.height,
+              sourceType: i.sourceType,
+              textContent: i.textContent ?? i.name ?? ''
+            }
+            // Always include text properties for text-based images
+            if (i.sourceType === 'text') {
+              imageObj.textColor = i.textColor ?? null
+              imageObj.textWeight = i.textWeight ?? null
+              imageObj.textSize = i.textSize ?? null
+              imageObj.textFont = i.textFont ?? 'Inter'
+              imageObj.textBackgroundColor = i.textBackgroundColor ?? null
+              imageObj.textBackgroundRadius = i.textBackgroundRadius ?? null
+              imageObj.textStrokeColor = i.textStrokeColor ?? null
+              imageObj.textStrokeWidth = i.textStrokeWidth ?? null
+            }
+            return imageObj
+          }),
+          visible: l.visible !== false,
+          layer_type: (() => {
+            // Always calculate layer_type from images to ensure it matches content
+            const hasImages = (l.images || []).length > 0
+            const allText = hasImages && (l.images || []).every((img: any) => (img.sourceType ?? 'upload') === 'text')
+            return allText ? 'text' : 'image'
+          })()
         }))
         localStorage.setItem('cs_step5_layer', JSON.stringify(minimal))
       })()
@@ -2449,7 +2494,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img src={img.secureUrl || img.previewUrl} alt="layer" className="w-full h-full object-contain rounded-md" />
                               </div>
-                              {(img.sourceType ?? 'upload') === 'text' && (
+                              {layer.layer_type === 'text' && (
                                 <button
                                   onClick={() => openLayerTextModal(layer.id, { imageId: img.id })}
                                   className="absolute -top-2 -left-2 w-5 h-5 bg-blue-500 text-white rounded-full text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-blue-600 cursor-pointer flex items-center justify-center z-10"
@@ -2464,7 +2509,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                               >
                                 ×
                               </button>
-                              {(img.sourceType ?? 'upload') === 'text' && (
+                              {layer.layer_type === 'text' && (
                                 <button
                                   onClick={(e) => { e.stopPropagation(); duplicateLayerImage(layer.id, img.id) }}
                                   className="absolute -bottom-2 -right-2 w-5 h-5 bg-green-500 text-white rounded-full text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-green-600 cursor-pointer flex items-center justify-center z-10"

@@ -68,6 +68,15 @@ interface LayerImage {
   y?: number
   width?: number
   height?: number
+  text_content?: string
+  text_color?: string
+  text_weight?: string
+  text_size?: number
+  text_font?: string
+  text_background_color?: string
+  text_background_radius?: number
+  text_stroke_color?: string
+  text_stroke_width?: number
 }
 
 interface StudyLayer {
@@ -78,6 +87,7 @@ interface StudyLayer {
   description?: string
   z_index?: number
   z?: number
+  layer_type?: 'image' | 'text'
   images?: LayerImage[]
   transform?: {
     x: number
@@ -263,8 +273,8 @@ const loadDraftStudyData = async (studyId: string) => {
 
         // If transform is an object with x, y, width, height, use it
         if (layerTransform && typeof layerTransform === 'object' &&
-            (typeof layerTransform.x === 'number' || typeof layerTransform.y === 'number' ||
-             typeof layerTransform.width === 'number' || typeof layerTransform.height === 'number')) {
+          (typeof layerTransform.x === 'number' || typeof layerTransform.y === 'number' ||
+            typeof layerTransform.width === 'number' || typeof layerTransform.height === 'number')) {
           layerTransform = {
             x: layerTransform.x ?? 0,
             y: layerTransform.y ?? 0,
@@ -286,19 +296,42 @@ const loadDraftStudyData = async (studyId: string) => {
           name: layer.name || layer.layer_name || `Layer ${layerIdx + 1}`,
           description: layer.description || '',
           z: typeof layer.z_index === 'number' ? layer.z_index : layerIdx,
+          layer_type: layer.layer_type || 'image',
           transform: layerTransform,
-          images: (layer.images || []).map((img: LayerImage, imgIdx: number) => ({
-            id: img.id || img.image_id || `img-${layerIdx}-${imgIdx}`,
-            previewUrl: img.url || '',
-            secureUrl: img.url || '',
-            name: img.name || '',
-            x: typeof img.x === 'number' ? img.x : layerTransform.x,
-            y: typeof img.y === 'number' ? img.y : layerTransform.y,
-            width: typeof img.width === 'number' ? img.width : layerTransform.width,
-            height: typeof img.height === 'number' ? img.height : layerTransform.height,
-            sourceType: 'upload',
-            textContent: img.name || '',
-          }))
+          images: (layer.images || []).map((img: LayerImage, imgIdx: number) => {
+            // Extract config from either top-level or nested config object
+            const config = (img as any).config || {}
+            const textContent = config.text_content || img.text_content || img.name || ''
+            const textColor = config.text_color || img.text_color
+            const textWeight = config.text_weight || img.text_weight
+            const textSize = config.text_size ?? img.text_size
+            const textFont = config.text_font || img.text_font
+            const textBackgroundColor = config.text_background_color || img.text_background_color
+            const textBackgroundRadius = config.text_background_radius ?? img.text_background_radius
+            const textStrokeColor = config.text_stroke_color || img.text_stroke_color
+            const textStrokeWidth = config.text_stroke_width ?? img.text_stroke_width
+
+            return {
+              id: img.id || img.image_id || `img-${layerIdx}-${imgIdx}`,
+              previewUrl: img.url || '',
+              secureUrl: img.url || '',
+              name: img.name || '',
+              x: typeof img.x === 'number' ? img.x : layerTransform.x,
+              y: typeof img.y === 'number' ? img.y : layerTransform.y,
+              width: typeof img.width === 'number' ? img.width : layerTransform.width,
+              height: typeof img.height === 'number' ? img.height : layerTransform.height,
+              sourceType: layer.layer_type === 'text' ? 'text' : 'upload',
+              textContent,
+              textColor,
+              textWeight: textWeight as any,
+              textSize,
+              textFont,
+              textBackgroundColor,
+              textBackgroundRadius,
+              textStrokeColor,
+              textStrokeWidth,
+            }
+          })
         }
       })
       console.log('[LoadDraft] Transformed layers with transform data:', transformedLayers)
@@ -417,12 +450,12 @@ export default function CreateStudyPage() {
         const backupRaw = localStorage.getItem('cs_backup_steps')
         if (backupRaw) {
           const backup = JSON.parse(backupRaw) as Record<string, unknown>
-          const stepKeys = ['cs_step1','cs_step2','cs_step3','cs_step4','cs_step5_grid','cs_step5_layer','cs_step6']
+          const stepKeys = ['cs_step1', 'cs_step2', 'cs_step3', 'cs_step4', 'cs_step5_grid', 'cs_step5_layer', 'cs_step6']
           stepKeys.forEach((k) => {
             if (!localStorage.getItem(k) && backup && Object.prototype.hasOwnProperty.call(backup, k)) {
               const v = backup[k]
               if (v != null) {
-                try { localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v)) } catch {}
+                try { localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v)) } catch { }
               }
             }
           })
@@ -449,11 +482,11 @@ export default function CreateStudyPage() {
           keysToRemove.forEach(key => {
             try {
               localStorage.removeItem(key)
-            } catch {}
+            } catch { }
           })
-        } catch {}
+        } catch { }
       }
-    } catch {}
+    } catch { }
     didRestoreBackupRef.current = true
   }
 
@@ -516,7 +549,7 @@ export default function CreateStudyPage() {
             keysToRemove.forEach(key => {
               try {
                 localStorage.removeItem(key)
-              } catch {}
+              } catch { }
             })
           }
 
@@ -571,7 +604,7 @@ export default function CreateStudyPage() {
           keysToRemove.forEach(key => {
             try {
               localStorage.removeItem(key)
-            } catch {}
+            } catch { }
           })
           // Clear the fresh start flag
           localStorage.removeItem('cs_is_fresh_start')
@@ -608,13 +641,13 @@ export default function CreateStudyPage() {
   // Persist current step for refresh continuity
   useEffect(() => {
     if (typeof window === 'undefined') return
-    try { localStorage.setItem('cs_current_step', String(currentStep)) } catch {}
+    try { localStorage.setItem('cs_current_step', String(currentStep)) } catch { }
   }, [currentStep])
 
   // Periodically snapshot all step keys into a backup to survive accidental clears
   useEffect(() => {
     if (typeof window === 'undefined') return
-    const stepKeys = ['cs_step1','cs_step2','cs_step3','cs_step4','cs_step5_grid','cs_step5_layer','cs_step6']
+    const stepKeys = ['cs_step1', 'cs_step2', 'cs_step3', 'cs_step4', 'cs_step5_grid', 'cs_step5_layer', 'cs_step6']
     const writeBackup = () => {
       try {
         const snapshot: Record<string, unknown> = {}
@@ -623,7 +656,7 @@ export default function CreateStudyPage() {
           if (v != null) snapshot[k] = v
         })
         localStorage.setItem('cs_backup_steps', JSON.stringify(snapshot))
-      } catch {}
+      } catch { }
     }
     const id = window.setInterval(writeBackup, 2000)
     window.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') writeBackup() })
