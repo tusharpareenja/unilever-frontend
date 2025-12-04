@@ -11,7 +11,7 @@ interface StepperProps {
 // Helper function to check if a step is completed based on localStorage data
 function isStepCompleted(stepId: number): boolean {
   if (typeof window === 'undefined') return false
-  
+
   try {
     switch (stepId) {
       case 1: {
@@ -39,15 +39,15 @@ function isStepCompleted(stepId: number): boolean {
         try {
           const parsed = JSON.parse(data)
           if (!Array.isArray(parsed) || parsed.length === 0) return false
-          
+
           return parsed.every((q: any) => {
             // Accept both frontend format (title, options) and backend format (question_text, answer_options)
             const questionText = q.title || q.question_text || ''
             const opts = q.options || q.answer_options || []
-            
+
             // Check if question has text and at least 2 options with text
             return (
-              questionText && 
+              questionText &&
               questionText.trim().length > 0 &&
               Array.isArray(opts) &&
               opts.length >= 2 &&
@@ -62,10 +62,10 @@ function isStepCompleted(stepId: number): boolean {
         const gridData = localStorage.getItem('cs_step5_grid')
         const layerData = localStorage.getItem('cs_step5_layer')
         const step2Data = localStorage.getItem('cs_step2')
-        
+
         if (!step2Data) return false
         const step2 = JSON.parse(step2Data)
-        
+
         if (step2.type === 'grid') {
           if (!gridData) return false
           let grid: any
@@ -74,10 +74,10 @@ function isStepCompleted(stepId: number): boolean {
           } catch {
             return false
           }
-          
+
           // Check if it's the new category format or legacy format
           const isCategoryFormat = grid.length > 0 && grid[0] && grid[0].title && grid[0].elements
-          
+
           if (isCategoryFormat) {
             // New category format: check categories and their elements
             // Accept either secureUrl, previewUrl, or textContent as valid element content
@@ -85,16 +85,16 @@ function isStepCompleted(stepId: number): boolean {
               return Boolean(element && (element.secureUrl || element.previewUrl || element.textContent))
             }
 
-            return Array.isArray(grid) && 
-                   grid.length >= 4 && // Minimum 4 categories (match Step5 limits)
-                   grid.every((category: any) => 
-                     category.title && 
-                     category.title.trim().length > 0 && 
-                     category.elements && 
-                     Array.isArray(category.elements) &&
-                     category.elements.length > 0 &&
-                     category.elements.every((element: any) => hasValidElement(element))
-                   )
+            return Array.isArray(grid) &&
+              grid.length >= 4 && // Minimum 4 categories (match Step5 limits)
+              grid.every((category: any) =>
+                category.title &&
+                category.title.trim().length > 0 &&
+                category.elements &&
+                Array.isArray(category.elements) &&
+                category.elements.length > 0 &&
+                category.elements.every((element: any) => hasValidElement(element))
+              )
           } else {
             // Legacy format: check direct elements (accept previewUrl or secureUrl or text content)
             return Array.isArray(grid) && grid.length > 0 && grid.every((e: any) => (e && (e.secureUrl || e.previewUrl || e.textContent)))
@@ -102,7 +102,7 @@ function isStepCompleted(stepId: number): boolean {
         } else {
           if (!layerData) return false
           const layer = JSON.parse(layerData)
-          return Array.isArray(layer) && layer.length > 0 && layer.every((l: any) => 
+          return Array.isArray(layer) && layer.length > 0 && layer.every((l: any) =>
             l.images && l.images.length > 0 && l.images.every((img: any) => img.secureUrl)
           )
         }
@@ -147,49 +147,49 @@ const steps = [
 export default function Stepper({ currentStep = 5, className = "", onStepChange }: StepperProps) {
   const [refreshKey, setRefreshKey] = useState(0)
   const stepsContainerRef = useRef<HTMLDivElement>(null)
-  
+
   // Listen for localStorage changes to update step completion status
   useEffect(() => {
     const handleStorageChange = () => {
       setRefreshKey(prev => prev + 1)
     }
-    
+
     window.addEventListener('storage', handleStorageChange)
-    
+
     // Also listen for custom events that might indicate localStorage changes
     window.addEventListener('stepDataChanged', handleStorageChange)
-    
+
     return () => {
       window.removeEventListener('storage', handleStorageChange)
       window.removeEventListener('stepDataChanged', handleStorageChange)
     }
   }, [])
-  
+
   // Force re-evaluation of step completion when refreshKey changes
   const isStepCompletedWithRefresh = (stepId: number): boolean => {
     // Use refreshKey to force re-evaluation
     refreshKey // This forces the function to re-run when refreshKey changes
     return isStepCompleted(stepId)
   }
-  
+
   // Auto-scroll to current step on mobile
   useEffect(() => {
     if (!stepsContainerRef.current) return
-    
+
     // Small delay to ensure DOM is fully rendered
     const timeoutId = setTimeout(() => {
       const container = stepsContainerRef.current
       if (!container) return
-      
+
       const currentStepElement = container.children[currentStep - 1] as HTMLElement
-      
+
       if (currentStepElement) {
         const containerRect = container.getBoundingClientRect()
         const stepRect = currentStepElement.getBoundingClientRect()
-        
+
         // Calculate if the step is visible in the container
         const isVisible = stepRect.left >= containerRect.left && stepRect.right <= containerRect.right
-        
+
         if (!isVisible) {
           // Scroll to center the current step
           const scrollLeft = currentStepElement.offsetLeft - (container.offsetWidth / 2) + (currentStepElement.offsetWidth / 2)
@@ -200,21 +200,21 @@ export default function Stepper({ currentStep = 5, className = "", onStepChange 
         }
       }
     }, 100)
-    
+
     return () => clearTimeout(timeoutId)
   }, [currentStep])
-  
+
   const totalSegments = steps.length - 1
   const isLast = currentStep >= steps.length
   const progressWidth = isLast
     ? `calc(100% - 100px)`
     : `calc(${((currentStep - 1) / totalSegments) * 100}% - 100px + ${100 / totalSegments}%)`
   return (
-    <div className={`w-full max-w-6xl mx-auto p-4 ${className}`}>
+    <div className={`w-full max-w-6xl mx-auto p-2 ${className}`}>
       <div className="relative">
         {/* Progress line background */}
         <div
-          className="absolute top-6 left-0 right-0 h-0.5 bg-gray-200 hidden sm:block"
+          className="absolute top-5 left-0 right-0 h-0.5 bg-gray-200 hidden sm:block"
           style={{
             left: "calc(50px)",
             right: "calc(50px)",
@@ -223,7 +223,7 @@ export default function Stepper({ currentStep = 5, className = "", onStepChange 
 
         {/* Progress line filled */}
         <div
-          className="absolute top-6 left-0 h-0.5 bg-[rgba(38,116,186,0.9)] hidden sm:block transition-all duration-300"
+          className="absolute top-5 left-0 h-0.5 bg-[rgba(38,116,186,0.9)] hidden sm:block transition-all duration-300"
           style={{
             left: "calc(50px)",
             width: progressWidth,
@@ -239,13 +239,12 @@ export default function Stepper({ currentStep = 5, className = "", onStepChange 
 
             // Determine if step is clickable
             const isClickable = isCompleted || isCurrent || step.id < currentStep
-            
+
             return (
               <div
                 key={step.id}
-                className={`flex flex-col items-center text-center flex-shrink-0 min-w-[100px] ${
-                  isClickable ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'
-                }`}
+                className={`flex flex-col items-center text-center flex-shrink-0 min-w-[100px] ${isClickable ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'
+                  }`}
                 onClick={() => {
                   if (isClickable) {
                     onStepChange?.(step.id)
@@ -258,16 +257,15 @@ export default function Stepper({ currentStep = 5, className = "", onStepChange 
                 {/* Step circle */}
                 <div
                   className={`
-                  relative z-10 w-12 h-12 rounded-full border-2 flex items-center justify-center text-sm font-medium transition-all duration-300
-                  ${
-                    isCompleted
+                  relative z-10 w-10 h-10 rounded-full border-2 flex items-center justify-center text-sm font-medium transition-all duration-300
+                  ${isCompleted
                       ? "bg-[rgba(38,116,186,1)] border-[rgba(38,116,186,1)] text-white"
                       : isCurrent
                         ? "bg-[rgba(38,116,186,1)] border-[rgba(38,116,186,1)] text-white"
                         : isClickable
                           ? "bg-white border-gray-300 text-gray-500 hover:border-gray-400"
                           : "bg-gray-100 border-gray-200 text-gray-400"
-                  }
+                    }
                 `}
                 >
                   {step.id}
@@ -276,16 +274,15 @@ export default function Stepper({ currentStep = 5, className = "", onStepChange 
                 {/* Step label */}
                 <div
                   className={`
-                  mt-3 text-xs font-medium px-2 leading-tight transition-all duration-300
-                  ${
-                    isCurrent 
-                      ? "text-[rgba(38,116,186,0.9)]" 
-                      : isCompleted 
-                        ? "text-gray-700" 
+                  mt-2 text-xs font-medium px-2 leading-tight transition-all duration-300
+                  ${isCurrent
+                      ? "text-[rgba(38,116,186,0.9)]"
+                      : isCompleted
+                        ? "text-gray-700"
                         : isClickable
                           ? "text-gray-500"
                           : "text-gray-400"
-                  }
+                    }
                 `}
                 >
                   {step.label}

@@ -246,7 +246,7 @@ export async function createStudy(payload: CreateStudyPayload): Promise<{ id: st
   // console.log('Response status:', res.status, res.statusText)
   const data = await res.json().catch(() => ({}))
   // console.log('Response data:', data)
-  
+
   if (!res.ok) {
     const msg = (data && (data.detail || data.message)) || `Create study failed (${res.status})`
     // console.log('=== STUDY CREATION FAILED ===')
@@ -256,7 +256,7 @@ export async function createStudy(payload: CreateStudyPayload): Promise<{ id: st
     // console.log('Response text:', await res.text().catch(() => 'Could not read response text'))
     throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg))
   }
-  
+
   // console.log('=== STUDY CREATION SUCCESS ===')
   // console.log('Created study:', data)
   return data
@@ -293,7 +293,7 @@ function get<T>(key: string, fallback: T): T {
 // Build a CreateStudyPayload from data we persisted across steps
 export function buildStudyPayloadFromLocalStorage(): CreateStudyPayload {
   // console.log('=== BUILDING STUDY PAYLOAD FROM LOCALSTORAGE ===')
-  
+
   const s1 = get("cs_step1", { title: "", description: "", language: "ENGLISH", agree: false }) as any
   const s2 = get("cs_step2", { type: "grid", mainQuestion: "", orientationText: "" }) as any
   const s3 = get("cs_step3", { minValue: 1, maxValue: 5, minLabel: "", maxLabel: "", middleLabel: "" }) as any
@@ -302,7 +302,7 @@ export function buildStudyPayloadFromLocalStorage(): CreateStudyPayload {
   const layerBackground = get<any | null>("cs_step5_layer_background", null)
   const s6 = get("cs_step6", { respondents: 0, countries: [], genderMale: 0, genderFemale: 0, ageSelections: {} }) as any
   const classificationQuestions = get<any[]>("cs_step4", []) // Get classification questions from localStorage
-  
+
   // console.log('Step 1 data:', s1)
   // console.log('Step 2 data:', s2)
   // console.log('Step 3 data:', s3)
@@ -321,15 +321,15 @@ export function buildStudyPayloadFromLocalStorage(): CreateStudyPayload {
   if (s2.type === "grid") {
     console.log('=== BUILDING GRID STUDY ELEMENTS ===')
     console.log('Grid data from localStorage:', JSON.stringify(grid, null, 2))
-    
+
     // Check if using new category format or legacy format
     const isCategoryFormat = grid.length > 0 && grid[0].title && grid[0].elements
     console.log('Is category format:', isCategoryFormat)
-    
+
     if (isCategoryFormat) {
       // New category format: flatten all elements from all categories
       console.log('Processing category format...')
-      
+
       // Build categories array
       categories = grid.map((category: any, catIdx: number) => ({
         category_id: String(category.id || `C${catIdx + 1}`),
@@ -337,7 +337,7 @@ export function buildStudyPayloadFromLocalStorage(): CreateStudyPayload {
         order: catIdx,
       }))
       console.log('Built categories:', categories)
-      
+
       elements = grid
         .flatMap((category: any, catIdx: number) => {
           console.log(`Category ${catIdx} (${category.title}):`, {
@@ -405,17 +405,73 @@ export function buildStudyPayloadFromLocalStorage(): CreateStudyPayload {
     })()
 
     const userLayers = layer.map((l: any, layerIdx: number) => {
-      const imageObjects = l.images?.filter((img: any) => img.secureUrl).map((img: any, imgIdx: number) => {
+      const imageObjects = l.images?.filter((img: any) => img.secureUrl || img.sourceType === 'text').map((img: any, imgIdx: number) => {
         // console.log(`Layer ${layerIdx} Image ${imgIdx}:`, { id: img.id, name: img.name, secureUrl: img.secureUrl })
-        return {
+        const imageObj: any = {
           image_id: img.id || crypto.randomUUID?.() || Math.random().toString(36).slice(2),
           name: img.name || `Image ${imgIdx + 1}`,
           url: img.secureUrl,
           alt_text: img.name || `Image ${imgIdx + 1}`,
           order: imgIdx,
+          ...(typeof img.x === 'number' ? { x: img.x } : {}),
+          ...(typeof img.y === 'number' ? { y: img.y } : {}),
+          ...(typeof img.width === 'number' ? { width: img.width } : {}),
+          ...(typeof img.height === 'number' ? { height: img.height } : {}),
         }
+
+        // Include text properties if this is a text layer - add them at image level AND in config
+        if (img.sourceType === 'text' || l.layer_type === 'text') {
+          // Add properties at image level
+          if (img.htmlContent) imageObj.html_content = img.htmlContent
+          if (img.textContent) imageObj.text_content = img.textContent
+          if (img.textColor) imageObj.text_color = img.textColor
+          if (img.textWeight) imageObj.text_weight = img.textWeight
+          if (typeof img.textSize === 'number') imageObj.text_size = img.textSize
+          if (img.textFont) imageObj.text_font = img.textFont
+          if (img.textBackgroundColor) imageObj.text_background_color = img.textBackgroundColor
+          if (typeof img.textBackgroundRadius === 'number') imageObj.text_background_radius = img.textBackgroundRadius
+          if (img.textStrokeColor) imageObj.text_stroke_color = img.textStrokeColor
+          if (typeof img.textStrokeWidth === 'number') imageObj.text_stroke_width = img.textStrokeWidth
+          if (typeof img.textLetterSpacing === 'number') imageObj.text_letter_spacing = img.textLetterSpacing
+          if (img.textShadowColor) imageObj.text_shadow_color = img.textShadowColor
+          if (typeof img.textShadowBlur === 'number') imageObj.text_shadow_blur = img.textShadowBlur
+          if (typeof img.textShadowOffsetX === 'number') imageObj.text_shadow_offset_x = img.textShadowOffsetX
+          if (typeof img.textShadowOffsetY === 'number') imageObj.text_shadow_offset_y = img.textShadowOffsetY
+          if (img.textFontStyle) imageObj.text_font_style = img.textFontStyle
+          if (img.textDecoration) imageObj.text_decoration = img.textDecoration
+          if (img.textAlign) imageObj.text_align = img.textAlign
+          if (typeof img.textOpacity === 'number') imageObj.text_opacity = img.textOpacity
+          if (typeof img.textRotation === 'number') imageObj.text_rotation = img.textRotation
+
+          // Also add config object for backward compatibility
+          imageObj.config = {
+            text_content: img.textContent || img.htmlContent || '',
+            ...(img.htmlContent ? { html_content: img.htmlContent } : {}),
+            ...(img.textColor ? { text_color: img.textColor } : {}),
+            ...(img.textWeight ? { text_weight: img.textWeight } : {}),
+            ...(typeof img.textSize === 'number' ? { text_size: img.textSize } : {}),
+            ...(img.textFont ? { text_font: img.textFont } : {}),
+            ...(img.textBackgroundColor ? { text_background_color: img.textBackgroundColor } : {}),
+            ...(typeof img.textBackgroundRadius === 'number' ? { text_background_radius: img.textBackgroundRadius } : {}),
+            ...(img.textStrokeColor ? { text_stroke_color: img.textStrokeColor } : {}),
+            ...(typeof img.textStrokeWidth === 'number' ? { text_stroke_width: img.textStrokeWidth } : {}),
+            ...(typeof img.textLetterSpacing === 'number' ? { text_letter_spacing: img.textLetterSpacing } : {}),
+            ...(img.textShadowColor ? { text_shadow_color: img.textShadowColor } : {}),
+            ...(typeof img.textShadowBlur === 'number' ? { text_shadow_blur: img.textShadowBlur } : {}),
+            ...(typeof img.textShadowOffsetX === 'number' ? { text_shadow_offset_x: img.textShadowOffsetX } : {}),
+            ...(typeof img.textShadowOffsetY === 'number' ? { text_shadow_offset_y: img.textShadowOffsetY } : {}),
+            ...(img.textFontStyle ? { text_font_style: img.textFontStyle } : {}),
+            ...(img.textDecoration ? { text_decoration: img.textDecoration } : {}),
+            ...(img.textAlign ? { text_align: img.textAlign } : {}),
+            ...(typeof img.textOpacity === 'number' ? { text_opacity: img.textOpacity } : {}),
+            ...(typeof img.textRotation === 'number' ? { text_rotation: img.textRotation } : {}),
+            additionalProp1: {}
+          }
+        }
+
+        return imageObj
       }) || []
-      
+
       return {
         layer_id: l.id || crypto.randomUUID?.() || Math.random().toString(36).slice(2),
         name: l.name || `Layer ${layerIdx + 1}`,
@@ -433,7 +489,7 @@ export function buildStudyPayloadFromLocalStorage(): CreateStudyPayload {
     .filter((q: any) => q.title && q.title.trim().length > 0) // Only include questions with titles
     .map((q: any, idx: number) => {
       const validOptions = q.options?.filter((opt: any) => opt.text && opt.text.trim().length > 0) || []
-      
+
       return {
         question_id: String(q.id || `Q${idx + 1}`).substring(0, 10), // Truncate to 10 characters
         question_text: q.title || "",
@@ -479,7 +535,7 @@ export function buildStudyPayloadFromLocalStorage(): CreateStudyPayload {
     main_question: s2.mainQuestion || "",
     orientation_text: s2.orientationText || "",
     study_type: (s2.type as StudyType) || "grid",
-    ...( (() => {
+    ...((() => {
       try {
         const map: Record<string, string> = { portrait: '3:4', landscape: '4:3', square: '1:1' }
         const arKey = localStorage.getItem('cs_step5_layer_preview_aspect')
@@ -493,7 +549,7 @@ export function buildStudyPayloadFromLocalStorage(): CreateStudyPayload {
         }
         return value ? { aspect_ratio: value } : {}
       } catch { return {} }
-    })() ),
+    })()),
     rating_scale: {
       min_value: Number(s3.minValue ?? 1),
       max_value: Number(s3.maxValue ?? 5),
@@ -507,7 +563,7 @@ export function buildStudyPayloadFromLocalStorage(): CreateStudyPayload {
       gender_distribution,
       age_distribution,
       ...(aspectRatioFromLS ? { aspect_ratio: aspectRatioFromLS } : {}),
-      ...( (() => {
+      ...((() => {
         if (aspectRatioFromLS) return {}
         try {
           const raw = localStorage.getItem('current_study_details')
@@ -516,7 +572,7 @@ export function buildStudyPayloadFromLocalStorage(): CreateStudyPayload {
           const value = cs?.study_info?.aspect_ratio || cs?.metadata?.aspect_ratio
           return value ? { aspect_ratio: value } : {}
         } catch { return {} }
-      })() ),
+      })()),
     },
     elements,
     study_layers,
@@ -555,7 +611,7 @@ function getAuthHeader(): Record<string, string> {
         if (tokens?.access_token) {
           return { Authorization: `Bearer ${tokens.access_token}` }
         }
-      } catch {}
+      } catch { }
     }
     // 2) Plain token strings under common keys
     const fallbacks = ['auth_token', 'token', 'healiora_access_token', 'access_token']
@@ -588,7 +644,7 @@ export interface TaskGenerationElementPayload {
 
 export interface TaskGenerationPayload {
   study_id?: string
-  last_step?: number 
+  last_step?: number
   title: string
   background: string
   language: string
@@ -642,7 +698,7 @@ export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayl
       if (raw) {
         try { existingStudyId = JSON.parse(raw) } catch { existingStudyId = raw }
       }
-    } catch {}
+    } catch { }
   }
 
   console.log('Task generation payload builder - Step 2:', s2)
@@ -672,16 +728,16 @@ export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayl
   let elements: TaskGenerationElementPayload[] = []
   let categories: TaskGenerationCategoryPayload[] = []
   let study_layers: any[] = []
-  
+
   if ((s2.type as StudyType) === "grid") {
     // Grid mode: check if using new category format or legacy format
     const isCategoryFormat = grid.length > 0 && grid[0].title && grid[0].elements
-    
+
     if (isCategoryFormat) {
       // New category format: build categories and elements with category_id
       console.log('=== CATEGORY FORMAT DEBUG ===')
       console.log('Grid data:', JSON.stringify(grid, null, 2))
-      
+
       categories = grid.map((category: any, catIdx: number) => {
         const categoryId = String(category.id || `C${catIdx + 1}`).slice(0, 36)
         console.log(`Category ${catIdx}:`, {
@@ -704,7 +760,7 @@ export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayl
             category_id: categoryId,
             elements: category.elements?.length || 0
           })
-          
+
           return (category.elements || [])
             .filter((e: any) => Boolean(e?.secureUrl))
             .map((e: any, elIdx: number) => {
@@ -724,7 +780,7 @@ export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayl
               }
             })
         })
-        
+
       console.log('=== END CATEGORY FORMAT DEBUG ===')
     } else {
       // Legacy format: create a default category and use elements array directly
@@ -750,14 +806,70 @@ export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayl
   } else {
     // Layer mode: use study_layers array
     study_layers = layer.map((l: any, layerIdx: number) => {
-      const imageObjects = l.images?.filter((img: any) => img.secureUrl).map((img: any, imgIdx: number) => {
-        return {
+      const imageObjects = l.images?.filter((img: any) => img.secureUrl || img.sourceType === 'text').map((img: any, imgIdx: number) => {
+        const imageObj: any = {
           image_id: img.id || crypto.randomUUID?.() || Math.random().toString(36).slice(2),
           name: img.name || `Image ${imgIdx + 1}`,
           url: img.secureUrl,
           alt_text: img.name || `Image ${imgIdx + 1}`,
           order: imgIdx,
+          ...(typeof img.x === 'number' ? { x: img.x } : {}),
+          ...(typeof img.y === 'number' ? { y: img.y } : {}),
+          ...(typeof img.width === 'number' ? { width: img.width } : {}),
+          ...(typeof img.height === 'number' ? { height: img.height } : {}),
         }
+
+        // Include text properties if this is a text layer - add them at image level AND in config
+        if (img.sourceType === 'text' || l.layer_type === 'text') {
+          // Add properties at image level
+          if (img.htmlContent) imageObj.html_content = img.htmlContent
+          if (img.textContent) imageObj.text_content = img.textContent
+          if (img.textColor) imageObj.text_color = img.textColor
+          if (img.textWeight) imageObj.text_weight = img.textWeight
+          if (typeof img.textSize === 'number') imageObj.text_size = img.textSize
+          if (img.textFont) imageObj.text_font = img.textFont
+          if (img.textBackgroundColor) imageObj.text_background_color = img.textBackgroundColor
+          if (typeof img.textBackgroundRadius === 'number') imageObj.text_background_radius = img.textBackgroundRadius
+          if (img.textStrokeColor) imageObj.text_stroke_color = img.textStrokeColor
+          if (typeof img.textStrokeWidth === 'number') imageObj.text_stroke_width = img.textStrokeWidth
+          if (typeof img.textLetterSpacing === 'number') imageObj.text_letter_spacing = img.textLetterSpacing
+          if (img.textShadowColor) imageObj.text_shadow_color = img.textShadowColor
+          if (typeof img.textShadowBlur === 'number') imageObj.text_shadow_blur = img.textShadowBlur
+          if (typeof img.textShadowOffsetX === 'number') imageObj.text_shadow_offset_x = img.textShadowOffsetX
+          if (typeof img.textShadowOffsetY === 'number') imageObj.text_shadow_offset_y = img.textShadowOffsetY
+          if (img.textFontStyle) imageObj.text_font_style = img.textFontStyle
+          if (img.textDecoration) imageObj.text_decoration = img.textDecoration
+          if (img.textAlign) imageObj.text_align = img.textAlign
+          if (typeof img.textOpacity === 'number') imageObj.text_opacity = img.textOpacity
+          if (typeof img.textRotation === 'number') imageObj.text_rotation = img.textRotation
+
+          // Also add config object for backward compatibility
+          imageObj.config = {
+            text_content: img.textContent || img.htmlContent || '',
+            ...(img.htmlContent ? { html_content: img.htmlContent } : {}),
+            ...(img.textColor ? { text_color: img.textColor } : {}),
+            ...(img.textWeight ? { text_weight: img.textWeight } : {}),
+            ...(typeof img.textSize === 'number' ? { text_size: img.textSize } : {}),
+            ...(img.textFont ? { text_font: img.textFont } : {}),
+            ...(img.textBackgroundColor ? { text_background_color: img.textBackgroundColor } : {}),
+            ...(typeof img.textBackgroundRadius === 'number' ? { text_background_radius: img.textBackgroundRadius } : {}),
+            ...(img.textStrokeColor ? { text_stroke_color: img.textStrokeColor } : {}),
+            ...(typeof img.textStrokeWidth === 'number' ? { text_stroke_width: img.textStrokeWidth } : {}),
+            ...(typeof img.textLetterSpacing === 'number' ? { text_letter_spacing: img.textLetterSpacing } : {}),
+            ...(img.textShadowColor ? { text_shadow_color: img.textShadowColor } : {}),
+            ...(typeof img.textShadowBlur === 'number' ? { text_shadow_blur: img.textShadowBlur } : {}),
+            ...(typeof img.textShadowOffsetX === 'number' ? { text_shadow_offset_x: img.textShadowOffsetX } : {}),
+            ...(typeof img.textShadowOffsetY === 'number' ? { text_shadow_offset_y: img.textShadowOffsetY } : {}),
+            ...(img.textFontStyle ? { text_font_style: img.textFontStyle } : {}),
+            ...(img.textDecoration ? { text_decoration: img.textDecoration } : {}),
+            ...(img.textAlign ? { text_align: img.textAlign } : {}),
+            ...(typeof img.textOpacity === 'number' ? { text_opacity: img.textOpacity } : {}),
+            ...(typeof img.textRotation === 'number' ? { text_rotation: img.textRotation } : {}),
+            additionalProp1: {}
+          }
+        }
+
+        return imageObj
       }) || []
       // Derive layer-level transform from first image (percentages) if present
       const first = Array.isArray(l.images) && l.images.length > 0 ? l.images[0] : null
@@ -784,7 +896,7 @@ export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayl
   const s1 = get("cs_step1", { title: "", description: "", language: "ENGLISH" }) as any
   const s3 = get("cs_step3", { minValue: 1, maxValue: 5, minLabel: "", maxLabel: "", middleLabel: "" }) as any
   const s4 = get("cs_step4", []) as any[] // Classification questions
-  
+
   const language = (s1.language || "en").toString().toLowerCase().startsWith("en") ? "en" : s1.language || "en"
   const aspectRatioFromLS2 = (() => {
     try {
@@ -793,13 +905,13 @@ export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayl
       return ar && map[ar] ? map[ar] : undefined
     } catch { return undefined }
   })()
-  
+
   // Build classification questions
   const classification_questions = s4
     .filter((q: any) => q.title && q.title.trim().length > 0)
     .map((q: any, idx: number) => {
       const validOptions = q.options?.filter((opt: any) => opt.text && opt.text.trim().length > 0) || []
-      
+
       return {
         question_id: String(q.id || `Q${idx + 1}`).substring(0, 10),
         question_text: q.title || "",
@@ -844,16 +956,16 @@ export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayl
     ...(((layerBackground && (layerBackground.secureUrl || layerBackground.previewUrl))) && {
       background_image_url: String(layerBackground.secureUrl || layerBackground.previewUrl)
     }),
-    ...( (() => {
+    ...((() => {
       try {
         const ar = localStorage.getItem('cs_step5_layer_preview_aspect')
         const map: Record<string, string> = { portrait: '3:4', landscape: '4:3', square: '1:1' }
         const value = ar && map[ar] ? map[ar] : undefined
         return value ? { aspect_ratio: value } : {}
       } catch { return {} }
-    })() )
+    })())
   }
-  
+
   console.log('Task generation payload:', payload)
   console.log('Task generation payload - Study ID included:', !!payload.study_id, payload.study_id)
   return payload
@@ -885,17 +997,17 @@ export async function generateTasks(payload: TaskGenerationPayload): Promise<any
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   })
-  
+
   console.log('=== TASK GENERATION API RESPONSE ===')
   console.log('Response Status:', res.status, res.statusText)
-  
+
   const text = await res.text().catch(() => "")
   let data: any = {}
   try { data = text ? JSON.parse(text) : {} } catch { data = { detail: text } }
-  
+
   console.log('Response Data:', data)
   console.log('=== END TASK GENERATION RESPONSE ===')
-  
+
   if (!res.ok) {
     const msg = (data && (data.detail || data.message)) || text || `Generate tasks failed (${res.status})`
     console.log('=== TASK GENERATION ERROR ===')
@@ -913,11 +1025,11 @@ export async function generateTasks(payload: TaskGenerationPayload): Promise<any
 export async function regenerateTasksForStudy(studyId: string): Promise<any> {
   console.log('=== HTTP REQUEST TO /studies/{id}/regenerate-tasks ===')
   console.log('URL:', `${API_BASE_URL}/studies/${studyId}/regenerate-tasks`)
-  
+
   // Build the same payload as generate tasks
   const taskGenerationPayload = buildTaskGenerationPayloadFromLocalStorage()
   console.log('Regenerate tasks payload:', JSON.stringify(taskGenerationPayload, null, 2))
-  
+
   const res = await fetchWithAuth(`${API_BASE_URL}/studies/${studyId}/regenerate-tasks`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -1003,39 +1115,39 @@ export async function cancelTaskGeneration(jobId: string): Promise<any> {
 
 // Poll job status with adaptive intervals - faster when close to completion
 export async function pollJobStatus(
-  jobId: string, 
+  jobId: string,
   onProgress?: (status: JobStatus) => void,
   baseIntervalDelay: number = 5000
 ): Promise<JobStatus> {
   console.log(`🔄 Starting adaptive job polling for job ${jobId} (base interval: ${baseIntervalDelay}ms)`)
-  
+
   let attempt = 1
   let lastProgress = 0
   let consecutiveHighProgressChecks = 0
-  
+
   while (true) {
     try {
       const status = await getTaskGenerationStatus(jobId)
       const currentProgress = typeof status?.progress === 'number' ? status.progress : 0
       console.log(`📊 Job status (attempt ${attempt}):`, status.status, currentProgress ? `${currentProgress}%` : '')
-      
+
       if (onProgress) {
         onProgress(status)
       }
-      
+
       if (status.status === 'completed') {
         console.log('✅ Job completed successfully')
         return status
       }
-      
+
       if (status.status === 'failed') {
         console.error('❌ Job failed:', status.error)
         throw new Error(status.error || 'Job failed')
       }
-      
+
       // Adaptive polling: faster when progress is high
       let intervalDelay = baseIntervalDelay
-      
+
       // If progress reaches 100%, immediately try result endpoint
       if (currentProgress >= 100) {
         console.log(`🎯 Progress at 100%, immediately checking result endpoint...`)
@@ -1061,7 +1173,7 @@ export async function pollJobStatus(
         intervalDelay = 1000
         consecutiveHighProgressChecks++
         console.log(`⚡ High progress detected (${currentProgress}%), fast polling: ${intervalDelay}ms`)
-        
+
         // If progress reaches 99%+, try result endpoint proactively every 2 checks
         if (currentProgress >= 99 && consecutiveHighProgressChecks >= 2) {
           console.log(`🔍 Progress at ${currentProgress}%, proactively checking result endpoint...`)
@@ -1082,7 +1194,7 @@ export async function pollJobStatus(
           }
           consecutiveHighProgressChecks = 0 // Reset counter after proactive check
         }
-      } 
+      }
       // If progress >= 90%, poll every 2 seconds
       else if (currentProgress >= 90) {
         intervalDelay = 2000
@@ -1093,17 +1205,17 @@ export async function pollJobStatus(
         intervalDelay = 3000
       }
       // Otherwise use base interval (5 seconds)
-      
+
       lastProgress = currentProgress
-      
+
       // Wait with adaptive delay before next check
       console.log(`⏳ Waiting ${intervalDelay}ms before next check...`)
       await new Promise(resolve => setTimeout(resolve, intervalDelay))
       attempt++
-      
+
     } catch (error) {
       console.error(`❌ Error checking job status (attempt ${attempt}):`, error)
-      
+
       // Wait before retry (use base interval for errors)
       console.log(`⏳ Retrying in ${baseIntervalDelay}ms...`)
       await new Promise(resolve => setTimeout(resolve, baseIntervalDelay))
@@ -1119,27 +1231,27 @@ export async function generateTasksWithPolling(
   onProgress?: (status: JobStatus) => void
 ): Promise<any> {
   console.log('=== TASK GENERATION WITH BACKGROUND JOB SUPPORT ===')
-  
+
   // First, try the immediate generation
   try {
     const immediateResult = await generateTasks(payload)
     console.log('=== TASK GENERATION IMMEDIATE RESULT ===')
-    try { console.log('Immediate result keys:', Object.keys(immediateResult || {})) } catch {}
-    try { console.log('Immediate result.metadata:', (immediateResult as any)?.metadata) } catch {}
+    try { console.log('Immediate result keys:', Object.keys(immediateResult || {})) } catch { }
+    try { console.log('Immediate result.metadata:', (immediateResult as any)?.metadata) } catch { }
     // Extract job id from multiple possible locations (root, metadata, data)
-    const jobId = (immediateResult as any)?.job_id 
-      || (immediateResult as any)?.metadata?.job_id 
+    const jobId = (immediateResult as any)?.job_id
+      || (immediateResult as any)?.metadata?.job_id
       || (immediateResult as any)?.data?.job_id
     console.log('Computed jobId:', jobId)
 
     // Check if the response indicates a background job was started
     const statusHint: string | undefined = (immediateResult as any)?.metadata?.status || (immediateResult as any)?.status
-    if (jobId || (statusHint && ['started','pending','processing'].includes(statusHint))) {
+    if (jobId || (statusHint && ['started', 'pending', 'processing'].includes(statusHint))) {
       const effectiveJobId = String(jobId || (immediateResult as any)?.metadata?.job_id || (immediateResult as any)?.data?.job_id)
-      
+
       // Store study_id immediately when background job starts (for page refresh resilience)
-      const immediateStudyId = (immediateResult as any)?.study_id 
-        || (immediateResult as any)?.metadata?.study_id 
+      const immediateStudyId = (immediateResult as any)?.study_id
+        || (immediateResult as any)?.metadata?.study_id
         || (immediateResult as any)?.data?.study_id
       if (immediateStudyId) {
         console.log('[API] Storing study_id immediately when background job starts:', immediateStudyId)
@@ -1149,7 +1261,7 @@ export async function generateTasksWithPolling(
           console.warn('Failed to store study_id immediately:', storageError)
         }
       }
-      
+
       console.log('🔄 Background job started, polling for completion...')
       const finalStatus = await pollJobStatus(effectiveJobId, onProgress, 5000) // 5 second interval
       if (finalStatus.status === 'completed') {
@@ -1163,7 +1275,7 @@ export async function generateTasksWithPolling(
           respondents: result?.metadata?.number_of_respondents,
           study_id: result?.study_id || result?.metadata?.study_id
         })
-        
+
         // Store study_id from result if available
         const studyId = result?.study_id || result?.metadata?.study_id
         if (studyId) {
@@ -1174,15 +1286,15 @@ export async function generateTasksWithPolling(
             console.warn('Failed to store study_id:', storageError)
           }
         }
-        
+
         return result
       }
       return finalStatus
     }
-    
+
     // If no job_id, return immediate result
     return immediateResult
-    
+
   } catch (error) {
     console.error('Task generation failed:', error)
     throw error
@@ -1321,25 +1433,25 @@ export async function updateStudyStatus(studyId: string, status: "active" | "pau
   console.log('=== HTTP REQUEST TO /studies/{id} (PATCH) ===')
   console.log('URL:', `${API_BASE_URL}/studies/${studyId}`)
   console.log('Status update:', status)
-  
+
   const payload: UpdateStudyStatusPayload = { status }
-  
+
   const res = await fetchWithAuth(`${API_BASE_URL}/studies/${studyId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   })
-  
+
   const text = await res.text().catch(() => "")
   let data: any = {}
   try { data = text ? JSON.parse(text) : {} } catch { data = { detail: text } }
-  
+
   if (!res.ok) {
     const msg = (data && (data.detail || data.message)) || text || `Update study status failed (${res.status})`
     // console.log('Update study status error:', msg, data)
     throw Object.assign(new Error(typeof msg === 'string' ? msg : JSON.stringify(msg)), { status: res.status, data })
   }
-  
+
   // console.log('Update study status success:', data)
   return data
 }
@@ -1404,7 +1516,7 @@ export async function putUpdateStudy(studyId: string, payload: UpdateStudyPutPay
     console.log('[API] PUT study update error - Payload was:', JSON.stringify(safePayload, null, 2))
     throw Object.assign(new Error(typeof msg === 'string' ? msg : JSON.stringify(msg)), { status: res.status, data })
   }
-  
+
   // console.log('PUT study update success:', data)
   return data
 }
@@ -1420,46 +1532,46 @@ export function putUpdateStudyAsync(studyId: string, payload: UpdateStudyPutPayl
 export async function getStudyDetailsWithoutAuth(studyId: string): Promise<StudyDetails> {
   // console.log('=== HTTP REQUEST TO /studies/blic/{id} ===')
   // console.log('URL:', `${API_BASE_URL}/studies/public/${studyId}`)
-  
+
   const res = await fetch(`${API_BASE_URL}/studies/public/${studyId}`, {
     method: "GET",
     headers: { "Content-Type": "application/json" },
   })
-  
+
   const text = await res.text().catch(() => "")
   let data: any = {}
   try { data = text ? JSON.parse(text) : {} } catch { data = { detail: text } }
-  
+
   if (!res.ok) {
     const msg = (data && (data.detail || data.message)) || text || `Get study details failed (${res.status})`
     // console.log('Get study details error:', msg, data)
     throw Object.assign(new Error(typeof msg === 'string' ? msg : JSON.stringify(msg)), { status: res.status, data })
   }
-  
+
   // console.log('Get study details success:', data)
   return data
 }
 
 // Get study details for start study flow (uses new endpoint)
 export async function getStudyDetailsForStart(studyId: string): Promise<StudyDetails> {
-    // console.log('=== HTTP REQUEST TO /studies/public/{id}/details ===')
-    // console.log('URL:', `${API_BASE_URL}/studies/public/${studyId}/details`)
-  
+  // console.log('=== HTTP REQUEST TO /studies/public/{id}/details ===')
+  // console.log('URL:', `${API_BASE_URL}/studies/public/${studyId}/details`)
+
   const res = await fetch(`${API_BASE_URL}/studies/public/${studyId}/details`, {
     method: "GET",
     headers: { "Content-Type": "application/json" },
   })
-  
+
   const text = await res.text().catch(() => "")
   let data: any = {}
   try { data = text ? JSON.parse(text) : {} } catch { data = { detail: text } }
-  
+
   if (!res.ok) {
     const msg = (data && (data.detail || data.message)) || text || `Get study details failed (${res.status})`
     // console.log('Get study details error:', msg, data)
     throw Object.assign(new Error(typeof msg === 'string' ? msg : JSON.stringify(msg)), { status: res.status, data })
   }
-  
+
   // console.log('Get study details success:', data)
   return data
 }
@@ -1470,16 +1582,16 @@ export async function getPrivateStudyDetails(studyId: string): Promise<StudyDeta
     method: "GET",
     headers: { "Content-Type": "application/json" },
   })
-  
+
   const text = await res.text().catch(() => "")
   let data: any = {}
   try { data = text ? JSON.parse(text) : {} } catch { data = { detail: text } }
-  
+
   if (!res.ok) {
     const msg = (data && (data.detail || data.message)) || text || `Get private study details failed (${res.status})`
     throw Object.assign(new Error(typeof msg === 'string' ? msg : JSON.stringify(msg)), { status: res.status, data })
   }
-  
+
   return data
 }
 
@@ -1500,16 +1612,16 @@ export async function checkStudyOwnership(studyId: string): Promise<{ is_owner: 
     method: "GET",
     headers: { "Content-Type": "application/json" },
   })
-  
+
   const text = await res.text().catch(() => "")
   let data: any = {}
   try { data = text ? JSON.parse(text) : {} } catch { data = { detail: text } }
-  
+
   if (!res.ok) {
     const msg = (data && (data.detail || data.message)) || text || `Check study ownership failed (${res.status})`
     throw Object.assign(new Error(typeof msg === 'string' ? msg : JSON.stringify(msg)), { status: res.status, data })
   }
-  
+
   return {
     is_owner: data.is_owner === true,
     is_active: data.is_active === true
@@ -1551,10 +1663,10 @@ export async function getStudies(page: number = 1, per_page: number = 1000): Pro
   }
 
   const data = await response.json()
-  
+
   // Debug: Log the response structure
 
-  
+
   // Handle different response structures
   if (Array.isArray(data)) {
     return data

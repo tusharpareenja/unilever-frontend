@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment, useEffect, useRef, useState } from "react"
+import { Fragment, useEffect, useRef, useState, forwardRef } from "react"
 import { Rnd } from "react-rnd"
 import { Button } from "@/components/ui/button"
 import { uploadImages, putUpdateStudyAsync, putUpdateStudy, buildStudyPayloadFromLocalStorage } from "@/lib/api/StudyAPI"
@@ -73,6 +73,13 @@ function LargePreview({ background, layers, aspect }: { background: { secureUrl?
           const heightPct = Math.max(1, Math.min(100, Number(base.height ?? 100)))
           const leftPct = Math.max(0, Math.min(100 - widthPct, Number(base.x ?? 0)))
           const topPct = Math.max(0, Math.min(100 - heightPct, Number(base.y ?? 0)))
+          // Compute displayed pixel size. If the layer image includes captured pixel dimensions, prefer those.
+          const iw = imgRef.current?.naturalWidth || fit.width || 1
+          const ih = imgRef.current?.naturalHeight || fit.height || 1
+          const displayWidth = base.pixelWidth ? (base.pixelWidth * (fit.width / iw)) : (widthPct / 100 * fit.width)
+          const displayHeight = base.pixelHeight ? (base.pixelHeight * (fit.height / ih)) : (heightPct / 100 * fit.height)
+          const leftPx = (leftPct / 100) * fit.width
+          const topPx = (topPct / 100) * fit.height
           return (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -83,10 +90,10 @@ function LargePreview({ background, layers, aspect }: { background: { secureUrl?
               style={{
                 zIndex: l.z ?? 0,
                 position: 'absolute',
-                top: `${topPct}%`,
-                left: `${leftPct}%`,
-                width: `${widthPct}%`,
-                height: `${heightPct}%`,
+                top: `${topPx}px`,
+                left: `${leftPx}px`,
+                width: `${displayWidth}px`,
+                height: `${displayHeight}px`,
               }}
             />
           )
@@ -481,6 +488,7 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
 
         // Build payload directly from uploaded categories to ensure all secureUrls are present
         // Map to backend contract: ElementPayload and CategoryPayload
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const updatePayload: any = { study_type: 'grid' }
         const categoriesToSend = uploadedCategories && uploadedCategories.length > 0 ? uploadedCategories : categories
 
@@ -894,8 +902,12 @@ type LayerImage = {
   y?: number // Position y (percentage of container height)
   width?: number // Width (percentage of container width)
   height?: number // Height (percentage of container height)
+  // Exact captured pixel dimensions of the exported image (at scale=1)
+  pixelWidth?: number
+  pixelHeight?: number
   sourceType?: "text" | "upload"
   textContent?: string
+  htmlContent?: string // For rich text
   textColor?: string
   textWeight?: '300' | '400' | '600' | '700'
   textSize?: number
@@ -904,6 +916,16 @@ type LayerImage = {
   textBackgroundRadius?: number
   textStrokeColor?: string
   textStrokeWidth?: number
+  textLetterSpacing?: number
+  textShadowColor?: string
+  textShadowBlur?: number
+  textShadowOffsetX?: number
+  textShadowOffsetY?: number
+  textFontStyle?: 'normal' | 'italic'
+  textDecoration?: 'none' | 'underline' | 'line-through'
+  textAlign?: 'left' | 'center' | 'right' | 'justify'
+  textOpacity?: number
+  textRotation?: number
 }
 
 type Layer = {
@@ -930,9 +952,9 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     try {
       const raw = localStorage.getItem('cs_step5_layer')
       if (raw) {
-        const saved = JSON.parse(raw) as Array<{ id: string; name: string; description?: string; z: number; transform?: { x: number; y: number; width: number; height: number }; images: Array<{ id: string; previewUrl?: string; secureUrl?: string; name?: string; x?: number; y?: number; width?: number; height?: number; sourceType?: 'text' | 'upload'; textContent?: string; textColor?: string; textWeight?: '400' | '500' | '600' | '700'; textSize?: number; textFont?: string; textBackgroundColor?: string; textBackgroundRadius?: number; textStrokeColor?: string; textStrokeWidth?: number }> }>
+        const saved = JSON.parse(raw) as Layer[]
         if (Array.isArray(saved)) {
-          return saved.map((l, idx) => ({
+          return saved.map((l, idx): Layer => ({
             id: l.id || crypto.randomUUID(),
             name: l.name || `Layer ${idx + 1}`,
             description: l.description || "",
@@ -943,17 +965,19 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
               width: typeof l.transform.width === 'number' ? l.transform.width : 100,
               height: typeof l.transform.height === 'number' ? l.transform.height : 100,
             } : undefined,
-            images: (l.images || []).map((img, imgIdx) => {
+            images: (l.images || []).map((img, imgIdx): LayerImage => {
               const sourceType = ((img as { sourceType?: 'text' | 'upload' }).sourceType === 'text' ? 'text' : 'upload') as 'text' | 'upload'
               return {
                 id: img.id || crypto.randomUUID(),
                 previewUrl: img.previewUrl || img.secureUrl || '',
                 secureUrl: img.secureUrl,
                 name: img.name || `Image ${imgIdx + 1}`,
-                x: img.x ?? 0, // Default to 0% from left (same as background)
-                y: img.y ?? 0, // Default to 0% from top (same as background)
-                width: img.width ?? 100, // Default to 100% width (same as background)
-                height: img.height ?? 100, // Default to 100% height (same as background)
+                x: img.x ?? 0,
+                y: img.y ?? 0,
+                width: img.width ?? 100,
+                height: img.height ?? 100,
+                pixelWidth: (img as any).pixelWidth ?? undefined,
+                pixelHeight: (img as any).pixelHeight ?? undefined,
                 sourceType,
                 textContent: sourceType === 'text'
                   ? ((img as { textContent?: string }).textContent ?? (img as { name?: string }).name ?? '')
@@ -962,7 +986,6 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                 textWeight: sourceType === 'text' ? (() => {
                   const w = (img as { textWeight?: '300' | '400' | '500' | '600' | '700' | null }).textWeight
                   if (!w) return undefined
-                  // Migrate legacy '500' to '400' for compatibility
                   return w === '500' ? '400' : (w as '300' | '400' | '600' | '700')
                 })() : undefined,
                 textSize: sourceType === 'text' ? ((img as { textSize?: number | null }).textSize ?? undefined) : undefined,
@@ -971,20 +994,29 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                 textBackgroundRadius: sourceType === 'text' ? ((img as { textBackgroundRadius?: number | null }).textBackgroundRadius ?? undefined) : undefined,
                 textStrokeColor: sourceType === 'text' ? ((img as { textStrokeColor?: string | null }).textStrokeColor ?? undefined) : undefined,
                 textStrokeWidth: sourceType === 'text' ? ((img as { textStrokeWidth?: number | null }).textStrokeWidth ?? undefined) : undefined,
-              }
+                textLetterSpacing: sourceType === 'text' ? ((img as { textLetterSpacing?: number | null }).textLetterSpacing ?? undefined) : undefined,
+                textShadowColor: sourceType === 'text' ? ((img as { textShadowColor?: string | null }).textShadowColor ?? undefined) : undefined,
+                textShadowBlur: sourceType === 'text' ? ((img as { textShadowBlur?: number | null }).textShadowBlur ?? undefined) : undefined,
+                textShadowOffsetX: sourceType === 'text' ? ((img as { textShadowOffsetX?: number | null }).textShadowOffsetX ?? undefined) : undefined,
+                textShadowOffsetY: sourceType === 'text' ? ((img as { textShadowOffsetY?: number | null }).textShadowOffsetY ?? undefined) : undefined,
+                textFontStyle: sourceType === 'text' ? ((img as { textFontStyle?: string | null }).textFontStyle ?? undefined) : undefined,
+                textDecoration: sourceType === 'text' ? ((img as { textDecoration?: string | null }).textDecoration ?? undefined) : undefined,
+                textAlign: sourceType === 'text' ? ((img as { textAlign?: string | null }).textAlign ?? undefined) : undefined,
+                textOpacity: sourceType === 'text' ? ((img as { textOpacity?: number | null }).textOpacity ?? undefined) : undefined,
+                textRotation: sourceType === 'text' ? ((img as { textRotation?: number | null }).textRotation ?? undefined) : undefined,
+                htmlContent: sourceType === 'text' ? ((img as { htmlContent?: string | null }).htmlContent ?? undefined) : undefined,
+              } as LayerImage
             }),
             open: false,
             visible: (l as any).visible !== false,
-            // Restore layer_type from localStorage or calculate from images
             layer_type: (() => {
               const savedLayerType = (l as any).layer_type
               if (savedLayerType === 'text' || savedLayerType === 'image') return savedLayerType
-              // Calculate from images if not saved
               const hasImages = (l.images || []).length > 0
               const allText = hasImages && (l.images || []).every((img: any) => (img.sourceType ?? 'upload') === 'text')
               return allText ? 'text' : 'image'
             })()
-          }))
+          } as Layer))
         }
       }
     } catch { }
@@ -1010,11 +1042,24 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
   const [draftTextBackgroundRadius, setDraftTextBackgroundRadius] = useState(0)
   const [draftTextStrokeColor, setDraftTextStrokeColor] = useState("#000000")
   const [draftTextStrokeWidth, setDraftTextStrokeWidth] = useState(1)
+  const [draftTextLetterSpacing, setDraftTextLetterSpacing] = useState(0)
+  const [draftTextShadowColor, setDraftTextShadowColor] = useState("#000000")
+  const [draftTextShadowBlur, setDraftTextShadowBlur] = useState(0)
+  const [draftTextShadowOffsetX, setDraftTextShadowOffsetX] = useState(0)
+  const [draftTextShadowOffsetY, setDraftTextShadowOffsetY] = useState(0)
+  const [draftTextFontStyle, setDraftTextFontStyle] = useState<'normal' | 'italic'>('normal')
+  const [draftTextDecoration, setDraftTextDecoration] = useState<'none' | 'underline' | 'line-through'>('none')
+  const [draftTextAlign, setDraftTextAlign] = useState<'left' | 'center' | 'right' | 'justify'>('left')
+  const [draftTextOpacity, setDraftTextOpacity] = useState(100)
+  const [draftTextRotation, setDraftTextRotation] = useState(0)
+  const [draftHtmlContent, setDraftHtmlContent] = useState("")
+
   const [draftSaving, setDraftSaving] = useState(false)
   const [draftError, setDraftError] = useState<string | null>(null)
   const [layerAddMenu, setLayerAddMenu] = useState<string | null>(null)
   const [showLayerTextModal, setShowLayerTextModal] = useState<LayerTextModalState | null>(null)
   const [layerTextValue, setLayerTextValue] = useState("")
+  const [layerHtmlContent, setLayerHtmlContent] = useState("")
   const [layerTextColor, setLayerTextColor] = useState("#000000")
   const [layerTextWeight, setLayerTextWeight] = useState<'300' | '400' | '600' | '700'>('600')
   const [layerTextSize, setLayerTextSize] = useState(100)
@@ -1023,8 +1068,22 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
   const [layerTextBackgroundRadius, setLayerTextBackgroundRadius] = useState(0)
   const [layerTextStrokeColor, setLayerTextStrokeColor] = useState("#000000")
   const [layerTextStrokeWidth, setLayerTextStrokeWidth] = useState(1)
+  const [layerTextLetterSpacing, setLayerTextLetterSpacing] = useState(0)
+  const [layerTextShadowColor, setLayerTextShadowColor] = useState("#000000")
+  const [layerTextShadowBlur, setLayerTextShadowBlur] = useState(0)
+  const [layerTextShadowOffsetX, setLayerTextShadowOffsetX] = useState(0)
+  const [layerTextShadowOffsetY, setLayerTextShadowOffsetY] = useState(0)
+  const [layerTextFontStyle, setLayerTextFontStyle] = useState<'normal' | 'italic'>('normal')
+  const [layerTextDecoration, setLayerTextDecoration] = useState<'none' | 'underline' | 'line-through'>('none')
+  const [layerTextAlign, setLayerTextAlign] = useState<'left' | 'center' | 'right' | 'justify'>('left')
+  const [layerTextOpacity, setLayerTextOpacity] = useState(100)
+  const [layerTextRotation, setLayerTextRotation] = useState(0)
   const [layerTextSaving, setLayerTextSaving] = useState(false)
   const [layerTextError, setLayerTextError] = useState<string | null>(null)
+  const draftTextEditorRef = useRef<HTMLDivElement>(null)
+  const layerTextEditorRef = useRef<HTMLDivElement>(null)
+  const draftTextPreviewRef = useRef<HTMLDivElement | null>(null)
+  const layerTextPreviewRef = useRef<HTMLDivElement | null>(null)
   const previewContainerRef = useRef<HTMLDivElement>(null)
   const bgImgRef = useRef<HTMLImageElement>(null)
   const [containerSize, setContainerSize] = useState<{ width: number; height: number }>({ width: 300, height: 400 })
@@ -1055,8 +1114,45 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     "Poppins",
     "Roboto",
     "Montserrat",
-    "Open Sans"
+    "Open Sans",
+    "Lato",
+    "Oswald",
+    "Raleway",
+    "Merriweather",
+    "Playfair Display",
+    "Rubik",
+    "Ubuntu"
   ]
+
+  // Populate draft text editor when modal opens (run only once when modal opens)
+  useEffect(() => {
+    if (showModal && draftTextEditorRef.current) {
+      if (draftHtmlContent) {
+        draftTextEditorRef.current.innerHTML = draftHtmlContent
+      } else if (draftText) {
+        draftTextEditorRef.current.innerText = draftText
+      } else {
+        draftTextEditorRef.current.innerHTML = ''
+      }
+      // Focus the editor
+      draftTextEditorRef.current.focus()
+    }
+  }, [showModal]) // Only run when modal opens/closes
+
+  // Populate layer text editor when modal opens
+  useEffect(() => {
+    if (showLayerTextModal && layerTextEditorRef.current) {
+      if (layerHtmlContent) {
+        layerTextEditorRef.current.innerHTML = layerHtmlContent
+      } else if (layerTextValue) {
+        layerTextEditorRef.current.innerText = layerTextValue
+      } else {
+        layerTextEditorRef.current.innerHTML = ''
+      }
+      // Focus the editor
+      layerTextEditorRef.current.focus()
+    }
+  }, [showLayerTextModal])
 
   // Helpers: unique name generators
   const generateUniqueName = (base: string, usedNames: Set<string>): string => {
@@ -1210,7 +1306,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     setDraftText("")
     setDraftTextColor("#000000")
     setDraftTextWeight('600')
-    setDraftTextSize(48)
+    setDraftTextSize(60)
     setDraftTextFont("Inter")
     setDraftError(null)
     setShowLayerTypeMenu(false)
@@ -1268,9 +1364,157 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       }
     }, 1000)
   }
+  // Helper to convert React style object to CSS string
+  const styleObjectToCssString = (style: React.CSSProperties): string => {
+    return Object.entries(style).map(([key, value]) => {
+      if (value === undefined || value === null) return ''
+      const cssKey = key.replace(/([A-Z])/g, '-$1').toLowerCase().replace(/^(webkit|moz|ms)-/, '-$1-')
+      return `${cssKey}: ${value};`
+    }).join(' ')
+  }
+
+  interface TextLayerStyleProps {
+    color: string
+    fontWeight: string
+    fontSize: number
+    fontFamily?: string
+    backgroundColor?: string
+    backgroundRadius?: number
+    textAlign?: string
+    letterSpacing?: number
+    fontStyle?: string
+    textDecoration?: string
+    textOpacity?: number
+    textRotation?: number
+    shadowColor?: string
+    shadowBlur?: number;
+    shadowOffsetX?: number;
+    shadowOffsetY?: number;
+    strokeColor?: string;
+    strokeWidth?: number;
+  }
+
+  const getTextLayerStyles = (props: TextLayerStyleProps) => {
+    const {
+      color,
+      fontWeight,
+      fontSize,
+      fontFamily,
+      backgroundColor,
+      backgroundRadius,
+      textAlign,
+      letterSpacing,
+      fontStyle,
+      textDecoration,
+      textOpacity = 100,
+      textRotation = 0,
+      shadowColor,
+      shadowBlur,
+      shadowOffsetX,
+      shadowOffsetY,
+      strokeColor,
+      strokeWidth,
+    } = props
+
+    const chosenFontFamily = fontFamily && fontFamily.trim().length > 0 ? fontFamily : "Inter"
+    const contentPadding = backgroundColor ? Math.max(24, Math.round(fontSize * 0.9)) : 0
+    const defaultShift = '-0.06em';
+    const strokeNudge = (typeof strokeWidth !== 'undefined' && strokeWidth > 0)
+      ? `calc(${defaultShift} - ${strokeWidth}px / 4)`
+      : defaultShift;
+
+    const containerStyle: React.CSSProperties = {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+
+      width: "100%",
+      outline: "none",
+      border: "none",
+    }
+
+    const wrapperStyle: React.CSSProperties = {
+      backgroundColor: backgroundColor || "transparent",
+      borderRadius: backgroundColor && backgroundRadius ? `${backgroundRadius}px` : "0",
+      padding: `${contentPadding}px`,
+      display: "flex",
+      alignItems: "center",
+
+      justifyContent: "center",
+      outline: "none",
+      border: "none",
+    }
+
+    const contentStyle: React.CSSProperties = {
+      maxWidth: "3000px",
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      lineHeight: 1,
+      overflow: "visible",
+      outline: "none",
+      border: "none",
+    }
+
+    const textStyle: React.CSSProperties = {
+      fontFamily: `'${chosenFontFamily}', system-ui, -apple-system, sans-serif`,
+      fontSize: `${fontSize}px`,
+      fontWeight: fontWeight,
+      color: color,
+      textAlign: (textAlign as any) || "left",
+      letterSpacing: letterSpacing ? `${letterSpacing}px` : "normal",
+      fontStyle: fontStyle || "normal",
+      textDecoration: textDecoration || "none",
+      opacity: textOpacity / 100,
+      transform: `translateY(${strokeNudge}) rotate(${textRotation}deg)`,
+      transformOrigin: "center center",
+      whiteSpace: "pre-wrap",
+      wordWrap: "break-word",
+      display: "inline-block",
+      textShadow: shadowColor && (
+        (typeof shadowBlur !== 'undefined' && shadowBlur !== 0) ||
+        (typeof shadowOffsetX !== 'undefined' && shadowOffsetX !== 0) ||
+        (typeof shadowOffsetY !== 'undefined' && shadowOffsetY !== 0)
+      )
+        ? `${shadowOffsetX || 0}px ${shadowOffsetY || 0}px ${shadowBlur || 0}px ${shadowColor}`
+        : "none",
+      WebkitTextStroke: strokeColor && strokeWidth && strokeWidth > 0
+        ? `${strokeWidth}px ${strokeColor}`
+        : "none",
+      // @ts-ignore
+      paintOrder: "stroke fill",
+      // @ts-ignore
+      WebkitPaintOrder: "stroke fill",
+      // @ts-ignore
+      WebkitFontSmoothing: "antialiased",
+      // @ts-ignore
+      MozOsxFontSmoothing: "grayscale",
+      outline: "none",
+      border: "none",
+    }
+
+    return { containerStyle, wrapperStyle, contentStyle, textStyle }
+  }
+
+  // Shared TextLayerPreview component — renders the exact DOM subtree used for preview and export
+  const TextLayerPreview = forwardRef<HTMLDivElement, (TextLayerStyleProps & { text?: string; html?: string })>(
+    ({ text, html, ...styleProps }, ref) => {
+      const styles = getTextLayerStyles(styleProps as TextLayerStyleProps)
+      return (
+        <div ref={ref as any} data-text-layer-preview style={styles.containerStyle}>
+          <div style={styles.wrapperStyle}>
+            <div style={styles.contentStyle}>
+              <span style={styles.textStyle} dangerouslySetInnerHTML={{ __html: html || text || '' }} />
+            </div>
+          </div>
+        </div>
+      )
+    }
+  )
 
   const renderTextLayerImage = async ({
     text,
+    html,
     color,
     fontWeight,
     fontSize,
@@ -1280,8 +1524,19 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     backgroundRadius,
     strokeColor,
     strokeWidth,
+    letterSpacing,
+    shadowColor,
+    shadowBlur,
+    shadowOffsetX,
+    shadowOffsetY,
+    fontStyle,
+    textDecoration,
+    textAlign = "left",
+    textOpacity = 100,
+    textRotation = 0,
   }: {
     text: string
+    html?: string
     color: string
     fontWeight: string
     fontSize: number
@@ -1291,120 +1546,244 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     backgroundRadius?: number
     strokeColor?: string
     strokeWidth?: number
-  }): Promise<{ file: File; previewUrl: string }> => {
-    const canvas = document.createElement('canvas')
-    const ctx = canvas.getContext('2d')
-    if (!ctx) throw new Error('Canvas not supported in this browser')
+    letterSpacing?: number
+    shadowColor?: string
+    shadowBlur?: number
+    shadowOffsetX?: number
+    shadowOffsetY?: number
+    fontStyle?: string
+    textDecoration?: string
+    textAlign?: string
+    textOpacity?: number
+    textRotation?: number
+  }): Promise<{ file: File; previewUrl: string; width: number; height: number }> => {
+    // Dynamically import dom-to-image-more to avoid SSR issues
+    const domToImage = (await import('dom-to-image-more')).default
 
-    const trimmedText = text.trimEnd()
-    const lines = trimmedText.length > 0 ? trimmedText.split('\n') : ['']
-    // For canvas, use simple font family names without quotes (canvas doesn't handle quotes well)
-    const chosenFontFamily = fontFamily && fontFamily.trim().length > 0 ? fontFamily : 'Arial'
-    const font = `${fontWeight} ${fontSize}px ${chosenFontFamily}`
-    ctx.font = font
+    // Prefer capturing the live mounted preview DOM if available so export matches on-screen exactly
+    try {
+      if ((document as any).fonts && (document as any).fonts.ready) {
+        try { await (document as any).fonts.ready } catch (_) { /* ignore */ }
+      }
 
-    const lineHeight = Math.round(fontSize * 1.3)
+      const exportNode = (layerTextPreviewRef && layerTextPreviewRef.current) || (draftTextPreviewRef && draftTextPreviewRef.current) || document.querySelector('[data-text-layer-preview]') as HTMLElement | null
+      if (exportNode) {
+        const rect = exportNode.getBoundingClientRect()
+        // Add a small buffer to prevent sub-pixel wrapping issues
+        const widthPx = Math.ceil(rect.width) + 2
+        const heightPx = Math.ceil(rect.height) + 2
 
-    // CSS logic: padding is only applied if there is a background color
-    const hasBackground = backgroundColor && backgroundColor.trim().length > 0
-    const paddingX = hasBackground ? Math.max(24, Math.round(fontSize * 0.9)) : 0
-    const paddingY = hasBackground ? Math.max(24, Math.round(fontSize * 0.9)) : 0
+        // Capture at native layout size (scale:1) and DO NOT override width/height so canvas size equals node layout
+        // Use dom-to-image-more for better CSS support (including -webkit-text-stroke)
+        const blob = await domToImage.toBlob(exportNode, {
+          width: widthPx,
+          height: heightPx,
+          style: {
+            transform: 'scale(1)',
+            transformOrigin: 'top left',
+            width: `${widthPx}px`,
+            height: `${heightPx}px`
+          }
+        })
 
-    const effectiveStrokeWidth = strokeWidth && strokeColor ? Math.max(0, strokeWidth) : 0
 
-    let maxLineWidth = 0
-    lines.forEach((line) => {
-      const metrics = ctx.measureText(line.length > 0 ? line : ' ')
-      maxLineWidth = Math.max(maxLineWidth, metrics.width)
-    })
 
-    // Add buffer for stroke to prevent clipping at edges
-    const strokeBuffer = effectiveStrokeWidth
-    const width = Math.max(Math.ceil(maxLineWidth + paddingX * 2 + strokeBuffer * 2), fontSize * 2)
-    const height = Math.max(Math.ceil(lines.length * lineHeight + paddingY * 2 + strokeBuffer * 2), fontSize * 2)
-
-    canvas.width = width
-    canvas.height = height
-
-    const ctx2 = canvas.getContext('2d')
-    if (!ctx2) throw new Error('Canvas not supported in this browser')
-    ctx2.clearRect(0, 0, width, height)
-
-    // Draw background with radius if provided
-    if (hasBackground) {
-      const bgRadius = backgroundRadius ?? 0
-      // Background fills the whole canvas minus the stroke buffer if we want to be precise, 
-      // but usually the background should encompass the text. 
-      // In CSS, padding is inside the background. 
-      // Here, width/height includes padding.
-      // We'll draw the background over the full size, maybe inset by a tiny bit if stroke is huge?
-      // Actually, let's just draw it full size.
-      const bgX = 0
-      const bgY = 0
-      const bgWidth = width
-      const bgHeight = height
-
-      // Draw rounded rectangle background
-      ctx2.fillStyle = backgroundColor
-      ctx2.beginPath()
-      ctx2.moveTo(bgX + bgRadius, bgY)
-      ctx2.lineTo(bgX + bgWidth - bgRadius, bgY)
-      ctx2.quadraticCurveTo(bgX + bgWidth, bgY, bgX + bgWidth, bgY + bgRadius)
-      ctx2.lineTo(bgX + bgWidth, bgY + bgHeight - bgRadius)
-      ctx2.quadraticCurveTo(bgX + bgWidth, bgY + bgHeight, bgX + bgWidth - bgRadius, bgY + bgHeight)
-      ctx2.lineTo(bgX + bgRadius, bgY + bgHeight)
-      ctx2.quadraticCurveTo(bgX, bgY + bgHeight, bgX, bgY + bgHeight - bgRadius)
-      ctx2.lineTo(bgX, bgY + bgRadius)
-      ctx2.quadraticCurveTo(bgX, bgY, bgX + bgRadius, bgY)
-      ctx2.closePath()
-      ctx2.fill()
+        const previewUrl = URL.createObjectURL(blob)
+        const safeBase = fileBaseName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'text-layer'
+        const fileName = `${safeBase}.png`
+        const file = new File([blob], fileName, { type: 'image/png' })
+        // Return captured pixel dimensions
+        return { file, previewUrl, width: widthPx, height: heightPx }
+      }
+    } catch (err) {
+      console.warn('Live preview capture failed, falling back to iframe capture', err)
     }
 
-    ctx2.font = font
-    ctx2.textBaseline = 'top'
-    ctx2.textAlign = 'left'
+    // Fallback: render in an offscreen iframe (legacy path)
+    const iframe = document.createElement("iframe")
+    iframe.style.position = "absolute"
+    iframe.style.left = "-9999px"
+    iframe.style.top = "-9999px"
+    iframe.style.width = "4000px"
+    iframe.style.height = "4000px"
+    iframe.style.border = "none"
+    iframe.style.visibility = "hidden"
+    document.body.appendChild(iframe)
 
-    // Calculate vertical offset to center text in line-height (CSS behavior)
-    // Canvas draws at top of em-square (ignoring leading), CSS centers in line-height
-    const verticalOffset = (lineHeight - fontSize) / 2
+    try {
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document
+      if (!iframeDoc) throw new Error("Failed to access iframe document")
 
-    // Draw text with stroke if provided
-    if (effectiveStrokeWidth > 0 && strokeColor && strokeColor.trim().length > 0) {
-      ctx2.strokeStyle = strokeColor
-      // CSS text-stroke is centered on the edge. Canvas lineWidth is also centered.
-      // However, visually 1px CSS often looks thinner than 2px Canvas.
-      // Let's try 1:1 mapping first, as the previous *2 was definitely too thick.
-      ctx2.lineWidth = effectiveStrokeWidth
-      ctx2.lineJoin = 'round'
-      ctx2.miterLimit = 2
-      lines.forEach((line, idx) => {
-        // Offset by strokeBuffer to ensure we don't clip
-        ctx2.strokeText(line.length > 0 ? line : ' ', paddingX + strokeBuffer, paddingY + idx * lineHeight + verticalOffset + strokeBuffer)
+      const styles = getTextLayerStyles({
+        color, fontWeight, fontSize, fontFamily, backgroundColor, backgroundRadius,
+        textAlign, letterSpacing, fontStyle, textDecoration, textOpacity, textRotation,
+        shadowColor, shadowBlur, shadowOffsetX, shadowOffsetY, strokeColor, strokeWidth
       })
+
+      const strokePadding = strokeWidth ? Math.ceil(strokeWidth * 2) : 0
+      const shadowPadding = Math.max(
+        Math.abs(shadowOffsetX || 0) + (shadowBlur || 0) + 10,
+        Math.abs(shadowOffsetY || 0) + (shadowBlur || 0) + 10,
+      )
+      const extraPadding = Math.max(strokePadding, shadowPadding, 20)
+
+      const htmlContent = `
+  <!DOCTYPE html>
+  <html>
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Poppins:wght@300;400;600;700&family=Roboto:wght@300;400;600;700&family=Montserrat:wght@300;400;600;700&family=Open+Sans:wght@300;400;600;700&family=Lato:wght@300;400;700&family=Oswald:wght@300;400;700&family=Raleway:wght@300;400;600;700&family=Merriweather:wght@300;400;700&family=Playfair+Display:wght@400;600;700&family=Rubik:wght@300;400;600;700&family=Ubuntu:wght@300;400;700&display=swap');
+        body {
+          background: transparent;
+          padding: ${extraPadding}px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin: 0;
+        }
+        #container { ${styleObjectToCssString(styles.containerStyle)} }
+        #wrapper { ${styleObjectToCssString(styles.wrapperStyle)} }
+        #content { ${styleObjectToCssString(styles.contentStyle)} }
+        #text-span { ${styleObjectToCssString(styles.textStyle)} }
+      </style>
+    </head>
+    <body>
+      <div id="container">
+        <div id="wrapper">
+          <div id="content">
+            <span id="text-span">${html || text}</span>
+          </div>
+        </div>
+      </div>
+    </body>
+  </html>
+  `;
+
+      iframeDoc.open()
+      iframeDoc.write(htmlContent)
+      iframeDoc.close()
+
+      await new Promise((resolve) => setTimeout(resolve, 800))
+
+      const wrapper = iframeDoc.getElementById("wrapper")
+      if (!wrapper) throw new Error("Wrapper element not found in iframe")
+
+      // Get the actual wrapper dimensions (includes padding and background)
+      const wrapperRect = wrapper.getBoundingClientRect()
+      const width = Math.ceil(wrapperRect.width)
+      const height = Math.ceil(wrapperRect.height)
+
+      // Add extra padding for effects (shadows, strokes)
+      const totalWidth = width + (extraPadding * 2)
+      const totalHeight = height + (extraPadding * 2)
+
+      const blob = await domToImage.toBlob(iframeDoc.body, {
+        width: totalWidth,
+        height: totalHeight,
+        style: {
+          transform: 'scale(1)',
+          transformOrigin: 'top left',
+          width: `${totalWidth}px`,
+          height: `${totalHeight}px`,
+          margin: '0',
+          padding: '0',
+          overflow: 'hidden'
+        }
+      })
+
+
+
+      const previewUrl = URL.createObjectURL(blob)
+      const safeBase =
+        fileBaseName
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "") || "text-layer"
+      const fileName = `${safeBase}.png`
+      const file = new File([blob], fileName, { type: "image/png" })
+
+      const canvasWidth = totalWidth
+      const canvasHeight = totalHeight
+      return { file, previewUrl, width: Math.ceil(canvasWidth), height: Math.ceil(canvasHeight) }
+    } finally {
+      document.body.removeChild(iframe)
     }
+  }
 
-    // Draw text fill
-    ctx2.fillStyle = color
-    lines.forEach((line, idx) => {
-      ctx2.fillText(line.length > 0 ? line : ' ', paddingX + strokeBuffer, paddingY + idx * lineHeight + verticalOffset + strokeBuffer)
-    })
-
-    const blob = await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob((b) => {
-        if (b) resolve(b)
-        else reject(new Error('Failed to generate text layer image'))
-      }, 'image/png')
-    })
-
-    const previewUrl = URL.createObjectURL(blob)
-    const safeBase = fileBaseName
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '') || 'text-layer'
-    const fileName = `${safeBase}.png`
-    const file = new File([blob], fileName, { type: 'image/png' })
-
-    return { file, previewUrl }
+  const renderPreviewAsImage = async ({
+    text,
+    html,
+    color,
+    fontWeight,
+    fontSize,
+    fontFamily,
+    backgroundColor,
+    backgroundRadius,
+    strokeColor,
+    strokeWidth,
+    letterSpacing,
+    shadowColor,
+    shadowBlur,
+    shadowOffsetX,
+    shadowOffsetY,
+    fontStyle,
+    textDecoration,
+    textAlign,
+    textOpacity,
+    textRotation,
+  }: {
+    text: string
+    html?: string
+    color: string
+    fontWeight: string
+    fontSize: number
+    fontFamily?: string
+    backgroundColor?: string
+    backgroundRadius?: number
+    strokeColor?: string
+    strokeWidth?: number
+    letterSpacing?: number
+    shadowColor?: string
+    shadowBlur?: number
+    shadowOffsetX?: number
+    shadowOffsetY?: number
+    fontStyle?: string
+    textDecoration?: string
+    textAlign?: string
+    textOpacity?: number
+    textRotation?: number
+  }): Promise<string> => {
+    try {
+      const { previewUrl } = await renderTextLayerImage({
+        text,
+        html,
+        color,
+        fontWeight,
+        fontSize,
+        fontFamily,
+        fileBaseName: "preview",
+        backgroundColor,
+        backgroundRadius,
+        strokeColor,
+        strokeWidth,
+        letterSpacing,
+        shadowColor,
+        shadowBlur,
+        shadowOffsetX,
+        shadowOffsetY,
+        fontStyle,
+        textDecoration,
+        textAlign,
+        textOpacity,
+        textRotation,
+      })
+      return previewUrl
+    } catch (e) {
+      console.warn("Failed to render preview as image:", e)
+      return ""
+    }
   }
 
   const resetDraftState = () => {
@@ -1417,12 +1796,20 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     setDraftText("")
     setDraftTextColor("#000000")
     setDraftTextWeight('600')
-    setDraftTextSize(48)
+    setDraftTextSize(60)
     setDraftTextFont("Inter")
     setDraftTextBackgroundColor("")
     setDraftTextBackgroundRadius(0)
     setDraftTextStrokeColor("#000000")
     setDraftTextStrokeWidth(1)
+    setDraftTextLetterSpacing(0)
+    setDraftTextShadowColor("#000000")
+    setDraftTextShadowBlur(0)
+    setDraftTextShadowOffsetX(0)
+    setDraftTextShadowOffsetY(0)
+    setDraftTextFontStyle('normal')
+    setDraftTextDecoration('none')
+    setDraftHtmlContent("")
     setDraftError(null)
   }
 
@@ -1442,6 +1829,14 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       setDraftTextBackgroundRadius(0)
       setDraftTextStrokeColor("#000000")
       setDraftTextStrokeWidth(1)
+      setDraftTextLetterSpacing(0)
+      setDraftTextShadowColor("#000000")
+      setDraftTextShadowBlur(0)
+      setDraftTextShadowOffsetX(0)
+      setDraftTextShadowOffsetY(0)
+      setDraftTextFontStyle('normal')
+      setDraftTextDecoration('none')
+      setDraftHtmlContent("")
     }
   }
 
@@ -1458,7 +1853,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
         setLayerTextValue("")
         setLayerTextColor("#000000")
         setLayerTextWeight('600')
-        setLayerTextSize(48)
+        setLayerTextSize(60)
         setLayerTextBackgroundColor("")
         setLayerTextBackgroundRadius(0)
         setLayerTextStrokeColor("#000000")
@@ -1474,12 +1869,23 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       setLayerTextValue(existingText)
       setLayerTextColor(targetImage.textColor || "#000000")
       setLayerTextWeight(targetImage.textWeight || '600')
-      setLayerTextSize(targetImage.textSize || 48)
+      setLayerTextSize(targetImage.textSize || 60)
       setLayerTextFont(targetImage.textFont || "Inter")
       setLayerTextBackgroundColor(targetImage.textBackgroundColor || "")
       setLayerTextBackgroundRadius(targetImage.textBackgroundRadius || 0)
       setLayerTextStrokeColor(targetImage.textStrokeColor || "")
       setLayerTextStrokeWidth(targetImage.textStrokeWidth || 0)
+      setLayerTextLetterSpacing(targetImage.textLetterSpacing || 0)
+      setLayerTextShadowColor(targetImage.textShadowColor || "#000000")
+      setLayerTextShadowBlur(targetImage.textShadowBlur || 0)
+      setLayerTextShadowOffsetX(targetImage.textShadowOffsetX || 0)
+      setLayerTextShadowOffsetY(targetImage.textShadowOffsetY || 0)
+      setLayerTextFontStyle(targetImage.textFontStyle || 'normal')
+      setLayerTextDecoration(targetImage.textDecoration || 'none')
+      setLayerTextAlign(targetImage.textAlign || 'left')
+      setLayerTextOpacity(targetImage.textOpacity ?? 100)
+      setLayerTextRotation(targetImage.textRotation ?? 0)
+      setLayerHtmlContent(targetImage.htmlContent || "")
       return
     }
 
@@ -1487,12 +1893,20 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     setLayerTextValue("")
     setLayerTextColor("#000000")
     setLayerTextWeight('600')
-    setLayerTextSize(48)
+    setLayerTextSize(60)
     setLayerTextFont("Inter")
     setLayerTextBackgroundColor("")
     setLayerTextBackgroundRadius(0)
     setLayerTextStrokeColor("#000000")
     setLayerTextStrokeWidth(1)
+    setLayerTextLetterSpacing(0)
+    setLayerTextShadowColor("#000000")
+    setLayerTextShadowBlur(0)
+    setLayerTextShadowOffsetX(0)
+    setLayerTextShadowOffsetY(0)
+    setLayerTextFontStyle('normal')
+    setLayerTextDecoration('none')
+    setLayerHtmlContent("")
   }
 
   const closeLayerTextModal = () => {
@@ -1500,12 +1914,20 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     setLayerTextValue("")
     setLayerTextColor("#000000")
     setLayerTextWeight('600')
-    setLayerTextSize(48)
+    setLayerTextSize(60)
     setLayerTextFont("Inter")
     setLayerTextBackgroundColor("")
     setLayerTextBackgroundRadius(0)
     setLayerTextStrokeColor("")
     setLayerTextStrokeWidth(0)
+    setLayerTextLetterSpacing(0)
+    setLayerTextShadowColor("#000000")
+    setLayerTextShadowBlur(0)
+    setLayerTextShadowOffsetX(0)
+    setLayerTextShadowOffsetY(0)
+    setLayerTextFontStyle('normal')
+    setLayerTextDecoration('none')
+    setLayerHtmlContent("")
     setLayerTextError(null)
     setLayerTextSaving(false)
   }
@@ -1523,8 +1945,9 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       const targetLayer = layers.find(l => l.id === layerId)
       if (!targetLayer) throw new Error('Layer not found')
       const baseName = layerTextValue.split('\n')[0].trim() || 'Text'
-      const { file, previewUrl } = await renderTextLayerImage({
+      const { file, previewUrl, width: pixelWidth, height: pixelHeight } = await renderTextLayerImage({
         text: layerTextValue,
+        html: layerHtmlContent,
         color: layerTextColor,
         fontWeight: layerTextWeight,
         fontSize: layerTextSize,
@@ -1534,6 +1957,16 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
         backgroundRadius: layerTextBackgroundRadius,
         strokeColor: layerTextStrokeColor,
         strokeWidth: layerTextStrokeWidth,
+        letterSpacing: layerTextLetterSpacing,
+        shadowColor: layerTextShadowColor,
+        shadowBlur: layerTextShadowBlur,
+        shadowOffsetX: layerTextShadowOffsetX,
+        shadowOffsetY: layerTextShadowOffsetY,
+        fontStyle: layerTextFontStyle,
+        textDecoration: layerTextDecoration,
+        textAlign: layerTextAlign,
+        textOpacity: layerTextOpacity,
+        textRotation: layerTextRotation,
       })
       const [result] = await uploadImages([file])
       const secureUrl = result?.secure_url || null
@@ -1559,8 +1992,11 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
           y: baseTransform.y,
           width: baseTransform.width,
           height: baseTransform.height,
+          pixelWidth,
+          pixelHeight,
           sourceType: 'text' as const,
           textContent: layerTextValue,
+          htmlContent: layerHtmlContent,
           textColor: layerTextColor,
           textWeight: layerTextWeight,
           textSize: layerTextSize,
@@ -1568,7 +2004,17 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
           textBackgroundColor: layerTextBackgroundColor,
           textBackgroundRadius: layerTextBackgroundRadius,
           textStrokeColor: layerTextStrokeColor,
-          textStrokeWidth: layerTextStrokeWidth
+          textStrokeWidth: layerTextStrokeWidth,
+          textLetterSpacing: layerTextLetterSpacing,
+          textShadowColor: layerTextShadowColor,
+          textShadowBlur: layerTextShadowBlur,
+          textShadowOffsetX: layerTextShadowOffsetX,
+          textShadowOffsetY: layerTextShadowOffsetY,
+          textFontStyle: layerTextFontStyle,
+          textDecoration: layerTextDecoration,
+          textAlign: layerTextAlign,
+          textOpacity: layerTextOpacity,
+          textRotation: layerTextRotation
         }
         setLayers(prev => prev.map(l => {
           if (l.id !== layerId) return l
@@ -1589,8 +2035,11 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
               previewUrl: secureUrl || previewUrl,
               secureUrl: secureUrl || img.secureUrl,
               name: baseName,
+              pixelWidth,
+              pixelHeight,
               sourceType: 'text' as const,
               textContent: layerTextValue,
+              htmlContent: layerHtmlContent,
               textColor: layerTextColor,
               textWeight: layerTextWeight,
               textSize: layerTextSize,
@@ -1599,6 +2048,16 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
               textBackgroundRadius: layerTextBackgroundRadius,
               textStrokeColor: layerTextStrokeColor,
               textStrokeWidth: layerTextStrokeWidth,
+              textLetterSpacing: layerTextLetterSpacing,
+              textShadowColor: layerTextShadowColor,
+              textShadowBlur: layerTextShadowBlur,
+              textShadowOffsetX: layerTextShadowOffsetX,
+              textShadowOffsetY: layerTextShadowOffsetY,
+              textFontStyle: layerTextFontStyle,
+              textDecoration: layerTextDecoration,
+              textAlign: layerTextAlign,
+              textOpacity: layerTextOpacity,
+              textRotation: layerTextRotation
             }
           })
           const allText = updatedImages.every(i => (i.sourceType ?? 'upload') === 'text')
@@ -1627,8 +2086,9 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       setDraftError(null)
       try {
         const baseName = (draftName || draftText).split('\n')[0].trim() || 'Text Layer'
-        const { file, previewUrl } = await renderTextLayerImage({
+        const { file, previewUrl, width: pixelWidth, height: pixelHeight } = await renderTextLayerImage({
           text: draftText,
+          html: draftHtmlContent,
           color: draftTextColor,
           fontWeight: draftTextWeight,
           fontSize: draftTextSize,
@@ -1638,6 +2098,16 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
           backgroundRadius: draftTextBackgroundRadius,
           strokeColor: draftTextStrokeColor,
           strokeWidth: draftTextStrokeWidth,
+          letterSpacing: draftTextLetterSpacing,
+          shadowColor: draftTextShadowColor,
+          shadowBlur: draftTextShadowBlur,
+          shadowOffsetX: draftTextShadowOffsetX,
+          shadowOffsetY: draftTextShadowOffsetY,
+          fontStyle: draftTextFontStyle,
+          textDecoration: draftTextDecoration,
+          textAlign: draftTextAlign,
+          textOpacity: draftTextOpacity,
+          textRotation: draftTextRotation,
         })
         const [result] = await uploadImages([file])
         const secureUrl = result?.secure_url || null
@@ -1656,10 +2126,13 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
           name: baseName,
           x: 0,
           y: 0,
-          width: 100,
-          height: 100,
+          width: 50,
+          height: 50,
+          pixelWidth,
+          pixelHeight,
           sourceType: 'text' as const,
           textContent: draftText,
+          htmlContent: draftHtmlContent,
           textColor: draftTextColor,
           textWeight: draftTextWeight,
           textSize: draftTextSize,
@@ -1667,7 +2140,17 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
           textBackgroundColor: draftTextBackgroundColor,
           textBackgroundRadius: draftTextBackgroundRadius,
           textStrokeColor: draftTextStrokeColor,
-          textStrokeWidth: draftTextStrokeWidth
+          textStrokeWidth: draftTextStrokeWidth,
+          textLetterSpacing: draftTextLetterSpacing,
+          textShadowColor: draftTextShadowColor,
+          textShadowBlur: draftTextShadowBlur,
+          textShadowOffsetX: draftTextShadowOffsetX,
+          textShadowOffsetY: draftTextShadowOffsetY,
+          textFontStyle: draftTextFontStyle,
+          textDecoration: draftTextDecoration,
+          textAlign: draftTextAlign,
+          textOpacity: draftTextOpacity,
+          textRotation: draftTextRotation
         }
         const layer: Layer = { id: layerId, name, description: draftDescription, z: nextZ, images: [layerImage], open: false, layer_type: 'text' }
         setLayers(prev => reindexLayers([...prev, layer]))
@@ -1697,8 +2180,8 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       name: i.name,
       x: 0,
       y: 0,
-      width: 100,
-      height: 100,
+      width: 50,
+      height: 50,
       sourceType: (i.sourceType ?? 'upload') as 'text' | 'upload'
     }))
     const initialName = draftName || `Layer ${nextZ + 1}`
@@ -1787,29 +2270,71 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
         // The backend expects the background image separately, so don't push it into study_layers
 
         sourceLayers.forEach((l, layerIdx) => {
-          const images = (l.images || []).filter((img: any) => img.secureUrl).map((img: any, imgIdx: number) => ({
-            image_id: img.id || crypto.randomUUID(),
-            name: img.name || `Image ${imgIdx + 1}`,
-            url: img.secureUrl,
-            alt_text: img.name || `Image ${imgIdx + 1}`,
-            order: imgIdx,
-            x: typeof img.x === 'number' ? img.x : 0,
-            y: typeof img.y === 'number' ? img.y : 0,
-            width: typeof img.width === 'number' ? img.width : 100,
-            height: typeof img.height === 'number' ? img.height : 100,
-            config: (img.sourceType ?? 'upload') === 'text' ? {
-              text_content: img.textContent || img.name,
-              text_color: img.textColor,
-              text_weight: img.textWeight,
-              text_size: img.textSize,
-              text_font: img.textFont,
-              text_background_color: img.textBackgroundColor,
-              text_background_radius: img.textBackgroundRadius,
-              text_stroke_color: img.textStrokeColor,
-              text_stroke_width: img.textStrokeWidth,
-              additionalProp1: {}
-            } : undefined
-          }))
+          const images = (l.images || []).filter((img: any) => img.secureUrl).map((img: any, imgIdx: number) => {
+            const imageObj: any = {
+              image_id: img.id || crypto.randomUUID(),
+              name: img.name || `Image ${imgIdx + 1}`,
+              url: img.secureUrl,
+              alt_text: img.name || `Image ${imgIdx + 1}`,
+              order: imgIdx,
+              x: typeof img.x === 'number' ? img.x : 0,
+              y: typeof img.y === 'number' ? img.y : 0,
+              width: typeof img.width === 'number' ? img.width : 100,
+              height: typeof img.height === 'number' ? img.height : 100
+            }
+
+            // Add text properties if this is a text layer  
+            if ((img.sourceType ?? 'upload') === 'text') {
+              // Add all text properties at image level
+              if (img.htmlContent) imageObj.html_content = img.htmlContent
+              if (img.textContent) imageObj.text_content = img.textContent
+              if (img.textColor) imageObj.text_color = img.textColor
+              if (img.textWeight) imageObj.text_weight = img.textWeight
+              if (typeof img.textSize === 'number') imageObj.text_size = img.textSize
+              if (img.textFont) imageObj.text_font = img.textFont
+              if (img.textBackgroundColor) imageObj.text_background_color = img.textBackgroundColor
+              if (typeof img.textBackgroundRadius === 'number') imageObj.text_background_radius = img.textBackgroundRadius
+              if (img.textStrokeColor) imageObj.text_stroke_color = img.textStrokeColor
+              if (typeof img.textStrokeWidth === 'number') imageObj.text_stroke_width = img.textStrokeWidth
+              if (typeof img.textLetterSpacing === 'number') imageObj.text_letter_spacing = img.textLetterSpacing
+              if (img.textShadowColor) imageObj.text_shadow_color = img.textShadowColor
+              if (typeof img.textShadowBlur === 'number') imageObj.text_shadow_blur = img.textShadowBlur
+              if (typeof img.textShadowOffsetX === 'number') imageObj.text_shadow_offset_x = img.textShadowOffsetX
+              if (typeof img.textShadowOffsetY === 'number') imageObj.text_shadow_offset_y = img.textShadowOffsetY
+              if (img.textFontStyle) imageObj.text_font_style = img.textFontStyle
+              if (img.textDecoration) imageObj.text_decoration = img.textDecoration
+              if (img.textAlign) imageObj.text_align = img.textAlign
+              if (typeof img.textOpacity === 'number') imageObj.text_opacity = img.textOpacity
+              if (typeof img.textRotation === 'number') imageObj.text_rotation = img.textRotation
+
+              // Also add config for backward compatibility
+              imageObj.config = {
+                text_content: img.textContent || img.name,
+                ...(img.htmlContent ? { html_content: img.htmlContent } : {}),
+                ...(img.textColor ? { text_color: img.textColor } : {}),
+                ...(img.textWeight ? { text_weight: img.textWeight } : {}),
+                ...(typeof img.textSize === 'number' ? { text_size: img.textSize } : {}),
+                ...(img.textFont ? { text_font: img.textFont } : {}),
+                ...(img.textBackgroundColor ? { text_background_color: img.textBackgroundColor } : {}),
+                ...(typeof img.textBackgroundRadius === 'number' ? { text_background_radius: img.textBackgroundRadius } : {}),
+                ...(img.textStrokeColor ? { text_stroke_color: img.textStrokeColor } : {}),
+                ...(typeof img.textStrokeWidth === 'number' ? { text_stroke_width: img.textStrokeWidth } : {}),
+                ...(typeof img.textLetterSpacing === 'number' ? { text_letter_spacing: img.textLetterSpacing } : {}),
+                ...(img.textShadowColor ? { text_shadow_color: img.textShadowColor } : {}),
+                ...(typeof img.textShadowBlur === 'number' ? { text_shadow_blur: img.textShadowBlur } : {}),
+                ...(typeof img.textShadowOffsetX === 'number' ? { text_shadow_offset_x: img.textShadowOffsetX } : {}),
+                ...(typeof img.textShadowOffsetY === 'number' ? { text_shadow_offset_y: img.textShadowOffsetY } : {}),
+                ...(img.textFontStyle ? { text_font_style: img.textFontStyle } : {}),
+                ...(img.textDecoration ? { text_decoration: img.textDecoration } : {}),
+                ...(img.textAlign ? { text_align: img.textAlign } : {}),
+                ...(typeof img.textOpacity === 'number' ? { text_opacity: img.textOpacity } : {}),
+                ...(typeof img.textRotation === 'number' ? { text_rotation: img.textRotation } : {}),
+                additionalProp1: {}
+              }
+            }
+
+            return imageObj
+          })
 
           // Determine layer_type based on sourceType of images
           // If all images in the layer have sourceType 'text', mark as 'text', otherwise 'image'
@@ -2065,71 +2590,91 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
   // persist layers
   useEffect(() => {
     if (typeof window === 'undefined') return
-      ; (async () => {
-        // If any image in layers lacks secureUrl, attempt to upload them first
-        const hasMissing = layersRef.current.some(l => (l.images || []).some((img: any) => !img.secureUrl))
-        if (hasMissing) {
-          try {
-            await ensureLayerUploads()
-          } catch (e) {
-            console.warn('Layer uploads attempted but some images may still be missing secureUrl:', e)
-          }
+    try {
+      if (localStorage.getItem('cs_resuming_draft') === 'true') {
+        // Resume from backend is in progress; skip persisting layers to avoid overwriting
+        return
+      }
+    } catch { }
+    ; (async () => {
+      // If any image in layers lacks secureUrl, attempt to upload them first
+      const hasMissing = layersRef.current.some(l => (l.images || []).some((img: any) => !img.secureUrl))
+      if (hasMissing) {
+        try {
+          await ensureLayerUploads()
+        } catch (e) {
+          console.warn('Layer uploads attempted but some images may still be missing secureUrl:', e)
         }
+      }
 
-        // Use the freshest layers from ref (ensureLayerUploads updated state)
-        const sourceLayers = layersRef.current
-        const minimal = sourceLayers.map(l => ({
-          id: l.id,
-          name: l.name,
-          description: l.description || '',
-          z: l.z,
-          // Save layer-level transform: use existing transform if available, otherwise derive from first image
-          transform: l.transform || (() => {
-            const base = l.images?.[0]
-            if (!base) return undefined
-            return {
-              x: base.x,
-              y: base.y,
-              width: base.width,
-              height: base.height,
-            }
-          })(),
-          images: l.images.map(i => {
-            const imageObj: any = {
-              id: i.id,
-              previewUrl: i.previewUrl,
-              secureUrl: i.secureUrl,
-              name: i.name,
-              x: i.x,
-              y: i.y,
-              width: i.width,
-              height: i.height,
-              sourceType: i.sourceType,
-              textContent: i.textContent ?? i.name ?? ''
-            }
-            // Always include text properties for text-based images
-            if (i.sourceType === 'text') {
-              imageObj.textColor = i.textColor ?? null
-              imageObj.textWeight = i.textWeight ?? null
-              imageObj.textSize = i.textSize ?? null
-              imageObj.textFont = i.textFont ?? 'Inter'
-              imageObj.textBackgroundColor = i.textBackgroundColor ?? null
-              imageObj.textBackgroundRadius = i.textBackgroundRadius ?? null
-              imageObj.textStrokeColor = i.textStrokeColor ?? null
-              imageObj.textStrokeWidth = i.textStrokeWidth ?? null
-            }
-            return imageObj
-          }),
-          visible: l.visible !== false,
-          layer_type: (() => {
-            // Always calculate layer_type from images to ensure it matches content
-            const hasImages = (l.images || []).length > 0
-            const allText = hasImages && (l.images || []).every((img: any) => (img.sourceType ?? 'upload') === 'text')
-            return allText ? 'text' : 'image'
-          })()
-        }))
-        localStorage.setItem('cs_step5_layer', JSON.stringify(minimal))
-      })()
+      // Use the freshest layers from ref (ensureLayerUploads updated state)
+      const sourceLayers = layersRef.current
+      const minimal = sourceLayers.map(l => ({
+        id: l.id,
+        name: l.name,
+        description: l.description || '',
+        z: l.z,
+        // Save layer-level transform: use existing transform if available, otherwise derive from first image
+        transform: l.transform || (() => {
+          const base = l.images?.[0]
+          if (!base) return undefined
+          return {
+            x: base.x,
+            y: base.y,
+            width: base.width,
+            height: base.height,
+          }
+        })(),
+        images: l.images.map(i => {
+          const imageObj: any = {
+            id: i.id,
+            previewUrl: i.previewUrl,
+            secureUrl: i.secureUrl,
+            name: i.name,
+            x: i.x,
+            y: i.y,
+            width: i.width,
+            height: i.height,
+            pixelWidth: (i as any).pixelWidth ?? undefined,
+            pixelHeight: (i as any).pixelHeight ?? undefined,
+            sourceType: i.sourceType,
+            textContent: i.textContent ?? i.name ?? ''
+          }
+          // Always include text properties for text-based images
+          if (i.sourceType === 'text') {
+            // Persist sensible defaults instead of null so resume flow retains values
+            imageObj.htmlContent = i.htmlContent ?? ''
+            imageObj.textColor = i.textColor ?? ''
+            imageObj.textWeight = i.textWeight ?? '600'
+            imageObj.textSize = typeof i.textSize === 'number' ? i.textSize : 60
+            imageObj.textFont = i.textFont ?? 'Inter'
+            imageObj.textBackgroundColor = i.textBackgroundColor ?? ''
+            imageObj.textBackgroundRadius = typeof i.textBackgroundRadius === 'number' ? i.textBackgroundRadius : 0
+            imageObj.textStrokeColor = i.textStrokeColor ?? ''
+            imageObj.textStrokeWidth = typeof i.textStrokeWidth === 'number' ? i.textStrokeWidth : 0
+            imageObj.textLetterSpacing = typeof i.textLetterSpacing === 'number' ? i.textLetterSpacing : 0
+            imageObj.textShadowColor = i.textShadowColor ?? ''
+            imageObj.textShadowBlur = typeof i.textShadowBlur === 'number' ? i.textShadowBlur : 0
+            imageObj.textShadowOffsetX = typeof i.textShadowOffsetX === 'number' ? i.textShadowOffsetX : 0
+            imageObj.textShadowOffsetY = typeof i.textShadowOffsetY === 'number' ? i.textShadowOffsetY : 0
+            imageObj.textFontStyle = i.textFontStyle ?? 'normal'
+            imageObj.textDecoration = i.textDecoration ?? 'none'
+            imageObj.textAlign = i.textAlign ?? 'left'
+            imageObj.textOpacity = typeof i.textOpacity === 'number' ? i.textOpacity : 100
+            imageObj.textRotation = typeof i.textRotation === 'number' ? i.textRotation : 0
+          }
+          return imageObj
+        }),
+        visible: l.visible !== false,
+        layer_type: (() => {
+          // Always calculate layer_type from images to ensure it matches content
+          const hasImages = (l.images || []).length > 0
+          const allText = hasImages && (l.images || []).every((img: any) => (img.sourceType ?? 'upload') === 'text')
+          return allText ? 'text' : 'image'
+        })()
+      }))
+      localStorage.setItem('cs_step5_layer', JSON.stringify(minimal))
+    })()
     // persist background separately
     if (background && (background.secureUrl || background.previewUrl)) {
       localStorage.setItem('cs_step5_layer_background', JSON.stringify({
@@ -2181,7 +2726,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
           {/* Preview canvas built from z order with draggable/resizable layers */}
           <div
             ref={previewContainerRef}
-            className={`relative w-full ${aspectClass} max-h-[75vh] overflow-hidden bg-slate-50 rounded-lg border`}
+            className={`relative w-full ${aspectClass} ${previewAspect === 'portrait' ? 'max-h-[55vh]' : 'max-h-[75vh]'} overflow-hidden bg-slate-50 rounded-lg border`}
             style={{ position: 'relative' }}
             onMouseDown={(e) => { if (e.currentTarget === e.target) setSelectedLayerId(null) }}
           >
@@ -2712,49 +3257,91 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                   <div className="flex-1 flex overflow-hidden gap-6">
                     {/* Left Side - Text Input & Preview */}
                     <div className="flex-1 flex flex-col gap-4 overflow-hidden">
-                      <div className="flex-shrink-0">
-                        <label className="block text-sm font-semibold text-gray-800 mb-2">Text Content <span className="text-red-500">*</span></label>
-                        <textarea
-                          value={draftText}
-                          onChange={(e) => {
-                            setDraftText(e.target.value)
+                      <div className="flex-shrink-0 flex flex-col gap-2">
+                        <label className="block text-sm font-semibold text-gray-800">Text Content <span className="text-red-500">*</span></label>
+
+                        {/* Rich Text Toolbar */}
+                        <div className="flex flex-wrap items-center gap-2 p-2 border rounded-t-lg bg-gray-50">
+                          <select
+                            className="text-xs border rounded px-1 py-1"
+                            onChange={(e) => {
+                              document.execCommand('fontName', false, e.target.value)
+                            }}
+                            value={draftTextFont} // This might not reflect selection perfectly without complex sync
+                          >
+                            {FONT_OPTIONS.map(f => <option key={f} value={f}>{f}</option>)}
+                          </select>
+                          <div className="flex items-center border rounded bg-white overflow-hidden">
+                            <button className="px-2 py-1 hover:bg-gray-100 font-bold" onClick={() => document.execCommand('bold')} title="Bold">B</button>
+                            <button className="px-2 py-1 hover:bg-gray-100 italic" onClick={() => document.execCommand('italic')} title="Italic">I</button>
+
+                          </div>
+                          <input
+                            type="color"
+                            className="w-6 h-6 p-0 border-0 rounded cursor-pointer"
+                            onChange={(e) => document.execCommand('foreColor', false, e.target.value)}
+                            title="Text Color"
+                          />
+                          {/* Helper to clear formatting */}
+                          <button className="text-xs px-2 py-1 border rounded hover:bg-gray-100" onClick={() => document.execCommand('removeFormat')} title="Clear Formatting">Clear</button>
+                        </div>
+
+                        {/* Content Editable Area */}
+                        <div
+                          ref={draftTextEditorRef}
+                          className="w-full rounded-b-lg border border-t-0 border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] h-32 overflow-y-auto text-base bg-white"
+                          contentEditable
+                          onInput={(e) => {
+                            const target = e.currentTarget
+                            setDraftHtmlContent(target.innerHTML)
+                            // Use innerText to capture newlines as \n
+                            setDraftText(target.innerText)
                             setDraftError(null)
                           }}
-                          rows={4}
-                          className="w-full rounded-lg border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] resize-none h-32 text-base"
-                          placeholder="Enter the text you want to render as a layer"
+                          onBlur={(e) => {
+                            // Ensure we persist the text with newlines
+                            setDraftText(e.currentTarget.innerText)
+                          }}
+                          style={{
+                            fontFamily: draftTextFont, // Default font
+                            fontSize: '16px', // Fixed size for editing
+                            fontWeight: draftTextWeight, // Default weight
+                            color: draftTextColor, // Default color
+                          }}
                         />
+                        <div className="text-xs text-gray-500">
+                          Tip: Select text to apply specific styles. Global styles below apply to the container.
+                        </div>
                       </div>
 
                       {/* Preview Section */}
                       <div className="flex-1 flex flex-col overflow-hidden gap-2">
                         <label className="block text-sm font-semibold text-gray-800">Preview (This is how it will look when saved)</label>
                         <div className="flex-1 bg-gray-50 rounded-lg p-6 border border-gray-200 overflow-auto flex items-center justify-center">
-                          {draftText ? (
-                            <div
-                              style={{
-                                color: draftTextColor,
-                                fontWeight: draftTextWeight,
-                                fontSize: `${draftTextSize}px`,
-                                fontFamily: draftTextFont,
-                                backgroundColor: draftTextBackgroundColor || "transparent",
-                                borderRadius: draftTextBackgroundRadius > 0 ? `${draftTextBackgroundRadius}px` : "0",
-                                padding: draftTextBackgroundColor ? `${Math.max(24, Math.round(draftTextSize * 0.9))}px ${Math.max(24, Math.round(draftTextSize * 0.9))}px` : "0",
-                                lineHeight: `${Math.round(draftTextSize * 1.3)}px`,
-                                textAlign: "left",
-                                whiteSpace: "pre-wrap",
-                                wordWrap: "break-word",
-                                WebkitTextStroke: draftTextStrokeColor && draftTextStrokeWidth > 0
-                                  ? `${draftTextStrokeWidth}px ${draftTextStrokeColor}`
-                                  : "none",
-                                display: "inline-block",
-                                paintOrder: "stroke fill",
-                                // @ts-ignore - WebKit prefix for paint-order
-                                WebkitPaintOrder: "stroke fill",
-                              }}
-                            >
-                              {draftText}
-                            </div>
+                          {(draftHtmlContent || draftText) ? (
+                            <TextLayerPreview
+                              ref={(el) => { draftTextPreviewRef.current = el }}
+                              text={draftText}
+                              html={draftHtmlContent}
+                              color={draftTextColor}
+                              fontWeight={draftTextWeight}
+                              fontSize={draftTextSize}
+                              fontFamily={draftTextFont}
+                              backgroundColor={draftTextBackgroundColor}
+                              backgroundRadius={draftTextBackgroundRadius}
+                              textAlign={draftTextAlign}
+                              letterSpacing={draftTextLetterSpacing}
+                              fontStyle={draftTextFontStyle}
+                              textDecoration={draftTextDecoration}
+                              textOpacity={draftTextOpacity}
+                              textRotation={draftTextRotation}
+                              shadowColor={draftTextShadowColor}
+                              shadowBlur={draftTextShadowBlur}
+                              shadowOffsetX={draftTextShadowOffsetX}
+                              shadowOffsetY={draftTextShadowOffsetY}
+                              strokeColor={draftTextStrokeColor}
+                              strokeWidth={draftTextStrokeWidth}
+                            />
                           ) : (
                             <div className="text-gray-400 text-sm">Your text preview will appear here</div>
                           )}
@@ -2857,8 +3444,14 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                               onChange={(e) => setDraftTextBackgroundColor(e.target.value)}
                               className="w-12 h-12 rounded-2xl cursor-pointer flex-shrink-0 hover:border-[rgba(38,116,186,1)] transition-colors"
                             />
-                            <div className="text-xs flex-1">
+                            <div className="text-xs flex-1 flex flex-col gap-1">
                               <p className="text-gray-700 font-medium text-xs">{draftTextBackgroundColor || "No bg"}</p>
+                              <button
+                                onClick={() => setDraftTextBackgroundColor("")}
+                                className="text-xs text-red-500 hover:text-red-700 underline text-left"
+                              >
+                                Clear
+                              </button>
                             </div>
                           </div>
                         </div>
@@ -2895,7 +3488,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                         </div>
 
                         {/* Stroke Width */}
-                        <div>
+                        <div className="mb-4">
                           <label className="block text-sm font-semibold text-gray-800 mb-2">
                             Stroke Width: <span className="text-[rgba(38,116,186,1)]">{draftTextStrokeWidth}px</span>
                           </label>
@@ -2905,6 +3498,135 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                             max="10"
                             value={draftTextStrokeWidth}
                             onChange={(e) => setDraftTextStrokeWidth(Number(e.target.value))}
+                            className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
+                          />
+                        </div>
+
+                        {/* Letter Spacing */}
+                        <div className="mb-4">
+                          <label className="block text-sm font-semibold text-gray-800 mb-2">
+                            Letter Spacing: <span className="text-[rgba(38,116,186,1)]">{draftTextLetterSpacing}px</span>
+                          </label>
+                          <input
+                            type="range"
+                            min="-5"
+                            max="50"
+                            value={draftTextLetterSpacing}
+                            onChange={(e) => setDraftTextLetterSpacing(Number(e.target.value))}
+                            className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
+                          />
+                        </div>
+
+                        {/* Text Shadow */}
+                        <div className="mb-4">
+                          <label className="block text-sm font-semibold text-gray-800 mb-2">Text Shadow</label>
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-3">
+                              <input
+                                type="color"
+                                value={draftTextShadowColor || "#000000"}
+                                onChange={(e) => setDraftTextShadowColor(e.target.value)}
+                                className="w-8 h-8 rounded-lg cursor-pointer flex-shrink-0"
+                              />
+                              <div className="text-xs text-gray-600">Shadow Color</div>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2">
+                              <div>
+                                <label className="text-[10px] text-gray-500">Blur</label>
+                                <input
+                                  type="number"
+                                  value={draftTextShadowBlur}
+                                  onChange={(e) => setDraftTextShadowBlur(Number(e.target.value))}
+                                  className="w-full border rounded px-1 py-1 text-xs"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[10px] text-gray-500">X Offset</label>
+                                <input
+                                  type="number"
+                                  value={draftTextShadowOffsetX}
+                                  onChange={(e) => setDraftTextShadowOffsetX(Number(e.target.value))}
+                                  className="w-full border rounded px-1 py-1 text-xs"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[10px] text-gray-500">Y Offset</label>
+                                <input
+                                  type="number"
+                                  value={draftTextShadowOffsetY}
+                                  onChange={(e) => setDraftTextShadowOffsetY(Number(e.target.value))}
+                                  className="w-full border rounded px-1 py-1 text-xs"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Global Font Style & Decoration */}
+                        <div className="mb-4">
+                          <label className="block text-sm font-semibold text-gray-800 mb-2">Global Style</label>
+                          <div className="flex gap-2">
+                            <button
+                              className={`flex-1 py-1 text-xs border rounded ${draftTextFontStyle === 'italic' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white'}`}
+                              onClick={() => setDraftTextFontStyle(prev => prev === 'italic' ? 'normal' : 'italic')}
+                            >
+                              Italic
+                            </button>
+
+                          </div>
+                        </div>
+
+                        {/* Text Alignment */}
+                        <div className="mb-4">
+                          <label className="block text-sm font-semibold text-gray-800 mb-2">Text Alignment</label>
+                          <div className="flex gap-2">
+                            <button
+                              className={`flex-1 py-1 text-xs border rounded ${draftTextAlign === 'left' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white'}`}
+                              onClick={() => setDraftTextAlign('left')}
+                            >
+                              Left
+                            </button>
+                            <button
+                              className={`flex-1 py-1 text-xs border rounded ${draftTextAlign === 'center' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white'}`}
+                              onClick={() => setDraftTextAlign('center')}
+                            >
+                              Center
+                            </button>
+                            <button
+                              className={`flex-1 py-1 text-xs border rounded ${draftTextAlign === 'right' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white'}`}
+                              onClick={() => setDraftTextAlign('right')}
+                            >
+                              Right
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Opacity */}
+                        <div className="mb-4">
+                          <label className="block text-sm font-semibold text-gray-800 mb-2">
+                            Opacity: <span className="text-[rgba(38,116,186,1)]">{draftTextOpacity}%</span>
+                          </label>
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={draftTextOpacity}
+                            onChange={(e) => setDraftTextOpacity(Number(e.target.value))}
+                            className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
+                          />
+                        </div>
+
+                        {/* Rotation */}
+                        <div className="mb-4">
+                          <label className="block text-sm font-semibold text-gray-800 mb-2">
+                            Rotation: <span className="text-[rgba(38,116,186,1)]">{draftTextRotation}°</span>
+                          </label>
+                          <input
+                            type="range"
+                            min="-180"
+                            max="180"
+                            value={draftTextRotation}
+                            onChange={(e) => setDraftTextRotation(Number(e.target.value))}
                             className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
                           />
                         </div>
@@ -2921,7 +3643,55 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
               )}
             </div>
             <div className="px-5 py-4 border-t flex items-center justify-between">
-              <Button variant="outline" onClick={resetDraftState} disabled={draftSaving} className="cursor-pointer">Cancel</Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={resetDraftState} disabled={draftSaving} className="cursor-pointer">Cancel</Button>
+                {/* {draftType === 'text' && (
+                  <Button
+                    variant="outline"
+                    onClick={async () => {
+                      try {
+                        const baseName = (draftName || draftText).split('\n')[0].trim() || 'Text Layer'
+                        const { file } = await renderTextLayerImage({
+                          text: draftText,
+                          html: draftHtmlContent,
+                          color: draftTextColor,
+                          fontWeight: draftTextWeight,
+                          fontSize: draftTextSize,
+                          fontFamily: draftTextFont,
+                          fileBaseName: baseName,
+                          backgroundColor: draftTextBackgroundColor,
+                          backgroundRadius: draftTextBackgroundRadius,
+                          strokeColor: draftTextStrokeColor,
+                          strokeWidth: draftTextStrokeWidth,
+                          letterSpacing: draftTextLetterSpacing,
+                          shadowColor: draftTextShadowColor,
+                          shadowBlur: draftTextShadowBlur,
+                          shadowOffsetX: draftTextShadowOffsetX,
+                          shadowOffsetY: draftTextShadowOffsetY,
+                          fontStyle: draftTextFontStyle,
+                          textDecoration: draftTextDecoration,
+                          textAlign: draftTextAlign,
+                          textOpacity: draftTextOpacity,
+                          textRotation: draftTextRotation,
+                        })
+                        const url = URL.createObjectURL(file)
+                        const a = document.createElement('a')
+                        a.href = url
+                        a.download = `debug-${baseName}.png`
+                        document.body.appendChild(a)
+                        a.click()
+                        document.body.removeChild(a)
+                        URL.revokeObjectURL(url)
+                      } catch (e) {
+                        console.error('Debug download failed', e)
+                      }
+                    }}
+                    className="cursor-pointer border-blue-200 text-blue-700 hover:bg-blue-50"
+                  >
+                    Download PNG
+                  </Button>
+                )} */}
+              </div>
               <Button
                 className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                 onClick={() => void saveLayer()}
@@ -2948,49 +3718,90 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
 
               {/* Left Side - Text Input & Preview */}
               <div className="flex-1 flex flex-col gap-4 overflow-hidden">
-                <div className="flex-shrink-0">
-                  <label className="block text-sm font-semibold text-gray-800 mb-2">Text Content <span className="text-red-500">*</span></label>
-                  <textarea
-                    value={layerTextValue}
-                    onChange={(e) => {
-                      setLayerTextValue(e.target.value)
+                <div className="flex-shrink-0 flex flex-col gap-2">
+                  <label className="block text-sm font-semibold text-gray-800">Text Content <span className="text-red-500">*</span></label>
+
+                  {/* Rich Text Toolbar */}
+                  <div className="flex flex-wrap items-center gap-2 p-2 border rounded-t-lg bg-gray-50">
+                    <select
+                      className="text-xs border rounded px-1 py-1"
+                      onChange={(e) => {
+                        document.execCommand('fontName', false, e.target.value)
+                      }}
+                      value={layerTextFont}
+                    >
+                      {FONT_OPTIONS.map(f => <option key={f} value={f}>{f}</option>)}
+                    </select>
+                    <div className="flex items-center border rounded bg-white overflow-hidden">
+                      <button className="px-2 py-1 hover:bg-gray-100 font-bold" onClick={() => document.execCommand('bold')} title="Bold">B</button>
+                      <button className="px-2 py-1 hover:bg-gray-100 italic" onClick={() => document.execCommand('italic')} title="Italic">I</button>
+
+                    </div>
+                    <input
+                      type="color"
+                      className="w-6 h-6 p-0 border-0 rounded cursor-pointer"
+                      onChange={(e) => document.execCommand('foreColor', false, e.target.value)}
+                      title="Text Color"
+                    />
+                    <button className="text-xs px-2 py-1 border rounded hover:bg-gray-100" onClick={() => document.execCommand('removeFormat')} title="Clear Formatting">Clear</button>
+                  </div>
+
+                  {/* Content Editable Area */}
+                  <div
+                    ref={layerTextEditorRef}
+                    className="w-full rounded-b-lg border border-t-0 border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] h-32 overflow-y-auto text-base bg-white"
+                    contentEditable
+                    onInput={(e) => {
+                      const target = e.currentTarget
+                      setLayerHtmlContent(target.innerHTML)
+                      // Use innerText to capture newlines as \n
+                      setLayerTextValue(target.innerText)
                       setLayerTextError(null)
                     }}
-                    rows={4}
-                    className="w-full rounded-lg border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] resize-none h-32 text-base"
-                    placeholder="Enter the text you want to render as a layer"
+                    onBlur={(e) => {
+                      // Ensure we persist the text with newlines
+                      setLayerTextValue(e.currentTarget.innerText)
+                    }}
+                    style={{
+                      fontFamily: layerTextFont,
+                      fontSize: '16px',
+                      fontWeight: layerTextWeight,
+                      color: layerTextColor,
+                    }}
                   />
+                  <div className="text-xs text-gray-500">
+                    Tip: Select text to apply specific styles. Global styles below apply to the container.
+                  </div>
                 </div>
 
                 {/* Preview Section */}
                 <div className="flex-1 flex flex-col overflow-hidden">
                   <label className="block text-sm font-semibold text-gray-800 mb-2">Preview (This is how it will look when saved)</label>
                   <div className="flex-1 bg-gray-50 rounded-lg p-6 border border-gray-200 overflow-auto flex items-center justify-center">
-                    {layerTextValue ? (
-                      <div
-                        style={{
-                          color: layerTextColor,
-                          fontWeight: layerTextWeight,
-                          fontSize: `${layerTextSize}px`,
-                          fontFamily: layerTextFont,
-                          backgroundColor: layerTextBackgroundColor || "transparent",
-                          borderRadius: layerTextBackgroundRadius > 0 ? `${layerTextBackgroundRadius}px` : "0",
-                          padding: layerTextBackgroundColor ? `${Math.max(24, Math.round(layerTextSize * 0.9))}px ${Math.max(24, Math.round(layerTextSize * 0.9))}px` : "0",
-                          lineHeight: `${Math.round(layerTextSize * 1.3)}px`,
-                          textAlign: "left",
-                          whiteSpace: "pre-wrap",
-                          wordWrap: "break-word",
-                          WebkitTextStroke: layerTextStrokeColor && layerTextStrokeWidth > 0
-                            ? `${layerTextStrokeWidth}px ${layerTextStrokeColor}`
-                            : "none",
-                          display: "inline-block",
-                          paintOrder: "stroke fill",
-                          // @ts-ignore - WebKit prefix for paint-order
-                          WebkitPaintOrder: "stroke fill",
-                        }}
-                      >
-                        {layerTextValue}
-                      </div>
+                    {(layerHtmlContent || layerTextValue) ? (
+                      <TextLayerPreview
+                        ref={(el) => { layerTextPreviewRef.current = el }}
+                        text={layerTextValue}
+                        html={layerHtmlContent}
+                        color={layerTextColor}
+                        fontWeight={layerTextWeight}
+                        fontSize={layerTextSize}
+                        fontFamily={layerTextFont}
+                        backgroundColor={layerTextBackgroundColor}
+                        backgroundRadius={layerTextBackgroundRadius}
+                        textAlign={layerTextAlign}
+                        letterSpacing={layerTextLetterSpacing}
+                        fontStyle={layerTextFontStyle}
+                        textDecoration={layerTextDecoration}
+                        textOpacity={layerTextOpacity}
+                        textRotation={layerTextRotation}
+                        shadowColor={layerTextShadowColor}
+                        shadowBlur={layerTextShadowBlur}
+                        shadowOffsetX={layerTextShadowOffsetX}
+                        shadowOffsetY={layerTextShadowOffsetY}
+                        strokeColor={layerTextStrokeColor}
+                        strokeWidth={layerTextStrokeWidth}
+                      />
                     ) : (
                       <div className="text-gray-400 text-sm">Your text preview will appear here</div>
                     )}
@@ -3099,8 +3910,14 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                         onChange={(e) => setLayerTextBackgroundColor(e.target.value)}
                         className="w-12 h-12 rounded-2xl cursor-pointer flex-shrink-0 hover:border-[rgba(38,116,186,1)] transition-colors"
                       />
-                      <div className="text-xs flex-1">
+                      <div className="text-xs flex-1 flex flex-col gap-1">
                         <p className="text-gray-700 font-medium text-xs">{layerTextBackgroundColor || "No bg"}</p>
+                        <button
+                          onClick={() => setLayerTextBackgroundColor("")}
+                          className="text-xs text-red-500 hover:text-red-700 underline text-left"
+                        >
+                          Clear
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -3150,12 +3967,185 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                       className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
                     />
                   </div>
+
+                  {/* Letter Spacing */}
+                  <div className="mb-4 mt-4">
+                    <label className="block text-sm font-semibold text-gray-800 mb-2">
+                      Letter Spacing: <span className="text-[rgba(38,116,186,1)]">{layerTextLetterSpacing}px</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="-5"
+                      max="50"
+                      value={layerTextLetterSpacing}
+                      onChange={(e) => setLayerTextLetterSpacing(Number(e.target.value))}
+                      className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Text Shadow */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-semibold text-gray-800 mb-2">Text Shadow</label>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="color"
+                          value={layerTextShadowColor || "#000000"}
+                          onChange={(e) => setLayerTextShadowColor(e.target.value)}
+                          className="w-8 h-8 rounded-lg cursor-pointer flex-shrink-0"
+                        />
+                        <div className="text-xs text-gray-600">Shadow Color</div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <label className="text-[10px] text-gray-500">Blur</label>
+                          <input
+                            type="number"
+                            value={layerTextShadowBlur}
+                            onChange={(e) => setLayerTextShadowBlur(Number(e.target.value))}
+                            className="w-full border rounded px-1 py-1 text-xs"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-gray-500">X Offset</label>
+                          <input
+                            type="number"
+                            value={layerTextShadowOffsetX}
+                            onChange={(e) => setLayerTextShadowOffsetX(Number(e.target.value))}
+                            className="w-full border rounded px-1 py-1 text-xs"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-gray-500">Y Offset</label>
+                          <input
+                            type="number"
+                            value={layerTextShadowOffsetY}
+                            onChange={(e) => setLayerTextShadowOffsetY(Number(e.target.value))}
+                            className="w-full border rounded px-1 py-1 text-xs"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Global Font Style & Decoration */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-semibold text-gray-800 mb-2">Global Style</label>
+                    <div className="flex gap-2">
+                      <button
+                        className={`flex-1 py-1 text-xs border rounded ${layerTextFontStyle === 'italic' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white'}`}
+                        onClick={() => setLayerTextFontStyle(prev => prev === 'italic' ? 'normal' : 'italic')}
+                      >
+                        Italic
+                      </button>
+
+                    </div>
+                  </div>
+
+                  {/* Text Alignment */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-semibold text-gray-800 mb-2">Text Alignment</label>
+                    <div className="flex gap-2">
+                      <button
+                        className={`flex-1 py-1 text-xs border rounded ${layerTextAlign === 'left' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white'}`}
+                        onClick={() => setLayerTextAlign('left')}
+                      >
+                        Left
+                      </button>
+                      <button
+                        className={`flex-1 py-1 text-xs border rounded ${layerTextAlign === 'center' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white'}`}
+                        onClick={() => setLayerTextAlign('center')}
+                      >
+                        Center
+                      </button>
+                      <button
+                        className={`flex-1 py-1 text-xs border rounded ${layerTextAlign === 'right' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white'}`}
+                        onClick={() => setLayerTextAlign('right')}
+                      >
+                        Right
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Opacity */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-semibold text-gray-800 mb-2">
+                      Opacity: <span className="text-[rgba(38,116,186,1)]">{layerTextOpacity}%</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={layerTextOpacity}
+                      onChange={(e) => setLayerTextOpacity(Number(e.target.value))}
+                      className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Rotation */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-semibold text-gray-800 mb-2">
+                      Rotation: <span className="text-[rgba(38,116,186,1)]">{layerTextRotation}°</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="-180"
+                      max="180"
+                      value={layerTextRotation}
+                      onChange={(e) => setLayerTextRotation(Number(e.target.value))}
+                      className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Footer */}
             <div className="px-5 py-4 border-t flex justify-end gap-3 flex-shrink-0">
+              {/* <Button
+                variant="outline"
+                onClick={async () => {
+                  try {
+                    const baseName = layerTextValue.split('\n')[0].trim() || 'Text'
+                    const { file } = await renderTextLayerImage({
+                      text: layerTextValue,
+                      html: layerHtmlContent,
+                      color: layerTextColor,
+                      fontWeight: layerTextWeight,
+                      fontSize: layerTextSize,
+                      fontFamily: layerTextFont,
+                      fileBaseName: baseName,
+                      backgroundColor: layerTextBackgroundColor,
+                      backgroundRadius: layerTextBackgroundRadius,
+                      strokeColor: layerTextStrokeColor,
+                      strokeWidth: layerTextStrokeWidth,
+                      letterSpacing: layerTextLetterSpacing,
+                      shadowColor: layerTextShadowColor,
+                      shadowBlur: layerTextShadowBlur,
+                      shadowOffsetX: layerTextShadowOffsetX,
+                      shadowOffsetY: layerTextShadowOffsetY,
+                      fontStyle: layerTextFontStyle,
+                      textDecoration: layerTextDecoration,
+                      textAlign: layerTextAlign,
+                      textOpacity: layerTextOpacity,
+                      textRotation: layerTextRotation,
+                    })
+                    const url = URL.createObjectURL(file)
+                    const a = document.createElement('a')
+                    a.href = url
+                    a.download = `debug-${baseName}.png`
+                    document.body.appendChild(a)
+                    a.click()
+                    document.body.removeChild(a)
+                    URL.revokeObjectURL(url)
+                  } catch (e) {
+                    console.error('Debug download failed', e)
+                  }
+                }}
+                className="cursor-pointer border-blue-200 text-blue-700 hover:bg-blue-50"
+              >
+                Download PNG
+              </Button> */}
               <Button variant="outline" onClick={closeLayerTextModal} disabled={layerTextSaving} className="cursor-pointer">Cancel</Button>
               <Button
                 className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] cursor-pointer"
@@ -3169,19 +4159,22 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
         </div>
       )}
 
+
       {/* Fullscreen Preview Modal */}
-      {showFullPreview && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/70" onClick={() => setShowFullPreview(false)} />
-          <div className="relative bg-white rounded-xl w-full max-w-5xl shadow-xl p-4 z-10">
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-sm font-semibold text-gray-800">Preview</div>
-              <Button variant="outline" onClick={() => setShowFullPreview(false)} className="cursor-pointer">Close</Button>
+      {
+        showFullPreview && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/70" onClick={() => setShowFullPreview(false)} />
+            <div className="relative bg-white rounded-xl w-full max-w-5xl shadow-xl p-4 z-10">
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-sm font-semibold text-gray-800">Preview</div>
+                <Button variant="outline" onClick={() => setShowFullPreview(false)} className="cursor-pointer">Close</Button>
+              </div>
+              <LargePreview background={background} layers={layers} aspect={previewAspect} />
             </div>
-            <LargePreview background={background} layers={layers} aspect={previewAspect} />
           </div>
-        </div>
-      )}
+        )
+      }
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mt-10">
         <Button variant="outline" className="rounded-full cursor-pointer px-6 w-full sm:w-auto" onClick={onBack}>Back</Button>
@@ -3193,6 +4186,6 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
           {nextLoading ? 'Uploading...' : (layers.length < LAYER_MIN ? `Add at least ${LAYER_MIN}` : 'Save & Next')}
         </Button>
       </div>
-    </div>
+    </div >
   )
 }

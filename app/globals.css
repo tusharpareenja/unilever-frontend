@@ -117,7 +117,14 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
+  }
+
+  /* Fix for text layer preview artifacts */
+  [data-text-layer-preview] * {
+    outline: none !important;
+    border: none !important;
   }
 }

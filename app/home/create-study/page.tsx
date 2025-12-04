@@ -301,15 +301,30 @@ const loadDraftStudyData = async (studyId: string) => {
           images: (layer.images || []).map((img: LayerImage, imgIdx: number) => {
             // Extract config from either top-level or nested config object
             const config = (img as any).config || {}
-            const textContent = config.text_content || img.text_content || img.name || ''
-            const textColor = config.text_color || img.text_color
-            const textWeight = config.text_weight || img.text_weight
-            const textSize = config.text_size ?? img.text_size
-            const textFont = config.text_font || img.text_font
-            const textBackgroundColor = config.text_background_color || img.text_background_color
-            const textBackgroundRadius = config.text_background_radius ?? img.text_background_radius
-            const textStrokeColor = config.text_stroke_color || img.text_stroke_color
-            const textStrokeWidth = config.text_stroke_width ?? img.text_stroke_width
+
+            const coerceNumber = (v: any, fallback = 0) => (v === null || typeof v === 'undefined') ? fallback : Number(v)
+            const coerceString = (v: any, fallback = '') => (v === null || typeof v === 'undefined') ? fallback : String(v)
+
+            const textContent = coerceString(config.text_content ?? (img as any).text_content ?? img.name ?? '')
+            const textColor = coerceString(config.text_color ?? (img as any).text_color ?? '')
+            const textWeight = coerceString(config.text_weight ?? (img as any).text_weight ?? '600')
+            const textSize = coerceNumber(config.text_size ?? (img as any).text_size ?? 48)
+            const textFont = coerceString(config.text_font ?? (img as any).text_font ?? 'Inter')
+            const textBackgroundColor = coerceString(config.text_background_color ?? (img as any).text_background_color ?? '')
+            const textBackgroundRadius = coerceNumber(config.text_background_radius ?? (img as any).text_background_radius ?? 0)
+            const textStrokeColor = coerceString(config.text_stroke_color ?? (img as any).text_stroke_color ?? '')
+            const textStrokeWidth = coerceNumber(config.text_stroke_width ?? (img as any).text_stroke_width ?? 0)
+            const textLetterSpacing = coerceNumber(config.text_letter_spacing ?? (img as any).text_letter_spacing ?? 0)
+            const textShadowColor = coerceString(config.text_shadow_color ?? (img as any).text_shadow_color ?? '')
+            const textShadowBlur = coerceNumber(config.text_shadow_blur ?? (img as any).text_shadow_blur ?? 0)
+            const textShadowOffsetX = coerceNumber(config.text_shadow_offset_x ?? (img as any).text_shadow_offset_x ?? 0)
+            const textShadowOffsetY = coerceNumber(config.text_shadow_offset_y ?? (img as any).text_shadow_offset_y ?? 0)
+            const textFontStyle = coerceString(config.text_font_style ?? (img as any).text_font_style ?? 'normal')
+            const textDecoration = coerceString(config.text_decoration ?? (img as any).text_decoration ?? 'none')
+            const textAlign = coerceString(config.text_align ?? (img as any).text_align ?? 'left')
+            const textOpacity = coerceNumber(config.text_opacity ?? (img as any).text_opacity ?? 100)
+            const textRotation = coerceNumber(config.text_rotation ?? (img as any).text_rotation ?? 0)
+            const htmlContent = coerceString(config.html_content ?? (img as any).html_content ?? '')
 
             return {
               id: img.id || img.image_id || `img-${layerIdx}-${imgIdx}`,
@@ -322,6 +337,7 @@ const loadDraftStudyData = async (studyId: string) => {
               height: typeof img.height === 'number' ? img.height : layerTransform.height,
               sourceType: layer.layer_type === 'text' ? 'text' : 'upload',
               textContent,
+              htmlContent,
               textColor,
               textWeight: textWeight as any,
               textSize,
@@ -330,6 +346,16 @@ const loadDraftStudyData = async (studyId: string) => {
               textBackgroundRadius,
               textStrokeColor,
               textStrokeWidth,
+              textLetterSpacing,
+              textShadowColor,
+              textShadowBlur,
+              textShadowOffsetX,
+              textShadowOffsetY,
+              textFontStyle,
+              textDecoration,
+              textAlign,
+              textOpacity,
+              textRotation,
             }
           })
         }

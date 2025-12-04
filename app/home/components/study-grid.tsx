@@ -57,13 +57,13 @@ export function StudyGrid({
     keysToRemove.forEach(key => {
       try {
         localStorage.removeItem(key)
-      } catch {}
+      } catch { }
     })
 
     // Set flag to indicate this is a fresh start (no resuming)
     try {
       localStorage.setItem('cs_is_fresh_start', 'true')
-    } catch {}
+    } catch { }
   }
 
   const handleViewDetails = (study: StudyListItem) => {
@@ -85,7 +85,7 @@ export function StudyGrid({
               lastStep = cachedStudy.last_step
             }
           }
-        } catch {}
+        } catch { }
       }
 
       // Store study_id and flag for create-study page to load data
@@ -136,7 +136,7 @@ export function StudyGrid({
       const studyDate = new Date(study.created_at)
       const now = new Date()
       const daysDiff = Math.floor((now.getTime() - studyDate.getTime()) / (1000 * 60 * 60 * 24))
-      
+
       switch (selectedTime) {
         case "Last 7 days":
           if (daysDiff > 7) return false
@@ -215,7 +215,7 @@ export function StudyGrid({
   if (filteredStudies.length === 0) {
     // Check if there are no studies at all vs no studies matching filters
     const hasFilters = searchQuery || selectedType !== "All Types" || selectedTime !== "All Time" || activeTab !== "All Studies"
-    
+
     return (
       <div className="text-center py-12">
         {studies.length === 0 ? (
@@ -242,7 +242,7 @@ export function StudyGrid({
               <div className="text-6xl mb-4">🔍</div>
               <h3 className="text-lg font-semibold text-gray-700 mb-2">No Studies Found</h3>
               <p className="text-sm text-gray-500 mb-6">
-                {hasFilters 
+                {hasFilters
                   ? "No studies match your current filters. Try adjusting your search criteria or clearing the filters."
                   : "No studies found in this category."
                 }
@@ -250,7 +250,7 @@ export function StudyGrid({
             </div>
             <div className="flex gap-3 justify-center">
               {hasFilters && (
-                <Button 
+                <Button
                   variant="outline"
                   onClick={() => window.location.reload()}
                   className="px-4 py-2"
@@ -294,7 +294,7 @@ export function StudyGrid({
 
           {/* Title */}
           <h3 className="text-lg font-semibold text-gray-900 mb-2">{study.title}</h3>
-          
+
           {/* Date */}
           <div className="flex items-center text-sm text-gray-500 mb-2">
             <Calendar className="w-4 h-4 mr-1" />
