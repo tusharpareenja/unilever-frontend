@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // User registration API for /auth/register
 export const API_BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
@@ -122,11 +123,11 @@ export async function forgotPassword(payload: ForgotPasswordPayload): Promise<Fo
 	if (!payload.email) {
 		throw new ApiError("Email is required", 400);
 	}
-	
+
 	// console.log("API_BASE_URL:", API_BASE_URL);
 	// console.log("Making request to:", `${API_BASE_URL}/auth/forgot-password`);
 	// console.log("Payload:", payload);
-	
+
 	try {
 		const res = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
 			method: "POST",

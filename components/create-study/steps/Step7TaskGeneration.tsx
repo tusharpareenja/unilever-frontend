@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
 import { useEffect, useState, useRef, useMemo, useLayoutEffect } from "react"
@@ -19,7 +20,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
   const [isDownloadingAssets, setIsDownloadingAssets] = useState(false)
   const [countdownSeconds, setCountdownSeconds] = useState(600) // 10 minutes
   const countdownRef = useRef(600)
-  
+
   // Background job polling states
   const [jobStatus, setJobStatus] = useState<JobStatus | null>(null)
   const [isPolling, setIsPolling] = useState(false)
@@ -44,7 +45,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
     try {
       const v = localStorage.getItem('cs_step5_layer_preview_aspect')
       if (v === 'portrait' || v === 'landscape' || v === 'square') return v
-    } catch {}
+    } catch { }
     return 'portrait'
   }, [])
 
@@ -61,7 +62,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
       }
       localStorage.setItem('cs_step7_job_state', JSON.stringify(jobState))
       console.log('[Step7] Saved job state with progress:', jobState.progress + '%', studyId ? `and study_id: ${studyId}` : '')
-      
+
       // Also persist study_id separately if available
       if (studyId) {
         try {
@@ -82,7 +83,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
       if (saved) {
         const jobState = JSON.parse(saved)
         console.log('[Step7] Loaded job state:', jobState)
-        
+
         // Restore study_id if available in job state
         if (jobState.studyId) {
           try {
@@ -92,7 +93,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
             console.warn('Failed to restore study_id from job state:', storageError)
           }
         }
-        
+
         // Check if job is still active (not completed or failed)
         if (jobState.status && (jobState.status.status === 'processing' || jobState.status.status === 'pending')) {
           return jobState
@@ -117,7 +118,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
       console.log('[Step7] getTaskGenerationResult returned:', result)
       if (result && result.tasks) {
         console.log('[Step7] Job was completed, fetching result and saving preview')
-        
+
         // Ensure study_id is persisted from the result
         const studyId = result?.study_id || result?.metadata?.study_id
         if (studyId) {
@@ -128,7 +129,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
             console.warn('Failed to store study_id from completed job result:', storageError)
           }
         }
-        
+
         savePreviewAndComplete(result)
         clearJobState()
         clearTimerState()
@@ -153,7 +154,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
     try {
       localStorage.removeItem('cs_step7_job_state')
       console.log('[Step7] Cleared job state')
-      
+
       // Also reset all related React state variables immediately
       setJobStatus(null)
       setIsPolling(false)
@@ -163,7 +164,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
       setCountdownSeconds(0)
       countdownRef.current = 0
       isResuming.current = false
-      
+
       console.log('[Step7] Reset all job-related state variables')
     } catch (error) {
       console.warn('Failed to clear job state:', error)
@@ -213,13 +214,13 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
     if (timerSaveInterval.current) {
       clearInterval(timerSaveInterval.current)
     }
-    
+
     // Save timer every 5 seconds
     timerSaveInterval.current = setInterval(() => {
       saveTimerState(countdownRef.current)
       console.log('[Step7] Saved timer state every 5 seconds:', countdownRef.current)
     }, 5000)
-    
+
     console.log('[Step7] Started 5-second timer saving')
   }
 
@@ -244,13 +245,13 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
       console.log('[Step7] Resuming polling for job:', jobId)
       setIsPolling(true)
       setPollingError(null)
-      
+
       // Show user that we're resuming with latest progress
       console.log('[Step7] Resuming task generation from saved progress...')
-      
+
       // Import the polling function
       const { pollJobStatus, getTaskGenerationResult } = await import('@/lib/api/StudyAPI')
-      
+
       const finalStatus = await pollJobStatus(jobId, (status) => {
         console.log('[Step7] Resumed job status update:', {
           job_id: status?.job_id,
@@ -258,21 +259,21 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
           progress: status?.progress,
           message: status?.message
         })
-        
+
         // Ensure progress never decreases from the highest value reached
         const currentProgress = typeof status?.progress === 'number' ? status.progress : 0
         const newHighestProgress = Math.max(highestProgress, currentProgress)
         setHighestProgress(newHighestProgress)
-        
+
         // Create a modified status object with monotonic progress
         const monotonicStatus = {
           ...status,
           progress: newHighestProgress
         }
-        
+
         setJobStatus(monotonicStatus)
         setIsPolling(status.status === 'processing' || status.status === 'pending')
-        
+
         // Update job state in localStorage with latest progress
         // Try to get study_id from job state or current localStorage
         const currentJobState = loadJobState()
@@ -286,7 +287,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
         })()
         saveJobState(jobId, monotonicStatus, jobStartTime || Date.now(), studyId)
       }, 5000) // 5 second interval
-      
+
       if (finalStatus.status === 'completed') {
         console.log('[Step7] Resumed job completed, fetching result...')
         const result = await getTaskGenerationResult(jobId)
@@ -302,7 +303,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
         clearJobState()
         setJobStartTime(null)
       }
-      
+
     } catch (error) {
       console.error('[Step7] Error resuming job polling:', error)
       setPollingError(error instanceof Error ? error.message : 'Failed to resume job')
@@ -331,7 +332,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
         tasksKeys: result.tasks ? Object.keys(result.tasks) : []
       })
       setMatrix(result)
-      
+
       // Extract tasks from different possible structures
       let previewTasks = []
       if (result.tasks && Array.isArray(result.tasks)) {
@@ -344,14 +345,14 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
           previewTasks = result.tasks[taskKeys[0]] || []
         }
       }
-      
+
       console.log('[Step7] Extracted preview tasks:', {
         hasResultTasks: !!result.tasks,
         resultTasksType: typeof result.tasks,
         resultTasksKeys: result.tasks ? Object.keys(result.tasks) : [],
         previewTasksLength: previewTasks.length
       })
-      
+
       // Build transforms map from result.layers by name -> transform
       const transformsMap: Record<string, { x: number; y: number; width: number; height: number }> = {}
       try {
@@ -369,7 +370,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
             }
           })
         }
-      } catch {}
+      } catch { }
 
       const previewData: any = {
         metadata: result.metadata,
@@ -397,7 +398,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
       console.log('[Step7] Marking step7 as completed')
       localStorage.setItem('cs_step7_tasks', JSON.stringify({ completed: true, timestamp: Date.now() }))
       onDataChange?.()
-    } catch {}
+    } catch { }
   }
 
   const generateNow = async () => {
@@ -405,43 +406,43 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
       // Check if there's already a job in progress in localStorage
       const existingJobState = loadJobState()
       console.log('[Step7] generateNow called, checking existing job state:', existingJobState)
-      
+
       // Only prevent new generation if there's an active job (processing/pending)
-      if (existingJobState && existingJobState.status && 
-          (existingJobState.status.status === 'processing' || existingJobState.status.status === 'pending')) {
+      if (existingJobState && existingJobState.status &&
+        (existingJobState.status.status === 'processing' || existingJobState.status.status === 'pending')) {
         console.log('[Step7] Job already in progress, not starting new generation')
         return
       }
-      
+
       // If there's a completed/failed job state, clear it and continue
       if (existingJobState) {
         console.log('[Step7] Found completed/failed job state, clearing and starting new generation')
         clearJobState()
       }
-      
+
       // Ensure we start with a completely clean state
       setJobStatus(null)
       setHighestProgress(0)
       setJobStartTime(null)
       setIsPolling(false)
       setPollingError(null)
-      
+
       // Force a brief delay to ensure state is reset before starting new generation
       await new Promise(resolve => setTimeout(resolve, 100))
-      
+
       setIsGenerating(true)
       clearJobState() // Clear any existing job state
       clearTimerState() // Clear timer state for new job
       stopTimerSaving() // Stop any existing timer saving
       timerInitialized.current = false // Reset timer initialization
       // Ensure we don't show stale preview while a new background job runs
-      try { console.log('[Step7] Clearing cached cs_step7_matrix'); localStorage.removeItem('cs_step7_matrix') } catch {}
+      try { console.log('[Step7] Clearing cached cs_step7_matrix'); localStorage.removeItem('cs_step7_matrix') } catch { }
       setMatrix(null)
-      
+
       const payload = buildTaskGenerationPayloadFromLocalStorage()
       console.log('[Step7] Submitting task generation payload')
       console.log('[Step7] Payload includes study_id:', !!payload.study_id, payload.study_id)
-      
+
       // Use the polling-enabled generation (this handles both immediate and background jobs)
       const data = await generateTasksWithPolling(payload, (status) => {
         console.log('[Step7] Job status update:', {
@@ -450,21 +451,21 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
           progress: status?.progress,
           message: status?.message
         })
-        
+
         // Ensure progress never decreases from the highest value reached
         const currentProgress = typeof status?.progress === 'number' ? status.progress : 0
         const newHighestProgress = Math.max(highestProgress, currentProgress)
         setHighestProgress(newHighestProgress)
-        
+
         // Create a modified status object with monotonic progress
         const monotonicStatus = {
           ...status,
           progress: newHighestProgress
         }
-        
+
         setJobStatus(monotonicStatus)
         setIsPolling(status.status === 'processing' || status.status === 'pending')
-        
+
         // Save job state for persistence across browser sessions
         if (status.job_id && (status.status === 'processing' || status.status === 'pending')) {
           const startTime = jobStartTime || Date.now()
@@ -480,24 +481,24 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
           })()
           saveJobState(status.job_id, monotonicStatus, startTime, studyId)
         }
-        
+
         if (status.status === 'completed') {
           // The result will be fetched separately via getTaskGenerationResult
           // This callback is just for status updates during polling
         }
       })
-      
+
       console.log('[Step7] generateTasksWithPolling returned:', {
         hasData: !!data,
         hasTasks: !!(data?.tasks),
         hasMetadata: !!(data?.metadata),
         dataKeys: data ? Object.keys(data) : []
       })
-      
+
       // Check if this is a completed background job result or immediate result
       const dataJobId = (data as any)?.job_id || (data as any)?.metadata?.job_id || (data as any)?.data?.job_id
       const hasTasks = !!(data?.tasks && Object.keys(data.tasks).length > 0)
-      
+
       if (hasTasks) {
         // We have actual task data (either immediate or completed background job)
         console.log('[Step7] ✅ Task data received, processing...')
@@ -511,7 +512,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
         // Immediate generation without background job
         console.log('[Step7] Immediate generation response received (no job).')
         setMatrix(data)
-        
+
         // Store only preview data (1 respondent) to avoid localStorage limit
         try {
           // If backend returns a study_id in the task generation response, persist it for fast launch
@@ -528,7 +529,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
             if (possibleStudyId) {
               console.log('[Step7] Persisting cs_study_id', possibleStudyId)
               localStorage.setItem('cs_study_id', JSON.stringify(String(possibleStudyId)))
-              
+
             } else {
               console.warn('No study_id found in task generation response; fast launch will fall back if needed.')
             }
@@ -546,7 +547,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
               previewTasks = data.tasks[taskKeys[0]] || []
             }
           }
-          
+
           console.log('[Step7] Immediate generation - extracted preview tasks:', {
             hasDataTasks: !!data.tasks,
             dataTasksType: typeof data.tasks,
@@ -571,7 +572,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                 }
               })
             }
-          } catch {}
+          } catch { }
 
           const previewData: any = {
             metadata: data.metadata,
@@ -586,12 +587,12 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
 
           console.log('[Step7] Persisting cs_step7_matrix (immediate)')
           localStorage.setItem('cs_step7_matrix', JSON.stringify(previewData))
-          
+
         } catch (storageError) {
           console.warn('Failed to store preview data:', storageError)
           // Still mark as completed even if storage fails
         }
-        
+
         // Mark step 7 as completed
         console.log('[Step7] Marking step7 as completed (immediate)')
         localStorage.setItem('cs_step7_tasks', JSON.stringify({ completed: true, timestamp: Date.now() }))
@@ -622,7 +623,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
           localStorage.setItem('cs_current_step', '5')
           window.location.href = '/home/create-study'
         }
-      } catch {}
+      } catch { }
     } finally {
       setIsGenerating(false)
       setIsPolling(false)
@@ -643,27 +644,27 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
 
     console.log('[Step7] Component mounted, checking for existing job...')
     hasCheckedForExistingJob.current = true
-    
+
     const existingJobState = loadJobState()
     console.log('[Step7] Checking for existing job state:', existingJobState)
-    
+
     if (existingJobState && (existingJobState.jobId || existingJobState.status?.job_id)) {
       const jobId = existingJobState.jobId || existingJobState.status?.job_id
       console.log('[Step7] ✅ Found existing job, checking if completed:', jobId)
-      
+
       // First check if the job is already completed
       checkAndFetchCompletedJob(jobId).then((isCompleted) => {
         if (isCompleted) {
           console.log('[Step7] ✅ Job was already completed, preview loaded')
           return
         }
-        
+
         console.log('[Step7] ✅ Job still in progress, resuming:', jobId)
         setJobStatus(existingJobState.status)
         setJobStartTime(existingJobState.startTime)
         setHighestProgress(existingJobState.status?.progress || existingJobState.progress || 0)
         setIsPolling(true)
-        
+
         // Load timer state
         const savedTimer = loadTimerState()
         if (savedTimer) {
@@ -671,14 +672,14 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
           countdownRef.current = savedTimer.seconds
           timerInitialized.current = true
         }
-        
+
         // Resume polling
         resumeJobPolling(jobId)
       })
       return
     } else {
       console.log('[Step7] ❌ No existing job found')
-      
+
       // Check for cached matrix
       try {
         const cached = localStorage.getItem('cs_step7_matrix')
@@ -686,7 +687,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
           console.log('[Step7] Found cached matrix, loading it')
           isLoadingFromCache.current = true
           const matrixData = JSON.parse(cached)
-          
+
           // Clear timer and job state since tasks are already completed
           clearJobState()
           clearTimerState()
@@ -695,10 +696,10 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
           setHighestProgress(0)
           setIsPolling(false)
           setJobStatus(null)
-          
+
           // Set matrix after clearing state to ensure timer doesn't start
           setMatrix(matrixData)
-          
+
           console.log('[Step7] Loaded cached matrix:', {
             hasMetadata: !!matrixData.metadata,
             hasPreviewTasks: !!matrixData.preview_tasks,
@@ -718,23 +719,23 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
   // Handle active prop changes - but DON'T start generation if job exists
   useEffect(() => {
     if (!active || !hasCheckedForExistingJob.current) return
-    
+
     console.log('[Step7] Step became active')
-    
+
     // Check if there's an existing job or cached matrix
     const existingJobState = loadJobState()
     const hasCachedMatrix = localStorage.getItem('cs_step7_matrix')
-    
+
     if (existingJobState && (existingJobState.jobId || existingJobState.status?.job_id)) {
       console.log('[Step7] ✅ Job already in progress, not starting new generation')
       return
     }
-    
+
     if (hasCachedMatrix && matrix) {
       console.log('[Step7] ✅ Matrix already loaded, not starting new generation')
       return
     }
-    
+
     if (hasCachedMatrix && !matrix) {
       console.log('[Step7] Loading cached matrix')
       try {
@@ -745,7 +746,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
       }
       return
     }
-    
+
     // Only generate if no job and no cached matrix
     console.log('[Step7] No job or matrix found, starting generation')
     generateNow()
@@ -767,17 +768,17 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
       setShowTimer(false)
       return
     }
-    
+
     // Don't show timer if loading from cache or matrix already exists
     if (isLoadingFromCache.current || matrix) {
       setShowTimer(false)
       return
     }
-    
+
     const timer = setTimeout(() => {
       setShowTimer(true)
     }, 1000)
-    
+
     return () => clearTimeout(timer)
   }, [active, matrix])
 
@@ -863,9 +864,9 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
   // derive stats safely from metadata or LS
   const respondentsFromLS = getFromLS('cs_step6', { respondents: undefined as any }).respondents
   const studyType = getFromLS('cs_step2', { type: 'grid' }).type
-  
+
   const meta = (matrix as any)?.metadata || {}
-  
+
   // Use preview data (1 respondent only) for display
   const rawTasks = (matrix as any)?.preview_tasks || (matrix as any)?.tasks
   let respondentBuckets: any[][] = []
@@ -873,25 +874,25 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
     respondentBuckets = [rawTasks] // Show only first respondent
   } else if (rawTasks && typeof rawTasks === 'object') {
     // If we have the old format, take only first respondent
-    const keys = Object.keys(rawTasks).sort((a,b)=>Number(a)-Number(b))
-    respondentBuckets = keys.slice(0, 1).map((k)=>rawTasks[k]) // Only first respondent
+    const keys = Object.keys(rawTasks).sort((a, b) => Number(a) - Number(b))
+    respondentBuckets = keys.slice(0, 1).map((k) => rawTasks[k]) // Only first respondent
   }
 
   const numRespondents = meta.number_of_respondents ?? respondentsFromLS ?? '-'
-  
+
   // Calculate tasks per respondent from available data
   let tasksPerRespondent = meta.tasks_per_consumer ?? '-'
-  
+
   // If tasks_per_consumer is not available, calculate it from total_tasks and number_of_respondents
   if (tasksPerRespondent === '-' && typeof meta.total_tasks === 'number' && typeof meta.number_of_respondents === 'number' && meta.number_of_respondents > 0) {
     tasksPerRespondent = Math.round(meta.total_tasks / meta.number_of_respondents)
   }
-  
+
   // If still not available, try to calculate from actual task data
   if (tasksPerRespondent === '-' && respondentBuckets.length > 0 && Array.isArray(respondentBuckets[0])) {
     tasksPerRespondent = respondentBuckets[0].length
   }
-  
+
   // Calculate total tasks as tasks_per_respondent × number_of_respondents
   let totalTasks: any = '-'
   if (typeof tasksPerRespondent === 'number' && typeof numRespondents === 'number') {
@@ -901,7 +902,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
   } else if (respondentBuckets.length > 0) {
     totalTasks = respondentBuckets.reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0)
   }
-  
+
   const elementsPerTask = meta.K ?? meta.elements_per_task ?? '-'
   const formattedCountdown = `${Math.floor(countdownSeconds / 60)}:${String(countdownSeconds % 60).padStart(2, '0')}`
 
@@ -964,9 +965,9 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
               })
             }
           }
-        } catch {}
+        } catch { }
       }
-    } catch {}
+    } catch { }
     return map
   }, [matrix])
 
@@ -1030,11 +1031,11 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
       const visibleLayerKeys = Object.keys(elementsShown).filter((k) => elementsShown[k] === 1 && elementsContent[k])
       return visibleLayerKeys.length
     }
-    
+
     // For grid studies, check if using new category format
     const gridData = localStorage.getItem('cs_step5_grid')
     const isCategoryFormat = gridData && JSON.parse(gridData).length > 0 && JSON.parse(gridData)[0].title
-    
+
     if (isCategoryFormat) {
       // New category format: count visible elements from elements_shown
       const shown = t?.elements_shown || {}
@@ -1177,13 +1178,13 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
       highestProgress,
       hasJobState: !!localStorage.getItem('cs_step7_job_state')
     })
-    
+
     // Force clear all job-related state before regenerating
     console.log('[Step7] Clearing all job state for regeneration...')
     clearJobState()
     clearTimerState()
     stopTimerSaving()
-    
+
     // Reset all state variables immediately
     setJobStatus(null)
     setHighestProgress(0)
@@ -1191,27 +1192,27 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
     setIsPolling(false)
     setPollingError(null)
     setIsGenerating(false) // Reset generating state
-    
+
     // Reset all refs
     timerInitialized.current = false
     hasCheckedForExistingJob.current = false
     isResuming.current = false
     isLoadingFromCache.current = false
-    
+
     // Reset countdown timer to prevent brief timer display
     setCountdownSeconds(600)
     countdownRef.current = 600
-    
+
     // Force a longer delay to ensure all state is cleared before starting new generation
     await new Promise(resolve => setTimeout(resolve, 300))
-    
+
     console.log('[Step7] State after clearing:', {
       isGenerating,
       isPolling,
       jobStatus: jobStatus?.status,
       highestProgress
     })
-    
+
     // Check if we have an existing study ID
     const existingStudyId = localStorage.getItem('cs_study_id')
     if (existingStudyId) {
@@ -1219,7 +1220,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
     } else {
       console.log('[Step7] No existing study ID found, will create new study')
     }
-    
+
     console.log('[Step7] Starting generateNow after state clearing...')
     await generateNow();
   }
@@ -1248,18 +1249,18 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
       // Handle both full response format and cached preview format
       let tasks = matrix.tasks
       let metadata = matrix.metadata
-      
+
       // If it's cached preview data, we need to get the full task data
       if (matrix.preview_tasks && !matrix.tasks) {
         console.log('[CSV] Using cached preview data - this will only show first respondent')
         console.log('[CSV] To get all respondents, please regenerate tasks or wait for full completion')
-        
+
         // Try to get the study ID and fetch full data from the backend when CSV requested.
         const studyIdRaw = localStorage.getItem('cs_study_id')
         if (studyIdRaw) {
           // Parse studyId if it was JSON-stringified, otherwise use raw
           let parsedStudyId: any = studyIdRaw
-          try { parsedStudyId = JSON.parse(studyIdRaw) } catch {}
+          try { parsedStudyId = JSON.parse(studyIdRaw) } catch { }
 
           try {
             console.log('[CSV] Attempting to fetch full study data for CSV generation, id=', parsedStudyId)
@@ -1287,7 +1288,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
         }
       }
 
-      
+
 
       if (!tasks) {
         alert('Invalid task generation data format.')
@@ -1306,7 +1307,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
           studyType = step2.type || 'grid'
         }
       }
-      
+
       console.log('[CSV] Study type detected:', studyType)
       console.log('[CSV] Tasks keys:', Object.keys(tasks))
       console.log('[CSV] First task sample:', tasks[Object.keys(tasks)[0]]?.[0])
@@ -1321,11 +1322,11 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
           try {
             const categories = JSON.parse(gridData)
             console.log('[CSV] Parsed grid categories:', categories)
-            
+
             // Build columns with proper names and category order
             elementColumns = []
             elementKeyMapping = {}
-            
+
             categories.forEach((category: any, catIdx: number) => {
               if (category.elements && Array.isArray(category.elements)) {
                 category.elements.forEach((element: any, elIdx: number) => {
@@ -1333,34 +1334,34 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                   const elementName = element.name || `Element_${elIdx + 1}`
                   const columnName = `${categoryName}-${elementName}`
                   elementColumns.push(columnName)
-                  
+
                   // Map the API response key to our column name
                   const apiKey = `${categoryName}_${elIdx + 1}`
                   elementKeyMapping[apiKey] = columnName
-                  
+
                   console.log('[CSV] Added grid column:', columnName, 'from category:', categoryName, 'element:', elementName)
                   console.log('[CSV] Mapped API key:', apiKey, 'to column:', columnName)
                 })
               }
             })
-            
+
             console.log('[CSV] Grid element columns:', elementColumns)
             console.log('[CSV] Grid element key mapping:', elementKeyMapping)
           } catch (e) {
             console.warn('[CSV] Failed to parse grid data from localStorage:', e)
           }
         }
-        
+
         // If no columns from localStorage, try to get them from task data
         if (elementColumns.length === 0 && Object.keys(tasks).length > 0) {
           console.log('[CSV] No grid columns found, falling back to task data')
           const firstTask = tasks[Object.keys(tasks)[0]][0]
-          
+
           if (firstTask && firstTask.elements_shown) {
-            const elementKeys = Object.keys(firstTask.elements_shown).filter(key => 
+            const elementKeys = Object.keys(firstTask.elements_shown).filter(key =>
               !key.includes('_content')
             )
-            
+
             // Use the keys directly as column names
             elementColumns = elementKeys.sort()
             elementKeyMapping = {}
@@ -1383,11 +1384,11 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
               const imageName = img.name || img.filename || `image_${index + 1}`
               const columnName = `${layer.name}-${imageName}`
               elementColumns.push(columnName)
-              
+
               // Map the API response key (categoryname_1, categoryname_2, etc.) to our desired column name
               const apiKey = `${layer.name}_${index + 1}`
               elementKeyMapping[apiKey] = columnName
-              
+
               console.log('[CSV] Added layer column:', columnName, 'from layer:', layer.name, 'image:', imageName)
               console.log('[CSV] Mapped API key:', apiKey, 'to column:', columnName)
             })
@@ -1395,13 +1396,13 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
           console.log('[CSV] Layer element columns:', elementColumns)
           console.log('[CSV] Layer element key mapping:', elementKeyMapping)
         }
-        
+
         // If no columns from localStorage, try to get them from task data
         if (elementColumns.length === 0 && Object.keys(tasks).length > 0) {
           console.log('[CSV] No layer columns found, falling back to task data')
           const firstTask = tasks[Object.keys(tasks)[0]][0]
           if (firstTask && firstTask.elements_shown) {
-            const elementKeys = Object.keys(firstTask.elements_shown).filter(key => 
+            const elementKeys = Object.keys(firstTask.elements_shown).filter(key =>
               !key.includes('_content')
             )
             elementColumns = elementKeys.sort()
@@ -1412,33 +1413,33 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
           }
         }
       }
-      
+
       console.log('[CSV] Element columns found:', elementColumns.length, elementColumns)
 
       // Force debug: if no columns, try to get them from any task BEFORE generating CSV
       if (elementColumns.length === 0) {
-        
+
         for (const respondentId of Object.keys(tasks)) {
           const respondentTasks = tasks[respondentId]
           if (respondentTasks && respondentTasks.length > 0) {
             const firstTask = respondentTasks[0]
             if (firstTask && firstTask.elements_shown) {
-              const elementKeys = Object.keys(firstTask.elements_shown).filter(key => 
+              const elementKeys = Object.keys(firstTask.elements_shown).filter(key =>
                 !key.includes('_content')
               )
-              
+
               if (elementKeys.length > 0) {
                 // Try to get element names from localStorage first
                 const gridData = localStorage.getItem('cs_step5_grid')
                 if (gridData) {
                   try {
                     const categories = JSON.parse(gridData)
-                    
-                    
+
+
                     // Build columns with proper names and category order
                     elementColumns = []
                     elementKeyMapping = {}
-                    
+
                     categories.forEach((category: any, catIdx: number) => {
                       if (category.elements && Array.isArray(category.elements)) {
                         category.elements.forEach((element: any, elIdx: number) => {
@@ -1446,17 +1447,17 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                           const elementName = element.name || `Element_${elIdx + 1}`
                           const columnName = `${categoryName}_${elementName}`
                           elementColumns.push(columnName)
-                          
+
                           // Map the API response key to our column name
                           const apiKey = `${categoryName}_${elIdx + 1}`
                           elementKeyMapping[apiKey] = columnName
                         })
                       }
                     })
-                    
-                    
+
+
                   } catch (e) {
-                    
+
                     elementColumns = elementKeys.sort()
                     elementKeyMapping = {}
                     elementColumns.forEach(key => {
@@ -1471,7 +1472,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                     elementKeyMapping[key] = key
                   })
                 }
-                
+
                 break
               }
             }
@@ -1479,11 +1480,11 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
         }
       }
 
-      
+
 
       // Generate CSV content
       const csvRows: string[] = []
-      
+
       // Add header row
       const headers = ['Responder', 'Task', ...elementColumns]
       csvRows.push(headers.join(','))
@@ -1512,8 +1513,8 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
 
       // Create and download CSV
       const csvContent = csvRows.join('\n')
-      
-      
+
+
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
       const link = document.createElement('a')
       const url = URL.createObjectURL(blob)
@@ -1530,7 +1531,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
       setIsDownloadingCSV(false)
     }
   }
-    
+
 
   return (
     <div>
@@ -1590,7 +1591,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                     {formattedCountdown}
                   </div>
                 )}
-                
+
                 {/* Status line - properly aligned under timer */}
                 {jobStatus && jobStatus.status !== 'completed' && (
                   <div className="text-sm text-gray-600 font-medium">
@@ -1603,7 +1604,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                     )} */}
                   </div>
                 )}
-                
+
                 {/* Generating status with spinner - only show when actively generating */}
                 {(isGenerating || (isPolling && jobStatus && jobStatus.status !== 'completed')) && (
                   <div className="space-y-2">
@@ -1611,19 +1612,19 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                       <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-400"></span>
                       {isPolling ? 'Generating your task' : 'Generating...'}
                     </div>
-                    
+
                     {/* Progress bar - centered and properly sized */}
                     {jobStatus && jobStatus.progress !== undefined && jobStatus.progress >= 0 && jobStatus.status === 'processing' && isPolling && (
                       <div className="w-full max-w-xs mx-auto">
                         <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div 
-                            className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                          <div
+                            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                             style={{ width: `${Math.round(jobStatus.progress)}%` }}
                           ></div>
                         </div>
                       </div>
                     )}
-                    
+
                     {/* Polling error */}
                     {pollingError && (
                       <div className="text-xs text-red-600 bg-red-50 p-2 rounded max-w-xs mx-auto">
@@ -1636,7 +1637,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
             </div>
           ) : (
             <div className="space-y-6">
-              {respondentBuckets.slice(0,1).map((tasks, rIdx) => (
+              {respondentBuckets.slice(0, 1).map((tasks, rIdx) => (
                 <div key={rIdx}>
                   <div className="text-sm font-medium text-gray-700 mb-2">Respondent {rIdx + 1} - All Tasks</div>
                   <div className="max-h-[600px] overflow-y-auto space-y-4 pr-2">
@@ -1645,10 +1646,10 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                         // Handle layer study - extract visible layers with z-index
                         const elementsShown = task?.elements_shown || {}
                         const elementsContent = task?.elements_shown_content || {}
-                        
+
                         // Get all visible layer elements with their z-index
-                        const visibleLayers: Array<{url: string, z_index: number, layer_name: string}> = []
-                        
+                        const visibleLayers: Array<{ url: string, z_index: number, layer_name: string }> = []
+
                         Object.keys(elementsShown).forEach((key) => {
                           if (elementsShown[key] === 1 && elementsContent[key]) {
                             const content = elementsContent[key]
@@ -1661,7 +1662,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                             }
                           }
                         })
-                        
+
                         // Optional background from Step 5 (render behind all layers)
                         let backgroundUrl: string | null = null
                         try {
@@ -1670,13 +1671,13 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                             const bg = JSON.parse(bgRaw)
                             backgroundUrl = bg?.secureUrl || bg?.previewUrl || null
                           }
-                        } catch {}
+                        } catch { }
 
                         // Sort by z-index (ascending - lower z-index renders first/behind)
                         visibleLayers.sort((a, b) => a.z_index - b.z_index)
-                        
-                        
-                        
+
+
+
                         return (
                           <div key={tIdx} className="border rounded-lg overflow-hidden">
                             <div className="bg-slate-50 px-4 py-2 text-xs text-gray-600 flex items-center justify-between">
@@ -1688,12 +1689,12 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                                 <div ref={previewContainerRef} className="relative w-full h-[300px]">
                                   {backgroundUrl && (
                                     // eslint-disable-next-line @next/next/no-img-element
-                                    <img 
+                                    <img
                                       ref={bgImgRef}
                                       src={backgroundUrl}
                                       alt="Background"
                                       className="absolute inset-0 w-full h-full object-contain"
-                                      style={{ 
+                                      style={{
                                         zIndex: 0,
                                         position: 'absolute',
                                         top: 0,
@@ -1730,17 +1731,17 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                                       const bgFitKeySafe = `${efl}-${eft}-${efw}-${efh}-${tIdx}`
                                       return (
                                         <div className="absolute overflow-hidden" style={{ left: efl, top: eft, width: efw, height: efh, zIndex: 1 }} key={bgFitKeySafe}>
-                                        {visibleLayers.map((layer, layerIdx) => {
-                                          const raw = layerTransformsByName[layer.layer_name] || { x: 0, y: 0, width: 100, height: 100 }
-                                          const widthPct = Math.max(1, Math.min(100, raw.width))
-                                          const heightPct = Math.max(1, Math.min(100, raw.height))
-                                          const leftPct = Math.max(0, Math.min(100 - widthPct, raw.x))
-                                          const topPct = Math.max(0, Math.min(100 - heightPct, raw.y))
-                                          return (
-                                            // eslint-disable-next-line @next/next/no-img-element
-                                            <img key={layerIdx} src={layer.url} alt={layer.layer_name} className="absolute object-contain" style={{ zIndex: (typeof layer.z_index === 'number' ? layer.z_index : 0), position: 'absolute', top: `${topPct}%`, left: `${leftPct}%`, width: `${widthPct}%`, height: `${heightPct}%` }} />
-                                          )
-                                        })}
+                                          {visibleLayers.map((layer, layerIdx) => {
+                                            const raw = layerTransformsByName[layer.layer_name] || { x: 0, y: 0, width: 100, height: 100 }
+                                            const widthPct = Math.max(1, Math.min(100, raw.width))
+                                            const heightPct = Math.max(1, Math.min(100, raw.height))
+                                            const leftPct = Math.max(0, Math.min(100 - widthPct, raw.x))
+                                            const topPct = Math.max(0, Math.min(100 - heightPct, raw.y))
+                                            return (
+                                              // eslint-disable-next-line @next/next/no-img-element
+                                              <img key={layerIdx} src={layer.url} alt={layer.layer_name} className="absolute object-contain" style={{ zIndex: (typeof layer.z_index === 'number' ? layer.z_index : 0), position: 'absolute', top: `${topPct}%`, left: `${leftPct}%`, width: `${widthPct}%`, height: `${heightPct}%` }} />
+                                            )
+                                          })}
                                         </div>
                                       )
                                     }
@@ -1778,10 +1779,10 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                         // Handle grid study - updated for category-based format
                         const shown = task?.elements_shown || {}
                         const shownContent = task?.elements_shown_content || {}
-                        
-                        
+
+
                         const urls: string[] = []
-                        
+
                         // New category-based format: extract URLs from elements_shown_content
                         Object.keys(shown).forEach((key) => {
                           if (shown[key] === 1 && shownContent[key]) {
@@ -1791,7 +1792,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                             }
                           }
                         })
-                        
+
                         // Fallback: Try different ways to extract URLs based on API response structure
                         if (urls.length === 0) {
                           Object.keys(shown).forEach((k) => {
@@ -1800,7 +1801,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                             }
                           })
                         }
-                        
+
                         // If no URLs found with _content pattern, try direct URL fields
                         if (urls.length === 0) {
                           Object.keys(shown).forEach((k) => {
@@ -1809,7 +1810,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                             }
                           })
                         }
-                        
+
                         // If still no URLs, try to get from elements array if it exists
                         if (urls.length === 0 && task?.elements) {
                           task.elements.forEach((element: any) => {
@@ -1818,7 +1819,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                             }
                           })
                         }
-                        
+
                         // If still no URLs, try to extract from any field that looks like a URL
                         if (urls.length === 0) {
                           const extractUrlsFromObject = (obj: any): string[] => {
@@ -1836,12 +1837,12 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                           }
                           urls.push(...extractUrlsFromObject(task))
                         }
-                        
-                        
+
+
                         // Determine elements per task dynamically, fallback to all urls
                         const maxPerTask = typeof elementsPerTask === 'number' && elementsPerTask > 0 ? elementsPerTask : urls.length
                         const show = urls.slice(0, maxPerTask)
-                        
+
                         // Layout logic based on number of elements (matching participate flow)
                         let gridClass, containerClass
                         if (show.length === 1) {
@@ -1865,7 +1866,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                           gridClass = 'grid-cols-2'
                           containerClass = 'flex justify-center'
                         }
-                        
+
                         return (
                           <div key={tIdx} className="border rounded-lg overflow-hidden">
                             <div className="bg-slate-50 px-4 py-2 text-xs text-gray-600 flex items-center justify-between">
@@ -1880,10 +1881,10 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                                   {show.slice(0, 2).map((url, i) => (
                                     <div key={i} className="aspect-square flex items-center justify-center">
                                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                                      <img 
-                                        src={url} 
-                                        alt={`element-${i+1}`} 
-                                        className="w-full h-full object-contain" 
+                                      <img
+                                        src={url}
+                                        alt={`element-${i + 1}`}
+                                        className="w-full h-full object-contain"
                                       />
                                     </div>
                                   ))}
@@ -1891,10 +1892,10 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                                   <div className="col-span-2 flex justify-center">
                                     <div className="aspect-square flex items-center justify-center" style={{ width: 'calc(50% - 0.375rem)' }}>
                                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                                      <img 
-                                        src={show[2]} 
-                                        alt="element-3" 
-                                        className="w-full h-full object-contain" 
+                                      <img
+                                        src={show[2]}
+                                        alt="element-3"
+                                        className="w-full h-full object-contain"
                                       />
                                     </div>
                                   </div>
@@ -1905,10 +1906,10 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                                   {show.map((url, i) => (
                                     <div key={i} className="aspect-square flex items-center justify-center">
                                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                                      <img 
-                                        src={url} 
-                                        alt={`element-${i+1}`} 
-                                        className="w-full h-full object-contain " 
+                                      <img
+                                        src={url}
+                                        alt={`element-${i + 1}`}
+                                        className="w-full h-full object-contain "
                                       />
                                     </div>
                                   ))}
@@ -1929,17 +1930,17 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
         <div className="rounded-lg border bg-white p-4">
           <div className="text-sm font-semibold mb-3">Matrix Actions</div>
           <div className="flex flex-wrap gap-3 justify-start">
-            <Button 
-              onClick={handleRegenerateTasks} 
-              variant="outline" 
+            <Button
+              onClick={handleRegenerateTasks}
+              variant="outline"
               className="flex-shrink-0"
               disabled={isGenerating || isPolling}
             >
               {isGenerating ? "Regenerating..." : "Regenerate Tasks"}
             </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => setIsStatsOpen(true)} 
+            <Button
+              variant="outline"
+              onClick={() => setIsStatsOpen(true)}
               className="flex-shrink-0"
               disabled={isGenerating || isPolling}
             >
@@ -2030,15 +2031,15 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mt-10">
         <Button variant="outline" className="rounded-full cursor-pointer px-6 w-full sm:w-auto" onClick={onBack}>Back</Button>
-        <Button 
-          className="rounded-full cursor-pointer px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] w-full sm:w-auto" 
+        <Button
+          className="rounded-full cursor-pointer px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] w-full sm:w-auto"
           onClick={onNext}
           disabled={Boolean(!matrix) || isPolling || isGenerating || (jobStatus ? jobStatus.status !== 'completed' : false)}
         >
-          {!matrix ? 'Generate Tasks First' : 
-           isPolling || isGenerating ? 'Generating...' : 
-           (jobStatus && jobStatus.status !== 'completed') ? 'Tasks Not Ready' : 
-           'Save & Next'}
+          {!matrix ? 'Generate Tasks First' :
+            isPolling || isGenerating ? 'Generating...' :
+              (jobStatus && jobStatus.status !== 'completed') ? 'Tasks Not Ready' :
+                'Save & Next'}
         </Button>
       </div>
     </div>

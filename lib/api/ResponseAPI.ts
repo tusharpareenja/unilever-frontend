@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // No authentication required for study participation
 
 import { API_BASE_URL } from './LoginApi'
@@ -91,30 +92,30 @@ export interface SubmitTaskPayload {
 export async function submitTasksBulk(sessionId: string, tasks: SubmitTaskPayload[]): Promise<any> {
 	const q = encodeURIComponent(sessionId)
 	const body = { tasks }
-	
+
 	// Use fallback URL if API_BASE_URL is undefined
 	const baseUrl = API_BASE_URL
 	const url = `${baseUrl}/responses/submit-tasks-bulk?session_id=${q}`
-	
+
 	// console.log(`submitTasksBulk: sending ${tasks.length} tasks for session ${sessionId}`)
 	// console.log('API_BASE_URL:', API_BASE_URL)
 	// console.log('Using URL:', url)
-	
+
 	try {
 		const res = await fetch(url, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(body),
 		})
-		
+
 		// console.log('submitTasksBulk response status:', res.status, res.statusText)
-		
+
 		if (!res.ok) {
 			const text = await res.text().catch(() => '')
 			console.error('submitTasksBulk failed:', res.status, text)
 			return { ok: false, status: res.status, error: text }
 		}
-		
+
 		const result = await res.json().catch(() => ({}))
 		// console.log('submitTasksBulk success:', result)
 		return result
@@ -347,189 +348,189 @@ export async function getStudyAnalytics(studyId: string): Promise<StudyAnalytics
 
 /** Subscribe to live analytics via SSE with graceful fallback to polling. Returns an unsubscribe function. */
 export function subscribeStudyAnalytics(
-  studyId: string,
-  onData: (data: StudyAnalytics) => void,
-  onError?: (err: any) => void,
-  intervalSeconds: number = 5
+	studyId: string,
+	onData: (data: StudyAnalytics) => void,
+	onError?: (err: any) => void,
+	intervalSeconds: number = 5
 ): () => void {
-  let stopped = false
-  let es: EventSource | null = null
-  let pollTimer: number | null = null
+	let stopped = false
+	let es: EventSource | null = null
+	let pollTimer: number | null = null
 
-  const startPolling = () => {
-    // Fallback: poll using authenticated fetch
-    const tick = async () => {
-      if (stopped) return
-      try {
-        const data = await getStudyAnalytics(studyId)
-        if (!stopped && data) onData(data)
-      } catch (e) {
-        onError?.(e)
-      }
-    }
-    // First immediate tick to hydrate
-    tick()
-    pollTimer = window.setInterval(tick, Math.max(1000, intervalSeconds * 1000))
-  }
+	const startPolling = () => {
+		// Fallback: poll using authenticated fetch
+		const tick = async () => {
+			if (stopped) return
+			try {
+				const data = await getStudyAnalytics(studyId)
+				if (!stopped && data) onData(data)
+			} catch (e) {
+				onError?.(e)
+			}
+		}
+		// First immediate tick to hydrate
+		tick()
+		pollTimer = window.setInterval(tick, Math.max(1000, intervalSeconds * 1000))
+	}
 
-  try {
-    const url = `${API_BASE_URL}/responses/analytics/study/${encodeURIComponent(studyId)}/stream?interval_seconds=${encodeURIComponent(String(intervalSeconds))}`
-    es = new EventSource(url)
-    es.onmessage = (ev) => {
-      try {
-        const data = JSON.parse(ev.data)
-        if (!stopped) onData(data)
-      } catch (e) {
-        // ignore parse errors
-      }
-    }
-    es.onerror = (e) => {
-      // Close and fallback to polling
-      try { es?.close() } catch {}
-      es = null
-      if (!stopped) startPolling()
-      onError?.(e)
-    }
-  } catch (e) {
-    onError?.(e)
-    startPolling()
-  }
+	try {
+		const url = `${API_BASE_URL}/responses/analytics/study/${encodeURIComponent(studyId)}/stream?interval_seconds=${encodeURIComponent(String(intervalSeconds))}`
+		es = new EventSource(url)
+		es.onmessage = (ev) => {
+			try {
+				const data = JSON.parse(ev.data)
+				if (!stopped) onData(data)
+			} catch (e) {
+				// ignore parse errors
+			}
+		}
+		es.onerror = (e) => {
+			// Close and fallback to polling
+			try { es?.close() } catch { }
+			es = null
+			if (!stopped) startPolling()
+			onError?.(e)
+		}
+	} catch (e) {
+		onError?.(e)
+		startPolling()
+	}
 
-  return () => {
-    stopped = true
-    try { es?.close() } catch {}
-    if (pollTimer) { window.clearInterval(pollTimer); pollTimer = null }
-  }
+	return () => {
+		stopped = true
+		try { es?.close() } catch { }
+		if (pollTimer) { window.clearInterval(pollTimer); pollTimer = null }
+	}
 }
 
 // ---------------- Responses Listing (owner) ----------------
 export interface StudyResponseItem {
-  id: string
-  session_id: string
-  respondent_id: number
-  personal_info?: {
-    gender?: string
-    date_of_birth?: string
-  }
-  is_completed: boolean
-  is_abandoned: boolean
-  completion_percentage?: number
-  total_study_duration?: number
-  session_start_time?: string
-  session_end_time?: string
-  last_activity?: string
+	id: string
+	session_id: string
+	respondent_id: number
+	personal_info?: {
+		gender?: string
+		date_of_birth?: string
+	}
+	is_completed: boolean
+	is_abandoned: boolean
+	completion_percentage?: number
+	total_study_duration?: number
+	session_start_time?: string
+	session_end_time?: string
+	last_activity?: string
 }
 
 export interface ResponsesListResult {
-  results: StudyResponseItem[]
-  count?: number
-  next?: string | null
-  previous?: string | null
+	results: StudyResponseItem[]
+	count?: number
+	next?: string | null
+	previous?: string | null
 }
 
 /** Fetch responses for a given study (owner/admin). Defaults to limit=100 for fast single fetch. */
 export async function getStudyResponses(
-  studyId: string,
-  limit: number = 100,
-  offset: number = 0
+	studyId: string,
+	limit: number = 100,
+	offset: number = 0
 ): Promise<ResponsesListResult> {
-  const url = `${API_BASE_URL}/responses/?study_id=${encodeURIComponent(studyId)}&limit=${limit}&offset=${offset}`
-  const res = await fetchWithAuth(url, { method: 'GET', headers: { 'Content-Type': 'application/json' } })
-  if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(`Failed to fetch responses (${res.status}): ${text}`)
-  }
-  const data = await res.json().catch(() => ([] as any))
-  if (Array.isArray(data)) {
-    return { results: data as StudyResponseItem[], count: data.length }
-  }
-  if (data && Array.isArray(data.results)) {
-    return {
-      results: data.results as StudyResponseItem[],
-      count: typeof data.count === 'number' ? data.count : data.results.length,
-      next: data.next ?? null,
-      previous: data.previous ?? null,
-    }
-  }
-  // best-effort fallback
-  return { results: [], count: 0 }
+	const url = `${API_BASE_URL}/responses/?study_id=${encodeURIComponent(studyId)}&limit=${limit}&offset=${offset}`
+	const res = await fetchWithAuth(url, { method: 'GET', headers: { 'Content-Type': 'application/json' } })
+	if (!res.ok) {
+		const text = await res.text().catch(() => '')
+		throw new Error(`Failed to fetch responses (${res.status}): ${text}`)
+	}
+	const data = await res.json().catch(() => ([] as any))
+	if (Array.isArray(data)) {
+		return { results: data as StudyResponseItem[], count: data.length }
+	}
+	if (data && Array.isArray(data.results)) {
+		return {
+			results: data.results as StudyResponseItem[],
+			count: typeof data.count === 'number' ? data.count : data.results.length,
+			next: data.next ?? null,
+			previous: data.previous ?? null,
+		}
+	}
+	// best-effort fallback
+	return { results: [], count: 0 }
 }
 
 // ---------------- Response Session Details ----------------
 export interface SessionTaskItem {
-  task_id: string
-  respondent_id: number
-  task_index: number
-  task_type: 'grid' | 'layer'
-  task_context?: any
-  elements_shown_in_task?: Record<string, number>
-  elements_shown_content?: Record<string, any>
-  /** Some backends send a combined map including *_content URLs */
-  elements_shown?: Record<string, any>
-  task_start_time?: string
-  task_completion_time?: string
-  task_duration_seconds?: number
-  rating_given?: number
-  rating_timestamp?: string
+	task_id: string
+	respondent_id: number
+	task_index: number
+	task_type: 'grid' | 'layer'
+	task_context?: any
+	elements_shown_in_task?: Record<string, number>
+	elements_shown_content?: Record<string, any>
+	/** Some backends send a combined map including *_content URLs */
+	elements_shown?: Record<string, any>
+	task_start_time?: string
+	task_completion_time?: string
+	task_duration_seconds?: number
+	rating_given?: number
+	rating_timestamp?: string
 }
 
 export interface ResponseSessionDetails {
-  session_id: string
-  respondent_id: number
-  current_task_index: number
-  completed_tasks_count: number
-  total_tasks_assigned: number
-  session_start_time?: string
-  session_end_time?: string
-  is_completed: boolean
-  background_image_url?: string
-  personal_info?: { gender?: string; date_of_birth?: string }
-  ip_address?: string
-  user_agent?: string
-  browser_info?: any
-  completion_percentage?: number
-  total_study_duration?: number
-  last_activity?: string
-  is_abandoned?: boolean
-  abandonment_timestamp?: string | null
-  abandonment_reason?: string | null
-  id?: string
-  study_id?: string
-  created_at?: string
-  updated_at?: string
-  completed_tasks?: SessionTaskItem[]
-  classification_answers?: Array<{
-    question_id: string
-    question_text: string
-    answer: string
-    answer_timestamp?: string
-    time_spent_seconds?: number
-    id?: string
-    study_response_id?: string
-  }>
+	session_id: string
+	respondent_id: number
+	current_task_index: number
+	completed_tasks_count: number
+	total_tasks_assigned: number
+	session_start_time?: string
+	session_end_time?: string
+	is_completed: boolean
+	background_image_url?: string
+	personal_info?: { gender?: string; date_of_birth?: string }
+	ip_address?: string
+	user_agent?: string
+	browser_info?: any
+	completion_percentage?: number
+	total_study_duration?: number
+	last_activity?: string
+	is_abandoned?: boolean
+	abandonment_timestamp?: string | null
+	abandonment_reason?: string | null
+	id?: string
+	study_id?: string
+	created_at?: string
+	updated_at?: string
+	completed_tasks?: SessionTaskItem[]
+	classification_answers?: Array<{
+		question_id: string
+		question_text: string
+		answer: string
+		answer_timestamp?: string
+		time_spent_seconds?: number
+		id?: string
+		study_response_id?: string
+	}>
 }
 
 export async function getResponseSessionDetails(sessionId: string): Promise<ResponseSessionDetails> {
-  const url = `${API_BASE_URL}/responses/session/${encodeURIComponent(sessionId)}`
-  const res = await fetchWithAuth(url, { method: 'GET', headers: { 'Content-Type': 'application/json' } })
-  if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(`Failed to fetch session details (${res.status}): ${text}`)
-  }
-  return res.json()
+	const url = `${API_BASE_URL}/responses/session/${encodeURIComponent(sessionId)}`
+	const res = await fetchWithAuth(url, { method: 'GET', headers: { 'Content-Type': 'application/json' } })
+	if (!res.ok) {
+		const text = await res.text().catch(() => '')
+		throw new Error(`Failed to fetch session details (${res.status}): ${text}`)
+	}
+	return res.json()
 }
 
 /** Download flattened CSV for a study (owner-only) */
 export async function downloadStudyResponsesCsv(studyId: string): Promise<Blob> {
-  const res = await fetchWithAuth(`${API_BASE_URL}/responses/export/study/${studyId}/flattened-csv`, {
-    method: 'GET',
-    headers: {
-      'Accept': 'text/csv',
-    },
-  })
-  if (!res.ok) {
-    const errorText = await res.text().catch(() => '')
-    throw new Error(`Failed to export CSV: ${res.status} ${errorText}`)
-  }
-  return await res.blob()
+	const res = await fetchWithAuth(`${API_BASE_URL}/responses/export/study/${studyId}/flattened-csv`, {
+		method: 'GET',
+		headers: {
+			'Accept': 'text/csv',
+		},
+	})
+	if (!res.ok) {
+		const errorText = await res.text().catch(() => '')
+		throw new Error(`Failed to export CSV: ${res.status} ${errorText}`)
+	}
+	return await res.blob()
 }

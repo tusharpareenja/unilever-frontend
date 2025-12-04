@@ -18,11 +18,11 @@ function ResetPasswordForm() {
   const [errorMessage, setErrorMessage] = useState("")
   const [successMessage, setSuccessMessage] = useState("")
   const [isTokenValid, setIsTokenValid] = useState(false)
-  
+
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  
+
 
   // Get token from URL query parameter
   useEffect(() => {
@@ -36,7 +36,7 @@ function ResetPasswordForm() {
       setErrorMessage("Invalid reset link. No token provided.")
       setIsValidating(false)
     }
-  }, [searchParams, API_BASE_URL])
+  }, [searchParams])
 
   // Validate token with backend
   const validateToken = async (tokenToValidate: string) => {
@@ -44,7 +44,7 @@ function ResetPasswordForm() {
       const fullUrl = `${API_BASE_URL}/auth/validate-reset-token/${tokenToValidate}`
       console.log("Validating token:", tokenToValidate)
       console.log("Full URL:", fullUrl)
-      
+
       const response = await fetch(fullUrl, {
         method: "GET",
         headers: {
@@ -54,7 +54,7 @@ function ResetPasswordForm() {
 
       console.log("Token validation response status:", response.status)
       console.log("Response headers:", response.headers)
-      
+
       if (response.ok) {
         const responseData = await response.json()
         console.log("Token validation success:", responseData)
@@ -153,7 +153,7 @@ function ResetPasswordForm() {
           <div className="text-red-500 text-6xl mb-4">⚠️</div>
           <h1 className="text-2xl font-semibold text-gray-800 mb-4">Invalid Reset Link</h1>
           <p className="text-gray-600 mb-6">{errorMessage}</p>
-          <Button 
+          <Button
             onClick={() => router.push('/login')}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-full font-medium"
           >
@@ -179,7 +179,7 @@ function ResetPasswordForm() {
               {errorMessage}
             </div>
           )}
-          
+
           {successMessage && (
             <div className="text-green-700 text-sm bg-green-50 border border-green-200 rounded-md px-3 py-2 mb-4">
               {successMessage}
@@ -243,7 +243,7 @@ function ResetPasswordForm() {
           </form>
 
           <div className="text-center mt-6">
-            <button 
+            <button
               onClick={() => router.push('/login')}
               className="text-blue-600 hover:text-blue-800 hover:underline font-medium transition-colors"
             >

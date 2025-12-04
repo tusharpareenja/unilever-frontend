@@ -10,12 +10,12 @@ export default function ThankYouPage() {
   const router = useRouter()
   const [responseTimes, setResponseTimes] = useState<Record<string, number>>({})
   const [completionTime, setCompletionTime] = useState<string>("")
-  const [studyName, setStudyName] = useState<string>("")
+
   const [responseId, setResponseId] = useState<string>("")
   const [isHydrated, setIsHydrated] = useState(false)
   const [redirecting, setRedirecting] = useState(false)
   const [countdown, setCountdown] = useState<number | null>(null)
-  const [studyId, setStudyId] = useState<string>("")
+
 
   useEffect(() => {
     // Mark as hydrated to prevent hydration mismatches
@@ -23,8 +23,9 @@ export default function ThankYouPage() {
 
     // Get study ID from URL
     const pathParts = window.location.pathname.split('/')
+    // const currentStudyId = pathParts[pathParts.indexOf('participate') + 1]
+    // setStudyId(currentStudyId)
     const currentStudyId = pathParts[pathParts.indexOf('participate') + 1]
-    setStudyId(currentStudyId)
 
     // Mark this study as completed in localStorage
     try {
@@ -40,7 +41,7 @@ export default function ThankYouPage() {
 
     // Clear image cache on thank-you page
     imageCacheManager.clearCache()
-    
+
 
     // Background: attempt to flush any remaining queued task submissions (non-blocking)
     const flushOnce = async () => {
@@ -52,6 +53,7 @@ export default function ThankYouPage() {
         const q: unknown[] = JSON.parse(queueRaw)
         if (!sessionId || !Array.isArray(q) || q.length === 0) return
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const tasks = q.map((it: any) => ({
           task_id: it.task_id,
           rating_given: it.rating_given,
@@ -70,7 +72,7 @@ export default function ThankYouPage() {
           if (navigator.sendBeacon) {
             sent = navigator.sendBeacon(url, new Blob([data], { type: 'application/json' }))
           }
-        } catch {}
+        } catch { }
 
         if (!sent) {
           const controller = new AbortController()
@@ -78,20 +80,20 @@ export default function ThankYouPage() {
           try {
             const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: data, keepalive: true, signal: controller.signal })
             if (res.ok) sent = true
-          } catch {}
+          } catch { }
           window.clearTimeout(timeout)
         }
 
         if (sent) {
-          try { localStorage.removeItem('task_submit_queue') } catch {}
+          try { localStorage.removeItem('task_submit_queue') } catch { }
         }
-      } catch {}
+      } catch { }
     }
 
     // Run one flush immediately and a few retries for a short window
     flushOnce()
     const interval = window.setInterval(flushOnce, 3000)
-    const timeoutStop = window.setTimeout(() => { try { window.clearInterval(interval) } catch {} }, 15000)
+    const timeoutStop = window.setTimeout(() => { try { window.clearInterval(interval) } catch { } }, 15000)
 
     // Get response times from localStorage
     const times = localStorage.getItem('study_response_times')
@@ -103,14 +105,14 @@ export default function ThankYouPage() {
     const studyDetails = localStorage.getItem('current_study_details')
     if (studyDetails) {
       try {
-        const parsed = JSON.parse(studyDetails)
-        setStudyName(parsed.title || 'Study')
+        // const parsed = JSON.parse(studyDetails)
+        // setStudyName(parsed.title || 'Study')
       } catch (error) {
         console.error('Error parsing study details:', error)
-        setStudyName('Study')
+        // setStudyName('Study')
       }
     } else {
-      setStudyName('Study')
+      // setStudyName('Study')
     }
 
     // Set completion time
@@ -132,7 +134,7 @@ export default function ThankYouPage() {
       localStorage.setItem('study_response_id', existingResponseId)
     }
     setResponseId(existingResponseId)
-    
+
     // If redirected id exists, schedule redirect 2s after thank-you shows
     try {
       const rid = localStorage.getItem('redirect_rid')
@@ -146,7 +148,7 @@ export default function ThankYouPage() {
             if (prev === null) return null
             if (prev <= 1) {
               clearInterval(interval)
-              try { localStorage.removeItem('redirect_rid') } catch {}
+              try { localStorage.removeItem('redirect_rid') } catch { }
               const cintRid = encodeURIComponent(rid)
               console.log('Redirecting to:', `https://notch.insights.supply/cb?token=446a1929-7cfa-4ee3-9778-a9e9dae498ac&RID=${cintRid}`) // Debug log
               window.location.href = `https://notch.insights.supply/cb?token=446a1929-7cfa-4ee3-9778-a9e9dae498ac&RID=${cintRid}`
@@ -178,15 +180,15 @@ export default function ThankYouPage() {
     window.addEventListener('beforeunload', handleBeforeUnload)
     window.addEventListener('popstate', handlePopState)
 
-    return () => { 
-      try { 
-        window.clearInterval(interval); 
+    return () => {
+      try {
+        window.clearInterval(interval);
         window.clearTimeout(timeoutStop);
         window.removeEventListener('beforeunload', handleBeforeUnload);
         window.removeEventListener('popstate', handlePopState);
-      } catch {} 
+      } catch { }
     }
-  }, [])
+  }, [router])
 
   const handleCloseTab = () => {
     // Try to close the tab/window
@@ -196,7 +198,7 @@ export default function ThankYouPage() {
     } else {
       // For regular tabs, try to close (may not work due to browser security)
       window.close()
-      
+
       // Fallback: redirect to about:blank
       setTimeout(() => {
         window.location.href = 'about:blank'
@@ -210,7 +212,7 @@ export default function ThankYouPage() {
   if (!isHydrated) {
     return (
       <div className="min-h-screen bg-gray-50">
-        
+
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-12 pb-16">
           <div className="bg-white border rounded-xl shadow-sm p-6 sm:p-8 lg:p-10">
             <div className="text-center">
@@ -225,7 +227,7 @@ export default function ThankYouPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-     
+
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-12 pb-16">
         <div className="bg-white border rounded-xl shadow-sm p-6 sm:p-8 lg:p-10">
           {/* Completion Header */}
@@ -250,7 +252,7 @@ export default function ThankYouPage() {
               <li className="flex items-start">
                 <span className="text-gray-400 mr-2">•</span>
                 <span>
-                  We have successfully received your responses for the study. 
+                  We have successfully received your responses for the study.
                   Your participation is greatly appreciated and will contribute valuable insights to our research.
                 </span>
               </li>

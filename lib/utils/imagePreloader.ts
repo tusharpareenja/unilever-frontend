@@ -1,6 +1,7 @@
 // === MOBILE-FIRST Image Preloader ===
 // lib/utils/imagePreloader.ts
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useRef } from 'react'
 
 // Mobile detection
@@ -23,7 +24,7 @@ class MobileImagePreloader {
       const img = new Image()
       img.decoding = priority === 'critical' ? 'sync' : 'async'
       img.referrerPolicy = 'no-referrer'
-      
+
       if ('fetchPriority' in img) {
         (img as any).fetchPriority = priority === 'critical' ? 'high' : 'low'
       }
@@ -35,7 +36,7 @@ class MobileImagePreloader {
       img.onerror = () => {
         resolve() // Don't block on errors
       }
-      
+
       img.src = url
     })
 
@@ -51,7 +52,7 @@ class MobileImagePreloader {
     // On mobile, limit concurrent loads
     const limit = isMobile() ? 3 : 6
     const batches: string[][] = []
-    
+
     for (let i = 0; i < toLoad.length; i += limit) {
       batches.push(toLoad.slice(i, i + limit))
     }
@@ -69,10 +70,10 @@ class MobileImagePreloader {
 
     try {
       // NO CANVAS APPROACH: Completely avoid canvas operations that cause security errors
-      
+
       // Sort by z-index
       const sortedLayers = [...layers].sort((a, b) => a.z - b.z)
-      
+
       // For mobile, we'll use a much simpler approach:
       // 1. If only one layer, return it directly
       if (sortedLayers.length === 1) {
@@ -85,7 +86,7 @@ class MobileImagePreloader {
       // This avoids canvas security issues entirely
       const topLayer = sortedLayers[sortedLayers.length - 1]
       console.log(`Mobile composite: Using top layer for task ${taskId} (avoiding canvas)`)
-      
+
       this.compositeCache.set(taskId, topLayer.url)
       return topLayer.url
 
@@ -145,7 +146,7 @@ export function useOptimizedImages(tasks: any[], currentIndex: number) {
             task.id,
             task.layeredImages
           )
-          
+
           if (compositeUrl) {
             task.compositeLayerUrl = compositeUrl
             console.log(`Composite ready: ${compositeUrl.substring(0, 50)}...`)
@@ -171,7 +172,7 @@ export function useOptimizedImages(tasks: any[], currentIndex: number) {
         }
 
         preloadedIndices.current.add(currentIndex)
-        
+
         // Background preload next 2 tasks
         setTimeout(() => {
           preloadNextTasks()
@@ -235,10 +236,10 @@ export function useOptimizedImages(tasks: any[], currentIndex: number) {
     return () => imagePreloader.cleanup()
   }, [])
 
-  return { 
-    loadedTasks: tasks, 
+  return {
+    loadedTasks: tasks,
     isLoading: isLoading && currentIndex === 0,
-    compositesReady 
+    compositesReady
   }
 }
 
@@ -266,7 +267,7 @@ export async function preloadTaskImages(tasks: any[], count: number = 3): Promis
       } else {
         // Otherwise just preload URLs
         const urls: string[] = []
-        
+
         if (task.layeredImages?.length) {
           urls.push(...task.layeredImages.map((l: any) => l.url))
         }

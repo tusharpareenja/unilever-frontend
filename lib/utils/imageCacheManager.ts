@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // === Image Cache Manager ===
 // Centralized image preloading and cache management for the participate flow
 
@@ -87,19 +88,19 @@ class ImageCacheManager {
     // Order strategies to minimize noisy CORS failures in dev for Azure
     const strategies = isAzure && isDev
       ? [
-          // Prefer no-cors first locally where CORS isn't configured on storage
-          () => this.fetchWithoutCors(url),
-          // Fallback to image element load (still caches at browser level)
-          () => this.preloadWithImageElement(url),
-          // Last resort: try full CORS fetch
-          () => this.fetchWithCors(url),
-        ]
+        // Prefer no-cors first locally where CORS isn't configured on storage
+        () => this.fetchWithoutCors(url),
+        // Fallback to image element load (still caches at browser level)
+        () => this.preloadWithImageElement(url),
+        // Last resort: try full CORS fetch
+        () => this.fetchWithCors(url),
+      ]
       : [
-          // Default: try CORS first
-          () => this.fetchWithCors(url),
-          () => this.fetchWithoutCors(url),
-          () => this.preloadWithImageElement(url),
-        ]
+        // Default: try CORS first
+        () => this.fetchWithCors(url),
+        () => this.fetchWithoutCors(url),
+        () => this.preloadWithImageElement(url),
+      ]
 
     let lastError: Error | null = null
 
@@ -107,19 +108,19 @@ class ImageCacheManager {
       try {
         console.log(`🔄 Trying preload strategy ${index + 1} for: ${url.substring(url.lastIndexOf('/') + 1)}`)
         await strategy()
-        
+
         // Success - strategies already set cache appropriately
         return
       } catch (error) {
         lastError = error as Error
         console.warn(`⚠️ Strategy ${index + 1} failed:`, error)
-        
+
         // If this is a CORS error and we're in development, try the next strategy
         if (error instanceof TypeError && error.message.includes('CORS')) {
           console.log(`🔄 CORS error detected, trying next strategy...`)
           continue
         }
-        
+
         // For other errors, break and try next strategy
         continue
       }
@@ -152,7 +153,7 @@ class ImageCacheManager {
         // Ensure body is read so browser caches it
         try {
           await response.blob()
-        } catch {}
+        } catch { }
         this.cache.set(url, {
           url: url,
           loaded: true,
@@ -161,7 +162,7 @@ class ImageCacheManager {
         })
         try {
           await this.predecodeImage(url)
-        } catch {}
+        } catch { }
         return
       } finally {
         clearTimeout(timeout)
@@ -194,7 +195,7 @@ class ImageCacheManager {
       })
       try {
         await this.predecodeImage(objectUrl)
-      } catch {}
+      } catch { }
     } finally {
       clearTimeout(timeout)
     }
@@ -204,7 +205,7 @@ class ImageCacheManager {
   private async fetchWithoutCors(url: string): Promise<void> {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 15000) // 15s timeout
-    
+
     try {
       const response = await fetch(url, {
         method: 'GET',
@@ -212,9 +213,9 @@ class ImageCacheManager {
         cache: 'force-cache',
         signal: controller.signal
       })
-      
+
       clearTimeout(timeout)
-      
+
       // In no-cors mode, we can't read the response, but we can check if it succeeded
       if (response.type === 'opaque') {
         // Opaque response means the request succeeded but we can't read the content
@@ -228,17 +229,17 @@ class ImageCacheManager {
         // Warm-decode using the original URL to eliminate decode time later
         try {
           await this.predecodeImage(url)
-        } catch {}
+        } catch { }
         return
       }
-      
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
-      
+
       const blob = await response.blob()
       const objectUrl = URL.createObjectURL(blob)
-      
+
       this.cache.set(url, {
         url: objectUrl,
         loaded: true,
@@ -247,12 +248,12 @@ class ImageCacheManager {
       // Warm-decode the image so it renders instantly when used
       try {
         await this.predecodeImage(objectUrl)
-      } catch {}
+      } catch { }
 
       // Warm-decode the image so it renders instantly when used
       try {
         await this.predecodeImage(objectUrl)
-      } catch {}
+      } catch { }
     } finally {
       clearTimeout(timeout)
     }
@@ -265,7 +266,7 @@ class ImageCacheManager {
       const timeout = setTimeout(() => {
         reject(new Error('Image preload timeout'))
       }, 15000) // 15s timeout
-      
+
       img.onload = () => {
         clearTimeout(timeout)
         this.cache.set(url, {
@@ -276,12 +277,12 @@ class ImageCacheManager {
         })
         resolve()
       }
-      
+
       img.onerror = (error) => {
         clearTimeout(timeout)
         reject(new Error('Image failed to load'))
       }
-      
+
       // Set crossOrigin to handle CORS
       img.crossOrigin = 'anonymous'
       img.src = url
@@ -301,7 +302,7 @@ class ImageCacheManager {
         if (!entry || !entry.url) return
         try {
           await this.predecodeImage(entry.url)
-        } catch {}
+        } catch { }
       })
     )
   }
@@ -316,7 +317,7 @@ class ImageCacheManager {
       try {
         img.src = objectUrl
         if (typeof (img as any).decode === 'function') {
-          ;(img as any).decode().then(() => resolve()).catch(() => resolve())
+          ; (img as any).decode().then(() => resolve()).catch(() => resolve())
         }
       } catch {
         // Best-effort only
@@ -335,7 +336,7 @@ class ImageCacheManager {
     // Batch loading for better performance
     const batchSize = 6 // Limit concurrent loads
     const batches: string[][] = []
-    
+
     for (let i = 0; i < uniqueUrls.length; i += batchSize) {
       batches.push(uniqueUrls.slice(i, i + batchSize))
     }
@@ -348,7 +349,7 @@ class ImageCacheManager {
   // Extract image URLs from tasks (handles both raw and processed task structures)
   extractImageUrls(tasks: any[]): string[] {
     const urls: string[] = []
-    
+
     tasks.forEach(task => {
       // Handle processed task structure (already has layeredImages, gridUrls, etc.)
       if (task.layeredImages?.length) {
@@ -356,11 +357,11 @@ class ImageCacheManager {
           if (img.url) urls.push(img.url)
         })
       }
-      
+
       if (task.gridUrls?.length) {
         urls.push(...task.gridUrls.filter(Boolean))
       }
-      
+
       if (task.leftImageUrl) urls.push(task.leftImageUrl)
       if (task.rightImageUrl) urls.push(task.rightImageUrl)
 
@@ -368,34 +369,34 @@ class ImageCacheManager {
       if (task.elements_shown) {
         const shown = task.elements_shown
         const content = task.elements_shown_content
-        
+
         // For layer/grid studies with elements_shown present
         // Consider only base keys (exclude *_content) for activation flags
         const activeBaseKeys = Object.keys(shown).filter((k) => !k.endsWith('_content') && Number(shown[k]) === 1)
         activeBaseKeys.forEach((k) => {
-            // Prefer content object when available
-            const fromContent = content?.[k]
-            if (fromContent && typeof fromContent === 'object') {
-              if (typeof (fromContent as any).url === 'string') {
-                urls.push((fromContent as any).url)
-              } else if (typeof (fromContent as any).content === 'string') {
-                urls.push((fromContent as any).content)
-              }
+          // Prefer content object when available
+          const fromContent = content?.[k]
+          if (fromContent && typeof fromContent === 'object') {
+            if (typeof (fromContent as any).url === 'string') {
+              urls.push((fromContent as any).url)
+            } else if (typeof (fromContent as any).content === 'string') {
+              urls.push((fromContent as any).content)
             }
-            const fromContent2 = content?.[`${k}_content`]
-            if (fromContent2 && typeof fromContent2 === 'object') {
-              if (typeof (fromContent2 as any).url === 'string') {
-                urls.push((fromContent2 as any).url)
-              } else if (typeof (fromContent2 as any).content === 'string') {
-                urls.push((fromContent2 as any).content)
-              }
+          }
+          const fromContent2 = content?.[`${k}_content`]
+          if (fromContent2 && typeof fromContent2 === 'object') {
+            if (typeof (fromContent2 as any).url === 'string') {
+              urls.push((fromContent2 as any).url)
+            } else if (typeof (fromContent2 as any).content === 'string') {
+              urls.push((fromContent2 as any).content)
             }
+          }
 
-            // If elements_shown_content is missing, some backends place direct URLs under *_content inside elements_shown itself
-            const directFromShown = (shown as any)[`${k}_content`]
-            if (typeof directFromShown === 'string' && directFromShown.startsWith('http')) {
-              urls.push(directFromShown)
-            }
+          // If elements_shown_content is missing, some backends place direct URLs under *_content inside elements_shown itself
+          const directFromShown = (shown as any)[`${k}_content`]
+          if (typeof directFromShown === 'string' && directFromShown.startsWith('http')) {
+            urls.push(directFromShown)
+          }
         })
 
         // For grid studies (support 1 / '1' / true)
@@ -407,7 +408,7 @@ class ImageCacheManager {
           if (typeof directUrl === 'string' && directUrl.startsWith('http')) {
             urls.push(directUrl)
           }
-          
+
           const contentItem = safeContent[k]
           if (contentItem && typeof contentItem === 'object') {
             if ((contentItem as any).url) {
@@ -416,7 +417,7 @@ class ImageCacheManager {
               urls.push((contentItem as any).content)
             }
           }
-          
+
           const contentItem2 = safeContent[`${k}_content`]
           if (contentItem2 && typeof contentItem2 === 'object') {
             if ((contentItem2 as any).url) {
@@ -457,7 +458,7 @@ class ImageCacheManager {
     if (uniqueUrls.length > 0) {
       console.log('📸 Sample URLs:', uniqueUrls.slice(0, 3))
     }
-    
+
     return uniqueUrls
   }
 
@@ -490,14 +491,14 @@ class ImageCacheManager {
 
       const urls = this.extractImageUrls(tasks)
       console.log(`Starting preload of ${urls.length} images for ${tasks.length} tasks`)
-      
+
       if (urls.length === 0) {
         console.warn('⚠️ No image URLs found in tasks!')
         return
       }
-      
+
       await this.preloadImages(urls, 'high')
-      
+
       const duration = this.getPreloadDuration()
       console.log(`Preload completed in ${duration}ms: ${this.preloadProgress.loaded}/${this.preloadProgress.total} loaded`)
     } catch (error) {
@@ -521,14 +522,14 @@ class ImageCacheManager {
   // Clear cache (call on thank-you page)
   clearCache(): void {
     console.log('Clearing image cache...')
-    
+
     // Clean up object URLs to prevent memory leaks
     this.cache.forEach(entry => {
       if (entry.url.startsWith('blob:')) {
         URL.revokeObjectURL(entry.url)
       }
     })
-    
+
     this.cache.clear()
     this.loadingPromises.clear()
     this.preloadProgress = { total: 0, loaded: 0, failed: 0 }
@@ -547,7 +548,7 @@ class ImageCacheManager {
     const stats = this.getCacheStats()
     console.log(`📊 Cache Status: ${stats.loaded}/${stats.total} loaded, ${stats.failed} failed, ${stats.size} total`)
     console.log('🔗 Cached URLs:', this.getCachedUrls().slice(0, 5), this.getCachedUrls().length > 5 ? '...' : '')
-    
+
     // Log failed URLs with error details
     const failedEntries = Array.from(this.cache.entries()).filter(([_, entry]) => !entry.loaded)
     if (failedEntries.length > 0) {
@@ -588,21 +589,21 @@ class ImageCacheManager {
   shouldSkipPreloading(): boolean {
     // In development, if we have many CORS errors, we might want to skip preloading
     const errorDetails = this.getErrorDetails()
-    const corsErrors = errorDetails.filter(error => 
-      error.error.includes('CORS') || 
+    const corsErrors = errorDetails.filter(error =>
+      error.error.includes('CORS') ||
       error.error.includes('Failed to fetch') ||
       error.error.includes('blocked by CORS policy')
     )
-    
+
     // If more than 50% of attempts result in CORS errors, suggest skipping
     const totalAttempts = this.preloadProgress.total
     const corsErrorRate = totalAttempts > 0 ? corsErrors.length / totalAttempts : 0
-    
+
     if (corsErrorRate > 0.5) {
       console.warn(`⚠️ High CORS error rate (${(corsErrorRate * 100).toFixed(1)}%), consider skipping preloading in development`)
       return true
     }
-    
+
     return false
   }
 
@@ -617,10 +618,10 @@ class ImageCacheManager {
   isImageAvailable(url: string): boolean {
     const entry = this.cache.get(url)
     if (!entry) return false
-    
+
     // If it's loaded, it's available
     if (entry.loaded) return true
-    
+
     // If it failed but we have a fallback, it's still available
     return true // We'll use the original URL as fallback
   }
@@ -631,7 +632,7 @@ class ImageCacheManager {
       console.warn('getCachedUrl called with invalid input:', originalUrl)
       return '/placeholder.svg'
     }
-    
+
     const entry = this.cache.get(originalUrl)
     if (entry && entry.loaded && entry.url) {
       // Return the cached object URL if available

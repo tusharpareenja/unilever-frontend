@@ -1,9 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
 import { Fragment, useEffect, useRef, useState, forwardRef } from "react"
 import { Rnd } from "react-rnd"
 import { Button } from "@/components/ui/button"
-import { uploadImages, putUpdateStudyAsync, putUpdateStudy, buildStudyPayloadFromLocalStorage } from "@/lib/api/StudyAPI"
+import { uploadImages, putUpdateStudyAsync } from "@/lib/api/StudyAPI"
 
 interface ElementItem {
   id: string
@@ -119,7 +120,7 @@ interface Step5StudyStructureProps {
 
 export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChange }: Step5StudyStructureProps) {
   // Dynamic limits from env with sensible defaults
-  const GRID_MIN = Number.parseInt(process.env.NEXT_PUBLIC_GRID_MIN_ELEMENTS || '4') || 4
+  // const GRID_MIN = Number.parseInt(process.env.NEXT_PUBLIC_GRID_MIN_ELEMENTS || '4') || 4
   const GRID_MAX = Number.parseInt(process.env.NEXT_PUBLIC_GRID_MAX_ELEMENTS || '20') || 20
   const CATEGORY_MIN = 4
   const CATEGORY_MAX = 10
@@ -166,9 +167,9 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
     } catch { }
     return []
   })
-  const [uploading, setUploading] = useState(false)
+  // const [uploading, setUploading] = useState(false)
   const [nextLoading, setNextLoading] = useState(false)
-  const inputRef = useRef<HTMLInputElement | null>(null)
+  // const inputRef = useRef<HTMLInputElement | null>(null)
   const gridHasHydratedRef = useRef(false)
 
   // Track which categories are collapsed
@@ -278,33 +279,33 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
     }, 1000)
   }
 
-  const removeElement = (id: string) => {
-    setElements((prev) => prev.filter((e) => e.id !== id))
-  }
+  // const removeElement = (id: string) => {
+  //   setElements((prev) => prev.filter((e) => e.id !== id))
+  // }
 
-  const updateElement = (id: string, patch: Partial<ElementItem>) => {
-    setElements((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)))
-  }
+  // const updateElement = (id: string, patch: Partial<ElementItem>) => {
+  //   setElements((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)))
+  // }
 
-  const onDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    handleFiles(e.dataTransfer.files)
-  }
+  // const onDrop = (e: React.DragEvent<HTMLDivElement>) => {
+  //   e.preventDefault()
+  //   handleFiles(e.dataTransfer.files)
+  // }
 
-  const onDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'copy'
-  }
+  // const onDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+  //   e.preventDefault()
+  //   e.dataTransfer.dropEffect = 'copy'
+  // }
 
-  const onDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    e.currentTarget.classList.add('bg-blue-50', 'border-blue-300')
-  }
+  // const onDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+  //   e.preventDefault()
+  //   e.currentTarget.classList.add('bg-blue-50', 'border-blue-300')
+  // }
 
-  const onDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    e.currentTarget.classList.remove('bg-blue-50', 'border-blue-300')
-  }
+  // const onDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+  //   e.preventDefault()
+  //   e.currentTarget.classList.remove('bg-blue-50', 'border-blue-300')
+  // }
 
   // Warn on reload if any grid uploads pending
   useEffect(() => {
@@ -346,24 +347,24 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
   }, [categories, mode, onDataChange])
 
   // Ensure all grid elements have secureUrl (upload pending ones)
-  const ensureGridUploads = async () => {
-    const pending = elements.filter(e => !e.secureUrl && e.file)
-    if (pending.length === 0) return
+  // const ensureGridUploads = async () => {
+  //   const pending = elements.filter(e => !e.secureUrl && e.file)
+  //   if (pending.length === 0) return
 
-    const files = pending.map(p => p.file!)
+  //   const files = pending.map(p => p.file!)
 
-    try {
-      const results = await uploadImages(files)
+  //   try {
+  //     const results = await uploadImages(files)
 
-      setElements(prev => prev.map(el => {
-        const i = pending.findIndex(p => p.id === el.id)
-        if (i !== -1) return { ...el, secureUrl: results[i]?.secure_url || el.secureUrl }
-        return el
-      }))
-    } catch (e) {
-      console.error('ensureGridUploads error', e)
-    }
-  }
+  //     setElements(prev => prev.map(el => {
+  //       const i = pending.findIndex(p => p.id === el.id)
+  //       if (i !== -1) return { ...el, secureUrl: results[i]?.secure_url || el.secureUrl }
+  //       return el
+  //     }))
+  //   } catch (e) {
+  //     console.error('ensureGridUploads error', e)
+  //   }
+  // }
 
   // Category management functions
   const handleCategoryFiles = async (categoryId: string, files: FileList) => {
@@ -499,10 +500,10 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
             order: idx
           }))
           // Collect all elements from all categories with secureUrl
-          const categorizedElements = categoriesToSend.flatMap((c, catIdx) =>
+          const categorizedElements = categoriesToSend.flatMap((c, _catIdx) =>
             (c.elements || [])
               .filter(el => el.secureUrl) // Only include elements that have been uploaded
-              .map((el, idx) => ({
+              .map((el, _idx) => ({
                 element_id: String(el.id),
                 name: el.name || '',
                 description: el.description || '',
@@ -544,36 +545,36 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
   }
 
   // Ensure all category elements have secureUrl (upload pending ones)
-  const ensureCategoryUploads = async () => {
-    const pending: Array<{ categoryId: string; elementId: string; file: File }> = []
-    categories.forEach(c =>
-      c.elements.forEach(e => {
-        if (!e.secureUrl && e.file) {
-          pending.push({ categoryId: c.id, elementId: e.id, file: e.file })
-        }
-      })
-    )
-    if (pending.length === 0) return
+  // const ensureCategoryUploads = async () => {
+  //   const pending: Array<{ categoryId: string; elementId: string; file: File }> = []
+  //   categories.forEach(c =>
+  //     c.elements.forEach(e => {
+  //       if (!e.secureUrl && e.file) {
+  //         pending.push({ categoryId: c.id, elementId: e.id, file: e.file })
+  //       }
+  //     })
+  //   )
+  //   if (pending.length === 0) return
 
-    const files = pending.map(p => p.file)
+  //   const files = pending.map(p => p.file)
 
-    try {
-      const results = await uploadImages(files)
+  //   try {
+  //     const results = await uploadImages(files)
 
-      setCategories(prev => prev.map(category => {
-        const updatedElements = category.elements.map(element => {
-          const pendingIndex = pending.findIndex(p => p.categoryId === category.id && p.elementId === element.id)
-          if (pendingIndex !== -1) {
-            return { ...element, secureUrl: results[pendingIndex]?.secure_url || element.secureUrl }
-          }
-          return element
-        })
-        return { ...category, elements: updatedElements }
-      }))
-    } catch (e) {
-      console.error('ensureCategoryUploads error', e)
-    }
-  }
+  //     setCategories(prev => prev.map(category => {
+  //       const updatedElements = category.elements.map(element => {
+  //         const pendingIndex = pending.findIndex(p => p.categoryId === category.id && p.elementId === element.id)
+  //         if (pendingIndex !== -1) {
+  //           return { ...element, secureUrl: results[pendingIndex]?.secure_url || element.secureUrl }
+  //         }
+  //         return element
+  //       })
+  //       return { ...category, elements: updatedElements }
+  //     }))
+  //   } catch (e) {
+  //     console.error('ensureCategoryUploads error', e)
+  //   }
+  // }
 
   // Enhanced: upload category images even when only previewUrl exists (no File)
   // Returns the updated categories with secureUrls set
@@ -743,7 +744,7 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
 
                       {category.elements.length > 0 ? (
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                          {category.elements.map((element, elIdx) => (
+                          {category.elements.map((element, _elIdx) => (
                             <div key={element.id} className="border rounded-lg p-3">
                               <div className="aspect-square bg-gray-100 flex items-center justify-center mb-2 rounded-lg">
                                 {(element.secureUrl || element.previewUrl) ? (
@@ -1137,7 +1138,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       // Focus the editor
       draftTextEditorRef.current.focus()
     }
-  }, [showModal]) // Only run when modal opens/closes
+  }, [showModal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Populate layer text editor when modal opens
   useEffect(() => {
@@ -1152,7 +1153,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       // Focus the editor
       layerTextEditorRef.current.focus()
     }
-  }, [showLayerTextModal])
+  }, [showLayerTextModal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Helpers: unique name generators
   const generateUniqueName = (base: string, usedNames: Set<string>): string => {
@@ -1481,14 +1482,9 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       WebkitTextStroke: strokeColor && strokeWidth && strokeWidth > 0
         ? `${strokeWidth}px ${strokeColor}`
         : "none",
-      // @ts-ignore
-      paintOrder: "stroke fill",
-      // @ts-ignore
-      WebkitPaintOrder: "stroke fill",
-      // @ts-ignore
-      WebkitFontSmoothing: "antialiased",
-      // @ts-ignore
-      MozOsxFontSmoothing: "grayscale",
+      paintOrder: "stroke fill" as any,
+      WebkitFontSmoothing: "antialiased" as any,
+      MozOsxFontSmoothing: "grayscale" as any,
       outline: "none",
       border: "none",
     }
@@ -1511,6 +1507,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       )
     }
   )
+  TextLayerPreview.displayName = 'TextLayerPreview'
 
   const renderTextLayerImage = async ({
     text,
@@ -2687,7 +2684,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       localStorage.removeItem('cs_step5_layer_background')
     }
     onDataChange?.()
-  }, [layers, background, onDataChange])
+  }, [layers, background, onDataChange]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div>
@@ -2963,7 +2960,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                 <div
                   className="flex items-center justify-between px-4 py-2 bg-slate-50 rounded-t-xl cursor-move"
                   draggable
-                  onDragStart={(e) => { setDragIndex(idx); setOverIndex(idx); e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', String(idx)); } catch (_) { } }}
+                  onDragStart={(e) => { setDragIndex(idx); setOverIndex(idx); e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', String(idx)); } catch { } }}
                   onDragOver={(e) => {
                     e.preventDefault();
                     e.dataTransfer.dropEffect = 'move'
@@ -3150,7 +3147,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
           ))}
 
           {layers.length === 0 && (
-            <div className="text-sm text-gray-500">No layers added yet. Click "Add New Layer" to begin.</div>
+            <div className="text-sm text-gray-500">No layers added yet. Click &quot;Add New Layer&quot; to begin.</div>
           )}
         </div>
       </div>
