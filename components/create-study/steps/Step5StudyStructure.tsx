@@ -2440,9 +2440,6 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
         ...targetImage,
         id: newImageId,
         name: `${targetImage.name} (Copy)`,
-        // Offset slightly to make duplication visible
-        x: (targetImage.x ?? 0) + 2,
-        y: (targetImage.y ?? 0) + 2,
       }
 
       return {
