@@ -42,7 +42,7 @@ export default function TasksPage() {
     right: "",
     middle: "",
   })
-  const [studyType, setStudyType] = useState<"grid" | "layer" | undefined>(undefined)
+  const [studyType, setStudyType] = useState<"grid" | "layer" | "text" | undefined>(undefined)
   const [mainQuestion, setMainQuestion] = useState<string>("")
   const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null)
 
@@ -102,7 +102,7 @@ export default function TasksPage() {
         router.push(`/participate/${params.id}/thank-you`)
         return
       }
-    } catch {}
+    } catch { }
 
     const handlePopState = (event: PopStateEvent) => {
       event.preventDefault()
@@ -198,7 +198,7 @@ export default function TasksPage() {
               // Handle both formats: original (has url) and compacted (has transform)
               const url = layerData.url || ''
               const transform = layerData.transform || { x: 0, y: 0, width: 100, height: 100 }
-              
+
               return {
                 url: String(url),
                 z: Number(layerData.z_index ?? 0),
@@ -268,7 +268,7 @@ export default function TasksPage() {
                 }
               })
             }
-          } catch {}
+          } catch { }
 
           return {
             id: String(t?.task_id ?? t?.task_index ?? Math.random()),
@@ -325,7 +325,7 @@ export default function TasksPage() {
       if (allWithBg.length > 0) {
         imageCacheManager.prewarmUrls(allWithBg, "high")
       }
-    } catch {}
+    } catch { }
   }, [totalTasks, backgroundUrl])
 
   useEffect(() => {
@@ -567,7 +567,7 @@ export default function TasksPage() {
           })
         }
         if (Object.keys(result).length > 0) payloadShownContent = result
-      } catch {}
+      } catch { }
 
       const item = {
         task_id: task?.id || String(currentTaskIndex),
@@ -677,12 +677,12 @@ export default function TasksPage() {
                 })
             }
           }
-        } catch {}
+        } catch { }
         submitSessionInBackground()
       }
       try {
         void doFinish()
-      } catch {}
+      } catch { }
       setTimeout(() => router.push(`/participate/${params.id}/thank-you`), 200)
     }
   }
@@ -856,6 +856,23 @@ export default function TasksPage() {
                             })}
                           </div>
                         </div>
+                      ) : studyType === "text" ? (
+                        <div className="w-full h-full flex flex-col items-center justify-center overflow-hidden relative gap-2 sm:gap-4 p-4">
+                          {task?.gridUrls?.map((statement, idx) => (
+                            <div
+                              key={idx}
+                              className="w-full flex-1 flex items-center justify-center text-center p-4 border rounded-lg shadow-sm"
+                              style={{
+                                minHeight: '60px',
+                                fontSize: 'clamp(14px, 2vw, 18px)',
+                                overflowWrap: 'break-word',
+                                wordBreak: 'break-word'
+                              }}
+                            >
+                              {statement}
+                            </div>
+                          ))}
+                        </div>
                       ) : (
                         <div className="w-full h-full flex items-center justify-center overflow-hidden relative">
                           {backgroundUrl && (
@@ -966,39 +983,39 @@ export default function TasksPage() {
                     )}
 
                     <div className="flex flex-col items-start justify-center gap-2 px-2 mb-2">
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">
-                            1
-                          </div>
-                          {scaleLabels.left && (
-                            <div className="text-xs sm:text-sm font-medium text-gray-700 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
-                              {scaleLabels.left}
-                            </div>
-                          )}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">
+                          1
                         </div>
-
-                        {scaleLabels.middle && (
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">
-                              3
-                            </div>
-                            <div className="text-xs sm:text-sm font-medium text-gray-700 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
-                              {scaleLabels.middle}
-                            </div>
+                        {scaleLabels.left && (
+                          <div className="text-xs sm:text-sm font-medium text-gray-700 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
+                            {scaleLabels.left}
                           </div>
                         )}
+                      </div>
 
+                      {scaleLabels.middle && (
                         <div className="flex items-center gap-2 flex-shrink-0">
                           <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">
-                            5
+                            3
                           </div>
-                          {scaleLabels.right && (
-                            <div className="text-xs sm:text-sm font-medium text-gray-700 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
-                              {scaleLabels.right}
-                            </div>
-                          )}
+                          <div className="text-xs sm:text-sm font-medium text-gray-700 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
+                            {scaleLabels.middle}
+                          </div>
                         </div>
+                      )}
+
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">
+                          5
+                        </div>
+                        {scaleLabels.right && (
+                          <div className="text-xs sm:text-sm font-medium text-gray-700 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
+                            {scaleLabels.right}
+                          </div>
+                        )}
                       </div>
+                    </div>
 
                     {/* Rating Scale */}
                     <div
@@ -1013,11 +1030,10 @@ export default function TasksPage() {
                               <button
                                 key={n}
                                 onClick={() => handleSelect(n)}
-                                className={`h-10 w-10 sm:h-12 sm:w-12 rounded-full border-2 transition-colors text-sm sm:text-base font-semibold flex-shrink-0 ${
-                                  selected
+                                className={`h-10 w-10 sm:h-12 sm:w-12 rounded-full border-2 transition-colors text-sm sm:text-base font-semibold flex-shrink-0 ${selected
                                     ? "bg-[rgba(38,116,186,1)] text-white border-[rgba(38,116,186,1)]"
                                     : "bg-white text-gray-700 border-gray-300 hover:border-gray-400"
-                                }`}
+                                  }`}
                                 onMouseEnter={() => {
                                   hoverCountsRef.current[n] = (hoverCountsRef.current[n] || 0) + 1
                                   lastViewTimeRef.current = new Date().toISOString()
@@ -1030,7 +1046,7 @@ export default function TasksPage() {
                         </div>
                       </div>
 
-                      
+
                     </div>
                   </>
                 )}
@@ -1158,6 +1174,23 @@ export default function TasksPage() {
                             })}
                           </div>
                         </div>
+                      </div>
+                    ) : studyType === "text" ? (
+                      <div className="w-full h-full flex flex-col items-center justify-center overflow-hidden relative gap-4 p-6 min-h-[400px]">
+                        {task?.gridUrls?.map((statement, idx) => (
+                          <div
+                            key={idx}
+                            className="w-full flex-1 flex items-center justify-center text-center p-6 border rounded-xl shadow-sm transition-colors"
+                            style={{
+                              minHeight: '80px',
+                              fontSize: 'clamp(16px, 1.5vw, 24px)',
+                              overflowWrap: 'break-word',
+                              wordBreak: 'break-word'
+                            }}
+                          >
+                            {statement}
+                          </div>
+                        ))}
                       </div>
                     ) : (
                       (() => {
@@ -1296,40 +1329,40 @@ export default function TasksPage() {
                       <div className="text-center text-balance">{task?.rightLabel ?? ""}</div>
                     </div>
 
-                     <div className="flex flex-col items-start justify-center gap-2 px-2">
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <div className="h-8 w-8 lg:h-9 lg:w-9 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs lg:text-sm font-semibold text-gray-700 flex-shrink-0">
-                            1
-                          </div>
-                          {scaleLabels.left && (
-                            <div className="text-sm lg:text-base xl:text-lg font-medium text-gray-800 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
-                              {scaleLabels.left}
-                            </div>
-                          )}
+                    <div className="flex flex-col items-start justify-center gap-2 px-2">
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="h-8 w-8 lg:h-9 lg:w-9 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs lg:text-sm font-semibold text-gray-700 flex-shrink-0">
+                          1
                         </div>
-
-                        {scaleLabels.middle && (
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <div className="h-8 w-8 lg:h-9 lg:w-9 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs lg:text-sm font-semibold text-gray-700 flex-shrink-0">
-                              3
-                            </div>
-                            <div className="text-sm lg:text-base xl:text-lg font-medium text-gray-800 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
-                              {scaleLabels.middle}
-                            </div>
+                        {scaleLabels.left && (
+                          <div className="text-sm lg:text-base xl:text-lg font-medium text-gray-800 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
+                            {scaleLabels.left}
                           </div>
                         )}
+                      </div>
 
+                      {scaleLabels.middle && (
                         <div className="flex items-center gap-2 flex-shrink-0">
                           <div className="h-8 w-8 lg:h-9 lg:w-9 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs lg:text-sm font-semibold text-gray-700 flex-shrink-0">
-                            5
+                            3
                           </div>
-                          {scaleLabels.right && (
-                            <div className="text-sm lg:text-base xl:text-lg font-medium text-gray-800 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
-                              {scaleLabels.right}
-                            </div>
-                          )}
+                          <div className="text-sm lg:text-base xl:text-lg font-medium text-gray-800 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
+                            {scaleLabels.middle}
+                          </div>
                         </div>
+                      )}
+
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="h-8 w-8 lg:h-9 lg:w-9 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs lg:text-sm font-semibold text-gray-700 flex-shrink-0">
+                          5
+                        </div>
+                        {scaleLabels.right && (
+                          <div className="text-sm lg:text-base xl:text-lg font-medium text-gray-800 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
+                            {scaleLabels.right}
+                          </div>
+                        )}
                       </div>
+                    </div>
 
                     <div className="w-full max-w-2xl mx-auto mt-4">
                       <div className="flex items-center justify-center mb-3">
@@ -1340,11 +1373,10 @@ export default function TasksPage() {
                               <button
                                 key={n}
                                 onClick={() => handleSelect(n)}
-                                className={`h-11 w-11 lg:h-12 lg:w-12 xl:h-14 xl:w-14 rounded-full border-2 transition-colors text-sm lg:text-base xl:text-lg font-semibold flex-shrink-0 ${
-                                  selected
+                                className={`h-11 w-11 lg:h-12 lg:w-12 xl:h-14 xl:w-14 rounded-full border-2 transition-colors text-sm lg:text-base xl:text-lg font-semibold flex-shrink-0 ${selected
                                     ? "bg-[rgba(38,116,186,1)] text-white border-[rgba(38,116,186,1)]"
                                     : "bg-white text-gray-700 border-gray-300 hover:border-gray-400"
-                                }`}
+                                  }`}
                                 onMouseEnter={() => {
                                   hoverCountsRef.current[n] = (hoverCountsRef.current[n] || 0) + 1
                                   lastViewTimeRef.current = new Date().toISOString()
@@ -1357,7 +1389,7 @@ export default function TasksPage() {
                         </div>
                       </div>
 
-                     
+
                     </div>
                   </div>
                 )}

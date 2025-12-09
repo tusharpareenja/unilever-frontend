@@ -40,7 +40,7 @@ export default function TasksPage() {
     right: "",
     middle: "",
   })
-  const [studyType, setStudyType] = useState<"grid" | "layer" | undefined>(undefined)
+  const [studyType, setStudyType] = useState<"grid" | "layer" | "text" | undefined>(undefined)
   const [mainQuestion, setMainQuestion] = useState<string>("")
   const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null)
 
@@ -93,213 +93,215 @@ export default function TasksPage() {
     clickCountsRef.current = {}
   }, [])
 
-useEffect(() => {
-  try {
-    setIsFetching(true)
-    setFetchError(null)
-
-    const step2Raw = typeof window !== "undefined" ? localStorage.getItem("cs_step2") : null
-    const step3Raw = typeof window !== "undefined" ? localStorage.getItem("cs_step3") : null
-    const matrixRaw = typeof window !== "undefined" ? localStorage.getItem("cs_step7_matrix") : null
-    const layerBgRaw = typeof window !== "undefined" ? localStorage.getItem("cs_step5_layer_background") : null
-
-    if (!matrixRaw) throw new Error("Missing tasks in localStorage (cs_step7_matrix)")
-
-    const s2 = step2Raw ? JSON.parse(step2Raw) : {}
-    const s3 = step3Raw ? JSON.parse(step3Raw) : {}
-    const matrix = JSON.parse(matrixRaw)
-    const layerBg = layerBgRaw ? JSON.parse(layerBgRaw) : null
-
-    const typeNorm = (matrix?.metadata?.study_type || s2?.study_type || s2?.metadata?.study_type || s2?.type || "")
-      .toString()
-      .toLowerCase()
-    const normalizedType: "grid" | "layer" | undefined = typeNorm.includes("layer")
-      ? "layer"
-      : typeNorm.includes("grid")
-        ? "grid"
-        : undefined
-    setStudyType(normalizedType)
-
-    setMainQuestion(String(s2?.mainQuestion || s2?.main_question || s2?.question || ""))
-
+  useEffect(() => {
     try {
-      const bg = layerBg?.secureUrl || layerBg?.previewUrl || null
-      setBackgroundUrl(bg || null)
-    } catch {
-      setBackgroundUrl(null)
-    }
+      setIsFetching(true)
+      setFetchError(null)
 
-    const previewTransformsRaw = (() => {
+      const step2Raw = typeof window !== "undefined" ? localStorage.getItem("cs_step2") : null
+      const step3Raw = typeof window !== "undefined" ? localStorage.getItem("cs_step3") : null
+      const matrixRaw = typeof window !== "undefined" ? localStorage.getItem("cs_step7_matrix") : null
+      const layerBgRaw = typeof window !== "undefined" ? localStorage.getItem("cs_step5_layer_background") : null
+
+      if (!matrixRaw) throw new Error("Missing tasks in localStorage (cs_step7_matrix)")
+
+      const s2 = step2Raw ? JSON.parse(step2Raw) : {}
+      const s3 = step3Raw ? JSON.parse(step3Raw) : {}
+      const matrix = JSON.parse(matrixRaw)
+      const layerBg = layerBgRaw ? JSON.parse(layerBgRaw) : null
+
+      const typeNorm = (matrix?.metadata?.study_type || s2?.study_type || s2?.metadata?.study_type || s2?.type || "")
+        .toString()
+        .toLowerCase()
+      const normalizedType: "grid" | "layer" | "text" | undefined = typeNorm.includes("layer")
+        ? "layer"
+        : typeNorm.includes("text")
+          ? "text"
+          : typeNorm.includes("grid")
+            ? "grid"
+            : undefined
+      setStudyType(normalizedType)
+
+      setMainQuestion(String(s2?.mainQuestion || s2?.main_question || s2?.question || ""))
+
       try {
-        const src = matrix?.preview_layers_transforms
-        return src && typeof src === "object" ? src : {}
+        const bg = layerBg?.secureUrl || layerBg?.previewUrl || null
+        setBackgroundUrl(bg || null)
       } catch {
-        return {}
+        setBackgroundUrl(null)
       }
-    })()
 
-    const normalizeTransform = (
-      src?: Partial<{ x: number; y: number; width: number; height: number }>,
-    ): { x: number; y: number; width: number; height: number } => ({
-      x: Number(src?.x) || 0,
-      y: Number(src?.y) || 0,
-      width: Number(src?.width) || 100,
-      height: Number(src?.height) || 100,
-    })
+      const previewTransformsRaw = (() => {
+        try {
+          const src = matrix?.preview_layers_transforms
+          return src && typeof src === "object" ? src : {}
+        } catch {
+          return {}
+        }
+      })()
 
-    const rsSrc = s3 && typeof s3 === "object" ? s3 : {}
-    const rs = (rsSrc as any).rating ?? (rsSrc as any).rating_scale ?? rsSrc
-    const left =
-      (rs?.minLabel ?? rs?.min_label ?? rs?.leftLabel ?? rs?.left_label ?? rs?.left ?? rs?.min ?? "") ?? ""
-    const right =
-      (rs?.maxLabel ?? rs?.max_label ?? rs?.rightLabel ?? rs?.right_label ?? rs?.right ?? rs?.max ?? "") ?? ""
-    const middle = (rs?.middleLabel ?? rs?.middle_label ?? rs?.middle ?? rs?.midLabel ?? rs?.mid_label ?? "") ?? ""
-    setScaleLabels({ left: String(left ?? ""), right: String(right ?? ""), middle: String(middle ?? "") })
+      const normalizeTransform = (
+        src?: Partial<{ x: number; y: number; width: number; height: number }>,
+      ): { x: number; y: number; width: number; height: number } => ({
+        x: Number(src?.x) || 0,
+        y: Number(src?.y) || 0,
+        width: Number(src?.width) || 100,
+        height: Number(src?.height) || 100,
+      })
 
-    let respondentTasks: any[] = []
-    if (Array.isArray(matrix)) {
-      respondentTasks = matrix
-    } else if (matrix && typeof matrix === "object") {
-      if (Array.isArray((matrix as any).preview_tasks)) {
-        respondentTasks = (matrix as any).preview_tasks
-      } else if (Array.isArray((matrix as any).tasks)) {
-        respondentTasks = (matrix as any).tasks
-      } else if ((matrix as any).tasks && typeof (matrix as any).tasks === "object") {
-        const buckets = (matrix as any).tasks as Record<string, any>
-        if (Array.isArray(buckets["0"]) && buckets["0"].length) {
-          respondentTasks = buckets["0"]
-        } else {
-          for (const v of Object.values(buckets)) {
-            if (Array.isArray(v) && v.length) {
-              respondentTasks = v
-              break
+      const rsSrc = s3 && typeof s3 === "object" ? s3 : {}
+      const rs = (rsSrc as any).rating ?? (rsSrc as any).rating_scale ?? rsSrc
+      const left =
+        (rs?.minLabel ?? rs?.min_label ?? rs?.leftLabel ?? rs?.left_label ?? rs?.left ?? rs?.min ?? "") ?? ""
+      const right =
+        (rs?.maxLabel ?? rs?.max_label ?? rs?.rightLabel ?? rs?.right_label ?? rs?.right ?? rs?.max ?? "") ?? ""
+      const middle = (rs?.middleLabel ?? rs?.middle_label ?? rs?.middle ?? rs?.midLabel ?? rs?.mid_label ?? "") ?? ""
+      setScaleLabels({ left: String(left ?? ""), right: String(right ?? ""), middle: String(middle ?? "") })
+
+      let respondentTasks: any[] = []
+      if (Array.isArray(matrix)) {
+        respondentTasks = matrix
+      } else if (matrix && typeof matrix === "object") {
+        if (Array.isArray((matrix as any).preview_tasks)) {
+          respondentTasks = (matrix as any).preview_tasks
+        } else if (Array.isArray((matrix as any).tasks)) {
+          respondentTasks = (matrix as any).tasks
+        } else if ((matrix as any).tasks && typeof (matrix as any).tasks === "object") {
+          const buckets = (matrix as any).tasks as Record<string, any>
+          if (Array.isArray(buckets["0"]) && buckets["0"].length) {
+            respondentTasks = buckets["0"]
+          } else {
+            for (const v of Object.values(buckets)) {
+              if (Array.isArray(v) && v.length) {
+                respondentTasks = v
+                break
+              }
             }
           }
         }
       }
-    }
 
-    const parsed: Task[] = (Array.isArray(respondentTasks) ? respondentTasks : []).map((t: any) => {
-      if (normalizedType === "layer") {
-        const shown = t?.elements_shown || {}
+      const parsed: Task[] = (Array.isArray(respondentTasks) ? respondentTasks : []).map((t: any) => {
+        if (normalizedType === "layer") {
+          const shown = t?.elements_shown || {}
+          const content = t?.elements_shown_content || {}
+
+          const layers = Object.keys(shown)
+            .filter((k) => {
+              const isShown = Number(shown[k]) === 1
+              const hasContent = content?.[k] && content[k] !== null
+              const hasData = hasContent && (content[k].url || content[k].transform || content[k].previewUrl || content[k].secureUrl)
+              return isShown && hasContent && hasData
+            })
+            .map((k) => {
+              const layerData = content[k]
+              const layerName = String(layerData?.layer_name || "").trim() || null
+              const transformSource =
+                layerData?.transform ||
+                (layerName ? (previewTransformsRaw as any)[layerName] : undefined) ||
+                (previewTransformsRaw as any)[k] ||
+                undefined
+              const resolvedUrl =
+                layerData?.url ||
+                layerData?.secureUrl ||
+                layerData?.previewUrl ||
+                layerData?.content ||
+                (typeof layerData === "string" ? layerData : "")
+              const urlString = typeof resolvedUrl === "string" ? resolvedUrl : ""
+
+              return {
+                url: urlString,
+                z: Number(layerData?.z_index ?? 0),
+                layer_name: layerName,
+                transform: normalizeTransform(transformSource),
+              }
+            })
+            .sort((a, b) => a.z - b.z)
+            .filter((entry) => Boolean(entry.url))
+
+          return {
+            id: String(t?.task_id ?? t?.task_index ?? Math.random()),
+            layeredImages: layers,
+            _elements_shown: shown,
+            _elements_shown_content: content,
+          }
+        }
+
+        const es = t?.elements_shown || {}
         const content = t?.elements_shown_content || {}
+        const activeKeys = Object.keys(es).filter((k) => Number(es[k]) === 1)
 
-        const layers = Object.keys(shown)
-          .filter((k) => {
-            const isShown = Number(shown[k]) === 1
-            const hasContent = content?.[k] && content[k] !== null
-            const hasData = hasContent && (content[k].url || content[k].transform || content[k].previewUrl || content[k].secureUrl)
-            return isShown && hasContent && hasData
-          })
-          .map((k) => {
-            const layerData = content[k]
-            const layerName = String(layerData?.layer_name || "").trim() || null
-            const transformSource =
-              layerData?.transform ||
-              (layerName ? (previewTransformsRaw as any)[layerName] : undefined) ||
-              (previewTransformsRaw as any)[k] ||
-              undefined
-            const resolvedUrl =
-              layerData?.url ||
-              layerData?.secureUrl ||
-              layerData?.previewUrl ||
-              layerData?.content ||
-              (typeof layerData === "string" ? layerData : "")
-            const urlString = typeof resolvedUrl === "string" ? resolvedUrl : ""
+        const getUrlForKey = (k: string): string | undefined => {
+          const elementContent = (content as any)[k]
+          if (elementContent && typeof elementContent === "object" && elementContent.content) {
+            return elementContent.content
+          }
 
-            return {
-              url: urlString,
-              z: Number(layerData?.z_index ?? 0),
-              layer_name: layerName,
-              transform: normalizeTransform(transformSource),
-            }
+          const directUrl = (es as any)[`${k}_content`]
+          if (typeof directUrl === "string" && directUrl) return directUrl
+
+          const c1: any = (content as any)[k]
+          if (c1 && typeof c1 === "object" && typeof c1.url === "string") return c1.url
+
+          const c2: any = (content as any)[`${k}_content`]
+          if (c2 && typeof c2 === "object" && typeof c2.url === "string") return c2.url
+          if (typeof c2 === "string") return c2
+
+          const s2: any = (content as any)[k]
+          if (typeof s2 === "string") return s2
+
+          return undefined
+        }
+
+        const list: string[] = []
+        activeKeys.forEach((k) => {
+          const url = getUrlForKey(k)
+          if (typeof url === "string" && url) list.push(url)
+        })
+
+        if (list.length === 0 && content && typeof content === "object") {
+          Object.values(content).forEach((v: any) => {
+            if (v && typeof v === "object" && typeof v.url === "string") list.push(v.url)
+            if (v && typeof v === "object" && v.content) list.push(v.content)
+            if (typeof v === "string") list.push(v)
           })
-          .sort((a, b) => a.z - b.z)
-          .filter((entry) => Boolean(entry.url))
+        }
+
+        try {
+          if (list.length < 4 && es && typeof es === "object") {
+            const seen = new Set(list)
+            Object.entries(es as Record<string, any>).forEach(([key, val]) => {
+              if (list.length >= 4) return
+              if (typeof val === "string" && key.endsWith("_content") && val.startsWith("http") && !seen.has(val)) {
+                list.push(val)
+                seen.add(val)
+              }
+            })
+          }
+        } catch { }
 
         return {
           id: String(t?.task_id ?? t?.task_index ?? Math.random()),
-          layeredImages: layers,
-          _elements_shown: shown,
+          leftImageUrl: list[0],
+          rightImageUrl: list[1],
+          leftLabel: "",
+          rightLabel: "",
+          gridUrls: list,
+          _elements_shown: es,
           _elements_shown_content: content,
         }
-      }
-
-      const es = t?.elements_shown || {}
-      const content = t?.elements_shown_content || {}
-      const activeKeys = Object.keys(es).filter((k) => Number(es[k]) === 1)
-
-      const getUrlForKey = (k: string): string | undefined => {
-        const elementContent = (content as any)[k]
-        if (elementContent && typeof elementContent === "object" && elementContent.content) {
-          return elementContent.content
-        }
-
-        const directUrl = (es as any)[`${k}_content`]
-        if (typeof directUrl === "string" && directUrl) return directUrl
-
-        const c1: any = (content as any)[k]
-        if (c1 && typeof c1 === "object" && typeof c1.url === "string") return c1.url
-
-        const c2: any = (content as any)[`${k}_content`]
-        if (c2 && typeof c2 === "object" && typeof c2.url === "string") return c2.url
-        if (typeof c2 === "string") return c2
-
-        const s2: any = (content as any)[k]
-        if (typeof s2 === "string") return s2
-
-        return undefined
-      }
-
-      const list: string[] = []
-      activeKeys.forEach((k) => {
-        const url = getUrlForKey(k)
-        if (typeof url === "string" && url) list.push(url)
       })
 
-      if (list.length === 0 && content && typeof content === "object") {
-        Object.values(content).forEach((v: any) => {
-          if (v && typeof v === "object" && typeof v.url === "string") list.push(v.url)
-          if (v && typeof v === "object" && v.content) list.push(v.content)
-          if (typeof v === "string") list.push(v)
-        })
-      }
+      setTasks(parsed)
 
-      try {
-        if (list.length < 4 && es && typeof es === "object") {
-          const seen = new Set(list)
-          Object.entries(es as Record<string, any>).forEach(([key, val]) => {
-            if (list.length >= 4) return
-            if (typeof val === "string" && key.endsWith("_content") && val.startsWith("http") && !seen.has(val)) {
-              list.push(val)
-              seen.add(val)
-            }
-          })
-        }
-      } catch {}
-
-      return {
-        id: String(t?.task_id ?? t?.task_index ?? Math.random()),
-        leftImageUrl: list[0],
-        rightImageUrl: list[1],
-        leftLabel: "",
-        rightLabel: "",
-        gridUrls: list,
-        _elements_shown: es,
-        _elements_shown_content: content,
-      }
-    })
-
-    setTasks(parsed)
-
-    const cacheStats = imageCacheManager.getCacheStats()
-  } catch (err: unknown) {
-    console.error("Failed to load preview tasks:", err)
-    setFetchError((err as Error)?.message || "Failed to load tasks")
-  } finally {
-    setIsFetching(false)
-  }
-}, [])
+      const cacheStats = imageCacheManager.getCacheStats()
+    } catch (err: unknown) {
+      console.error("Failed to load preview tasks:", err)
+      setFetchError((err as Error)?.message || "Failed to load tasks")
+    } finally {
+      setIsFetching(false)
+    }
+  }, [])
 
   const [currentTaskIndex, setCurrentTaskIndex] = useState(0)
   const taskStartRef = useRef<number>(Date.now())
@@ -328,7 +330,7 @@ useEffect(() => {
       if (allWithBg.length > 0) {
         imageCacheManager.prewarmUrls(allWithBg, "high")
       }
-    } catch {}
+    } catch { }
   }, [totalTasks, backgroundUrl])
 
   useEffect(() => {
@@ -717,6 +719,23 @@ useEffect(() => {
                             })}
                           </div>
                         </div>
+                      ) : studyType === "text" ? (
+                        <div className="w-full h-full flex flex-col items-center justify-center overflow-hidden relative gap-2 sm:gap-4 p-4">
+                          {task?.gridUrls?.map((statement, idx) => (
+                            <div
+                              key={idx}
+                              className="w-full flex-1 flex items-center justify-center text-center p-4 border rounded-lg shadow-sm"
+                              style={{
+                                minHeight: '60px',
+                                fontSize: 'clamp(14px, 2vw, 18px)',
+                                overflowWrap: 'break-word',
+                                wordBreak: 'break-word'
+                              }}
+                            >
+                              {statement}
+                            </div>
+                          ))}
+                        </div>
                       ) : (
                         <div className="w-full h-full flex items-center justify-center overflow-hidden relative">
                           {backgroundUrl && (
@@ -827,39 +846,39 @@ useEffect(() => {
                     )}
 
                     <div className="flex flex-col items-start justify-center gap-2 px-2 mb-2">
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">
-                            1
-                          </div>
-                          {scaleLabels.left && (
-                            <div className="text-xs sm:text-sm font-medium text-gray-700 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
-                              {scaleLabels.left}
-                            </div>
-                          )}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">
+                          1
                         </div>
-
-                        {scaleLabels.middle && (
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">
-                              3
-                            </div>
-                            <div className="text-xs sm:text-sm font-medium text-gray-700 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
-                              {scaleLabels.middle}
-                            </div>
+                        {scaleLabels.left && (
+                          <div className="text-xs sm:text-sm font-medium text-gray-700 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
+                            {scaleLabels.left}
                           </div>
                         )}
+                      </div>
 
+                      {scaleLabels.middle && (
                         <div className="flex items-center gap-2 flex-shrink-0">
                           <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">
-                            5
+                            3
                           </div>
-                          {scaleLabels.right && (
-                            <div className="text-xs sm:text-sm font-medium text-gray-700 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
-                              {scaleLabels.right}
-                            </div>
-                          )}
+                          <div className="text-xs sm:text-sm font-medium text-gray-700 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
+                            {scaleLabels.middle}
+                          </div>
                         </div>
+                      )}
+
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">
+                          5
+                        </div>
+                        {scaleLabels.right && (
+                          <div className="text-xs sm:text-sm font-medium text-gray-700 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
+                            {scaleLabels.right}
+                          </div>
+                        )}
                       </div>
+                    </div>
 
                     {/* Rating Scale */}
                     <div
@@ -874,11 +893,10 @@ useEffect(() => {
                               <button
                                 key={n}
                                 onClick={() => handleSelect(n)}
-                                className={`h-10 w-10 sm:h-12 sm:w-12 rounded-full border-2 transition-colors text-sm sm:text-base font-semibold flex-shrink-0 ${
-                                  selected
-                                    ? "bg-[rgba(38,116,186,1)] text-white border-[rgba(38,116,186,1)]"
-                                    : "bg-white text-gray-700 border-gray-300 hover:border-gray-400"
-                                }`}
+                                className={`h-10 w-10 sm:h-12 sm:w-12 rounded-full border-2 transition-colors text-sm sm:text-base font-semibold flex-shrink-0 ${selected
+                                  ? "bg-[rgba(38,116,186,1)] text-white border-[rgba(38,116,186,1)]"
+                                  : "bg-white text-gray-700 border-gray-300 hover:border-gray-400"
+                                  }`}
                                 onMouseEnter={() => {
                                   hoverCountsRef.current[n] = (hoverCountsRef.current[n] || 0) + 1
                                   lastViewTimeRef.current = new Date().toISOString()
@@ -891,7 +909,7 @@ useEffect(() => {
                         </div>
                       </div>
 
-                      
+
                     </div>
                   </>
                 )}
@@ -1019,6 +1037,23 @@ useEffect(() => {
                             })}
                           </div>
                         </div>
+                      </div>
+                    ) : studyType === "text" ? (
+                      <div className="w-full h-full flex flex-col items-center justify-center overflow-hidden relative gap-4 p-6 min-h-[400px]">
+                        {task?.gridUrls?.map((statement, idx) => (
+                          <div
+                            key={idx}
+                            className="w-full flex-1 flex items-center justify-center text-center p-6 border rounded-xl shadow-sm transition-colors"
+                            style={{
+                              minHeight: '80px',
+                              fontSize: 'clamp(16px, 1.5vw, 24px)',
+                              overflowWrap: 'break-word',
+                              wordBreak: 'break-word'
+                            }}
+                          >
+                            {statement}
+                          </div>
+                        ))}
                       </div>
                     ) : (
                       (() => {
@@ -1157,40 +1192,40 @@ useEffect(() => {
                       <div className="text-center text-balance">{task?.rightLabel ?? ""}</div>
                     </div>
 
-                     <div className="flex flex-col items-start justify-center gap-2 px-2">
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <div className="h-8 w-8 lg:h-9 lg:w-9 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs lg:text-sm font-semibold text-gray-700 flex-shrink-0">
-                            1
-                          </div>
-                          {scaleLabels.left && (
-                            <div className="text-sm lg:text-base xl:text-lg font-medium text-gray-800 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
-                              {scaleLabels.left}
-                            </div>
-                          )}
+                    <div className="flex flex-col items-start justify-center gap-2 px-2">
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="h-8 w-8 lg:h-9 lg:w-9 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs lg:text-sm font-semibold text-gray-700 flex-shrink-0">
+                          1
                         </div>
-
-                        {scaleLabels.middle && (
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <div className="h-8 w-8 lg:h-9 lg:w-9 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs lg:text-sm font-semibold text-gray-700 flex-shrink-0">
-                              3
-                            </div>
-                            <div className="text-sm lg:text-base xl:text-lg font-medium text-gray-800 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
-                              {scaleLabels.middle}
-                            </div>
+                        {scaleLabels.left && (
+                          <div className="text-sm lg:text-base xl:text-lg font-medium text-gray-800 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
+                            {scaleLabels.left}
                           </div>
                         )}
+                      </div>
 
+                      {scaleLabels.middle && (
                         <div className="flex items-center gap-2 flex-shrink-0">
                           <div className="h-8 w-8 lg:h-9 lg:w-9 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs lg:text-sm font-semibold text-gray-700 flex-shrink-0">
-                            5
+                            3
                           </div>
-                          {scaleLabels.right && (
-                            <div className="text-sm lg:text-base xl:text-lg font-medium text-gray-800 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
-                              {scaleLabels.right}
-                            </div>
-                          )}
+                          <div className="text-sm lg:text-base xl:text-lg font-medium text-gray-800 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
+                            {scaleLabels.middle}
+                          </div>
                         </div>
+                      )}
+
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="h-8 w-8 lg:h-9 lg:w-9 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs lg:text-sm font-semibold text-gray-700 flex-shrink-0">
+                          5
+                        </div>
+                        {scaleLabels.right && (
+                          <div className="text-sm lg:text-base xl:text-lg font-medium text-gray-800 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
+                            {scaleLabels.right}
+                          </div>
+                        )}
                       </div>
+                    </div>
 
                     <div className="w-full max-w-2xl mx-auto mt-4">
                       <div className="flex items-center justify-center mb-3">
@@ -1201,11 +1236,10 @@ useEffect(() => {
                               <button
                                 key={n}
                                 onClick={() => handleSelect(n)}
-                                className={`h-11 w-11 lg:h-12 lg:w-12 xl:h-14 xl:w-14 rounded-full border-2 transition-colors text-sm lg:text-base xl:text-lg font-semibold flex-shrink-0 ${
-                                  selected
-                                    ? "bg-[rgba(38,116,186,1)] text-white border-[rgba(38,116,186,1)]"
-                                    : "bg-white text-gray-700 border-gray-300 hover:border-gray-400"
-                                }`}
+                                className={`h-11 w-11 lg:h-12 lg:w-12 xl:h-14 xl:w-14 rounded-full border-2 transition-colors text-sm lg:text-base xl:text-lg font-semibold flex-shrink-0 ${selected
+                                  ? "bg-[rgba(38,116,186,1)] text-white border-[rgba(38,116,186,1)]"
+                                  : "bg-white text-gray-700 border-gray-300 hover:border-gray-400"
+                                  }`}
                                 onMouseEnter={() => {
                                   hoverCountsRef.current[n] = (hoverCountsRef.current[n] || 0) + 1
                                   lastViewTimeRef.current = new Date().toISOString()
@@ -1218,7 +1252,7 @@ useEffect(() => {
                         </div>
                       </div>
 
-                     
+
                     </div>
                   </div>
                 )}
@@ -1227,6 +1261,6 @@ useEffect(() => {
           </>
         )}
       </div>
-    </div>
+    </div >
   )
 }

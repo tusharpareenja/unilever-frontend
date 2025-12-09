@@ -41,7 +41,7 @@ export default function StudyManagementPage() {
         setAnalytics(JSON.parse(cachedAnalytics))
         setAnalyticsLoading(false)
       }
-    } catch {}
+    } catch { }
     loadStudyDetails()
   }, [studyId])
 
@@ -51,10 +51,10 @@ export default function StudyManagementPage() {
     setAnalyticsLoading(true)
     const unsubscribe = subscribeStudyAnalytics(
       studyId,
-      (data) => { 
-        setAnalytics(data); 
+      (data) => {
+        setAnalytics(data);
         setAnalyticsLoading(false);
-        try { localStorage.setItem(ANALYTICS_CACHE_KEY, JSON.stringify(data)) } catch {}
+        try { localStorage.setItem(ANALYTICS_CACHE_KEY, JSON.stringify(data)) } catch { }
       },
       () => { /* keep silent */ },
       5
@@ -69,7 +69,7 @@ export default function StudyManagementPage() {
       // Use the new basic API endpoint that doesn't require authentication
       const studyData = await getStudyBasicDetails(studyId)
       setStudy(studyData)
-      try { localStorage.setItem(STUDY_CACHE_KEY, JSON.stringify(studyData)) } catch {}
+      try { localStorage.setItem(STUDY_CACHE_KEY, JSON.stringify(studyData)) } catch { }
     } catch (err: unknown) {
       console.error("Failed to load study details:", err)
       if ((err as any)?.status === 403) {
@@ -225,19 +225,19 @@ export default function StudyManagementPage() {
     try {
       setExporting(true)
       setExportStage(0)
-      
+
       // Stage 1: Extracting data
       setExportStage(1)
       await new Promise(resolve => setTimeout(resolve, 2000))
-      
+
       // Stage 2: Processing responses
       setExportStage(2)
       await new Promise(resolve => setTimeout(resolve, 2000))
-      
+
       // Stage 3: Generating CSV
       setExportStage(3)
       await new Promise(resolve => setTimeout(resolve, 1500))
-      
+
       // Actually download the CSV
       const blob = await downloadStudyResponsesCsv(studyId)
       const url = URL.createObjectURL(blob)
@@ -301,20 +301,20 @@ export default function StudyManagementPage() {
     <AuthGuard requireAuth={true}>
       <div className="min-h-screen bg-gray-50">
         <DashboardHeader />
-        
+
         {/* Header Section */}
         <div className="text-white" style={{ backgroundColor: '#2674BA' }}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             {/* Breadcrumbs */}
             <nav className="text-sm mb-2">
               <Link href="/home" className="text-blue-200"><span className="text-blue-200">Dashboard</span></Link>
-              
+
               <span className="mx-2">/</span>
               <Link href="/home" className="text-blue-200"><span className="text-blue-200">Studies</span></Link>
               <span className="mx-2">/</span>
-              <span className="text-white">{study.study_type === "grid" ? "Grid Study" : "Layer Study"}</span>
+              <span className="text-white">{study.study_type === "grid" ? "Grid Study" : study.study_type === "text" ? "Text Study" : "Layer Study"}</span>
             </nav>
-            
+
             {/* Title and Actions */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <h1 className="text-2xl font-bold">{study.title}</h1>
@@ -347,18 +347,17 @@ export default function StudyManagementPage() {
             {/* Top row: title + actions */}
             <div className="px-6 pt-4 pb-3 flex items-center justify-between">
               <div className="text-[16px] font-semibold" style={{ color: '#2674BA' }}>
-                {study.study_type === "layer" ? "Layer Study" : "Grid Study"}
+                {study.study_type === "layer" ? "Layer Study" : study.study_type === "text" ? "Text Study" : "Grid Study"}
               </div>
               <div className="flex items-center gap-5 text-sm" style={{ color: '#2674BA' }}>
                 <div className="relative group">
-                  <button 
-                    onClick={() => study.status === 'active' && router.push(`/home/study/${studyId}/share`)} 
+                  <button
+                    onClick={() => study.status === 'active' && router.push(`/home/study/${studyId}/share`)}
                     disabled={study.status !== 'active'}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all duration-200 ${
-                      study.status === 'active' 
-                        ? 'hover:opacity-80 cursor-pointer' 
-                        : 'opacity-50 cursor-not-allowed'
-                    }`}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all duration-200 ${study.status === 'active'
+                      ? 'hover:opacity-80 cursor-pointer'
+                      : 'opacity-50 cursor-not-allowed'
+                      }`}
                     title={study.status !== 'active' ? 'Activate study to share' : ''}
                   >
                     <Share className="w-6 h-6" />
@@ -386,7 +385,7 @@ export default function StudyManagementPage() {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-gray-700">Type :</span>
-                <span className="text-gray-700">{study.study_type === 'layer' ? 'Layer - Based' : 'Grid - Based'}</span>
+                <span className="text-gray-700">{study.study_type === 'layer' ? 'Layer - Based' : study.study_type === 'text' ? 'Text - Based' : 'Grid - Based'}</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-gray-700">Created :</span>
@@ -397,7 +396,7 @@ export default function StudyManagementPage() {
 
           {/* Study Configuration */}
           <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-            <h3 
+            <h3
               className="text-lg font-semibold border-b pb-2 mb-4"
               style={{ color: '#2674BA', borderColor: '#2674BA' }}
             >
@@ -427,7 +426,7 @@ export default function StudyManagementPage() {
 
           {/* Response Statistics */}
           <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-            <h3 
+            <h3
               className="text-lg font-semibold mb-4"
               style={{ color: '#2674BA' }}
             >
@@ -499,7 +498,7 @@ export default function StudyManagementPage() {
 
           {/* Study Configuration Details */}
           <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-            <h3 
+            <h3
               className="text-lg font-semibold border-b pb-2 mb-4"
               style={{ color: '#2674BA', borderColor: '#2674BA' }}
             >
@@ -515,7 +514,7 @@ export default function StudyManagementPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Study Elements</label>
                 <div className="w-full px-3 py-2 bg-white text-gray-700 whitespace-pre-wrap break-words">
-                  {`${(study as any).study_config?.number_of_respondents || 0} Respondents - ${study.study_type === "grid" ? "Grid" : "Layer"} Based Study`}
+                  {`${(study as any).study_config?.number_of_respondents || 0} Respondents - ${study.study_type === "grid" ? "Grid" : study.study_type === "text" ? "Text" : "Layer"} Based Study`}
                 </div>
               </div>
               <div>
@@ -530,7 +529,7 @@ export default function StudyManagementPage() {
           {/* Classification Questions */}
           {(study as any).classification_questions && (study as any).classification_questions.length > 0 && (
             <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-              <h3 
+              <h3
                 className="text-lg font-semibold border-b pb-2 mb-4"
                 style={{ color: '#2674BA', borderColor: '#2674BA' }}
               >
@@ -568,7 +567,7 @@ export default function StudyManagementPage() {
           {/* Audience Segmentation */}
           {(study as any).study_config && (
             <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-              <h3 
+              <h3
                 className="text-lg font-semibold border-b pb-2 mb-4"
                 style={{ color: '#2674BA', borderColor: '#2674BA' }}
               >
@@ -620,7 +619,7 @@ export default function StudyManagementPage() {
           {/* Orientation Text */}
           {study.orientation_text && (
             <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-              <h3 
+              <h3
                 className="text-lg font-semibold border-b pb-2 mb-4"
                 style={{ color: '#2674BA', borderColor: '#2674BA' }}
               >
@@ -634,7 +633,7 @@ export default function StudyManagementPage() {
 
           {/* Study Response */}
           <div className="bg-white rounded-lg shadow-sm border p-6">
-            <h3 
+            <h3
               className="text-lg font-semibold border-b pb-2 mb-4"
               style={{ color: '#2674BA', borderColor: '#2674BA' }}
             >
@@ -643,7 +642,7 @@ export default function StudyManagementPage() {
             <div className="flex flex-wrap items-center gap-4 mb-4">
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-600">Total Response</span>
-                <span 
+                <span
                   className="px-3 py-1 text-white rounded-full text-sm font-medium"
                   style={{ backgroundColor: '#2674BA' }}
                 >
@@ -656,7 +655,7 @@ export default function StudyManagementPage() {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-600">Completed</span>
-                <span 
+                <span
                   className="px-3 py-1 text-white rounded-full text-sm font-medium"
                   style={{ backgroundColor: '#2674BA' }}
                 >
@@ -669,7 +668,7 @@ export default function StudyManagementPage() {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-600">Abandoned</span>
-                <span 
+                <span
                   className="px-3 py-1 text-white rounded-full text-sm font-medium"
                   style={{ backgroundColor: '#2674BA' }}
                 >
@@ -682,7 +681,7 @@ export default function StudyManagementPage() {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-600">Completion Rate</span>
-                <span 
+                <span
                   className="text-sm font-medium"
                   style={{ color: '#2674BA' }}
                 >
@@ -695,7 +694,7 @@ export default function StudyManagementPage() {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-600">Avg Duration</span>
-                <span 
+                <span
                   className="text-sm font-medium"
                   style={{ color: '#2674BA' }}
                 >
@@ -708,7 +707,7 @@ export default function StudyManagementPage() {
               </div>
             </div>
             <div className="flex gap-3">
-              <button 
+              <button
                 onClick={() => router.push(`/home/study/${studyId}/response`)}
                 className="flex items-center gap-2 px-4 py-2 text-white rounded-lg hover:opacity-90"
                 style={{ backgroundColor: '#2674BA' }}
@@ -716,7 +715,7 @@ export default function StudyManagementPage() {
                 <BarChart3 className="w-4 h-4" />
                 View All Response
               </button>
-              <button 
+              <button
                 onClick={buildCsvAndDownload}
                 disabled={exporting}
                 className="flex items-center gap-2 px-4 py-2 border rounded-lg hover:opacity-80 disabled:opacity-60"

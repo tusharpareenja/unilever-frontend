@@ -63,11 +63,11 @@ export default function ResponseDetailsPage() {
       const today = new Date()
       let age = today.getFullYear() - birthDate.getFullYear()
       const monthDiff = today.getMonth() - birthDate.getMonth()
-      
+
       if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
         age--
       }
-      
+
       return age
     } catch {
       return null
@@ -151,28 +151,28 @@ export default function ResponseDetailsPage() {
                           </div>
 
                           {/* Right: images/elements */}
-                          <div className={t.task_type === 'layer' ? "flex justify-center" : "grid grid-cols-2 gap-4 items-center"}>
+                          <div className={t.task_type === 'layer' || t.task_type === 'text' ? "flex justify-center w-full" : "grid grid-cols-2 gap-4 items-center"}>
                             {t.task_type === 'layer' && (t.elements_shown_content || t.elements_shown) && (
                               (() => {
                                 // Process layer elements from elements_shown_content
-                                const layerElements: Array<{url: string, z: number, alt: string}> = []
-                                
+                                const layerElements: Array<{ url: string, z: number, alt: string }> = []
+
                                 // Try elements_shown first (preferred), fallback to elements_shown_in_task
                                 const shownElements = t.elements_shown || t.elements_shown_in_task || {}
                                 const content = t.elements_shown_content || {}
-                                
+
                                 // console.log('Layer task processing - shown:', shownElements)
                                 // console.log('Layer task processing - content:', content)
                                 // console.log('Layer task processing - task data:', t)
-                                
+
                                 // Process each layer element
                                 Object.keys(shownElements).forEach(key => {
                                   const element = shownElements[key]
                                   const isShown = element && element.visible === 1
                                   const hasContent = content?.[key] && content[key] !== null
-                                  
+
                                   // console.log(`Layer ${key}: isShown=${isShown}, hasContent=${hasContent}, element:`, element)
-                                  
+
                                   if (isShown && hasContent) {
                                     layerElements.push({
                                       url: String(content[key]), // content[key] is the URL string directly
@@ -181,7 +181,7 @@ export default function ResponseDetailsPage() {
                                     })
                                   }
                                 })
-                                
+
                                 // Sort by z-index (layer number) - higher z-index should be on top
                                 layerElements.sort((a, b) => b.z - a.z)
 
@@ -218,7 +218,71 @@ export default function ResponseDetailsPage() {
                                 )
                               })()
                             )}
-                            {t.task_type !== 'layer' && (t.task_type === 'grid' || (!!t.elements_shown_in_task || !!t.elements_shown || !!t.elements_shown_content)) && (
+                            {t.task_type === 'text' && (
+                              (() => {
+                                // Process text elements from elements_shown_content
+                                const textElements: Array<{ text: string, name: string }> = []
+
+                                // Try elements_shown first (preferred), fallback to elements_shown_in_task
+                                const shownElements = t.elements_shown || t.elements_shown_in_task || {}
+                                const content = t.elements_shown_content || {}
+
+                                // Process each element
+                                if (content && typeof content === 'object') {
+                                  Object.entries(content).forEach(([key, val]) => {
+                                    if (val && typeof val === 'object' && typeof (val as any).visible !== 'undefined') {
+                                      if (Number((val as any).visible) === 1) {
+                                        textElements.push({
+                                          text: (val as any).name || (val as any).url || key, // For text study, url/name usually holds the text
+                                          name: key
+                                        })
+                                      }
+                                    }
+                                  })
+                                }
+
+                                // Fallback if regular parsing yielded nothing but we have raw content
+                                if (textElements.length === 0 && shownElements) {
+                                  Object.keys(shownElements).forEach(key => {
+                                    // Check if visible
+                                    const visible = Number(shownElements[key]) === 1 || (shownElements[key] as any)?.visible === 1;
+                                    if (visible) {
+                                      // Try to find content
+                                      let text = key;
+                                      if (content && content[key]) {
+                                        text = typeof content[key] === 'string' ? content[key] : (content[key] as any).name || (content[key] as any).url || key;
+                                      }
+                                      textElements.push({ text, name: key })
+                                    }
+                                  })
+                                }
+
+                                if (textElements.length === 0) {
+                                  return (
+                                    <div className="text-sm text-gray-500">No text elements to display</div>
+                                  )
+                                }
+
+                                return (
+                                  <div className="space-y-3 w-full">
+                                    {textElements.map((el, idx) => (
+                                      <div
+                                        key={`${el.name}-${idx}`}
+                                        className="px-4 py-3 bg-white border border-gray-200 rounded-lg text-sm text-gray-800 break-words shadow-sm"
+                                        style={{
+                                          minHeight: '40px',
+                                          display: 'flex',
+                                          alignItems: 'center'
+                                        }}
+                                      >
+                                        {el.text}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )
+                              })()
+                            )}
+                            {t.task_type !== 'layer' && t.task_type !== 'text' && (t.task_type === 'grid' || (!!t.elements_shown_in_task || !!t.elements_shown || !!t.elements_shown_content)) && (
                               (() => {
                                 // Build list of URLs for grid tasks
                                 const list: Array<{ url: string; name?: string; alt_text?: string }> = []

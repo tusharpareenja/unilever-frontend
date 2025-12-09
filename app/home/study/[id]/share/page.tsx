@@ -21,20 +21,20 @@ export default function StudySharePage() {
 
   useEffect(() => {
     if (!studyId) return
-    
+
     const loadData = async () => {
       try {
         setLoading(true)
         setError(null)
-        
+
         // Fetch share details using the new public API
         const details = await getPublicShareDetails(studyId)
         // Remove share_url from details if it exists to prevent localhost URLs
         const { share_url, ...cleanDetails } = details as any
         setShareDetails(cleanDetails)
-        
+
         // Don't use backend share_url, we'll generate it dynamically from current domain
-        
+
       } catch (e: unknown) {
         console.error("Error loading share page:", e)
         setError((e as Error)?.message || "Failed to load study")
@@ -42,7 +42,7 @@ export default function StudySharePage() {
         setLoading(false)
       }
     }
-    
+
     loadData()
   }, [studyId, router])
 
@@ -73,7 +73,7 @@ export default function StudySharePage() {
       await navigator.clipboard.writeText(text)
       setCopied(which)
       setTimeout(() => setCopied(null), 1500)
-    } catch {}
+    } catch { }
   }
 
   if (loading) {
@@ -225,7 +225,13 @@ export default function StudySharePage() {
                     </div>
                     <div>
                       <div className="text-xs text-gray-500 mb-1">Study Type</div>
-                      <div className="text-sm text-gray-800">{shareDetails?.study_type === "layer" ? "Layer - Based Study" : "Grid - Based Study"}</div>
+                      <div className="text-sm text-gray-800">
+                        {shareDetails?.study_type === "layer"
+                          ? "Layer - Based Study"
+                          : shareDetails?.study_type === "text"
+                            ? "Text - Based Study"
+                            : "Grid - Based Study"}
+                      </div>
                     </div>
                     <div>
                       <div className="text-xs text-gray-500 mb-1">Expected Duration</div>

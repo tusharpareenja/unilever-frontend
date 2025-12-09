@@ -11,7 +11,40 @@ interface Step2StudyTypeProps {
   onDataChange?: () => void
 }
 
-type StudyType = "grid" | "layer"
+type StudyType = "grid" | "layer" | "text"
+
+// Visual preview for Text Study
+export function TextStudy() {
+  return (
+    <div className="w-full h-full bg-gradient-to-br from-blue-100 to-blue-200 rounded-3xl p-4 shadow-lg flex flex-col">
+      {/* Title */}
+      <div className="text-center mb-6">
+        <h2 className="text-blue-700 font-semibold text-lg leading-tight">
+          Text Study - Categorized
+          <br />
+          Statements
+        </h2>
+      </div>
+
+      {/* List representation */}
+      <div className="flex-1 flex flex-col gap-2 px-2 mb-2">
+        <div className="h-2 w-1/3 bg-blue-600/20 rounded mx-auto mb-2"></div>
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+          <div className="h-6 flex-1 bg-white rounded border border-blue-200"></div>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+          <div className="h-6 flex-1 bg-white rounded border border-blue-200"></div>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+          <div className="h-6 flex-1 bg-white rounded border border-blue-200"></div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 // Visual preview for Layer Study (as provided)
 export function LayerStudy() {
@@ -80,19 +113,19 @@ export function GridStudy() {
 
 export function Step2StudyType({ onNext, onBack, value, onDataChange }: Step2StudyTypeProps) {
   const [type, setType] = useState<StudyType | null>(() => {
-    try { const v = localStorage.getItem('cs_step2'); if (v) { const o = JSON.parse(v); return (o.type === 'layer' || o.type === 'grid') ? o.type : (value ?? 'grid') } } catch {}
+    try { const v = localStorage.getItem('cs_step2'); if (v) { const o = JSON.parse(v); return (o.type === 'layer' || o.type === 'grid' || o.type === 'text') ? o.type : (value ?? 'grid') } } catch { }
     return value ?? 'grid'
   })
   const [mainQuestion, setMainQuestion] = useState(() => {
-    try { const v = localStorage.getItem('cs_step2'); if (v) { const o = JSON.parse(v); return o.mainQuestion || "" } } catch {}
+    try { const v = localStorage.getItem('cs_step2'); if (v) { const o = JSON.parse(v); return o.mainQuestion || "" } } catch { }
     return ""
   })
   const [orientationText, setOrientationText] = useState(() => {
-    try { const v = localStorage.getItem('cs_step2'); if (v) { const o = JSON.parse(v); return o.orientationText || "Welcome to the study!" } } catch {}
+    try { const v = localStorage.getItem('cs_step2'); if (v) { const o = JSON.parse(v); return o.orientationText || "Welcome to the study!" } } catch { }
     return "Welcome to the study!"
   })
 
-  useEffect(() => {}, [])
+  useEffect(() => { }, [])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -106,7 +139,7 @@ export function Step2StudyType({ onNext, onBack, value, onDataChange }: Step2Stu
         <div>
           <label className="block text-sm font-semibold text-gray-800 mb-2">Study Type <span className="text-red-500">*</span></label>
           <p className="text-xs text-gray-500 mb-4">Choose whether your study will use images or text elements</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             <button
               type="button"
               onClick={() => setType("grid")}
@@ -124,6 +157,16 @@ export function Step2StudyType({ onNext, onBack, value, onDataChange }: Step2Stu
             >
               <div className="w-full h-full p-2">
                 <LayerStudy />
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setType("text")}
+              className={`border rounded-3xl aspect-square w-full max-w-[18rem] mx-auto flex items-center justify-center text-left transition-all ${type === "text" ? "border-[rgba(38,116,186,1)] ring-2 ring-[rgba(38,116,186,0.2)] bg-[rgba(38,116,186,0.05)]" : "border-gray-200 bg-white"}`}
+            >
+              <div className="w-full h-full p-2">
+                <TextStudy />
               </div>
             </button>
           </div>

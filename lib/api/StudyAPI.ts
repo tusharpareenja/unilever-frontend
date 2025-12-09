@@ -2,7 +2,7 @@
 import { API_BASE_URL } from "./LoginApi"
 
 // Types that mirror backend contract
-export type StudyType = "grid" | "layer"
+export type StudyType = "grid" | "layer" | "text"
 
 export interface RatingScalePayload {
   min_value: number
@@ -32,7 +32,7 @@ export interface ElementPayload {
   element_id: string
   name: string
   description: string
-  element_type: "image"
+  element_type: "image" | "text"
   content: string // URL to the uploaded image
   alt_text: string
   category_id: string
@@ -91,8 +91,8 @@ export interface CreateStudyPayload {
   aspect_ratio?: string
   rating_scale: RatingScalePayload
   audience_segmentation: AudienceSegmentationPayload
-  elements: ElementPayload[]
-  study_layers: StudyLayerPayload[]
+  elements?: ElementPayload[]
+  study_layers?: StudyLayerPayload[]
   categories?: CategoryPayload[] // NEW: Optional categories for grid studies
   classification_questions?: ClassificationQuestionPayload[] // NEW: Optional classification questions
   background_image_url?: string // NEW: Optional background image for layer studies
@@ -299,6 +299,7 @@ export function buildStudyPayloadFromLocalStorage(): CreateStudyPayload {
   const s2 = get("cs_step2", { type: "grid", mainQuestion: "", orientationText: "" }) as any
   const s3 = get("cs_step3", { minValue: 1, maxValue: 5, minLabel: "", maxLabel: "", middleLabel: "" }) as any
   const grid = get<any[]>("cs_step5_grid", [])
+  const text = get<any[]>("cs_step5_text", []) // NEW: Get text study data
   const layer = get<any[]>("cs_step5_layer", [])
   const layerBackground = get<any | null>("cs_step5_layer_background", null)
   const s6 = get("cs_step6", { respondents: 0, countries: [], genderMale: 0, genderFemale: 0, ageSelections: {} }) as any
@@ -319,12 +320,19 @@ export function buildStudyPayloadFromLocalStorage(): CreateStudyPayload {
   let study_layers: StudyLayerPayload[] = []
   let categories: CategoryPayload[] = []
 
-  if (s2.type === "grid") {
-    console.log('=== BUILDING GRID STUDY ELEMENTS ===')
-    console.log('Grid data from localStorage:', JSON.stringify(grid, null, 2))
+  // Normalize study type to ensure consistent comparison (handle "Text", "text", "Grid", "grid")
+  const rawType = s2.type || "grid"
+  const normalizedType = rawType.toLowerCase()
+
+  if (normalizedType === "grid" || normalizedType === "text") {
+    // Grid/Text mode: check if using new category format or legacy format
+    const sourceData = normalizedType === "text" ? text : grid
+    const isTextMode = normalizedType === "text"
+    console.log(`=== BUILDING ${isTextMode ? 'TEXT' : 'GRID'} STUDY ELEMENTS ===`)
+    console.log(`${isTextMode ? 'Text' : 'Grid'} data from localStorage:`, JSON.stringify(sourceData, null, 2))
 
     // Check if using new category format or legacy format
-    const isCategoryFormat = grid.length > 0 && grid[0].title && grid[0].elements
+    const isCategoryFormat = sourceData.length > 0 && sourceData[0].title && sourceData[0].elements
     console.log('Is category format:', isCategoryFormat)
 
     if (isCategoryFormat) {
@@ -332,27 +340,27 @@ export function buildStudyPayloadFromLocalStorage(): CreateStudyPayload {
       console.log('Processing category format...')
 
       // Build categories array
-      categories = grid.map((category: any, catIdx: number) => ({
+      categories = sourceData.map((category: any, catIdx: number) => ({
         category_id: String(category.id || `C${catIdx + 1}`),
         name: String(category.title || `Category ${catIdx + 1}`),
         order: catIdx,
       }))
       console.log('Built categories:', categories)
 
-      elements = grid
+      elements = sourceData
         .flatMap((category: any, catIdx: number) => {
           console.log(`Category ${catIdx} (${category.title}):`, {
             elements_count: category.elements?.length || 0,
-            elements_with_secureUrl: (category.elements || []).filter((e: any) => Boolean(e?.secureUrl)).length
+            valid_elements: (category.elements || []).filter((e: any) => isTextMode ? (e?.name && e.name.trim()) : Boolean(e?.secureUrl)).length
           })
           return (category.elements || [])
-            .filter((e: any) => Boolean(e?.secureUrl))
+            .filter((e: any) => isTextMode ? (e?.name && e.name.trim()) : Boolean(e?.secureUrl))
             .map((e: any, idx: number) => ({
               element_id: String(e.id || crypto.randomUUID?.() || `E${idx + 1}`),
               name: e.name || `Element ${idx + 1}`,
               description: e.description || "",
-              element_type: "image" as const,
-              content: e.secureUrl,
+              element_type: isTextMode ? "text" : "image",
+              content: isTextMode ? e.name : e.secureUrl,
               alt_text: e.name || `Element ${idx + 1}`,
               category_id: String(category.id || `C${catIdx + 1}`),
             }))
@@ -362,23 +370,23 @@ export function buildStudyPayloadFromLocalStorage(): CreateStudyPayload {
     } else {
       // Legacy format: use elements array directly
       console.log('Processing legacy format...')
-      const gridWithImages = grid.filter(e => e.secureUrl)
-      console.log('Grid with images count:', gridWithImages.length)
-      elements = gridWithImages.map((item, idx) => {
-        // console.log(`Grid Element ${idx}:`, { id: item.id, name: item.name, secureUrl: item.secureUrl })
+      const validElements = sourceData.filter(e => isTextMode ? (e.name && e.name.trim()) : e.secureUrl)
+      console.log('Valid elements count:', validElements.length)
+      elements = validElements.map((item, idx) => {
+        // console.log(`Element ${idx}:`, { id: item.id, name: item.name })
         return {
           element_id: String(item.id || crypto.randomUUID?.() || `E${idx + 1}`),
           name: item.name || `Element ${idx + 1}`,
           description: item.description || "",
-          element_type: "image" as const,
-          content: item.secureUrl,
+          element_type: isTextMode ? "text" : "image",
+          content: isTextMode ? item.name : item.secureUrl,
           alt_text: item.name || `Element ${idx + 1}`,
           category_id: "default-category", // Legacy format uses default category
         }
       })
       console.log('Final elements count:', elements.length)
     }
-    console.log('=== END BUILDING GRID STUDY ELEMENTS ===')
+    console.log(`=== END BUILDING ${isTextMode ? 'TEXT' : 'GRID'} STUDY ELEMENTS ===`)
   } else {
     // For layer mode: use secure URLs directly (images already uploaded)
     // If background present, prepend a background layer at z_index 0
@@ -575,11 +583,11 @@ export function buildStudyPayloadFromLocalStorage(): CreateStudyPayload {
         } catch { return {} }
       })()),
     },
-    elements,
-    study_layers,
+    ...((normalizedType === 'text' || normalizedType === 'grid') ? { elements } : {}), // Only include elements for grid/text
+    ...(normalizedType === 'layer' ? { study_layers } : {}), // Only include study_layers for layer studies
     categories: categories.length > 0 ? categories : undefined, // NEW: Include categories if any
     classification_questions: classification_questions.length > 0 ? classification_questions : undefined, // NEW: Include classification questions if any
-    background_image_url: (layerBackground && (layerBackground.secureUrl || layerBackground.previewUrl)) ? (layerBackground.secureUrl || layerBackground.previewUrl) : undefined,
+    ...(normalizedType === 'layer' && layerBackground && (layerBackground.secureUrl || layerBackground.previewUrl) ? { background_image_url: layerBackground.secureUrl || layerBackground.previewUrl } : {}),
   }
 
   console.log('Built elements:', elements)
@@ -637,7 +645,7 @@ export interface TaskGenerationElementPayload {
   element_id: string
   name: string
   description: string
-  element_type: "image"
+  element_type: "image" | "text"
   content: string
   alt_text: string
   category_id: string
@@ -675,10 +683,10 @@ export interface TaskGenerationPayload {
     question_type: string
     is_required: boolean
     order: number
-    answer_options: Array<{
+    answer_options?: Array<{
       id: string
       text: string
-      order: number
+      order?: number
     }>
   }>
   aspect_ratio?: string
@@ -688,6 +696,7 @@ export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayl
   const s2 = get("cs_step2", { type: "grid" }) as any
   const s6 = get("cs_step6", { respondents: 0, countries: [], genderMale: 0, genderFemale: 0, ageSelections: {} }) as any
   const grid = get<any[]>("cs_step5_grid", [])
+  const text = get<any[]>("cs_step5_text", [])
   const layer = get<any[]>("cs_step5_layer", [])
   const layerBackground = get<any | null>("cs_step5_layer_background", null)
   // Try to read existing study id from localStorage.
@@ -704,6 +713,7 @@ export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayl
 
   console.log('Task generation payload builder - Step 2:', s2)
   console.log('Task generation payload builder - Grid:', grid)
+  console.log('Task generation payload builder - Text:', text)
   console.log('Task generation payload builder - Layer:', layer)
   console.log('Task generation payload builder - Existing Study ID:', existingStudyId)
   console.log('Task generation payload builder - Raw localStorage cs_study_id:', localStorage.getItem('cs_study_id'))
@@ -730,16 +740,18 @@ export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayl
   let categories: TaskGenerationCategoryPayload[] = []
   let study_layers: any[] = []
 
-  if ((s2.type as StudyType) === "grid") {
-    // Grid mode: check if using new category format or legacy format
-    const isCategoryFormat = grid.length > 0 && grid[0].title && grid[0].elements
+  if ((s2.type as StudyType) === "grid" || (s2.type as StudyType) === "text") {
+    // Grid/Text mode: check if using new category format or legacy format
+    const sourceData = (s2.type as StudyType) === "text" ? text : grid
+    const isTextMode = (s2.type as StudyType) === "text"
+    const isCategoryFormat = sourceData.length > 0 && sourceData[0].title && sourceData[0].elements
 
     if (isCategoryFormat) {
       // New category format: build categories and elements with category_id
-      console.log('=== CATEGORY FORMAT DEBUG ===')
-      console.log('Grid data:', JSON.stringify(grid, null, 2))
+      console.log(`=== ${isTextMode ? 'TEXT' : 'GRID'} CATEGORY FORMAT DEBUG ===`)
+      console.log(`${isTextMode ? 'Text' : 'Grid'} data:`, JSON.stringify(sourceData, null, 2))
 
-      categories = grid.map((category: any, catIdx: number) => {
+      categories = sourceData.map((category: any, catIdx: number) => {
         const categoryId = String(category.id || `C${catIdx + 1}`).slice(0, 36)
         console.log(`Category ${catIdx}:`, {
           id: category.id,
@@ -754,7 +766,7 @@ export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayl
         }
       })
 
-      elements = grid
+      elements = sourceData
         .flatMap((category: any, catIdx: number) => {
           const categoryId = String(category.id || `C${catIdx + 1}`).slice(0, 36)
           console.log(`Processing category ${catIdx} (${category.title}):`, {
@@ -763,26 +775,27 @@ export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayl
           })
 
           return (category.elements || [])
-            .filter((e: any) => Boolean(e?.secureUrl))
+            .filter((e: any) => isTextMode ? Boolean(e?.name && e.name.trim()) : Boolean(e?.secureUrl))
             .map((e: any, elIdx: number) => {
               console.log(`Element ${elIdx} in category ${catIdx}:`, {
                 element_id: e.id,
                 name: e.name,
-                category_id: categoryId
+                category_id: categoryId,
+                type: isTextMode ? 'text' : 'image'
               })
               return {
                 element_id: String(e.id || `E${elIdx + 1}`).slice(0, 36),
                 name: String(e.name || `Element ${elIdx + 1}`),
                 description: String(e.description || ""),
-                element_type: "image" as const,
-                content: String(e.secureUrl),
+                element_type: isTextMode ? "text" : "image",
+                content: isTextMode ? String(e.name || "") : String(e.secureUrl),
                 alt_text: String(e.name || `Element ${elIdx + 1}`),
                 category_id: categoryId,
               }
             })
         })
 
-      console.log('=== END CATEGORY FORMAT DEBUG ===')
+      console.log(`=== END ${isTextMode ? 'TEXT' : 'GRID'} CATEGORY FORMAT DEBUG ===`)
     } else {
       // Legacy format: create a default category and use elements array directly
       const defaultCategoryId = "default-category"
@@ -792,14 +805,14 @@ export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayl
         order: 0,
       }]
 
-      elements = grid
-        .filter((e) => Boolean(e?.secureUrl))
+      elements = sourceData
+        .filter((e) => isTextMode ? Boolean(e?.name && e.name.trim()) : Boolean(e?.secureUrl))
         .map((e, idx) => ({
           element_id: String(e.id || `E${idx + 1}`).slice(0, 36),
           name: String(e.name || `Element ${idx + 1}`),
           description: String(e.description || ""),
-          element_type: "image" as const,
-          content: String(e.secureUrl),
+          element_type: isTextMode ? "text" : "image",
+          content: isTextMode ? String(e.name || "") : String(e.secureUrl),
           alt_text: String(e.name || `Element ${idx + 1}`),
           category_id: defaultCategoryId,
         }))
@@ -928,14 +941,13 @@ export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayl
     })
 
   const payload: TaskGenerationPayload = {
-    ...(existingStudyId ? { study_id: String(existingStudyId) } : {}),
-    last_step: 7,
+    ...(existingStudyId && { study_id: existingStudyId }),
     title: s1.title || "",
     background: s1.description || "",
     language,
     main_question: s2.mainQuestion || "",
     orientation_text: s2.orientationText || "",
-    study_type: ((s2.type as StudyType) === 'layer' ? 'layer' : 'grid') as StudyType,
+    study_type: ((s2.type as StudyType) === 'layer' ? 'layer' : (s2.type as StudyType) === 'text' ? 'text' : 'grid') as StudyType,
     rating_scale: {
       min_value: Number(s3.minValue ?? 1),
       max_value: Number(s3.maxValue ?? 5),
@@ -968,7 +980,6 @@ export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayl
   }
 
   console.log('Task generation payload:', payload)
-  console.log('Task generation payload - Study ID included:', !!payload.study_id, payload.study_id)
   return payload
 }
 
@@ -1463,35 +1474,35 @@ export async function putUpdateStudy(studyId: string, payload: UpdateStudyPutPay
   // e.g., `study_layers` should only be sent for `layer` studies. Read local step2 to decide.
   let safePayload: any = payload || {}
 
-  // IMPORTANT: If study_type is explicitly in the payload, trust it completely
-  // This allows us to update the study type before sending type-specific fields
-  if (!safePayload.study_type) {
-    // Only apply defensive logic if study_type is NOT explicitly provided
+  // IMPORTANT: If study_type is explicitly in the payload, we use it to determine validation rules
+  // Otherwise fall back to localStorage
+  let effectiveType = safePayload.study_type
+  if (!effectiveType) {
     try {
       const s2 = get("cs_step2", { type: "grid" }) as any
-      const studyType = (s2?.type || "grid").toString()
-      console.log('[API] No study_type in payload, using localStorage:', studyType)
-
-      if (studyType === "grid") {
-        // Strip layer-specific fields to avoid backend validation errors
-        if (safePayload.hasOwnProperty('study_layers')) {
-          delete safePayload.study_layers
-          console.log('[API] Removed study_layers from PUT payload for grid study')
-        }
-        if (safePayload.hasOwnProperty('background_image_url')) {
-          delete safePayload.background_image_url
-          console.log('[API] Removed background_image_url from PUT payload for grid study')
-        }
-      }
+      effectiveType = (s2?.type || "grid").toString()
+      console.log('[API] No study_type in payload, using localStorage:', effectiveType)
     } catch (e) {
-      // If anything goes wrong reading localStorage, proceed with original payload
-      console.warn('[API] Could not determine study type from localStorage, sending original payload', e)
-      safePayload = payload
+      effectiveType = "grid"
+      console.warn('[API] Could not determine study type from localStorage, defaulting to grid', e)
     }
-  } else {
-    console.log('[API] study_type explicitly provided in payload:', safePayload.study_type)
-    console.log('[API] Skipping defensive logic, trusting payload completely')
   }
+
+  const normalizedType = String(effectiveType).toLowerCase()
+
+  // Defensive: Strip layer-specific fields for non-layer studies (grid, text)
+  // This prevents backend 400 errors if state is dirty (e.g. switching types)
+  if (normalizedType !== 'layer') {
+    if (safePayload.hasOwnProperty('study_layers')) {
+      delete safePayload.study_layers
+      console.log(`[API] Removed study_layers from PUT payload for ${normalizedType} study`)
+    }
+    if (safePayload.hasOwnProperty('background_image_url')) {
+      delete safePayload.background_image_url
+      console.log(`[API] Removed background_image_url from PUT payload for ${normalizedType} study`)
+    }
+  }
+
 
   // Add last_step if provided
   if (last_step !== undefined) {
@@ -1633,7 +1644,7 @@ export async function checkStudyOwnership(studyId: string): Promise<{ is_owner: 
 export interface StudyListItem {
   id: string
   title: string
-  study_type: 'grid' | 'layer'
+  study_type: 'grid' | 'layer' | 'text'
   status: 'active' | 'draft' | 'completed' | 'paused'
   created_at: string
   total_responses: number
@@ -1704,7 +1715,7 @@ export async function getStudyBasicDetails(studyId: string): Promise<any> {
 
 // Update Study - Step 2
 export interface UpdateStudyPayload {
-  type: "grid" | "layer"
+  type: "grid" | "layer" | "text"
   last_step?: number
   main_question: string
   orientation_text: string

@@ -61,6 +61,7 @@ function isStepCompleted(stepId: number): boolean {
       }
       case 5: {
         const gridData = localStorage.getItem('cs_step5_grid')
+        const textData = localStorage.getItem('cs_step5_text')
         const layerData = localStorage.getItem('cs_step5_layer')
         const step2Data = localStorage.getItem('cs_step2')
 
@@ -97,9 +98,27 @@ function isStepCompleted(stepId: number): boolean {
                 category.elements.every((element: any) => hasValidElement(element))
               )
           } else {
-            // Legacy format: check direct elements (accept previewUrl or secureUrl or text content)
+            // Legacy format
             return Array.isArray(grid) && grid.length > 0 && grid.every((e: any) => (e && (e.secureUrl || e.previewUrl || e.textContent)))
           }
+        } else if (step2.type === 'text') {
+          if (!textData) return false
+          let text: any
+          try {
+            text = JSON.parse(textData)
+          } catch { return false }
+
+          // Text mode uses the category format
+          return Array.isArray(text) &&
+            text.length >= 4 &&
+            text.every((category: any) =>
+              category.title &&
+              category.title.trim().length > 0 &&
+              category.elements &&
+              Array.isArray(category.elements) &&
+              category.elements.length > 0 &&
+              category.elements.every((element: any) => element.name && element.name.trim().length > 0)
+            )
         } else {
           if (!layerData) return false
           const layer = JSON.parse(layerData)

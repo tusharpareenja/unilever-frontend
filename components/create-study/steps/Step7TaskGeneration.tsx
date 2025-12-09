@@ -1230,6 +1230,14 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
 
   // Function to download CSV matrix
   const downloadMatrixCSV = async () => {
+    const escapeCsvVal = (val: string | number | null | undefined): string => {
+      if (val === null || val === undefined) return ''
+      const str = String(val)
+      if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+        return `"${str.replace(/"/g, '""')}"`
+      }
+      return str
+    }
     if (isDownloadingCSV) return
 
     try {
@@ -1305,6 +1313,16 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
         if (step2Data) {
           const step2 = JSON.parse(step2Data)
           studyType = step2.type || 'grid'
+        }
+      }
+
+      // Auto-detect text if defaulted to grid but text data exists and grid data doesn't
+      if (studyType === 'grid') {
+        const hasGrid = localStorage.getItem('cs_step5_grid')
+        const hasText = localStorage.getItem('cs_step5_text')
+        if ((!hasGrid || hasGrid === '[]') && hasText && hasText !== '[]') {
+          console.log('[CSV] Auto-detected text study based on localStorage data')
+          studyType = 'text'
         }
       }
 
@@ -1412,6 +1430,60 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
             })
           }
         }
+      } else if (studyType === 'text') {
+        // For text studies, use statement content as column headers
+        const textData = localStorage.getItem('cs_step5_text')
+        console.log('[CSV] Text data from localStorage:', textData)
+        if (textData) {
+          try {
+            const categories = JSON.parse(textData)
+            console.log('[CSV] Parsed text categories:', categories)
+
+            // Build columns using statement content (element.name contains the statement)
+            elementColumns = []
+            elementKeyMapping = {}
+
+            categories.forEach((category: any, catIdx: number) => {
+              if (category.elements && Array.isArray(category.elements)) {
+                category.elements.forEach((element: any, elIdx: number) => {
+                  const categoryName = category.title || `Category_${catIdx + 1}`
+                  const statementContent = element.name || `Statement_${elIdx + 1}`
+                  // Use category name and statement content as the column name (matching grid format)
+                  const columnName = `${categoryName}-${statementContent}`
+                  elementColumns.push(columnName)
+
+                  // Map the API response key to our column name
+                  const apiKey = `${categoryName}_${elIdx + 1}`
+                  elementKeyMapping[apiKey] = columnName
+
+                  console.log('[CSV] Added text column:', columnName, 'from category:', categoryName)
+                  console.log('[CSV] Mapped API key:', apiKey, 'to column:', columnName)
+                })
+              }
+            })
+
+            console.log('[CSV] Text element columns:', elementColumns)
+            console.log('[CSV] Text element key mapping:', elementKeyMapping)
+          } catch (e) {
+            console.warn('[CSV] Failed to parse text data from localStorage:', e)
+          }
+        }
+
+        // If no columns from localStorage, try to get them from task data
+        if (elementColumns.length === 0 && Object.keys(tasks).length > 0) {
+          console.log('[CSV] No text columns found, falling back to task data')
+          const firstTask = tasks[Object.keys(tasks)[0]][0]
+          if (firstTask && firstTask.elements_shown) {
+            const elementKeys = Object.keys(firstTask.elements_shown).filter(key =>
+              !key.includes('_content')
+            )
+            elementColumns = elementKeys.sort()
+            elementKeyMapping = {}
+            elementColumns.forEach(key => {
+              elementKeyMapping[key] = key
+            })
+          }
+        }
       }
 
       console.log('[CSV] Element columns found:', elementColumns.length, elementColumns)
@@ -1457,12 +1529,41 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
 
 
                   } catch (e) {
-
-                    elementColumns = elementKeys.sort()
-                    elementKeyMapping = {}
-                    elementColumns.forEach(key => {
-                      elementKeyMapping[key] = key
-                    })
+                    console.warn('[CSV] Failed to parse grid data in fallback:', e)
+                    // Try text data
+                    const textData = localStorage.getItem('cs_step5_text')
+                    if (textData) {
+                      try {
+                        const categories = JSON.parse(textData)
+                        elementColumns = []
+                        elementKeyMapping = {}
+                        categories.forEach((category: any, catIdx: number) => {
+                          if (category.elements && Array.isArray(category.elements)) {
+                            category.elements.forEach((element: any, elIdx: number) => {
+                              const categoryName = category.title || `Category_${catIdx + 1}`
+                              const statementContent = element.name || `Statement_${elIdx + 1}`
+                              const columnName = statementContent
+                              elementColumns.push(columnName)
+                              const apiKey = `${categoryName}_${elIdx + 1}`
+                              elementKeyMapping[apiKey] = columnName
+                            })
+                          }
+                        })
+                      } catch (e2) {
+                        console.warn('[CSV] Failed to parse text data in fallback:', e2)
+                        elementColumns = elementKeys.sort()
+                        elementKeyMapping = {}
+                        elementColumns.forEach(key => {
+                          elementKeyMapping[key] = key
+                        })
+                      }
+                    } else {
+                      elementColumns = elementKeys.sort()
+                      elementKeyMapping = {}
+                      elementColumns.forEach(key => {
+                        elementKeyMapping[key] = key
+                      })
+                    }
                   }
                 } else {
                   // Fallback to using task keys directly
@@ -1487,7 +1588,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
 
       // Add header row
       const headers = ['Responder', 'Task', ...elementColumns]
-      csvRows.push(headers.join(','))
+      csvRows.push(headers.map(escapeCsvVal).join(','))
 
       // Add data rows
       Object.keys(tasks).forEach(respondentId => {
@@ -1507,7 +1608,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
               }
             })
           ]
-          csvRows.push(row.join(','))
+          csvRows.push(row.map(escapeCsvVal).join(','))
         })
       })
 
@@ -1558,7 +1659,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
 
         <div className="rounded-lg border bg-white p-4">
           <div className="text-sm font-semibold mb-2">
-            {studyType === 'layer' ? 'Layer Study Algorithm Details' : 'Grid Study Algorithm Details'}
+            {studyType === 'layer' ? 'Layer Study Algorithm Details' : studyType === 'text' ? 'Text Study Algorithm Details' : 'Grid Study Algorithm Details'}
           </div>
           <ul className="text-xs text-gray-600 list-disc pl-5 space-y-1">
             {studyType === 'layer' ? (
@@ -1571,7 +1672,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
             ) : (
               <>
                 <li>Matrix is algorithmically generated for optimal balance.</li>
-                <li>Exposure Balancing: Each element appears with comparable exposure.</li>
+                <li>Exposure Balancing: Each {studyType === 'text' ? 'statement' : 'element'} appears with comparable exposure.</li>
                 <li>Uniqueness: Ensures non-repetitive arrangements within capacity limits.</li>
               </>
             )}
@@ -1580,7 +1681,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
 
         <div className="rounded-lg border bg-white p-4">
           <div className="text-sm font-semibold">
-            {studyType === 'layer' ? 'Layer Study Preview' : 'Elements Preview'}
+            {studyType === 'layer' ? 'Layer Study Preview' : studyType === 'text' ? 'Statements Preview' : 'Elements Preview'}
           </div>
           {!matrix ? (
             <div className="flex items-center justify-center py-10 sm:py-14 md:py-16 min-h-[220px] sm:min-h-[260px] md:min-h-[300px]">
@@ -1776,34 +1877,40 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                           </div>
                         )
                       } else {
-                        // Handle grid study - updated for category-based format
+                        // Handle grid/text study - updated for category-based format
                         const shown = task?.elements_shown || {}
                         const shownContent = task?.elements_shown_content || {}
 
 
                         const urls: string[] = []
+                        const textStatements: string[] = []
 
-                        // New category-based format: extract URLs from elements_shown_content
+                        // New category-based format: extract URLs or text from elements_shown_content
                         Object.keys(shown).forEach((key) => {
                           if (shown[key] === 1 && shownContent[key]) {
                             const content = shownContent[key]
-                            if (content.content && typeof content.content === 'string' && content.content.startsWith('http')) {
+                            // Check if this is text content (element_type === 'text')
+                            if (content.element_type === 'text' && content.content) {
+                              textStatements.push(content.content)
+                            } else if (content.content && typeof content.content === 'string' && content.content.startsWith('http')) {
                               urls.push(content.content)
                             }
                           }
                         })
 
                         // Fallback: Try different ways to extract URLs based on API response structure
-                        if (urls.length === 0) {
+                        if (urls.length === 0 && textStatements.length === 0) {
                           Object.keys(shown).forEach((k) => {
                             if (k.endsWith('_content') && shown[k]) {
-                              urls.push(shown[k])
+                              if (typeof shown[k] === 'string' && shown[k].startsWith('http')) {
+                                urls.push(shown[k])
+                              }
                             }
                           })
                         }
 
                         // If no URLs found with _content pattern, try direct URL fields
-                        if (urls.length === 0) {
+                        if (urls.length === 0 && textStatements.length === 0) {
                           Object.keys(shown).forEach((k) => {
                             if (k.includes('url') && shown[k] && typeof shown[k] === 'string' && shown[k].startsWith('http')) {
                               urls.push(shown[k])
@@ -1812,16 +1919,18 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                         }
 
                         // If still no URLs, try to get from elements array if it exists
-                        if (urls.length === 0 && task?.elements) {
+                        if (urls.length === 0 && textStatements.length === 0 && task?.elements) {
                           task.elements.forEach((element: any) => {
-                            if (element.content && typeof element.content === 'string' && element.content.startsWith('http')) {
+                            if (element.element_type === 'text' && element.content) {
+                              textStatements.push(element.content)
+                            } else if (element.content && typeof element.content === 'string' && element.content.startsWith('http')) {
                               urls.push(element.content)
                             }
                           })
                         }
 
                         // If still no URLs, try to extract from any field that looks like a URL
-                        if (urls.length === 0) {
+                        if (urls.length === 0 && textStatements.length === 0) {
                           const extractUrlsFromObject = (obj: any): string[] => {
                             const found: string[] = []
                             if (typeof obj === 'object' && obj !== null) {
@@ -1838,6 +1947,36 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
                           urls.push(...extractUrlsFromObject(task))
                         }
 
+                        // Check if this is a text study
+                        const isTextStudy = textStatements.length > 0 || studyType === 'text'
+
+                        if (isTextStudy && textStatements.length > 0) {
+                          // Render text study preview with vertical statement layout
+                          return (
+                            <div key={tIdx} className="border rounded-lg overflow-hidden">
+                              <div className="bg-slate-50 px-4 py-2 text-xs text-gray-600 flex items-center justify-between">
+                                <div>Task {(typeof task?.task_index === 'number') ? task.task_index + 1 : tIdx + 1}</div>
+                              </div>
+                              <div className="p-4 space-y-3">
+                                {textStatements.map((statement, i) => (
+                                  <div
+                                    key={i}
+                                    className="px-4 py-3 bg-white border border-gray-200 rounded-lg text-sm text-gray-800 break-words shadow-sm hover:shadow-md transition-shadow duration-200"
+                                    style={{
+                                      minHeight: '40px',
+                                      display: 'flex',
+                                      alignItems: 'center'
+                                    }}
+                                  >
+                                    {statement}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )
+                        }
+
+                        // Original image grid layout for grid studies
 
                         // Determine elements per task dynamically, fallback to all urls
                         const maxPerTask = typeof elementsPerTask === 'number' && elementsPerTask > 0 ? elementsPerTask : urls.length

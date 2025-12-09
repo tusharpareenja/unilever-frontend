@@ -160,8 +160,9 @@ const loadDraftStudyData = async (studyId: string) => {
       localStorage.setItem('cs_step4', JSON.stringify([]))
     }
 
-    // Populate Step 5 - Study Structure (Grid or Layer)
-    if (studyDetails.study_type === 'grid') {
+    // Populate Step 5 - Study Structure (Grid, Layer, or Text)
+    if (studyDetails.study_type === 'grid' || studyDetails.study_type === 'text') {
+      const storageKey = studyDetails.study_type === 'text' ? 'cs_step5_text' : 'cs_step5_grid'
       try {
         // If backend provided categories, map them to the frontend category+elements shape
         if (studyDetails.categories && Array.isArray(studyDetails.categories)) {
@@ -232,7 +233,7 @@ const loadDraftStudyData = async (studyId: string) => {
             }
           }
 
-          localStorage.setItem('cs_step5_grid', JSON.stringify(transformedCategories))
+          localStorage.setItem(storageKey, JSON.stringify(transformedCategories))
         } else if (studyDetails.elements && Array.isArray(studyDetails.elements)) {
           // No categories provided: wrap all elements into a single default category
           const elements = studyDetails.elements.map((el: GridElement, idx: number) => {
@@ -247,13 +248,13 @@ const loadDraftStudyData = async (studyId: string) => {
             }
           })
           const defaultCategory = [{ id: 'category-1', title: 'Category 1', description: '', elements }]
-          localStorage.setItem('cs_step5_grid', JSON.stringify(defaultCategory))
+          localStorage.setItem(storageKey, JSON.stringify(defaultCategory))
         } else {
-          localStorage.setItem('cs_step5_grid', JSON.stringify([]))
+          localStorage.setItem(storageKey, JSON.stringify([]))
         }
       } catch (e) {
-        console.error('Failed to populate cs_step5_grid from study details', e)
-        localStorage.setItem('cs_step5_grid', JSON.stringify([]))
+        console.error(`Failed to populate ${storageKey} from study details`, e)
+        localStorage.setItem(storageKey, JSON.stringify([]))
       }
       localStorage.setItem('cs_step5_layer', JSON.stringify([]))
     } else if (studyDetails.study_type === 'layer' && studyDetails.study_layers) {
@@ -363,6 +364,7 @@ const loadDraftStudyData = async (studyId: string) => {
       console.log('[LoadDraft] Transformed layers with transform data:', transformedLayers)
       localStorage.setItem('cs_step5_layer', JSON.stringify(transformedLayers))
       localStorage.setItem('cs_step5_grid', JSON.stringify([]))
+      localStorage.setItem('cs_step5_text', JSON.stringify([]))
 
       // Store background image if available
       if (studyDetails.background_image_url) {
@@ -460,7 +462,7 @@ const loadDraftStudyData = async (studyId: string) => {
 
 export default function CreateStudyPage() {
   const [currentStep, setCurrentStep] = useState(1)
-  const [studyType, setStudyType] = useState<"grid" | "layer">("grid")
+  const [studyType, setStudyType] = useState<"grid" | "layer" | "text">("grid")
   const [isLoadingDraft, setIsLoadingDraft] = useState(false)
   const [draftLoadError, setDraftLoadError] = useState<string | null>(null)
 
@@ -476,7 +478,7 @@ export default function CreateStudyPage() {
         const backupRaw = localStorage.getItem('cs_backup_steps')
         if (backupRaw) {
           const backup = JSON.parse(backupRaw) as Record<string, unknown>
-          const stepKeys = ['cs_step1', 'cs_step2', 'cs_step3', 'cs_step4', 'cs_step5_grid', 'cs_step5_layer', 'cs_step6']
+          const stepKeys = ['cs_step1', 'cs_step2', 'cs_step3', 'cs_step4', 'cs_step5_grid', 'cs_step5_text', 'cs_step5_layer', 'cs_step6']
           stepKeys.forEach((k) => {
             if (!localStorage.getItem(k) && backup && Object.prototype.hasOwnProperty.call(backup, k)) {
               const v = backup[k]
@@ -496,6 +498,7 @@ export default function CreateStudyPage() {
             'cs_step3',
             'cs_step4',
             'cs_step5_grid',
+            'cs_step5_text',
             'cs_step5_layer',
             'cs_step5_layer_background',
             'cs_step5_layer_preview_aspect',
@@ -561,6 +564,7 @@ export default function CreateStudyPage() {
               'cs_step3',
               'cs_step4',
               'cs_step5_grid',
+              'cs_step5_text',
               'cs_step5_layer',
               'cs_step5_layer_background',
               'cs_step5_layer_preview_aspect',
@@ -616,6 +620,7 @@ export default function CreateStudyPage() {
             'cs_step3',
             'cs_step4',
             'cs_step5_grid',
+            'cs_step5_text',
             'cs_step5_layer',
             'cs_step5_layer_background',
             'cs_step5_layer_preview_aspect',
@@ -645,7 +650,7 @@ export default function CreateStudyPage() {
           const s2 = localStorage.getItem('cs_step2')
           if (s2) {
             const v = JSON.parse(s2)
-            if (v?.type === 'layer' || v?.type === 'grid') setStudyType(v.type)
+            if (v?.type === 'layer' || v?.type === 'grid' || v?.type === 'text') setStudyType(v.type)
           }
 
           // Hydrate current step
@@ -673,7 +678,7 @@ export default function CreateStudyPage() {
   // Periodically snapshot all step keys into a backup to survive accidental clears
   useEffect(() => {
     if (typeof window === 'undefined') return
-    const stepKeys = ['cs_step1', 'cs_step2', 'cs_step3', 'cs_step4', 'cs_step5_grid', 'cs_step5_layer', 'cs_step6']
+    const stepKeys = ['cs_step1', 'cs_step2', 'cs_step3', 'cs_step4', 'cs_step5_grid', 'cs_step5_text', 'cs_step5_layer', 'cs_step6']
     const writeBackup = () => {
       try {
         const snapshot: Record<string, unknown> = {}

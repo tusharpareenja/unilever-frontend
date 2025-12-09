@@ -114,7 +114,7 @@ interface CategoryItem {
 interface Step5StudyStructureProps {
   onNext: () => void
   onBack: () => void
-  mode?: "grid" | "layer"
+  mode?: "grid" | "layer" | "text"
   onDataChange?: () => void
 }
 
@@ -127,10 +127,35 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
 
   const [categories, setCategories] = useState<CategoryItem[]>(() => {
     try {
-      const raw = localStorage.getItem('cs_step5_grid')
+      if (typeof window !== 'undefined') {
+        const raw = localStorage.getItem(`cs_step5_${mode}`)
+        if (raw) {
+          const arr = JSON.parse(raw) as Array<Partial<CategoryItem>>
+          return (arr || []).map((c, idx) => ({
+            id: c.id || crypto.randomUUID(),
+            title: c.title || `Category ${idx + 1}`,
+            description: c.description || "",
+            elements: (c.elements || []).map((e, eIdx) => ({
+              id: e.id || crypto.randomUUID(),
+              name: e.name || `Element ${eIdx + 1}`,
+              description: e.description || "",
+              previewUrl: e.previewUrl,
+              secureUrl: e.secureUrl,
+            }))
+          }))
+        }
+      }
+    } catch { }
+    return []
+  })
+
+  // Re-hydrate when mode changes
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(`cs_step5_${mode}`)
       if (raw) {
         const arr = JSON.parse(raw) as Array<Partial<CategoryItem>>
-        return (arr || []).map((c, idx) => ({
+        setCategories((arr || []).map((c, idx) => ({
           id: c.id || crypto.randomUUID(),
           title: c.title || `Category ${idx + 1}`,
           description: c.description || "",
@@ -141,11 +166,16 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
             previewUrl: e.previewUrl,
             secureUrl: e.secureUrl,
           }))
-        }))
+        })))
+      } else {
+        setCategories([])
       }
-    } catch { }
-    return []
-  })
+      hydratedModeRef.current = mode
+    } catch {
+      setCategories([])
+      hydratedModeRef.current = mode
+    }
+  }, [mode])
 
   // Legacy support for old format
   const [elements, setElements] = useState<ElementItem[]>(() => {
@@ -170,7 +200,10 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
   // const [uploading, setUploading] = useState(false)
   const [nextLoading, setNextLoading] = useState(false)
   // const inputRef = useRef<HTMLInputElement | null>(null)
-  const gridHasHydratedRef = useRef(false)
+
+  // Track which mode's data is currently loaded in 'categories' state
+  // Initialize with 'mode' because useState initializer reads the correct data for the initial mode
+  const hydratedModeRef = useRef<string | undefined>(mode)
 
   // Track which categories are collapsed
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set())
@@ -196,6 +229,14 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
       category.elements &&
       category.elements.length > 0
     )
+
+    if (mode === 'text') {
+      const allNames = categories.flatMap(c => c.elements.map(e => e.name?.trim())).filter(n => n && n.length > 0)
+      const uniqueNames = new Set(allNames)
+      if (allNames.length !== uniqueNames.size) return false
+    }
+
+    return true
   }
 
   const getNextButtonText = () => {
@@ -208,12 +249,21 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
     if (invalidCategories.length > 0) {
       return 'Complete category titles'
     }
-    // Check if any category is missing images
+    // Check if any category is missing elements
     const hasEmptyCategories = categories.some(category =>
       !category.elements || category.elements.length === 0
     )
     if (hasEmptyCategories) {
-      return 'Add at least one image to each category'
+      return mode === 'text' ? 'Add at least one statement to each category' : 'Add at least one image to each category'
+    }
+    // For text mode, check if any element has empty name
+    if (mode === 'text') {
+      const hasEmptyNames = categories.some(c => c.elements.some(e => !e.name || e.name.trim().length === 0))
+      if (hasEmptyNames) return 'Complete all statements'
+
+      const allNames = categories.flatMap(c => c.elements.map(e => e.name?.trim())).filter(n => n && n.length > 0)
+      const uniqueNames = new Set(allNames)
+      if (allNames.length !== uniqueNames.size) return 'Statements must be unique'
     }
     return 'Save & Next'
   }
@@ -221,8 +271,7 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
   const gridPendingRef = useRef<Array<{ id: string; file: File }>>([])
   const gridTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Hydrate GRID elements from localStorage on mount
-  useEffect(() => { gridHasHydratedRef.current = true }, [mode])
+
 
   const handleFiles = async (files: FileList | null) => {
     if (!files) return
@@ -323,11 +372,12 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
 
   // persist categories
   useEffect(() => {
-    if (mode !== 'grid') return
+    if (mode !== 'grid' && mode !== 'text') return
     if (typeof window === 'undefined') return
-    if (!gridHasHydratedRef.current) return
 
-
+    // CRITICAL: Do not save if we haven't finished loading data for the current mode yet.
+    // This prevents overwriting the new mode's storage with the old mode's state during transitions.
+    if (hydratedModeRef.current !== mode) return
 
     const minimal = categories.map(c => ({
       id: c.id,
@@ -342,7 +392,7 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
       }))
     }))
 
-    localStorage.setItem('cs_step5_grid', JSON.stringify(minimal))
+    localStorage.setItem(`cs_step5_${mode}`, JSON.stringify(minimal))
     onDataChange?.()
   }, [categories, mode, onDataChange])
 
@@ -388,18 +438,16 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
 
 
 
-      setCategories(prev => {
-        const updated = prev.map(c =>
-          c.id === categoryId
-            ? {
-              ...c,
-              elements: [...c.elements, newElement].sort((a, b) => (a.name || '').localeCompare(b.name || ''))
-            }
-            : c
-        )
-
-        return updated
-      })
+      setCategories(prev => prev.map(c => {
+        if (c.id === categoryId) {
+          const updatedElements = [...c.elements, newElement]
+          if (mode !== 'text') {
+            updatedElements.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+          }
+          return { ...c, elements: updatedElements }
+        }
+        return c
+      }))
     })
 
     // Upload files
@@ -410,11 +458,14 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
           c.id === categoryId
             ? {
               ...c,
-              elements: c.elements.map((e) => {
-                const idx = selectionIds.indexOf(e.id)
-                if (idx !== -1) return { ...e, secureUrl: results[idx]?.secure_url || e.secureUrl }
-                return e
-              }).sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+              elements: (() => {
+                const mapped = c.elements.map((e) => {
+                  const idx = selectionIds.indexOf(e.id)
+                  if (idx !== -1) return { ...e, secureUrl: results[idx]?.secure_url || e.secureUrl }
+                  return e
+                })
+                return mode === 'text' ? mapped : mapped.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+              })()
             }
             : c
         ))
@@ -437,11 +488,14 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
           c.id === categoryId
             ? {
               ...c,
-              elements: c.elements.map((e) => {
-                const idx = pending.findIndex(p => p.id === e.id)
-                if (idx !== -1) return { ...e, secureUrl: results[idx]?.secure_url || e.secureUrl }
-                return e
-              }).sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+              elements: (() => {
+                const mapped = c.elements.map((e) => {
+                  const idx = pending.findIndex(p => p.id === e.id)
+                  if (idx !== -1) return { ...e, secureUrl: results[idx]?.secure_url || e.secureUrl }
+                  return e
+                })
+                return mode === 'text' ? mapped : mapped.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+              })()
             }
             : c
         ))
@@ -452,14 +506,16 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
   }
 
   const updateCategoryElement = (categoryId: string, elementId: string, patch: Partial<ElementItem>) => {
-    setCategories(prev => prev.map(c =>
-      c.id === categoryId
-        ? {
+    setCategories(prev => prev.map(c => {
+      if (c.id === categoryId) {
+        const updated = c.elements.map(e => e.id === elementId ? { ...e, ...patch } : e)
+        return {
           ...c,
-          elements: c.elements.map(e => e.id === elementId ? { ...e, ...patch } : e).sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+          elements: mode === 'text' ? updated : updated.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
         }
-        : c
-    ))
+      }
+      return c
+    }))
   }
 
   const removeCategoryElement = (categoryId: string, elementId: string) => {
@@ -470,11 +526,28 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
     ))
   }
 
+  const addTextStatement = (categoryId: string) => {
+    const newElement: ElementItem = {
+      id: crypto.randomUUID(),
+      name: "",
+      description: "",
+      previewUrl: "" // Not used for text
+    }
+    setCategories(prev => prev.map(c =>
+      c.id === categoryId
+        ? { ...c, elements: [...c.elements, newElement] }
+        : c
+    ))
+  }
+
   const handleNext = async () => {
     setNextLoading(true)
     try {
       // Ensure all category uploads (including preview-only entries) complete
-      const uploadedCategories = await ensureCategoryUploadsEnhanced()
+      let uploadedCategories = categories
+      if (mode === 'grid') {
+        uploadedCategories = await ensureCategoryUploadsEnhanced()
+      }
 
       const rawStudyId = localStorage.getItem('cs_study_id')
       if (rawStudyId) {
@@ -490,8 +563,8 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
         // Build payload directly from uploaded categories to ensure all secureUrls are present
         // Map to backend contract: ElementPayload and CategoryPayload
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const updatePayload: any = { study_type: 'grid' }
-        const categoriesToSend = uploadedCategories && uploadedCategories.length > 0 ? uploadedCategories : categories
+        const updatePayload: any = { study_type: mode }
+        const categoriesToSend = (uploadedCategories && uploadedCategories.length > 0) ? uploadedCategories : categories
 
         if (categoriesToSend && categoriesToSend.length > 0) {
           updatePayload.categories = categoriesToSend.map((c, idx) => ({
@@ -499,28 +572,28 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
             name: c.title || `Category ${idx + 1}`,
             order: idx
           }))
-          // Collect all elements from all categories with secureUrl
+          // Collect all elements from all categories
           const categorizedElements = categoriesToSend.flatMap((c, _catIdx) =>
             (c.elements || [])
-              .filter(el => el.secureUrl) // Only include elements that have been uploaded
+              .filter(el => mode === 'text' || el.secureUrl) // Only include elements that have been uploaded or are text
               .map((el, _idx) => ({
                 element_id: String(el.id),
                 name: el.name || '',
                 description: el.description || '',
-                element_type: 'image',
-                content: el.secureUrl,
+                element_type: mode === 'text' ? 'text' : 'image',
+                content: mode === 'text' ? (el.name || '') : el.secureUrl,
                 alt_text: el.name || '',
                 category_id: String(c.id)
               }))
           )
           if (categorizedElements.length > 0) {
             updatePayload.elements = categorizedElements
-            console.log('[Step5] Grid payload with categories and elements:', { categories: updatePayload.categories.length, elements: categorizedElements.length, payload: updatePayload })
+            console.log('[Step5] Payload with categories and elements:', { categories: updatePayload.categories.length, elements: categorizedElements.length, payload: updatePayload })
           }
         }
 
-        // Also handle legacy format with direct elements
-        if (elements && elements.length > 0 && (!updatePayload.elements || updatePayload.elements.length === 0)) {
+        // Also handle legacy format with direct elements (Grid only)
+        if (mode === 'grid' && elements && elements.length > 0 && (!updatePayload.elements || updatePayload.elements.length === 0)) {
           updatePayload.elements = elements
             .filter(e => e.secureUrl)
             .map(e => ({
@@ -537,7 +610,7 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
         putUpdateStudyAsync(studyId, updatePayload, 5)
       }
     } catch (e) {
-      console.error('Failed in handleNext (grid):', e)
+      console.error('Failed in handleNext:', e)
     } finally {
       setNextLoading(false)
       onNext()
@@ -654,7 +727,12 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
     <div>
       <div>
         <h3 className="text-lg font-semibold text-gray-800">Study Categories</h3>
-        <p className="text-sm text-gray-600">Organize your study elements into categories. Each category can contain multiple elements.</p>
+        <p className="text-sm text-gray-600">
+          {mode === 'text'
+            ? "Organize your study statements into categories. Each category can contain multiple statements."
+            : "Organize your study elements into categories. Each category can contain multiple elements."
+          }
+        </p>
       </div>
 
       <div className="mt-6">
@@ -739,40 +817,128 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
 
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <div className="text-sm font-semibold text-gray-800">Elements ({category.elements.length})</div>
+                        <div className="text-sm font-semibold text-gray-800">{mode === 'text' ? 'Statements' : 'Elements'} ({category.elements.length})</div>
                       </div>
 
                       {category.elements.length > 0 ? (
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                          {category.elements.map((element, _elIdx) => (
-                            <div key={element.id} className="border rounded-lg p-3">
-                              <div className="aspect-square bg-gray-100 flex items-center justify-center mb-2 rounded-lg">
-                                {(element.secureUrl || element.previewUrl) ? (
-                                  /* eslint-disable-next-line @next/next/no-img-element */
-                                  <img src={element.secureUrl || element.previewUrl} alt={element.name} className="max-w-full max-h-full object-contain" />
-                                ) : (
-                                  <div className="text-gray-400 text-xs">No Image</div>
-                                )}
+                        mode === 'text' ? (
+                          <div className="space-y-3">
+                            {category.elements.map((element, _elIdx) => (
+                              <div key={element.id} className="flex items-center gap-3">
+                                <textarea
+                                  value={element.name}
+                                  onChange={(e) => updateCategoryElement(category.id, element.id, { name: e.target.value.slice(0, 150) })}
+                                  onInput={(e) => {
+                                    const target = e.target as HTMLTextAreaElement;
+                                    target.style.height = 'auto';
+                                    target.style.height = target.scrollHeight + 'px';
+                                  }}
+                                  rows={1}
+                                  className={`flex-1 rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] resize-none overflow-hidden min-h-[40px] ${!element.name || element.name.trim().length === 0 ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                                    }`}
+                                  placeholder="Enter statement... (max 150 chars)"
+                                  style={{ height: 'auto' }}
+                                  maxLength={150}
+                                />
+                                <Button
+                                  variant="outline"
+                                  onClick={() => removeCategoryElement(category.id, element.id)}
+                                  className="w-auto cursor-pointer"
+                                >
+                                  Remove
+                                </Button>
                               </div>
-                              <input
-                                value={element.name}
-                                onChange={(e) => updateCategoryElement(category.id, element.id, { name: e.target.value })}
-                                className="w-full text-xs px-2 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-[rgba(38,116,186,0.3)]"
-                                placeholder="Element name"
-                              />
+                            ))}
+                            {/* Add more statements button */}
+                            <div className="pt-2">
                               <Button
                                 variant="outline"
-                                size="sm"
-                                onClick={() => removeCategoryElement(category.id, element.id)}
-                                className="w-full mt-1 text-xs cursor-pointer"
+                                className="rounded-full w-full border-dashed border-2"
+                                onClick={() => addTextStatement(category.id)}
                               >
-                                Remove
+                                + Add Statement
                               </Button>
                             </div>
-                          ))}
-                          {/* Add more elements button */}
+                          </div>
+                        ) : (
+                          // Grid (Image) Mode
+                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                            {category.elements.map((element, _elIdx) => (
+                              <div key={element.id} className="border rounded-lg p-3">
+                                <div className="aspect-square bg-gray-100 flex items-center justify-center mb-2 rounded-lg">
+                                  {(element.secureUrl || element.previewUrl) ? (
+                                    /* eslint-disable-next-line @next/next/no-img-element */
+                                    <img src={element.secureUrl || element.previewUrl} alt={element.name} className="max-w-full max-h-full object-contain" />
+                                  ) : (
+                                    <div className="text-gray-400 text-xs">No Image</div>
+                                  )}
+                                </div>
+                                <input
+                                  value={element.name}
+                                  onChange={(e) => updateCategoryElement(category.id, element.id, { name: e.target.value })}
+                                  className="w-full text-xs px-2 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-[rgba(38,116,186,0.3)]"
+                                  placeholder="Element name"
+                                />
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => removeCategoryElement(category.id, element.id)}
+                                  className="w-full mt-1 text-xs cursor-pointer"
+                                >
+                                  Remove
+                                </Button>
+                              </div>
+                            ))}
+                            {/* Add more elements button */}
+                            <div
+                              className="border-2 border-dashed border-gray-300 rounded-lg p-3 cursor-pointer hover:bg-gray-50 transition-colors flex flex-col items-center justify-center min-h-[120px]"
+                              onDrop={(e) => {
+                                e.preventDefault()
+                                handleCategoryFiles(category.id, e.dataTransfer.files)
+                              }}
+                              onDragOver={(e) => {
+                                e.preventDefault()
+                                e.dataTransfer.dropEffect = 'copy'
+                              }}
+                              onDragEnter={(e) => {
+                                e.preventDefault()
+                                e.currentTarget.classList.add('bg-blue-50', 'border-blue-300')
+                              }}
+                              onDragLeave={(e) => {
+                                e.preventDefault()
+                                e.currentTarget.classList.remove('bg-blue-50', 'border-blue-300')
+                              }}
+                              onClick={() => {
+                                const input = document.createElement('input')
+                                input.type = 'file'
+                                input.accept = 'image/*'
+                                input.multiple = true
+                                input.onchange = (e) => {
+                                  const files = (e.target as HTMLInputElement).files
+                                  if (files) handleCategoryFiles(category.id, files)
+                                }
+                                input.click()
+                              }}
+                            >
+                              <div className="text-gray-400 text-2xl mb-1">+</div>
+                              <div className="text-xs text-gray-500 text-center">Click anywhere to add more</div>
+                            </div>
+                          </div>
+                        )
+                      ) : (
+                        mode === 'text' ? (
+                          <div className="text-center py-4">
+                            <Button
+                              variant="outline"
+                              className="rounded-full border-dashed border-2 px-8"
+                              onClick={() => addTextStatement(category.id)}
+                            >
+                              + Add Statement
+                            </Button>
+                          </div>
+                        ) : (
                           <div
-                            className="border-2 border-dashed border-gray-300 rounded-lg p-3 cursor-pointer hover:bg-gray-50 transition-colors flex flex-col items-center justify-center min-h-[120px]"
+                            className="border-2 border-dashed rounded-lg p-6 text-center text-gray-500 cursor-pointer hover:bg-gray-50 transition-colors"
                             onDrop={(e) => {
                               e.preventDefault()
                               handleCategoryFiles(category.id, e.dataTransfer.files)
@@ -801,44 +967,10 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
                               input.click()
                             }}
                           >
-                            <div className="text-gray-400 text-2xl mb-1">+</div>
-                            <div className="text-xs text-gray-500 text-center">Click anywhere to add more</div>
+                            <div className="text-sm">No elements added yet</div>
+                            <div className="text-xs">Click anywhere to upload images or drag & drop</div>
                           </div>
-                        </div>
-                      ) : (
-                        <div
-                          className="border-2 border-dashed rounded-lg p-6 text-center text-gray-500 cursor-pointer hover:bg-gray-50 transition-colors"
-                          onDrop={(e) => {
-                            e.preventDefault()
-                            handleCategoryFiles(category.id, e.dataTransfer.files)
-                          }}
-                          onDragOver={(e) => {
-                            e.preventDefault()
-                            e.dataTransfer.dropEffect = 'copy'
-                          }}
-                          onDragEnter={(e) => {
-                            e.preventDefault()
-                            e.currentTarget.classList.add('bg-blue-50', 'border-blue-300')
-                          }}
-                          onDragLeave={(e) => {
-                            e.preventDefault()
-                            e.currentTarget.classList.remove('bg-blue-50', 'border-blue-300')
-                          }}
-                          onClick={() => {
-                            const input = document.createElement('input')
-                            input.type = 'file'
-                            input.accept = 'image/*'
-                            input.multiple = true
-                            input.onchange = (e) => {
-                              const files = (e.target as HTMLInputElement).files
-                              if (files) handleCategoryFiles(category.id, files)
-                            }
-                            input.click()
-                          }}
-                        >
-                          <div className="text-sm">No elements added yet</div>
-                          <div className="text-xs">Click anywhere to upload images or drag & drop</div>
-                        </div>
+                        )
                       )}
                     </div>
                   </div>
@@ -886,7 +1018,7 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
           {nextLoading ? 'Uploading...' : getNextButtonText()}
         </Button>
       </div>
-    </div>
+    </div >
   )
 }
 
@@ -2123,8 +2255,8 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
           name: baseName,
           x: 0,
           y: 0,
-          width: 50,
-          height: 50,
+          width: 100,
+          height: 100,
           pixelWidth,
           pixelHeight,
           sourceType: 'text' as const,
@@ -2177,8 +2309,8 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       name: i.name,
       x: 0,
       y: 0,
-      width: 50,
-      height: 50,
+      width: 100,
+      height: 100,
       sourceType: (i.sourceType ?? 'upload') as 'text' | 'upload'
     }))
     const initialName = draftName || `Layer ${nextZ + 1}`

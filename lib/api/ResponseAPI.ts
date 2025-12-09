@@ -9,7 +9,7 @@ import { fetchWithAuth } from './StudyAPI'
 export interface StudyInfo {
 	id: string
 	title: string
-	study_type: "grid" | "layer"
+	study_type: "grid" | "layer" | "text"
 	main_question: string
 	orientation_text: string
 	rating_scale: {
@@ -461,7 +461,7 @@ export interface SessionTaskItem {
 	task_id: string
 	respondent_id: number
 	task_index: number
-	task_type: 'grid' | 'layer'
+	task_type: 'grid' | 'layer' | 'text'
 	task_context?: any
 	elements_shown_in_task?: Record<string, number>
 	elements_shown_content?: Record<string, any>
