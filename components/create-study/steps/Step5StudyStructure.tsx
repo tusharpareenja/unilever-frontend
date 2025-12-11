@@ -1213,10 +1213,15 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
   const [layerTextRotation, setLayerTextRotation] = useState(0)
   const [layerTextSaving, setLayerTextSaving] = useState(false)
   const [layerTextError, setLayerTextError] = useState<string | null>(null)
+  const [layerSelectedFontSize, setLayerSelectedFontSize] = useState<string>("")
+  const [draftSelectedFontSize, setDraftSelectedFontSize] = useState<string>("")
+  const [layerSelectedFont, setLayerSelectedFont] = useState<string>("")
+  const [draftSelectedFont, setDraftSelectedFont] = useState<string>("")
   const draftTextEditorRef = useRef<HTMLDivElement>(null)
   const layerTextEditorRef = useRef<HTMLDivElement>(null)
   const draftTextPreviewRef = useRef<HTMLDivElement | null>(null)
   const layerTextPreviewRef = useRef<HTMLDivElement | null>(null)
+  const lastSelectionRange = useRef<Range | null>(null)
   const previewContainerRef = useRef<HTMLDivElement>(null)
   const bgImgRef = useRef<HTMLImageElement>(null)
   const [containerSize, setContainerSize] = useState<{ width: number; height: number }>({ width: 300, height: 400 })
@@ -1574,6 +1579,8 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       alignItems: "center",
 
       justifyContent: "center",
+      transform: textRotation !== 0 ? `rotate(${textRotation}deg)` : "none",
+      transformOrigin: "center center",
       outline: "none",
       border: "none",
     }
@@ -1599,8 +1606,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       fontStyle: fontStyle || "normal",
       textDecoration: textDecoration || "none",
       opacity: textOpacity / 100,
-      transform: `translateY(${strokeNudge}) rotate(${textRotation}deg)`,
-      transformOrigin: "center center",
+      transform: `translateY(${strokeNudge})`,
       whiteSpace: "pre-wrap",
       wordWrap: "break-word",
       display: "inline-block",
@@ -2149,7 +2155,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
           if (l.id !== layerId) return l
           const images = [...l.images, image]
           const allText = images.every(i => (i.sourceType ?? 'upload') === 'text')
-          return { ...l, images, layer_type: allText ? 'text' : 'image' }
+          return { ...l, name: baseName, images, layer_type: allText ? 'text' : 'image' }
         }))
         setSelectedImageIds(prev => ({ ...prev, [layerId]: imageId }))
       } else {
@@ -2190,7 +2196,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
             }
           })
           const allText = updatedImages.every(i => (i.sourceType ?? 'upload') === 'text')
-          return { ...l, images: updatedImages, layer_type: allText ? 'text' : 'image' }
+          return { ...l, name: baseName, images: updatedImages, layer_type: allText ? 'text' : 'image' }
         }))
       }
       closeLayerTextModal()
@@ -2256,7 +2262,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
           x: 0,
           y: 0,
           width: 100,
-          height: 100,
+          height: 50, // Reduced height to 50% for text layers
           pixelWidth,
           pixelHeight,
           sourceType: 'text' as const,
@@ -3389,13 +3395,100 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                         {/* Rich Text Toolbar */}
                         <div className="flex flex-wrap items-center gap-2 p-2 border rounded-t-lg bg-gray-50">
                           <select
-                            className="text-xs border rounded px-1 py-1"
-                            onChange={(e) => {
-                              document.execCommand('fontName', false, e.target.value)
+                            className="text-xs border rounded px-1 py-1 w-32"
+                            onMouseDown={() => {
+                              // Save selection before dropdown opens
+                              const sel = window.getSelection()
+                              if (sel && sel.rangeCount > 0) {
+                                lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
+                              }
                             }}
-                            value={draftTextFont} // This might not reflect selection perfectly without complex sync
+                            onChange={(e) => {
+                              const newFont = e.target.value
+                              setDraftTextFont(newFont)
+                              setDraftSelectedFont(newFont)
+                              if (draftTextEditorRef.current) {
+                                draftTextEditorRef.current.focus()
+                                if (lastSelectionRange.current) {
+                                  const sel = window.getSelection()
+                                  sel?.removeAllRanges()
+                                  sel?.addRange(lastSelectionRange.current)
+                                }
+                                document.execCommand('fontName', false, newFont)
+                                // Re-save selection
+                                const sel = window.getSelection()
+                                if (sel && sel.rangeCount > 0) {
+                                  lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
+                                }
+                              }
+                            }}
+                            value={draftSelectedFont || draftTextFont}
                           >
                             {FONT_OPTIONS.map(f => <option key={f} value={f}>{f}</option>)}
+                          </select>
+                          <select
+                            className="text-xs border rounded px-1 py-1 w-20"
+                            onMouseDown={() => {
+                              // Save selection before dropdown opens
+                              const sel = window.getSelection()
+                              if (sel && sel.rangeCount > 0) {
+                                lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
+                              }
+                            }}
+                            onChange={(e) => {
+                              const value = e.target.value
+                              const editor = draftTextEditorRef.current
+                              if (!editor) return
+
+                              let size: number
+                              if (value === 'custom') {
+                                const customSize = prompt('Enter custom font size (px):', '60')
+                                if (!customSize) return
+                                size = parseInt(customSize)
+                                if (isNaN(size)) return
+                              } else {
+                                size = parseInt(value)
+                              }
+
+                              // Focus editor and restore selection
+                              editor.focus()
+                              const sel = window.getSelection()
+                              if (lastSelectionRange.current && sel) {
+                                sel.removeAllRanges()
+                                sel.addRange(lastSelectionRange.current)
+                              }
+
+                              document.execCommand('fontSize', false, '7')
+
+                              setTimeout(() => {
+                                const fontElements = editor.querySelectorAll('font[size="7"]')
+                                fontElements.forEach((font) => {
+                                  const span = document.createElement('span')
+                                  span.style.fontSize = `${size}px`
+                                  span.innerHTML = font.innerHTML
+                                  font.parentNode?.replaceChild(span, font)
+                                })
+
+                                setDraftHtmlContent(editor.innerHTML)
+                                setDraftText(editor.innerText)
+                                setDraftSelectedFontSize(String(size))
+                              }, 0)
+                            }}
+                            value={draftSelectedFontSize || String(draftTextSize)}
+                            title="Font Size"
+                          >
+                            <option value="">Size</option>
+                            {(() => {
+                              const predefined = [12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 56, 60, 64, 72, 80, 96]
+                              const current = parseInt(draftSelectedFontSize || String(draftTextSize))
+                              const allSizes = !isNaN(current) && !predefined.includes(current)
+                                ? [...predefined, current].sort((a, b) => a - b)
+                                : predefined
+                              return allSizes.map(s => (
+                                <option key={s} value={s}>{s}px</option>
+                              ))
+                            })()}
+                            <option value="custom">Custom...</option>
                           </select>
                           <div className="flex items-center border rounded bg-white overflow-hidden">
                             <button className="px-2 py-1 hover:bg-gray-100 font-bold" onClick={() => document.execCommand('bold')} title="Bold">B</button>
@@ -3415,7 +3508,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                         {/* Content Editable Area */}
                         <div
                           ref={draftTextEditorRef}
-                          className="w-full rounded-b-lg border border-t-0 border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] h-32 overflow-y-auto text-base bg-white"
+                          className="w-full rounded-b-lg border border-t-0 border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] h-32 overflow-y-auto text-base bg-white [&_*]:!text-[16px]"
                           contentEditable
                           onInput={(e) => {
                             const target = e.currentTarget
@@ -3427,6 +3520,43 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                           onBlur={(e) => {
                             // Ensure we persist the text with newlines
                             setDraftText(e.currentTarget.innerText)
+                          }}
+                          onSelect={() => {
+                            // Detect font size of selected text
+                            const selection = window.getSelection()
+                            if (selection && selection.rangeCount > 0) {
+                              lastSelectionRange.current = selection.getRangeAt(0)
+                              if (!selection.isCollapsed) {
+                                const range = selection.getRangeAt(0)
+                                let node: Node | null = range.startContainer
+                                if (node.nodeType === 3) node = node.parentElement
+                                let foundSize = false
+                                let foundFont = false
+                                while (node && node !== draftTextEditorRef.current) {
+                                  const el = node as HTMLElement
+                                  if (!foundSize && el.style?.fontSize) {
+                                    const size = parseInt(el.style.fontSize, 10)
+                                    if (!isNaN(size)) {
+                                      setDraftSelectedFontSize(String(size))
+                                      foundSize = true
+                                    }
+                                  }
+                                  if (!foundFont) {
+                                    if (el.style?.fontFamily) {
+                                      setDraftSelectedFont(el.style.fontFamily.replace(/['"]/g, ''))
+                                      foundFont = true
+                                    } else if (el.getAttribute && el.getAttribute('face')) {
+                                      setDraftSelectedFont(el.getAttribute('face')!)
+                                      foundFont = true
+                                    }
+                                  }
+                                  if (foundSize && foundFont) break
+                                  node = node.parentElement
+                                }
+                                if (!foundSize) setDraftSelectedFontSize(String(draftTextSize))
+                                if (!foundFont) setDraftSelectedFont(draftTextFont)
+                              }
+                            }
                           }}
                           style={{
                             fontFamily: draftTextFont, // Default font
@@ -3858,6 +3988,71 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                     >
                       {FONT_OPTIONS.map(f => <option key={f} value={f}>{f}</option>)}
                     </select>
+
+                    <select
+                      className="text-xs border rounded px-1 py-1 w-20"
+                      onMouseDown={() => {
+                        // Save selection before dropdown opens
+                        const sel = window.getSelection()
+                        if (sel && sel.rangeCount > 0) {
+                          lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
+                        }
+                      }}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        const editor = layerTextEditorRef.current
+                        if (!editor) return
+
+                        let size: number
+                        if (value === 'custom') {
+                          const customSize = prompt('Enter custom font size (px):', '60')
+                          if (!customSize) return
+                          size = parseInt(customSize)
+                          if (isNaN(size)) return
+                        } else {
+                          size = parseInt(value)
+                        }
+
+                        // Focus editor and restore selection
+                        editor.focus()
+                        const sel = window.getSelection()
+                        if (lastSelectionRange.current && sel) {
+                          sel.removeAllRanges()
+                          sel.addRange(lastSelectionRange.current)
+                        }
+
+                        document.execCommand('fontSize', false, '7')
+
+                        setTimeout(() => {
+                          const fontElements = editor.querySelectorAll('font[size="7"]')
+                          fontElements.forEach((font) => {
+                            const span = document.createElement('span')
+                            span.style.fontSize = `${size}px`
+                            span.innerHTML = font.innerHTML
+                            font.parentNode?.replaceChild(span, font)
+                          })
+
+                          setLayerHtmlContent(editor.innerHTML)
+                          setLayerTextValue(editor.innerText)
+                          setLayerSelectedFontSize(String(size))
+                        }, 0)
+                      }}
+                      value={layerSelectedFontSize || String(layerTextSize)}
+                      title="Font Size"
+                    >
+                      <option value="">Size</option>
+                      {(() => {
+                        const predefined = [12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 56, 60, 64, 72, 80, 96]
+                        const current = parseInt(layerSelectedFontSize || String(layerTextSize))
+                        const allSizes = !isNaN(current) && !predefined.includes(current)
+                          ? [...predefined, current].sort((a, b) => a - b)
+                          : predefined
+                        return allSizes.map(s => (
+                          <option key={s} value={s}>{s}px</option>
+                        ))
+                      })()}
+                      <option value="custom">Custom...</option>
+                    </select>
                     <div className="flex items-center border rounded bg-white overflow-hidden">
                       <button className="px-2 py-1 hover:bg-gray-100 font-bold" onClick={() => document.execCommand('bold')} title="Bold">B</button>
                       <button className="px-2 py-1 hover:bg-gray-100 italic" onClick={() => document.execCommand('italic')} title="Italic">I</button>
@@ -3875,7 +4070,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                   {/* Content Editable Area */}
                   <div
                     ref={layerTextEditorRef}
-                    className="w-full rounded-b-lg border border-t-0 border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] h-32 overflow-y-auto text-base bg-white"
+                    className="w-full rounded-b-lg border border-t-0 border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] h-32 overflow-y-auto text-base bg-white [&_*]:!text-[16px]"
                     contentEditable
                     onInput={(e) => {
                       const target = e.currentTarget
@@ -3887,6 +4082,40 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                     onBlur={(e) => {
                       // Ensure we persist the text with newlines
                       setLayerTextValue(e.currentTarget.innerText)
+                    }}
+                    onSelect={() => {
+                      // Detect font size of selected text
+                      const selection = window.getSelection()
+                      if (selection && selection.rangeCount > 0 && !selection.isCollapsed) {
+                        const range = selection.getRangeAt(0)
+                        let node: Node | null = range.startContainer
+                        if (node.nodeType === 3) node = node.parentElement
+                        let foundSize = false
+                        let foundFont = false
+                        while (node && node !== layerTextEditorRef.current) {
+                          const el = node as HTMLElement
+                          if (!foundSize && el.style?.fontSize) {
+                            const size = parseInt(el.style.fontSize, 10)
+                            if (!isNaN(size)) {
+                              setLayerSelectedFontSize(String(size))
+                              foundSize = true
+                            }
+                          }
+                          if (!foundFont) {
+                            if (el.style?.fontFamily) {
+                              setLayerSelectedFont(el.style.fontFamily.replace(/['"]/g, ''))
+                              foundFont = true
+                            } else if (el.getAttribute && el.getAttribute('face')) {
+                              setLayerSelectedFont(el.getAttribute('face')!)
+                              foundFont = true
+                            }
+                          }
+                          if (foundSize && foundFont) break
+                          node = node.parentElement
+                        }
+                        if (!foundSize) setLayerSelectedFontSize(String(layerTextSize))
+                        if (!foundFont) setLayerSelectedFont(layerTextFont)
+                      }
                     }}
                     style={{
                       fontFamily: layerTextFont,
@@ -3985,8 +4214,32 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Font Family</label>
                       <select
-                        value={layerTextFont}
-                        onChange={(e) => setLayerTextFont(e.target.value)}
+                        value={layerSelectedFont || layerTextFont}
+                        onMouseDown={() => {
+                          const sel = window.getSelection()
+                          if (sel && sel.rangeCount > 0) {
+                            lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
+                          }
+                        }}
+                        onChange={(e) => {
+                          const newFont = e.target.value
+                          setLayerTextFont(newFont)
+                          setLayerSelectedFont(newFont)
+                          if (layerTextEditorRef.current) {
+                            layerTextEditorRef.current.focus()
+                            if (lastSelectionRange.current) {
+                              const sel = window.getSelection()
+                              sel?.removeAllRanges()
+                              sel?.addRange(lastSelectionRange.current)
+                            }
+                            document.execCommand('fontName', false, newFont)
+                            // Re-save selection
+                            const sel = window.getSelection()
+                            if (sel && sel.rangeCount > 0) {
+                              lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
+                            }
+                          }
+                        }}
                         className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
                       >
                         {FONT_OPTIONS.map(font => (
