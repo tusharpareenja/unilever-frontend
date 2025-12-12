@@ -2172,7 +2172,31 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
         <Button variant="outline" className="rounded-full cursor-pointer px-6 w-full sm:w-auto" onClick={onBack}>Back</Button>
         <Button
           className="rounded-full cursor-pointer px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] w-full sm:w-auto"
-          onClick={onNext}
+          onClick={() => {
+            try {
+              // Read study id robustly
+              let studyId: string | null = null
+              try {
+                const raw = localStorage.getItem('cs_study_id')
+                if (raw) {
+                  try { studyId = JSON.parse(raw) } catch { studyId = raw }
+                }
+              } catch { }
+
+              if (studyId) {
+                // Fire-and-forget background PUT update to save last_step
+                // We use type casting or a partial payload to match the signature
+                const payload: any = { last_step: 7 }
+                import('@/lib/api/StudyAPI').then(({ putUpdateStudyAsync }) => {
+                  putUpdateStudyAsync(String(studyId), payload)
+                })
+                console.log('[Step7] Scheduled background PUT update for last_step: 7')
+              }
+            } catch (err) {
+              console.warn('[Step7] Failed to schedule background PUT update', err)
+            }
+            onNext()
+          }}
           disabled={Boolean(!matrix) || isPolling || isGenerating || (jobStatus ? jobStatus.status !== 'completed' : false)}
         >
           {!matrix ? 'Generate Tasks First' :

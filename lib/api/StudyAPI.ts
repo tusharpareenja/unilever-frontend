@@ -1324,6 +1324,7 @@ export interface StudyDetails {
   study_type: StudyType
   background_image_url?: string | null
   aspect_ratio?: string
+  last_step?: number // Added for resume functionality
   rating_scale: {
     min_value: number
     max_value: number

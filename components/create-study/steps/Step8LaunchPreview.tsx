@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { createStudyFromLocalStorage, fetchWithAuth, buildStudyPayloadFromLocalStorage } from "@/lib/api/StudyAPI"
+import { createStudyFromLocalStorage, fetchWithAuth, buildStudyPayloadFromLocalStorage, putUpdateStudyAsync } from "@/lib/api/StudyAPI"
 import { API_BASE_URL } from "@/lib/api/LoginApi"
 
 function get<T>(key: string, fallback: T): T {
@@ -52,6 +52,22 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
 
   const hasLayer = step2.type === 'layer'
   const hasText = step2.type === 'text'
+
+  // Update last_step to 8 on mount so resuming brings user here
+  useEffect(() => {
+    try {
+      if (typeof window === 'undefined') return
+      let studyId: string | null = null
+      const raw = localStorage.getItem('cs_study_id')
+      if (raw) {
+        try { studyId = JSON.parse(raw) } catch { studyId = raw }
+      }
+      if (studyId) {
+        // Fire-and-forget
+        putUpdateStudyAsync(String(studyId), { last_step: 8 })
+      }
+    } catch { }
+  }, [])
 
   const handleLaunchStudy = async () => {
     if (!isConfirmed) {

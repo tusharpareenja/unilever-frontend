@@ -453,6 +453,124 @@ const loadDraftStudyData = async (studyId: string) => {
       console.log('[LoadDraft] Stored job state in localStorage:', jobState)
     }
 
+    // NEW: Restore the last saved step based on local completion validation
+    // This honors "open the last step which shows completed" request
+    let targetStep = 1
+
+    // Helper validation logic mirrored from Stepper.tsx
+    const isStepCompleted = (stepId: number): boolean => {
+      try {
+        switch (stepId) {
+          case 1: {
+            const data = localStorage.getItem('cs_step1')
+            if (!data) return false
+            const parsed = JSON.parse(data)
+            return !!(parsed.title && parsed.description && parsed.language && parsed.agree)
+          }
+          case 2: {
+            const data = localStorage.getItem('cs_step2')
+            if (!data) return false
+            const parsed = JSON.parse(data)
+            return !!(parsed.type && parsed.mainQuestion && parsed.orientationText)
+          }
+          case 3: {
+            const data = localStorage.getItem('cs_step3')
+            if (!data) return false
+            const parsed = JSON.parse(data)
+            return !!(parsed.minValue && parsed.maxValue && parsed.minLabel && parsed.maxLabel)
+          }
+          case 4: {
+            const data = localStorage.getItem('cs_step4')
+            if (!data) return false
+            try {
+              const parsed = JSON.parse(data)
+              if (!Array.isArray(parsed) || parsed.length === 0) return false
+              return parsed.every((q: any) => {
+                const questionText = q.title || q.question_text || ''
+                const opts = q.options || q.answer_options || []
+                return (questionText && questionText.trim().length > 0 && Array.isArray(opts) && opts.length >= 2 && opts.every((o: any) => (o.text || o.option_text) && (o.text || o.option_text).trim().length > 0))
+              })
+            } catch { return false }
+          }
+          case 5: {
+            const gridData = localStorage.getItem('cs_step5_grid')
+            const textData = localStorage.getItem('cs_step5_text')
+            const layerData = localStorage.getItem('cs_step5_layer')
+            const step2Data = localStorage.getItem('cs_step2')
+            if (!step2Data) return false
+            const step2 = JSON.parse(step2Data)
+            if (step2.type === 'grid') {
+              if (!gridData) return false
+              let grid: any
+              try { grid = JSON.parse(gridData) } catch { return false }
+              const isCategoryFormat = grid.length > 0 && grid[0] && grid[0].title && grid[0].elements
+              if (isCategoryFormat) {
+                const hasValidElement = (element: any) => Boolean(element && (element.secureUrl || element.previewUrl || element.textContent))
+                return Array.isArray(grid) && grid.length >= 4 && grid.every((category: any) => category.title && category.title.trim().length > 0 && category.elements && Array.isArray(category.elements) && category.elements.length > 0 && category.elements.every((element: any) => hasValidElement(element)))
+              } else {
+                return Array.isArray(grid) && grid.length > 0 && grid.every((e: any) => (e && (e.secureUrl || e.previewUrl || e.textContent)))
+              }
+            } else if (step2.type === 'text') {
+              if (!textData) return false
+              let text: any
+              try { text = JSON.parse(textData) } catch { return false }
+              return Array.isArray(text) && text.length >= 4 && text.every((category: any) => category.title && category.title.trim().length > 0 && category.elements && Array.isArray(category.elements) && category.elements.length > 0 && category.elements.every((element: any) => element.name && element.name.trim().length > 0))
+            } else {
+              if (!layerData) return false
+              const layer = JSON.parse(layerData)
+              return Array.isArray(layer) && layer.length > 0 && layer.every((l: any) => l.images && l.images.length > 0 && l.images.every((img: any) => img.secureUrl))
+            }
+          }
+          case 6: {
+            const data = localStorage.getItem('cs_step6')
+            if (!data) return false
+            const parsed = JSON.parse(data)
+            return !!(parsed.respondents && parsed.respondents > 0)
+          }
+          case 7: {
+            const data = localStorage.getItem('cs_step7_tasks')
+            return !!data
+          }
+          case 8: return false // Cannot auto-complete step 8 to jump *past* it
+          default: return false
+        }
+      } catch { return false }
+    }
+
+    // Find the highest step where all previous steps are completed
+    // If Step 1 is done, check 2. If 2 is done, check 3. etc.
+    // We want the last one that IS completed, OR the next one?
+    // User said: "last step which shows completed just open that"
+    // So if 1, 2, 3 are done. 4 is not. Open 3.
+
+    // First, verify up to where we have continuous completion
+    let maxCompleted = 0
+    for (let i = 1; i <= 7; i++) {
+      if (isStepCompleted(i)) {
+        maxCompleted = i
+      } else {
+        // Gap found, stop checking? 
+        // Usually wizard flow implies sequential completion.
+        break
+      }
+    }
+
+    // If we have any completed steps, use the max completed one.
+    // If nothing is completed, default to 1.
+    // Also consider backend's last_step as a hint if local validation fails?
+    // But user explicitly asked for "last step which shows completed".
+    if (maxCompleted > 0) {
+      targetStep = maxCompleted
+      console.log('[LoadDraft] Calculated target step based on completion:', targetStep)
+    } else if (studyDetails.last_step) {
+      // Fallback to backend if local check finds nothing (e.g. data format mismatch)
+      targetStep = studyDetails.last_step
+      console.log('[LoadDraft] Fallback to backend last_step:', targetStep)
+    }
+
+    localStorage.setItem('cs_current_step', String(targetStep))
+
+
     console.log('Draft study data loaded successfully into localStorage')
   } catch (error) {
     console.error('Failed to load draft study data:', error)
