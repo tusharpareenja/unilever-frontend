@@ -1441,13 +1441,16 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
 
       if (widthMatch) {
         const width = parseFloat(widthMatch[1])
-        const color = colorMatch ? (rgbToHex(colorMatch[0]) || '#000000') : '#000000'
+        // Only update color if we actually found a color in the computed style
+        // This prevents resetting to black when width is 0 and browser omits color
+        const foundColor = colorMatch ? (rgbToHex(colorMatch[0]) || null) : null
+
         if (isLayerMode) {
           setLayerSelectionStrokeWidth(width)
-          setLayerSelectionStrokeColor(color)
+          if (foundColor) setLayerSelectionStrokeColor(foundColor)
         } else {
           setDraftSelectionStrokeWidth(width)
-          setDraftSelectionStrokeColor(color)
+          if (foundColor) setDraftSelectionStrokeColor(foundColor)
         }
       }
     } else {
