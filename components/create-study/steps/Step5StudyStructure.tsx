@@ -1242,6 +1242,8 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
   })
   const aspectClass = previewAspect === 'portrait' ? 'aspect-[9/16]' : previewAspect === 'landscape' ? 'aspect-[16/9]' : 'aspect-square'
   const [showFullPreview, setShowFullPreview] = useState(false)
+
+  // Comprehensive font options with their CSS font-family values
   const FONT_OPTIONS = [
     "Inter",
     "Arial",
@@ -1249,6 +1251,8 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     "Times New Roman",
     "Georgia",
     "Courier New",
+    "Verdana",
+    "Trebuchet MS",
     "Poppins",
     "Roboto",
     "Montserrat",
@@ -1259,8 +1263,59 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     "Merriweather",
     "Playfair Display",
     "Rubik",
-    "Ubuntu"
+    "Ubuntu",
+    "Nunito",
+    "Source Sans 3",
+    "PT Sans",
+    "Noto Sans",
+    "Work Sans",
+    "Quicksand",
+    "Bebas Neue",
+    "Dancing Script",
+    "Pacifico",
+    "Lobster",
+    "Great Vibes",
+    "Satisfy",
+    "Caveat",
+    "Indie Flower"
   ]
+
+  // Map display names to actual CSS font-family names
+  const FONT_FAMILY_MAP: Record<string, string> = {
+    "Inter": "var(--font-inter), Inter, sans-serif",
+    "Arial": "Arial, sans-serif",
+    "Helvetica": "Helvetica, sans-serif",
+    "Times New Roman": "'Times New Roman', Times, serif",
+    "Georgia": "Georgia, serif",
+    "Courier New": "'Courier New', Courier, monospace",
+    "Verdana": "Verdana, sans-serif",
+    "Trebuchet MS": "'Trebuchet MS', sans-serif",
+    "Poppins": "var(--font-poppins), Poppins, sans-serif",
+    "Roboto": "var(--font-roboto), Roboto, sans-serif",
+    "Montserrat": "var(--font-montserrat), Montserrat, sans-serif",
+    "Open Sans": "var(--font-open-sans), 'Open Sans', sans-serif",
+    "Lato": "var(--font-lato), Lato, sans-serif",
+    "Oswald": "var(--font-oswald), Oswald, sans-serif",
+    "Raleway": "var(--font-raleway), Raleway, sans-serif",
+    "Merriweather": "var(--font-merriweather), Merriweather, serif",
+    "Playfair Display": "var(--font-playfair-display), 'Playfair Display', serif",
+    "Rubik": "var(--font-rubik), Rubik, sans-serif",
+    "Ubuntu": "var(--font-ubuntu), Ubuntu, sans-serif",
+    "Nunito": "var(--font-nunito), Nunito, sans-serif",
+    "Source Sans 3": "var(--font-source-sans-3), 'Source Sans 3', sans-serif",
+    "PT Sans": "var(--font-pt-sans), 'PT Sans', sans-serif",
+    "Noto Sans": "var(--font-noto-sans), 'Noto Sans', sans-serif",
+    "Work Sans": "var(--font-work-sans), 'Work Sans', sans-serif",
+    "Quicksand": "var(--font-quicksand), Quicksand, sans-serif",
+    "Bebas Neue": "var(--font-bebas-neue), 'Bebas Neue', cursive",
+    "Dancing Script": "var(--font-dancing-script), 'Dancing Script', cursive",
+    "Pacifico": "var(--font-pacifico), Pacifico, cursive",
+    "Lobster": "var(--font-lobster), Lobster, cursive",
+    "Great Vibes": "var(--font-great-vibes), 'Great Vibes', cursive",
+    "Satisfy": "var(--font-satisfy), Satisfy, cursive",
+    "Caveat": "var(--font-caveat), Caveat, cursive",
+    "Indie Flower": "var(--font-indie-flower), 'Indie Flower', cursive"
+  }
 
   // Helper function to apply inline styles to selected text only
   const applyStyleToSelection = (
@@ -1845,7 +1900,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     }
 
     const textStyle: React.CSSProperties = {
-      fontFamily: `'${chosenFontFamily}', system-ui, -apple-system, sans-serif`,
+      fontFamily: FONT_FAMILY_MAP[chosenFontFamily] || `'${chosenFontFamily}', system-ui, -apple-system, sans-serif`,
       fontSize: `${fontSize}px`,
       fontWeight: fontWeight,
       color: color,
@@ -2017,7 +2072,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       <meta charset="UTF-8">
       <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Poppins:wght@300;400;600;700&family=Roboto:wght@300;400;600;700&family=Montserrat:wght@300;400;600;700&family=Open+Sans:wght@300;400;600;700&family=Lato:wght@300;400;700&family=Oswald:wght@300;400;700&family=Raleway:wght@300;400;600;700&family=Merriweather:wght@300;400;700&family=Playfair+Display:wght@400;600;700&family=Rubik:wght@300;400;600;700&family=Ubuntu:wght@300;400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Poppins:wght@300;400;600;700&family=Roboto:wght@300;400;700&family=Montserrat:wght@300;400;600;700&family=Open+Sans:wght@300;400;600;700&family=Lato:wght@300;400;700&family=Oswald:wght@300;400;600;700&family=Raleway:wght@300;400;600;700&family=Merriweather:wght@300;400;700&family=Playfair+Display:wght@400;600;700&family=Rubik:wght@300;400;600;700&family=Ubuntu:wght@300;400;700&family=Nunito:wght@300;400;600;700&family=Source+Sans+3:wght@300;400;600;700&family=PT+Sans:wght@400;700&family=Noto+Sans:wght@300;400;600;700&family=Work+Sans:wght@300;400;600;700&family=Quicksand:wght@300;400;600;700&family=Bebas+Neue&family=Dancing+Script:wght@400;700&family=Pacifico&family=Lobster&family=Great+Vibes&family=Satisfy&family=Caveat:wght@400;700&family=Indie+Flower&display=swap');
         body {
           background: transparent;
           padding: ${extraPadding}px;
@@ -3697,7 +3752,11 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                             }}
                             value={draftSelectedFont || draftTextFont}
                           >
-                            {FONT_OPTIONS.map(f => <option key={f} value={f}>{f}</option>)}
+                            {FONT_OPTIONS.map(f => (
+                              <option key={f} value={f} style={{ fontFamily: FONT_FAMILY_MAP[f] || f }}>
+                                {f}
+                              </option>
+                            ))}
                           </select>
                           <select
                             className="text-xs border rounded px-1 py-1 w-20"
@@ -4235,7 +4294,9 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
                             >
                               {FONT_OPTIONS.map(font => (
-                                <option key={font} value={font}>{font}</option>
+                                <option key={font} value={font} style={{ fontFamily: FONT_FAMILY_MAP[font] || font }}>
+                                  {font}
+                                </option>
                               ))}
                             </select>
                           </div>
@@ -4595,7 +4656,11 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                       }}
                       value={layerSelectedFont || layerTextFont}
                     >
-                      {FONT_OPTIONS.map(f => <option key={f} value={f}>{f}</option>)}
+                      {FONT_OPTIONS.map(f => (
+                        <option key={f} value={f} style={{ fontFamily: FONT_FAMILY_MAP[f] || f }}>
+                          {f}
+                        </option>
+                      ))}
                     </select>
 
                     <select
@@ -5167,7 +5232,9 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                         className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
                       >
                         {FONT_OPTIONS.map(font => (
-                          <option key={font} value={font}>{font}</option>
+                          <option key={font} value={font} style={{ fontFamily: FONT_FAMILY_MAP[font] || font }}>
+                            {font}
+                          </option>
                         ))}
                       </select>
                     </div>
