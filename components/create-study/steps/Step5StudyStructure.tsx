@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+﻿/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
 import { Fragment, useEffect, useRef, useState, forwardRef } from "react"
@@ -1487,7 +1487,10 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     else setDraftSelectionBackgroundColor(bgHex)
 
     // Stroke
-    const stroke = computed.webkitTextStroke
+    // Check inline style first because we might have suppressed it in computed styles via CSS
+    const inlineStroke = el.style.webkitTextStroke
+    const computedStroke = computed.webkitTextStroke
+    const stroke = (inlineStroke && inlineStroke !== '') ? inlineStroke : computedStroke
     if (stroke && stroke !== '0px none') {
       // computed style can be "1px rgb(0, 0, 0)" or "rgb(0,0,0) 1px"
       // Regex tries to find "Npx" and "Color" parts
@@ -1864,12 +1867,38 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       ? `calc(${defaultShift} - ${strokeWidth}px / 4)`
       : defaultShift;
 
+    // Calculate container size needed for rotated content
+    // For any rotation, we need to account for the increased bounding box
+    // When content rotates, the container must be large enough to fit the diagonal
+    const rotation = textRotation || 0
+    const hasRotation = rotation !== 0
+
+    // Estimate text dimensions - for rotated text we need generous space
+    // Use fontSize as a baseline and multiply for typical text width
+    const estimatedTextWidth = fontSize * 15 // Assume ~15 characters worth of space
+    const estimatedTextHeight = fontSize * 2 // Assume some line-height
+
+    // Calculate rotated bounding box dimensions using rotation matrix
+    // For a rectangle rotated by θ degrees:
+    // newWidth = |width * cos(θ)| + |height * sin(θ)|
+    // newHeight = |width * sin(θ)| + |height * cos(θ)|
+    const radians = (rotation * Math.PI) / 180
+    const cosAngle = Math.abs(Math.cos(radians))
+    const sinAngle = Math.abs(Math.sin(radians))
+
+    const rotatedWidth = estimatedTextWidth * cosAngle + estimatedTextHeight * sinAngle
+    const rotatedHeight = estimatedTextWidth * sinAngle + estimatedTextHeight * cosAngle
+
+    // Add padding for effects (shadows, strokes) - at least 100px to be safe
+    const minContainerHeight = hasRotation ? Math.max(rotatedHeight + 200, 400) : 'auto'
+    const minWrapperSize = hasRotation ? Math.max(rotatedWidth + 100, rotatedHeight + 100, 300) : 'auto'
+
     const containerStyle: React.CSSProperties = {
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
-
       width: "100%",
+      minHeight: minContainerHeight,
       outline: "none",
       border: "none",
     }
@@ -1878,14 +1907,16 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       backgroundColor: backgroundColor || "transparent",
       borderRadius: backgroundColor && backgroundRadius ? `${backgroundRadius}px` : "0",
       padding: `${contentPadding}px`,
-      display: "flex",
+      display: "inline-flex",
       alignItems: "center",
-
       justifyContent: "center",
       transform: textRotation !== 0 ? `rotate(${textRotation}deg)` : "none",
       transformOrigin: "center center",
       outline: "none",
       border: "none",
+      // Ensure wrapper has enough space for rotated content at any angle
+      minWidth: minWrapperSize,
+      minHeight: minWrapperSize,
     }
 
     const contentStyle: React.CSSProperties = {
@@ -3689,9 +3720,9 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
               ) : (
                 <>
                   {/* Top - Layer Info */}
-                  <div className="flex-shrink-0 grid grid-cols-2 gap-4">
+                  <div className="flex-shrink-0 grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-sm font-semibold text-gray-800 mb-2">Layer Name <span className="text-red-500">*</span></label>
+                      <label className="block text-sm font-semibold text-gray-800 ">Layer Name <span className="text-red-500">*</span></label>
                       <input
                         value={draftName}
                         onChange={(e) => setDraftName(e.target.value)}
@@ -3699,7 +3730,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-gray-800 mb-2">Description (Optional)</label>
+                      <label className="block text-sm font-semibold text-gray-800">Description (Optional)</label>
                       <input
                         value={draftDescription}
                         onChange={(e) => setDraftDescription(e.target.value)}
@@ -3716,7 +3747,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                         <label className="block text-sm font-semibold text-gray-800">Text Content <span className="text-red-500">*</span></label>
 
                         {/* Rich Text Toolbar */}
-                        {/* Rich Text Toolbar */}
+
                         <div className="flex flex-wrap items-center gap-2 p-2 border rounded-t-lg bg-gray-50">
                           <select
                             className="text-xs border rounded px-1 py-1 w-32"
@@ -3752,10 +3783,12 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                             }}
                             value={draftSelectedFont || draftTextFont}
                           >
+
                             {FONT_OPTIONS.map(f => (
                               <option key={f} value={f} style={{ fontFamily: FONT_FAMILY_MAP[f] || f }}>
                                 {f}
                               </option>
+
                             ))}
                           </select>
                           <select
@@ -4178,7 +4211,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                         {/* Content Editable Area */}
                         <div
                           ref={draftTextEditorRef}
-                          className="w-full rounded-b-lg border border-t-0 border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] h-32 overflow-y-auto text-base bg-white [&_*]:!text-[16px]"
+                          className="w-full rounded-b-lg border border-t-0 border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] h-20 overflow-y-auto text-base bg-white [&_*]:!text-[16px] [&_*]:![-webkit-text-stroke-width:0px]"
                           contentEditable
                           onInput={(e) => {
                             const target = e.currentTarget
@@ -5086,7 +5119,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                   {/* Content Editable Area */}
                   <div
                     ref={layerTextEditorRef}
-                    className="w-full rounded-b-lg border border-t-0 border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] h-32 overflow-y-auto text-base bg-white [&_*]:!text-[16px]"
+                    className="w-full rounded-b-lg border border-t-0 border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] h-20 overflow-y-auto text-base bg-white [&_*]:!text-[16px] [&_*]:![-webkit-text-stroke-width:0px]"
                     contentEditable
                     onInput={(e) => {
                       const target = e.currentTarget
