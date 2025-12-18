@@ -9,7 +9,7 @@ declare module "next-auth" {
     backendTokens?: Tokens
     isNewUser?: boolean
   }
-  
+
   interface Session {
     backendTokens?: Tokens
     isNewUser?: boolean

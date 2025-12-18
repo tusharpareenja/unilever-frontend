@@ -311,7 +311,7 @@ export default function TasksPage() {
   }, [])
 
   useEffect(() => {
-    if (!Array.isArray(tasks) || tasks.length === 0) return
+    if (!Array.isArray(tasks) || tasks.length === 0 || studyType === "text") return
     try {
       const allLayerUrls: string[] = Array.from(
         new Set(
@@ -326,7 +326,7 @@ export default function TasksPage() {
         imageCacheManager.prewarmUrls(allWithBg, "high")
       }
     } catch { }
-  }, [totalTasks, backgroundUrl])
+  }, [totalTasks, backgroundUrl, studyType])
 
   useEffect(() => {
     if (tasks.length === 0) return
@@ -352,7 +352,9 @@ export default function TasksPage() {
         urls.push(backgroundUrl)
       }
 
-      await imageCacheManager.prewarmUrls(urls, "critical")
+      if (urls.length > 0 && studyType !== "text") {
+        await imageCacheManager.prewarmUrls(urls, "critical")
+      }
     }
 
     preloadCurrentTask()
@@ -1031,8 +1033,8 @@ export default function TasksPage() {
                                 key={n}
                                 onClick={() => handleSelect(n)}
                                 className={`h-10 w-10 sm:h-12 sm:w-12 rounded-full border-2 transition-colors text-sm sm:text-base font-semibold flex-shrink-0 ${selected
-                                    ? "bg-[rgba(38,116,186,1)] text-white border-[rgba(38,116,186,1)]"
-                                    : "bg-white text-gray-700 border-gray-300 hover:border-gray-400"
+                                  ? "bg-[rgba(38,116,186,1)] text-white border-[rgba(38,116,186,1)]"
+                                  : "bg-white text-gray-700 border-gray-300 hover:border-gray-400"
                                   }`}
                                 onMouseEnter={() => {
                                   hoverCountsRef.current[n] = (hoverCountsRef.current[n] || 0) + 1
@@ -1374,8 +1376,8 @@ export default function TasksPage() {
                                 key={n}
                                 onClick={() => handleSelect(n)}
                                 className={`h-11 w-11 lg:h-12 lg:w-12 xl:h-14 xl:w-14 rounded-full border-2 transition-colors text-sm lg:text-base xl:text-lg font-semibold flex-shrink-0 ${selected
-                                    ? "bg-[rgba(38,116,186,1)] text-white border-[rgba(38,116,186,1)]"
-                                    : "bg-white text-gray-700 border-gray-300 hover:border-gray-400"
+                                  ? "bg-[rgba(38,116,186,1)] text-white border-[rgba(38,116,186,1)]"
+                                  : "bg-white text-gray-700 border-gray-300 hover:border-gray-400"
                                   }`}
                                 onMouseEnter={() => {
                                   hoverCountsRef.current[n] = (hoverCountsRef.current[n] || 0) + 1

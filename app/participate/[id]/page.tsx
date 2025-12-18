@@ -28,25 +28,25 @@ export default function ParticipateIntroPage() {
         router.push(`/participate/${params.id}/thank-you`)
         return
       }
-    } catch {}
+    } catch { }
 
     // Capture rid query once and store in localStorage for post-completion redirect
     try {
       // Method 1: Using Next.js useSearchParams
       const ridFromSearchParams = searchParams.get('rid')
       console.log('Rid from useSearchParams:', ridFromSearchParams) // Debug log
-      
+
       // Method 2: Using window.location.search as fallback
       const search = typeof window !== 'undefined' ? window.location.search : ''
       console.log('URL search params:', search) // Debug log
-      
+
       let rid = ridFromSearchParams
       if (!rid && search) {
         const urlParams = new URLSearchParams(search)
         rid = urlParams.get('rid')
         console.log('Found rid from URLSearchParams:', rid) // Debug log
       }
-      
+
       if (rid) {
         localStorage.setItem('redirect_rid', rid)
         console.log('Stored rid in localStorage:', rid) // Debug log
@@ -59,7 +59,7 @@ export default function ParticipateIntroPage() {
 
     const fetchStudyDetails = async () => {
       if (!params?.id) return
-      
+
       try {
         const details = await getStudyDetailsWithoutAuth(params.id)
         setStudyDetails(details)
@@ -72,31 +72,37 @@ export default function ParticipateIntroPage() {
             details.study_layers.forEach((layer: any) => {
               (layer?.images || []).forEach((img: any) => img?.url && urls.add(String(img.url)))
             })
+          } else if (details?.study_type === 'text') {
+            // For text studies, we don't need to preload images in this way
+            console.log('Skipping image preloading for text study type')
           }
-          // Fallback: scan tasks map if present
-          const tasksObj: any = (details as any)?.tasks || {}
-          if (tasksObj && typeof tasksObj === 'object') {
-            const arrays = Array.isArray(tasksObj) ? tasksObj : Object.values(tasksObj).flat?.() || []
-            arrays.forEach((t: any) => {
-              const content = t?.elements_shown_content || {}
-              Object.values(content).forEach((v: any) => {
-                if (v && typeof v === 'object' && v.url) urls.add(String(v.url))
-                if (typeof v === 'string') urls.add(String(v))
+
+          if (urls.size > 0 && details?.study_type !== 'text') {
+            // Fallback: scan tasks map if present
+            const tasksObj: any = (details as any)?.tasks || {}
+            if (tasksObj && typeof tasksObj === 'object') {
+              const arrays = Array.isArray(tasksObj) ? tasksObj : Object.values(tasksObj).flat?.() || []
+              arrays.forEach((t: any) => {
+                const content = t?.elements_shown_content || {}
+                Object.values(content).forEach((v: any) => {
+                  if (v && typeof v === 'object' && v.url) urls.add(String(v.url))
+                  if (typeof v === 'string') urls.add(String(v))
+                })
               })
-            })
+            }
+            Array.from(urls).forEach((src) => { try { const img = new Image(); (img as any).decoding = 'async'; (img as any).referrerPolicy = 'no-referrer'; img.src = src } catch { } })
           }
-          Array.from(urls).forEach((src) => { try { const img = new Image(); (img as any).decoding = 'async'; (img as any).referrerPolicy = 'no-referrer'; img.src = src } catch {} })
-        } catch {}
+        } catch { }
       } catch (error: unknown) {
         console.error('Failed to fetch study details:', error)
-        
+
         // Handle specific error messages from backend
         if (error && typeof error === 'object') {
           const errorObj = error as any
           const errorMessage = errorObj?.message || errorObj?.data?.detail || errorObj?.data?.message
-          
-         
-          
+
+
+
           // Check for specific status error messages
           if (errorMessage?.includes('paused') || errorMessage?.includes('draft')) {
             setStatusError('Sorry, the study is paused. Please ask the owner to activate the study.')
@@ -121,7 +127,7 @@ export default function ParticipateIntroPage() {
   // Use real data from API or fallback values
   const studyTitle = studyDetails?.title || "Study Title"
   const estimatedTime = "2-5 minutes" // Keep as requested
-  const studyType = studyDetails?.study_type === "grid" ? "Grid Study" : "Layer Study"
+  const studyType = studyDetails?.study_type === "grid" ? "Grid Study" : studyDetails?.study_type === "text" ? "Text Study" : "Layer Study"
   const orientationText = studyDetails?.orientation_text || "Welcome to the study!"
   const totalVignettes = studyDetails?.tasks_per_respondent || 3
 
@@ -137,7 +143,7 @@ export default function ParticipateIntroPage() {
       const metrics = JSON.parse(localStorage.getItem('session_metrics') || '{}')
       metrics.orientation_page_time = elapsed
       localStorage.setItem('session_metrics', JSON.stringify(metrics))
-    } catch {}
+    } catch { }
 
     try {
       // Ensure study details request is at least triggered
@@ -146,7 +152,7 @@ export default function ParticipateIntroPage() {
       }
 
       const response = await startStudy(params.id)
-      
+
 
       // Store session data
       localStorage.setItem('study_session', JSON.stringify({
@@ -169,7 +175,7 @@ export default function ParticipateIntroPage() {
         // This is the primary source since transforms are included in each task's elements_shown_content
         const layerTransforms: Record<string, { x: number; y: number; width: number; height: number }> = {}
         const derivedMap: Record<string, { name: string; z_index: number; transform: any }> = {}
-        
+
         try {
           const buckets: any[] = Array.isArray(respondentDetails?.assigned_tasks)
             ? respondentDetails.assigned_tasks
@@ -198,7 +204,7 @@ export default function ParticipateIntroPage() {
               })
             })
           })
-        } catch {}
+        } catch { }
 
         // Use layers from API if available, otherwise use derived from tasks
         let layersArr: any[] = Array.isArray(respondentDetails?.layers) && respondentDetails.layers.length > 0
@@ -209,40 +215,40 @@ export default function ParticipateIntroPage() {
         // store ONLY the transform for keys where elements_shown === 1
         const compactAssignedTasks: any[] = Array.isArray(respondentDetails?.assigned_tasks)
           ? (respondentDetails.assigned_tasks as any[]).map((taskList: any[]) => {
-              if (!Array.isArray(taskList)) return []
-              return taskList.map((t: any) => {
-                const shown = t?.elements_shown || {}
-                const content = t?.elements_shown_content || {}
-                const compactContent: Record<string, any> = {}
-                try {
-                  Object.keys(shown || {}).forEach((k) => {
-                    if (Number(shown[k]) === 1) {
-                      const v = content?.[k]
-                      if (v && typeof v === 'object' && v.transform) {
-                        const tf = v.transform
-                        compactContent[k] = {
-                          url: String(v.url || ''),
-                          z_index: Number(v.z_index ?? 0),
-                          layer_name: String(v.layer_name || ''),
-                          transform: {
-                            x: Number(tf.x) || 0,
-                            y: Number(tf.y) || 0,
-                            width: Number(tf.width) || 100,
-                            height: Number(tf.height) || 100,
-                          },
-                        }
+            if (!Array.isArray(taskList)) return []
+            return taskList.map((t: any) => {
+              const shown = t?.elements_shown || {}
+              const content = t?.elements_shown_content || {}
+              const compactContent: Record<string, any> = {}
+              try {
+                Object.keys(shown || {}).forEach((k) => {
+                  if (Number(shown[k]) === 1) {
+                    const v = content?.[k]
+                    if (v && typeof v === 'object' && v.transform) {
+                      const tf = v.transform
+                      compactContent[k] = {
+                        url: String(v.url || ''),
+                        z_index: Number(v.z_index ?? 0),
+                        layer_name: String(v.layer_name || ''),
+                        transform: {
+                          x: Number(tf.x) || 0,
+                          y: Number(tf.y) || 0,
+                          width: Number(tf.width) || 100,
+                          height: Number(tf.height) || 100,
+                        },
                       }
                     }
-                  })
-                } catch {}
-                return {
-                  task_id: t?.task_id,
-                  task_index: t?.task_index,
-                  elements_shown: shown,
-                  elements_shown_content: compactContent,
-                }
-              })
+                  }
+                })
+              } catch { }
+              return {
+                task_id: t?.task_id,
+                task_index: t?.task_index,
+                elements_shown: shown,
+                elements_shown_content: compactContent,
+              }
             })
+          })
           : []
 
         // If compaction produced empty buckets, fall back to original assigned_tasks
@@ -252,7 +258,7 @@ export default function ParticipateIntroPage() {
         // Store only the essential data to avoid localStorage quota issues
         // Extract aspect_ratio from response (could be at root level or in metadata)
         const aspectRatio = respondentDetails?.aspect_ratio || respondentDetails?.metadata?.aspect_ratio || null
-        
+
         const essentialData = {
           study_info: { ...normalizedInfo, study_layers: layersArr },
           assigned_tasks: assignedTasksToStore,
@@ -264,12 +270,12 @@ export default function ParticipateIntroPage() {
           ...(respondentDetails?.respondent_id ? { respondent_id: respondentDetails.respondent_id } : {}),
           ...(respondentDetails?.study_id ? { study_id: respondentDetails.study_id } : {})
         }
-        
-          
-        
+
+
+
         localStorage.setItem('current_study_details', JSON.stringify(essentialData))
       } catch (e) {
-      
+
         // Fallback to old method if new API fails
         if (studyDetails) {
           const tasksSrc: any = studyDetails?.tasks || studyDetails?.data?.tasks || studyDetails?.task_map || studyDetails?.task || {}
@@ -284,13 +290,13 @@ export default function ParticipateIntroPage() {
               for (const v of Object.values(tasksSrc)) { if (Array.isArray(v) && v.length) { userTasks = v; break } }
             }
           }
-          
+
           // Store only essential data to avoid localStorage quota issues
           // Preserve existing classification_questions if they exist
           const existingData = localStorage.getItem('current_study_details')
           const parsedExistingDetails = existingData ? JSON.parse(existingData) : {}
           const existingClassificationQuestions = parsedExistingDetails?.classification_questions || []
-          
+
           const essentialData = {
             study_info: {
               study_type: studyDetails?.study_type,
@@ -301,11 +307,11 @@ export default function ParticipateIntroPage() {
             assigned_tasks: userTasks,
             classification_questions: existingClassificationQuestions
           }
-          
+
           try {
             localStorage.setItem('current_study_details', JSON.stringify(essentialData))
           } catch (e) {
-            
+
           }
         }
       }
@@ -313,95 +319,95 @@ export default function ParticipateIntroPage() {
       // Navigate only after session and (if present) details are stored
       router.push(startHref)
 
-      // Background: fetch study details using new API endpoint
-      ;(async () => {
-        try {
-          const details: any = await getStudyDetailsForStart(params.id)
-          if (!details) {
-            console.error('[Participate] No study details found for study:', params.id)
-            return
-          }
-          
-          console.log('[Participate] Study details received:', {
-            study_id: params.id,
-            hasTasks: !!(details?.tasks),
-            hasDataTasks: !!(details?.data?.tasks),
-            hasTaskMap: !!(details?.task_map),
-            hasTask: !!(details?.task),
-            tasksType: typeof details?.tasks,
-            dataTasksType: typeof details?.data?.tasks,
-            taskMapType: typeof details?.task_map,
-            taskType: typeof details?.task
-          })
-          
-          const tasksSrc: any = details?.tasks || details?.data?.tasks || details?.task_map || details?.task || {}
-          let userTasks: any[] = []
-          
-          if (Array.isArray(tasksSrc)) {
-            userTasks = tasksSrc
-            console.log('[Participate] Tasks found as array, count:', userTasks.length)
-          } else if (tasksSrc && typeof tasksSrc === 'object') {
-            const rk = String(response.respondent_id ?? 0)
-            userTasks = tasksSrc?.[rk] || tasksSrc?.[Number(rk)] || []
-            console.log('[Participate] Tasks found as object, respondent_id:', rk, 'tasks count:', userTasks.length)
-            if (!Array.isArray(userTasks) || userTasks.length === 0) {
-              console.log('[Participate] No tasks for respondent, trying fallback...')
-              for (const v of Object.values(tasksSrc)) { 
-                if (Array.isArray(v) && v.length) { 
-                  userTasks = v; 
-                  console.log('[Participate] Found fallback tasks, count:', userTasks.length)
-                  break 
-                } 
+        // Background: fetch study details using new API endpoint
+        ; (async () => {
+          try {
+            const details: any = await getStudyDetailsForStart(params.id)
+            if (!details) {
+              console.error('[Participate] No study details found for study:', params.id)
+              return
+            }
+
+            console.log('[Participate] Study details received:', {
+              study_id: params.id,
+              hasTasks: !!(details?.tasks),
+              hasDataTasks: !!(details?.data?.tasks),
+              hasTaskMap: !!(details?.task_map),
+              hasTask: !!(details?.task),
+              tasksType: typeof details?.tasks,
+              dataTasksType: typeof details?.data?.tasks,
+              taskMapType: typeof details?.task_map,
+              taskType: typeof details?.task
+            })
+
+            const tasksSrc: any = details?.tasks || details?.data?.tasks || details?.task_map || details?.task || {}
+            let userTasks: any[] = []
+
+            if (Array.isArray(tasksSrc)) {
+              userTasks = tasksSrc
+              console.log('[Participate] Tasks found as array, count:', userTasks.length)
+            } else if (tasksSrc && typeof tasksSrc === 'object') {
+              const rk = String(response.respondent_id ?? 0)
+              userTasks = tasksSrc?.[rk] || tasksSrc?.[Number(rk)] || []
+              console.log('[Participate] Tasks found as object, respondent_id:', rk, 'tasks count:', userTasks.length)
+              if (!Array.isArray(userTasks) || userTasks.length === 0) {
+                console.log('[Participate] No tasks for respondent, trying fallback...')
+                for (const v of Object.values(tasksSrc)) {
+                  if (Array.isArray(v) && v.length) {
+                    userTasks = v;
+                    console.log('[Participate] Found fallback tasks, count:', userTasks.length)
+                    break
+                  }
+                }
               }
             }
-          }
-          
-          console.log('[Participate] Final user tasks count:', userTasks.length)
-          if (userTasks.length === 0) {
-            console.error('[Participate] No tasks available for study:', params.id, 'This may indicate a study_id mismatch issue.')
-          }
-          
-          // Store only essential data to avoid localStorage quota issues
-          // Preserve existing classification_questions if they exist
-          const existingData = localStorage.getItem('current_study_details')
-          const parsedExistingDetails = existingData ? JSON.parse(existingData) : {}
-          const existingClassificationQuestions = parsedExistingDetails?.classification_questions || []
-          
-          const backgroundUrl = details?.metadata?.background_image_url || details?.background_image_url || null
-          const essentialData = {
-            study_info: {
-              study_type: details?.study_type,
-              main_question: details?.main_question,
-              orientation_text: details?.orientation_text,
-              rating_scale: details?.rating_scale,
-              metadata: backgroundUrl ? { background_image_url: backgroundUrl } : undefined,
-            },
-            // Preserve compact assigned_tasks with transforms if already stored
-            assigned_tasks: Array.isArray(parsedExistingDetails?.assigned_tasks) ? parsedExistingDetails.assigned_tasks : userTasks,
-            classification_questions: existingClassificationQuestions,
-          }
 
-          try {
-            // Preserve layers and transforms if already stored from respondent details call
-            const existingRaw = localStorage.getItem('current_study_details')
-            const existing = existingRaw ? JSON.parse(existingRaw) : {}
-            const merged = {
-              ...existing,
-              ...essentialData,
-              study_info: { ...(existing?.study_info || {}), ...(essentialData.study_info || {}) },
-              layers: existing?.layers || [],
-              layers_transforms: existing?.layers_transforms || {},
+            console.log('[Participate] Final user tasks count:', userTasks.length)
+            if (userTasks.length === 0) {
+              console.error('[Participate] No tasks available for study:', params.id, 'This may indicate a study_id mismatch issue.')
             }
-            localStorage.setItem('current_study_details', JSON.stringify(merged))
+
+            // Store only essential data to avoid localStorage quota issues
+            // Preserve existing classification_questions if they exist
+            const existingData = localStorage.getItem('current_study_details')
+            const parsedExistingDetails = existingData ? JSON.parse(existingData) : {}
+            const existingClassificationQuestions = parsedExistingDetails?.classification_questions || []
+
+            const backgroundUrl = details?.metadata?.background_image_url || details?.background_image_url || null
+            const essentialData = {
+              study_info: {
+                study_type: details?.study_type,
+                main_question: details?.main_question,
+                orientation_text: details?.orientation_text,
+                rating_scale: details?.rating_scale,
+                metadata: backgroundUrl ? { background_image_url: backgroundUrl } : undefined,
+              },
+              // Preserve compact assigned_tasks with transforms if already stored
+              assigned_tasks: Array.isArray(parsedExistingDetails?.assigned_tasks) ? parsedExistingDetails.assigned_tasks : userTasks,
+              classification_questions: existingClassificationQuestions,
+            }
+
+            try {
+              // Preserve layers and transforms if already stored from respondent details call
+              const existingRaw = localStorage.getItem('current_study_details')
+              const existing = existingRaw ? JSON.parse(existingRaw) : {}
+              const merged = {
+                ...existing,
+                ...essentialData,
+                study_info: { ...(existing?.study_info || {}), ...(essentialData.study_info || {}) },
+                layers: existing?.layers || [],
+                layers_transforms: existing?.layers_transforms || {},
+              }
+              localStorage.setItem('current_study_details', JSON.stringify(merged))
+            } catch (e) {
+
+            }
           } catch (e) {
-            
+
           }
-        } catch (e) {
-          
-        }
-      })()
+        })()
     } catch (error) {
-      
+
       alert('Failed to start the study. Please try again in a moment.')
     } finally {
       setIsStarting(false)
@@ -411,7 +417,7 @@ export default function ParticipateIntroPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-white pb-28 sm:pb-12">
-        
+
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 sm:pt-14">
           <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[rgba(38,116,186,1)]"></div>
@@ -450,7 +456,7 @@ export default function ParticipateIntroPage() {
 
   return (
     <div className="min-h-screen bg-white pb-28 sm:pb-12">
-      
+
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 sm:pt-14">
         <h1 className="text-3xl sm:text-4xl font-extrabold text-center text-gray-900">{studyTitle}</h1>
         <p className="mt-2 text-center text-sm sm:text-base text-gray-600">Thank you for participating in this research study.</p>

@@ -20,136 +20,142 @@ export default function ParticipateIntroPage() {
       const step5layer = JSON.parse(localStorage.getItem('cs_step5_layer') || '[]')
       const step7matrix = JSON.parse(localStorage.getItem('cs_step7_matrix') || '{}')
       const layerBg = JSON.parse(localStorage.getItem('cs_step5_layer_background') || '{}')
-      
+
       console.log('[Preview] Step2:', step2)
       console.log('[Preview] Step7 Matrix:', step7matrix)
-      
+
       // Preload all study assets
       const urls = new Set<string>()
-      
-      // Add background image for layer studies
-      if (layerBg?.secureUrl) {
-        urls.add(String(layerBg.secureUrl))
-        console.log('[Preview] Adding background URL:', layerBg.secureUrl)
-      }
-      
-      // Add grid elements
-      if (step2?.type === 'grid') {
-        (Array.isArray(step5grid) ? step5grid : []).forEach((e: Record<string, unknown>) => {
-          if (e?.secureUrl) {
-            urls.add(String(e.secureUrl))
-            console.log('[Preview] Adding grid URL:', e.secureUrl)
-          }
-        })
-      } 
-      
-      // Add layer images
-      if (step2?.type === 'layer') {
-        (Array.isArray(step5layer) ? step5layer : []).forEach((l: Record<string, unknown>) => {
-          (Array.isArray(l?.images) ? l.images : []).forEach((img: Record<string, unknown>) => {
-            if (img?.secureUrl) {
-              urls.add(String(img.secureUrl))
-              console.log('[Preview] Adding layer URL:', img.secureUrl)
+
+      if (step2?.type === 'text') {
+        console.log('[Preview] Skipping image preloading for text study type')
+      } else {
+        // Add background image for layer studies
+        if (layerBg?.secureUrl) {
+          urls.add(String(layerBg.secureUrl))
+          console.log('[Preview] Adding background URL:', layerBg.secureUrl)
+        }
+
+        // Add grid elements
+        if (step2?.type === 'grid') {
+          (Array.isArray(step5grid) ? step5grid : []).forEach((e: Record<string, unknown>) => {
+            if (e?.secureUrl) {
+              urls.add(String(e.secureUrl))
+              console.log('[Preview] Adding grid URL:', e.secureUrl)
             }
           })
-        })
-      }
-      
-      // Add task images from matrix
-      if (step7matrix && typeof step7matrix === 'object') {
-        // Check for new preview format first
-        if (Array.isArray(step7matrix.preview_tasks)) {
-          console.log('[Preview] Found preview_tasks:', step7matrix.preview_tasks.length)
-          step7matrix.preview_tasks.forEach((t: any) => {
-            const content = t?.elements_shown_content || {}
-            Object.values(content).forEach((v: any) => {
-              // Handle layer study format: {url: "...", layer_name: "...", name: "...", z_index: 0}
-              if (v && typeof v === 'object' && v.url && typeof v.url === 'string' && v.url.startsWith('http')) {
-                urls.add(String(v.url))
-                console.log('[Preview] Adding task layer URL:', v.url)
-              }
-              // Handle other URL formats
-              else if (v && typeof v === 'object') {
-                if (v.content && typeof v.content === 'string' && v.content.startsWith('http')) {
-                  urls.add(String(v.content))
-                  console.log('[Preview] Adding task content URL:', v.content)
-                }
-              } else if (typeof v === 'string' && v.startsWith('http')) {
-                urls.add(String(v))
-                console.log('[Preview] Adding task string URL:', v)
-              }
-            })
-          })
-        } else if (Array.isArray(step7matrix.tasks)) {
-          console.log('[Preview] Found tasks array:', step7matrix.tasks.length)
-          step7matrix.tasks.forEach((t: any) => {
-            const content = t?.elements_shown_content || {}
-            Object.values(content).forEach((v: any) => {
-              // Handle layer study format: {url: "...", layer_name: "...", name: "...", z_index: 0}
-              if (v && typeof v === 'object' && v.url && typeof v.url === 'string' && v.url.startsWith('http')) {
-                urls.add(String(v.url))
-                console.log('[Preview] Adding task layer URL:', v.url)
-              }
-              // Handle other URL formats
-              else if (v && typeof v === 'object') {
-                if (v.content && typeof v.content === 'string' && v.content.startsWith('http')) {
-                  urls.add(String(v.content))
-                  console.log('[Preview] Adding task content URL:', v.content)
-                }
-              } else if (typeof v === 'string' && v.startsWith('http')) {
-                urls.add(String(v))
-                console.log('[Preview] Adding task string URL:', v)
-              }
-            })
-          })
-        } else if (step7matrix.tasks && typeof step7matrix.tasks === 'object') {
-          const buckets = step7matrix.tasks as Record<string, any>
-          // Prefer bucket "0" if present; otherwise pick the first non-empty array
-          let respondentTasks: any[] = []
-          if (Array.isArray(buckets['0']) && buckets['0'].length) {
-            respondentTasks = buckets['0']
-          } else {
-            for (const v of Object.values(buckets)) {
-              if (Array.isArray(v) && v.length) { respondentTasks = v; break }
-            }
-          }
-          console.log('[Preview] Found bucket tasks:', respondentTasks.length)
-          respondentTasks.forEach((t: any) => {
-            const content = t?.elements_shown_content || {}
-            Object.values(content).forEach((v: any) => {
-              // Handle layer study format: {url: "...", layer_name: "...", name: "...", z_index: 0}
-              if (v && typeof v === 'object' && v.url && typeof v.url === 'string' && v.url.startsWith('http')) {
-                urls.add(String(v.url))
-                console.log('[Preview] Adding bucket task layer URL:', v.url)
-              }
-              // Handle other URL formats
-              else if (v && typeof v === 'object') {
-                if (v.content && typeof v.content === 'string' && v.content.startsWith('http')) {
-                  urls.add(String(v.content))
-                  console.log('[Preview] Adding bucket task content URL:', v.content)
-                }
-              } else if (typeof v === 'string' && v.startsWith('http')) {
-                urls.add(String(v))
-                console.log('[Preview] Adding bucket task string URL:', v)
+        }
+
+        // Add layer images
+        if (step2?.type === 'layer') {
+          (Array.isArray(step5layer) ? step5layer : []).forEach((l: Record<string, unknown>) => {
+            (Array.isArray(l?.images) ? l.images : []).forEach((img: Record<string, unknown>) => {
+              if (img?.secureUrl) {
+                urls.add(String(img.secureUrl))
+                console.log('[Preview] Adding layer URL:', img.secureUrl)
               }
             })
           })
         }
+
+        // Add task images from matrix
+        if (step7matrix && typeof step7matrix === 'object') {
+          // Check for new preview format first
+          if (Array.isArray(step7matrix.preview_tasks)) {
+            console.log('[Preview] Found preview_tasks:', step7matrix.preview_tasks.length)
+            step7matrix.preview_tasks.forEach((t: any) => {
+              const content = t?.elements_shown_content || {}
+              Object.values(content).forEach((v: any) => {
+                // Handle layer study format: {url: "...", layer_name: "...", name: "...", z_index: 0}
+                if (v && typeof v === 'object' && v.url && typeof v.url === 'string' && v.url.startsWith('http')) {
+                  urls.add(String(v.url))
+                  console.log('[Preview] Adding task layer URL:', v.url)
+                }
+                // Handle other URL formats
+                else if (v && typeof v === 'object') {
+                  if (v.content && typeof v.content === 'string' && v.content.startsWith('http')) {
+                    urls.add(String(v.content))
+                    console.log('[Preview] Adding task content URL:', v.content)
+                  }
+                } else if (typeof v === 'string' && v.startsWith('http')) {
+                  urls.add(String(v))
+                  console.log('[Preview] Adding task string URL:', v)
+                }
+              })
+            })
+          } else if (Array.isArray(step7matrix.tasks)) {
+            console.log('[Preview] Found tasks array:', step7matrix.tasks.length)
+            step7matrix.tasks.forEach((t: any) => {
+              const content = t?.elements_shown_content || {}
+              Object.values(content).forEach((v: any) => {
+                // Handle layer study format: {url: "...", layer_name: "...", name: "...", z_index: 0}
+                if (v && typeof v === 'object' && v.url && typeof v.url === 'string' && v.url.startsWith('http')) {
+                  urls.add(String(v.url))
+                  console.log('[Preview] Adding task layer URL:', v.url)
+                }
+                // Handle other URL formats
+                else if (v && typeof v === 'object') {
+                  if (v.content && typeof v.content === 'string' && v.content.startsWith('http')) {
+                    urls.add(String(v.content))
+                    console.log('[Preview] Adding task content URL:', v.content)
+                  }
+                } else if (typeof v === 'string' && v.startsWith('http')) {
+                  urls.add(String(v))
+                  console.log('[Preview] Adding task string URL:', v)
+                }
+              })
+            })
+          } else if (step7matrix.tasks && typeof step7matrix.tasks === 'object') {
+            const buckets = step7matrix.tasks as Record<string, any>
+            // Prefer bucket "0" if present; otherwise pick the first non-empty array
+            let respondentTasks: any[] = []
+            if (Array.isArray(buckets['0']) && buckets['0'].length) {
+              respondentTasks = buckets['0']
+            } else {
+              for (const v of Object.values(buckets)) {
+                if (Array.isArray(v) && v.length) { respondentTasks = v; break }
+              }
+            }
+            console.log('[Preview] Found bucket tasks:', respondentTasks.length)
+            respondentTasks.forEach((t: any) => {
+              const content = t?.elements_shown_content || {}
+              Object.values(content).forEach((v: any) => {
+                // Handle layer study format: {url: "...", layer_name: "...", name: "...", z_index: 0}
+                if (v && typeof v === 'object' && v.url && typeof v.url === 'string' && v.url.startsWith('http')) {
+                  urls.add(String(v.url))
+                  console.log('[Preview] Adding bucket task layer URL:', v.url)
+                }
+                // Handle other URL formats
+                else if (v && typeof v === 'object') {
+                  if (v.content && typeof v.content === 'string' && v.content.startsWith('http')) {
+                    urls.add(String(v.content))
+                    console.log('[Preview] Adding bucket task content URL:', v.content)
+                  }
+                } else if (typeof v === 'string' && v.startsWith('http')) {
+                  urls.add(String(v))
+                  console.log('[Preview] Adding bucket task string URL:', v)
+                }
+              })
+            })
+          }
+        }
       }
-      
+
       // Preload all images
-      console.log('[Preview] Preloading', urls.size, 'images from localStorage')
-      Array.from(urls).forEach((src) => { 
-        try { 
-          console.log('[Preview] Preloading image:', src)
-          const img = new Image()
-          ;(img as any).decoding = 'async'
-          ;(img as any).referrerPolicy = 'no-referrer'
-          img.src = src 
-        } catch (e) {
-          console.error('[Preview] Failed to preload:', src, e)
-        } 
-      })
+      if (urls.size > 0) {
+        console.log('[Preview] Preloading', urls.size, 'images from localStorage')
+        Array.from(urls).forEach((src) => {
+          try {
+            console.log('[Preview] Preloading image:', src)
+            const img = new Image()
+              ; (img as any).decoding = 'async'
+              ; (img as any).referrerPolicy = 'no-referrer'
+            img.src = src
+          } catch (e) {
+            console.error('[Preview] Failed to preload:', src, e)
+          }
+        })
+      }
     } catch (e) {
       console.error('[Preview] Error in useEffect:', e)
     }
@@ -157,16 +163,16 @@ export default function ParticipateIntroPage() {
   }, [])
 
   // Derive UI strings from steps
-  const step1 = (()=>{ try{ return JSON.parse(localStorage.getItem('cs_step1')||'{}') }catch{return {}} })()
-  const step2 = (()=>{ try{ return JSON.parse(localStorage.getItem('cs_step2')||'{}') }catch{return {}} })()
-  const step6 = (()=>{ try{ return JSON.parse(localStorage.getItem('cs_step6')||'{}') }catch{return {}} })()
-  const step7matrix = (()=>{ try{ return JSON.parse(localStorage.getItem('cs_step7_matrix')||'{}') }catch{return {}} })()
-  
+  const step1 = (() => { try { return JSON.parse(localStorage.getItem('cs_step1') || '{}') } catch { return {} } })()
+  const step2 = (() => { try { return JSON.parse(localStorage.getItem('cs_step2') || '{}') } catch { return {} } })()
+  const step6 = (() => { try { return JSON.parse(localStorage.getItem('cs_step6') || '{}') } catch { return {} } })()
+  const step7matrix = (() => { try { return JSON.parse(localStorage.getItem('cs_step7_matrix') || '{}') } catch { return {} } })()
+
   const studyTitle = step1?.title || "Study Title"
   const estimatedTime = "2-5 minutes"
   const orientationText = step2?.orientationText || "Welcome to the study!"
-  const studyType = step2?.type === "layer" ? "Layer Study" : "Grid Study"
-  
+  const studyType = step2?.type === "layer" ? "Layer Study" : step2?.type === "text" ? "Text Study" : "Grid Study"
+
   // Calculate total number of tasks
   let totalTasks = 0
   if (step7matrix && typeof step7matrix === 'object') {
@@ -180,121 +186,128 @@ export default function ParticipateIntroPage() {
         totalTasks = buckets['0'].length
       } else {
         for (const v of Object.values(buckets)) {
-          if (Array.isArray(v) && v.length) { 
+          if (Array.isArray(v) && v.length) {
             totalTasks = v.length
-            break 
+            break
           }
         }
       }
     }
   }
-  
+
   const totalVignettes = totalTasks || 0
   const startHref = '/home/create-study/preview/personal-information'
 
   const handleStartStudy = async () => {
     if (isStarting) return
-    
+
     setIsStarting(true)
-    
+
     // Additional preloading when user clicks Start Study
     try {
-      const step7matrix = JSON.parse(localStorage.getItem('cs_step7_matrix') || '{}')
-      const layerBg = JSON.parse(localStorage.getItem('cs_step5_layer_background') || '{}')
-      
-      const urls = new Set<string>()
-      
-      // Add background image
-      if (layerBg?.secureUrl) {
-        urls.add(String(layerBg.secureUrl))
-      }
-      
-      // Add all task images from matrix
-      if (step7matrix && typeof step7matrix === 'object') {
-        if (Array.isArray(step7matrix.preview_tasks)) {
-          step7matrix.preview_tasks.forEach((t: any) => {
-            const content = t?.elements_shown_content || {}
-            Object.values(content).forEach((v: any) => {
-              // Handle layer study format: {url: "...", layer_name: "...", name: "...", z_index: 0}
-              if (v && typeof v === 'object' && v.url && typeof v.url === 'string' && v.url.startsWith('http')) {
-                urls.add(String(v.url))
-              }
-              // Handle other URL formats
-              else if (v && typeof v === 'object') {
-                if (v.content && typeof v.content === 'string' && v.content.startsWith('http')) {
-                  urls.add(String(v.content))
+      const step2 = JSON.parse(localStorage.getItem('cs_step2') || '{}')
+      if (step2?.type === 'text') {
+        console.log('[Preview] Start Study - Skipping image preloading for text study type')
+      } else {
+        const step7matrix = JSON.parse(localStorage.getItem('cs_step7_matrix') || '{}')
+        const layerBg = JSON.parse(localStorage.getItem('cs_step5_layer_background') || '{}')
+
+        const urls = new Set<string>()
+
+        // Add background image
+        if (layerBg?.secureUrl) {
+          urls.add(String(layerBg.secureUrl))
+        }
+
+        // Add all task images from matrix
+        if (step7matrix && typeof step7matrix === 'object') {
+          if (Array.isArray(step7matrix.preview_tasks)) {
+            step7matrix.preview_tasks.forEach((t: any) => {
+              const content = t?.elements_shown_content || {}
+              Object.values(content).forEach((v: any) => {
+                // Handle layer study format: {url: "...", layer_name: "...", name: "...", z_index: 0}
+                if (v && typeof v === 'object' && v.url && typeof v.url === 'string' && v.url.startsWith('http')) {
+                  urls.add(String(v.url))
                 }
-              } else if (typeof v === 'string' && v.startsWith('http')) {
-                urls.add(String(v))
-              }
-            })
-          })
-        } else if (Array.isArray(step7matrix.tasks)) {
-          step7matrix.tasks.forEach((t: any) => {
-            const content = t?.elements_shown_content || {}
-            Object.values(content).forEach((v: any) => {
-              // Handle layer study format: {url: "...", layer_name: "...", name: "...", z_index: 0}
-              if (v && typeof v === 'object' && v.url && typeof v.url === 'string' && v.url.startsWith('http')) {
-                urls.add(String(v.url))
-              }
-              // Handle other URL formats
-              else if (v && typeof v === 'object') {
-                if (v.content && typeof v.content === 'string' && v.content.startsWith('http')) {
-                  urls.add(String(v.content))
+                // Handle other URL formats
+                else if (v && typeof v === 'object') {
+                  if (v.content && typeof v.content === 'string' && v.content.startsWith('http')) {
+                    urls.add(String(v.content))
+                  }
+                } else if (typeof v === 'string' && v.startsWith('http')) {
+                  urls.add(String(v))
                 }
-              } else if (typeof v === 'string' && v.startsWith('http')) {
-                urls.add(String(v))
-              }
+              })
             })
-          })
-        } else if (step7matrix.tasks && typeof step7matrix.tasks === 'object') {
-          const buckets = step7matrix.tasks as Record<string, any>
-          let respondentTasks: any[] = []
-          if (Array.isArray(buckets['0']) && buckets['0'].length) {
-            respondentTasks = buckets['0']
-          } else {
-            for (const v of Object.values(buckets)) {
-              if (Array.isArray(v) && v.length) { respondentTasks = v; break }
+          } else if (Array.isArray(step7matrix.tasks)) {
+            step7matrix.tasks.forEach((t: any) => {
+              const content = t?.elements_shown_content || {}
+              Object.values(content).forEach((v: any) => {
+                // Handle layer study format: {url: "...", layer_name: "...", name: "...", z_index: 0}
+                if (v && typeof v === 'object' && v.url && typeof v.url === 'string' && v.url.startsWith('http')) {
+                  urls.add(String(v.url))
+                }
+                // Handle other URL formats
+                else if (v && typeof v === 'object') {
+                  if (v.content && typeof v.content === 'string' && v.content.startsWith('http')) {
+                    urls.add(String(v.content))
+                  }
+                } else if (typeof v === 'string' && v.startsWith('http')) {
+                  urls.add(String(v))
+                }
+              })
+            })
+          } else if (step7matrix.tasks && typeof step7matrix.tasks === 'object') {
+            const buckets = step7matrix.tasks as Record<string, any>
+            let respondentTasks: any[] = []
+            if (Array.isArray(buckets['0']) && buckets['0'].length) {
+              respondentTasks = buckets['0']
+            } else {
+              for (const v of Object.values(buckets)) {
+                if (Array.isArray(v) && v.length) { respondentTasks = v; break }
+              }
             }
-          }
-          respondentTasks.forEach((t: any) => {
-            const content = t?.elements_shown_content || {}
-            Object.values(content).forEach((v: any) => {
-              // Handle layer study format: {url: "...", layer_name: "...", name: "...", z_index: 0}
-              if (v && typeof v === 'object' && v.url && typeof v.url === 'string' && v.url.startsWith('http')) {
-                urls.add(String(v.url))
-              }
-              // Handle other URL formats
-              else if (v && typeof v === 'object') {
-                if (v.content && typeof v.content === 'string' && v.content.startsWith('http')) {
-                  urls.add(String(v.content))
+            respondentTasks.forEach((t: any) => {
+              const content = t?.elements_shown_content || {}
+              Object.values(content).forEach((v: any) => {
+                // Handle layer study format: {url: "...", layer_name: "...", name: "...", z_index: 0}
+                if (v && typeof v === 'object' && v.url && typeof v.url === 'string' && v.url.startsWith('http')) {
+                  urls.add(String(v.url))
                 }
-              } else if (typeof v === 'string' && v.startsWith('http')) {
-                urls.add(String(v))
-              }
+                // Handle other URL formats
+                else if (v && typeof v === 'object') {
+                  if (v.content && typeof v.content === 'string' && v.content.startsWith('http')) {
+                    urls.add(String(v.content))
+                  }
+                } else if (typeof v === 'string' && v.startsWith('http')) {
+                  urls.add(String(v))
+                }
+              })
             })
+          }
+        }
+
+        // Preload all images with high priority
+        if (urls.size > 0) {
+          console.log('[Preview] Start Study - Preloading', urls.size, 'images with high priority')
+          Array.from(urls).forEach((src) => {
+            try {
+              console.log('[Preview] High priority preloading:', src)
+              const img = new Image()
+                ; (img as any).decoding = 'async'
+                ; (img as any).referrerPolicy = 'no-referrer'
+                ; (img as any).fetchPriority = 'high'
+              img.src = src
+            } catch (e) {
+              console.error('[Preview] Failed to preload:', src, e)
+            }
           })
         }
       }
-      
-      // Preload all images with high priority
-      console.log('[Preview] Start Study - Preloading', urls.size, 'images with high priority')
-      Array.from(urls).forEach((src) => { 
-        try { 
-          console.log('[Preview] High priority preloading:', src)
-          const img = new Image()
-          ;(img as any).decoding = 'async'
-          ;(img as any).referrerPolicy = 'no-referrer'
-          ;(img as any).fetchPriority = 'high'
-          img.src = src 
-        } catch (e) {
-          console.error('[Preview] Failed to preload:', src, e)
-        } 
-      })
     } catch (e) {
       console.error('[Preview] Error in handleStartStudy:', e)
     }
-    
+
     // Preview mode: do not store anything and just navigate within preview flow
     router.push(startHref)
   }
@@ -302,7 +315,7 @@ export default function ParticipateIntroPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-white pb-28 sm:pb-12">
-        
+
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 sm:pt-14">
           <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[rgba(38,116,186,1)]"></div>
@@ -314,7 +327,7 @@ export default function ParticipateIntroPage() {
 
   return (
     <div className="min-h-screen bg-white pb-28 sm:pb-12">
-      
+
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 sm:pt-14">
         <h1 className="text-3xl sm:text-4xl font-extrabold text-center text-gray-900">{studyTitle}</h1>
         <p className="mt-2 text-center text-sm sm:text-base text-gray-600">Thank you for participating in this research study.</p>
