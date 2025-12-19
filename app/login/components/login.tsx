@@ -29,15 +29,34 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
   const { login } = useAuth()
   const router = useRouter()
 
+  const clearPublicCaches = () => {
+    try {
+      localStorage.removeItem('home_stats_cache')
+      localStorage.removeItem('home_studies_cache')
+
+      // Clear all create-study related localStorage items
+      const keysToRemove = [
+        'cs_step1', 'cs_step2', 'cs_step3', 'cs_step4', 'cs_step5_grid',
+        'cs_step5_layer', 'cs_step5_layer_background', 'cs_step5_layer_preview_aspect',
+        'cs_step6', 'cs_step7_tasks', 'cs_step7_matrix', 'cs_step7_job_state',
+        'cs_step7_timer_state', 'cs_current_step', 'cs_backup_steps',
+        'cs_flash_message', 'cs_resuming_draft', 'cs_study_id', 'cs_is_fresh_start'
+      ]
+      keysToRemove.forEach(key => localStorage.removeItem(key))
+      sessionStorage.removeItem('cs_previous_study_id')
+    } catch { }
+  }
+
   const handleGoogleSignIn = async () => {
     try {
+      clearPublicCaches()
       setIsGoogleLoading(true)
       setErrorMessage("")
       // Use NextAuth.js with callbackUrl to redirect to a custom handler page
-      await signIn("google", { 
+      await signIn("google", {
         callbackUrl: "/auth/callback"
       })
-      
+
     } catch (error) {
       setErrorMessage("Google sign-in failed. Please try again.")
       setIsGoogleLoading(false)
@@ -46,13 +65,14 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
 
   const handleMicrosoftSignIn = async () => {
     try {
+      clearPublicCaches()
       setIsMicrosoftLoading(true)
       setErrorMessage("")
       // Use NextAuth.js with callbackUrl to redirect to a custom handler page
-      await signIn("microsoft-entra-id", { 
+      await signIn("microsoft-entra-id", {
         callbackUrl: "/auth/callback"
       })
-      
+
     } catch (error) {
       setErrorMessage("Microsoft sign-in failed. Please try again.")
       setIsMicrosoftLoading(false)
@@ -63,7 +83,7 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
     const emailOrUsername = formData.get('emailOrUsername') as string
-    
+
     if (!emailOrUsername.trim()) {
       alert("Please enter your email.")
       return
@@ -82,7 +102,7 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
     } catch (err: any) {
       console.error("Forgot password API error:", err)
       let message = "Failed to send reset email. Please try again."
-      
+
       if (err?.data?.detail) {
         if (typeof err.data.detail === 'string') {
           message = err.data.detail
@@ -98,7 +118,7 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
       } else if (err?.message) {
         message = err.message
       }
-      
+
       alert(message)
     } finally {
       setIsSendingReset(false)
@@ -126,6 +146,7 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
             e.preventDefault()
             setErrorMessage("")
             setSuccessMessage("")
+            clearPublicCaches()
             if (!identifier || !password) {
               setErrorMessage("Please enter email and password.")
               return
@@ -136,20 +157,20 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
                 email: identifier,
                 password,
               })
-              
+
               // Store user data and tokens in auth context
               login(response.user, response.tokens)
-              
+
               setSuccessMessage("Logged in successfully.")
-              
+
               // Redirect to home page after successful login
               setTimeout(() => {
                 router.push('/home')
               }, 1000)
-              
+
             } catch (err: unknown) {
               let message = "Login failed."
-              
+
               if ((err as any)?.data?.detail) {
                 // Handle different error formats
                 if (typeof (err as any).data.detail === 'string') {
@@ -168,7 +189,7 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
               } else if ((err as Error)?.message) {
                 message = (err as Error).message
               }
-              
+
               setErrorMessage(message)
             } finally {
               setIsSubmitting(false)
@@ -228,17 +249,17 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
                 Remember me
               </label>
             </div>
-            <button 
-              type="button" 
-              onClick={() => setShowForgotPasswordDialog(true)} 
+            <button
+              type="button"
+              onClick={() => setShowForgotPasswordDialog(true)}
               className="text-sm text-blue-600 hover:text-blue-800 hover:underline transition-colors cursor-pointer"
             >
               Forgot Password ?
             </button>
           </div>
 
-          <Button 
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-full font-medium transition-colors cursor-pointer" 
+          <Button
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-full font-medium transition-colors cursor-pointer"
             disabled={isSubmitting}
           >
             {isSubmitting ? "Logging in..." : "Login"}
@@ -292,10 +313,10 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
               ) : (
                 <>
                   <svg className="w-5 h-5 mr-2" viewBox="0 0 23 23">
-                    <path fill="#f25022" d="M1 1h10v10H1z"/>
-                    <path fill="#00a4ef" d="M12 1h10v10H12z"/>
-                    <path fill="#7fba00" d="M1 12h10v10H1z"/>
-                    <path fill="#ffb900" d="M12 12h10v10H12z"/>
+                    <path fill="#f25022" d="M1 1h10v10H1z" />
+                    <path fill="#00a4ef" d="M12 1h10v10H12z" />
+                    <path fill="#7fba00" d="M1 12h10v10H1z" />
+                    <path fill="#ffb900" d="M12 12h10v10H12z" />
                   </svg>
                   <span className="text-gray-700 font-medium cursor-pointer">Continue with Microsoft</span>
                 </>
@@ -305,9 +326,9 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
 
           <div className="text-center mt-6">
             <span className="text-gray-600">Don&apos;t have an account ? </span>
-            <button 
-              type="button" 
-              onClick={onSwitchToRegister} 
+            <button
+              type="button"
+              onClick={onSwitchToRegister}
               className="text-blue-600 hover:text-blue-800 hover:underline font-medium transition-colors cursor-pointer"
             >
               Sign up
@@ -315,7 +336,7 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
           </div>
         </form>
       </div>
-      
+
       {/* Enhanced Forgot Password Dialog with Blur Background */}
       {showForgotPasswordDialog && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-lg flex items-center justify-center z-50 p-4 animate-fadeIn">
@@ -330,7 +351,7 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
                   ×
                 </button>
               </div>
-              
+
               <p className="text-gray-600 mb-6 leading-relaxed">
                 Enter your email address and we'll send you a link to reset your password.
               </p>

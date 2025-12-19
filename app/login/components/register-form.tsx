@@ -28,15 +28,34 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
   const { login } = useAuth()
   const router = useRouter()
 
+  const clearPublicCaches = () => {
+    try {
+      localStorage.removeItem('home_stats_cache')
+      localStorage.removeItem('home_studies_cache')
+
+      // Clear all create-study related localStorage items
+      const keysToRemove = [
+        'cs_step1', 'cs_step2', 'cs_step3', 'cs_step4', 'cs_step5_grid',
+        'cs_step5_layer', 'cs_step5_layer_background', 'cs_step5_layer_preview_aspect',
+        'cs_step6', 'cs_step7_tasks', 'cs_step7_matrix', 'cs_step7_job_state',
+        'cs_step7_timer_state', 'cs_current_step', 'cs_backup_steps',
+        'cs_flash_message', 'cs_resuming_draft', 'cs_study_id', 'cs_is_fresh_start'
+      ]
+      keysToRemove.forEach(key => localStorage.removeItem(key))
+      sessionStorage.removeItem('cs_previous_study_id')
+    } catch { }
+  }
+
   const handleGoogleSignIn = async () => {
     try {
+      clearPublicCaches()
       setIsGoogleLoading(true)
       setErrorMessage("")
       // Use NextAuth.js with callbackUrl to redirect to a custom handler page
-      await signIn("google", { 
+      await signIn("google", {
         callbackUrl: "/auth/callback"
       })
-      
+
     } catch (error) {
       setErrorMessage("Google sign-in failed. Please try again.")
       setIsGoogleLoading(false)
@@ -45,13 +64,14 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
 
   const handleMicrosoftSignIn = async () => {
     try {
+      clearPublicCaches()
       setIsMicrosoftLoading(true)
       setErrorMessage("")
       // Use NextAuth.js with callbackUrl to redirect to a custom handler page
-      await signIn("microsoft-entra-id", { 
+      await signIn("microsoft-entra-id", {
         callbackUrl: "/auth/callback"
       })
-      
+
     } catch (error) {
       setErrorMessage("Microsoft sign-in failed. Please try again.")
       setIsMicrosoftLoading(false)
@@ -79,6 +99,7 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
             e.preventDefault()
             setErrorMessage("")
             setSuccessMessage("")
+            clearPublicCaches()
             if (!fullName || !email || !password || !confirmPassword) {
               setErrorMessage("Please fill in all required fields.")
               return
@@ -94,21 +115,21 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
                 name: fullName,
                 password,
               })
-              
+
               // Store user data and tokens in auth context
               login(response.user, response.tokens)
-              
+
               setSuccessMessage("Account created successfully.")
-              
+
               // Redirect to home page after successful registration
               setTimeout(() => {
                 router.push('/home')
               }, 1000)
-              
+
             } catch (err: unknown) {
               console.error('Registration error:', err)
               let message = "Registration failed."
-              
+
               if ((err as any)?.data?.detail) {
                 // Handle different error formats
                 if (typeof (err as any).data.detail === 'string') {
@@ -123,7 +144,7 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
               } else if ((err as Error)?.message) {
                 message = (err as Error).message
               }
-              
+
               setErrorMessage(message)
             } finally {
               setIsSubmitting(false)
@@ -263,10 +284,10 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
               ) : (
                 <>
                   <svg className="w-5 h-5 mr-2" viewBox="0 0 23 23">
-                    <path fill="#f25022" d="M1 1h10v10H1z"/>
-                    <path fill="#00a4ef" d="M12 1h10v10H12z"/>
-                    <path fill="#7fba00" d="M1 12h10v10H1z"/>
-                    <path fill="#ffb900" d="M12 12h10v10H12z"/>
+                    <path fill="#f25022" d="M1 1h10v10H1z" />
+                    <path fill="#00a4ef" d="M12 1h10v10H12z" />
+                    <path fill="#7fba00" d="M1 12h10v10H1z" />
+                    <path fill="#ffb900" d="M12 12h10v10H12z" />
                   </svg>
                   <span className="text-gray-700 font-medium cursor-pointer">Continue with Microsoft</span>
                 </>

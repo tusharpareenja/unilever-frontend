@@ -28,7 +28,7 @@ export function AuthGuardDebug({ children, requireAuth = true }: AuthGuardProps)
           router.push('/login')
         }
       }, 2000) // Wait 2 seconds for SessionHandler to sync
-      
+
       return () => clearTimeout(timer)
     }
 

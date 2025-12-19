@@ -36,11 +36,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       try {
         const storedUser = localStorage.getItem('user')
         const storedTokens = localStorage.getItem('tokens')
-        
+
         if (storedUser && storedTokens) {
           const parsedUser = JSON.parse(storedUser)
           const parsedTokens = JSON.parse(storedTokens)
-          
+
           // Check if access token is still valid (basic check)
           if (parsedTokens.access_token) {
             setUser(parsedUser)
@@ -64,10 +64,55 @@ export function AuthProvider({ children }: AuthProviderProps) {
     loadAuthData()
   }, [])
 
+  const clearCaches = () => {
+    try {
+      // Clear home page caches
+      localStorage.removeItem('home_stats_cache')
+      localStorage.removeItem('home_studies_cache')
+
+      // Clear all create-study related localStorage items
+      const keysToRemove = [
+        'cs_step1',
+        'cs_step2',
+        'cs_step3',
+        'cs_step4',
+        'cs_step5_grid',
+        'cs_step5_layer',
+        'cs_step5_layer_background',
+        'cs_step5_layer_preview_aspect',
+        'cs_step6',
+        'cs_step7_tasks',
+        'cs_step7_matrix',
+        'cs_step7_job_state',
+        'cs_step7_timer_state',
+        'cs_current_step',
+        'cs_backup_steps',
+        'cs_flash_message',
+        'cs_resuming_draft',
+        'cs_study_id',
+        'cs_is_fresh_start'
+      ]
+
+      keysToRemove.forEach(key => {
+        localStorage.removeItem(key)
+      })
+
+      // Also clear sessionStorage to remove study tracking
+      sessionStorage.removeItem('cs_previous_study_id')
+      sessionStorage.removeItem('auth_redirecting')
+
+    } catch (error) {
+      console.error('Error clearing caches:', error)
+    }
+  }
+
   const login = (userData: User, tokenData: Tokens) => {
+    // Clear any existing caches before logging in with new user
+    clearCaches()
+
     setUser(userData)
     setTokens(tokenData)
-    
+
     // Store in localStorage
     localStorage.setItem('user', JSON.stringify(userData))
     localStorage.setItem('tokens', JSON.stringify(tokenData))
@@ -78,29 +123,32 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (isLoggingOut) {
       return
     }
-    
+
     setIsLoggingOut(true)
-    
+
     // Clear state immediately
     setUser(null)
     setTokens(null)
-    
+
     // Clear from localStorage (handle both regular login and OAuth login)
     localStorage.removeItem('user')
     localStorage.removeItem('tokens')
     localStorage.removeItem('auth_user')  // OAuth login
     localStorage.removeItem('token')      // OAuth login
-    
+
     // Also sign out from NextAuth.js if user was logged in via OAuth
     try {
       await signOut({ redirect: false }) // Don't redirect, we'll handle it
     } catch (error) {
       // Handle error silently
     }
-    
+
     // Reset logout state
     setIsLoggingOut(false)
-    
+
+    // Clear caches on logout
+    clearCaches()
+
     // Force redirect to login
     window.location.href = '/login'
   }

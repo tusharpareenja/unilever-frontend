@@ -97,7 +97,7 @@ export default function DashboardPage() {
   // Hydrate studies list from cache for instant render on refresh (only if token is valid)
   useEffect(() => {
     if (isValidatingToken) return // Wait for token validation
-    
+
     try {
       const cached = localStorage.getItem('home_studies_cache')
       if (cached) {
@@ -107,13 +107,13 @@ export default function DashboardPage() {
           setLoading(false)
         }
       }
-    } catch {}
+    } catch { }
   }, [isValidatingToken])
 
   // Hydrate cards from cache immediately for instant paint (only if token is valid)
   useEffect(() => {
     if (isValidatingToken) return // Wait for token validation
-    
+
     try {
       const cached = localStorage.getItem('home_stats_cache')
       if (cached) {
@@ -128,7 +128,7 @@ export default function DashboardPage() {
           setCardsLoading(false)
         }
       }
-    } catch {}
+    } catch { }
   }, [isValidatingToken])
 
   // Fetch studies data (only if token is valid)
@@ -140,25 +140,25 @@ export default function DashboardPage() {
         setLoading((prev) => prev && studies.length === 0)
         setError(null)
         const studiesArray = await getStudies(1, 200) // Get more studies for filtering
-        
+
         // Ensure we have an array
         const safeStudiesArray = Array.isArray(studiesArray) ? studiesArray : []
         setStudies(safeStudiesArray)
         // Cache list for next load
-        try { localStorage.setItem('home_studies_cache', JSON.stringify(safeStudiesArray)) } catch {}
-        
+        try { localStorage.setItem('home_studies_cache', JSON.stringify(safeStudiesArray)) } catch { }
+
         // Calculate stats
         const total = safeStudiesArray.length
         const active = safeStudiesArray.filter(s => s.status === 'active').length
         const draft = safeStudiesArray.filter(s => s.status === 'draft').length
         const completed = safeStudiesArray.filter(s => s.status === 'completed').length
-        
+
         const nextStats = { total, active, draft, completed }
         setStats(nextStats)
         setCardsLoading(false)
         // Cache for next load to render instantly
-        try { localStorage.setItem('home_stats_cache', JSON.stringify(nextStats)) } catch {}
-        
+        try { localStorage.setItem('home_stats_cache', JSON.stringify(nextStats)) } catch { }
+
         // Log for debugging
         // console.log(`Loaded ${total} studies: ${active} active, ${draft} draft, ${completed} completed`)
       } catch (err) {
@@ -170,7 +170,7 @@ export default function DashboardPage() {
           errorMessage === 'REDIRECTING' ||
           errorMessage.includes('204')
         )
-        
+
         if (!isRedirecting) {
           console.error('Failed to fetch studies:', err)
           setError(errorMessage)
@@ -200,12 +200,12 @@ export default function DashboardPage() {
 
   return (
     <AuthGuard requireAuth={true}>
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5 }}
-          className="min-h-screen bg-slate-100"
-        >
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+        className="min-h-screen bg-slate-100"
+      >
         <DashboardHeader />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -224,7 +224,7 @@ export default function DashboardPage() {
             stats={stats}
           />
 
-          <StudyGrid 
+          <StudyGrid
             studies={studies}
             activeTab={activeTab}
             searchQuery={searchQuery}
@@ -234,7 +234,7 @@ export default function DashboardPage() {
             error={error}
           />
         </div>
-        </motion.div>
+      </motion.div>
     </AuthGuard>
   )
 }
