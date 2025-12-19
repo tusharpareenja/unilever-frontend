@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { AuthGuard } from "@/components/auth/AuthGuard"
 import { DashboardHeader } from "../../../components/dashboard-header"
 import { getStudyResponses, type StudyResponseItem, downloadStudyResponsesCsv } from "@/lib/api/ResponseAPI"
+import { getStudyBasicDetails, type StudyDetails } from "@/lib/api/StudyAPI"
 import Link from "next/link"
 import { Download } from "lucide-react"
 
@@ -23,6 +24,7 @@ export default function StudyResponsesPage() {
   const [page, setPage] = useState<number>(Number(searchParams.get("page") || 1))
   const [exporting, setExporting] = useState(false)
   const [exportStage, setExportStage] = useState(0)
+  const [study, setStudy] = useState<StudyDetails | null>(null)
   const hasFetchedRef = useRef(false)
 
   const fetchResponses = async () => {
@@ -41,7 +43,19 @@ export default function StudyResponsesPage() {
   useEffect(() => {
     if (!studyId || hasFetchedRef.current) return
     hasFetchedRef.current = true
+
+    // Fetch both responses and study details
     fetchResponses()
+
+    const fetchStudy = async () => {
+      try {
+        const data = await getStudyBasicDetails(studyId)
+        setStudy(data)
+      } catch (e) {
+        console.error("Failed to fetch study details:", e)
+      }
+    }
+    fetchStudy()
   }, [studyId])
 
   // Fallback: if first attempt loaded no items (e.g., auth not ready), retry once on visibility/focus
@@ -109,11 +123,11 @@ export default function StudyResponsesPage() {
       const today = new Date()
       let age = today.getFullYear() - birthDate.getFullYear()
       const monthDiff = today.getMonth() - birthDate.getMonth()
-      
+
       if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
         age--
       }
-      
+
       return age
     } catch {
       return null
@@ -124,19 +138,19 @@ export default function StudyResponsesPage() {
     try {
       setExporting(true)
       setExportStage(0)
-      
+
       // Stage 1: Creating CSV
       setExportStage(1)
       await new Promise(resolve => setTimeout(resolve, 2000))
-      
+
       // Stage 2: Extracting your responses
       setExportStage(2)
       await new Promise(resolve => setTimeout(resolve, 2000))
-      
+
       // Stage 3: Processing data
       setExportStage(3)
       await new Promise(resolve => setTimeout(resolve, 1500))
-      
+
       // Actually download the CSV
       const blob = await downloadStudyResponsesCsv(studyId)
       const url = URL.createObjectURL(blob)
@@ -167,18 +181,20 @@ export default function StudyResponsesPage() {
 
                   <Link href="/home" className="text-blue-200"><span className="text-blue-200">Dashboard</span></Link>
                   <span className="mx-2">/</span>
-                  <Link href= {`/home/study/${studyId}`} className="text-blue-200"><span className="text-blue-200">Studies</span></Link>
+                  <Link href={`/home/study/${studyId}`} className="text-blue-200"><span className="text-blue-200">Studies</span></Link>
                   <span className="mx-2">/</span>
-                  <span className="text-white">Grid Study</span>
+                  <span className="text-white">
+                    {study?.study_type === "grid" ? "Grid Study" : study?.study_type === "text" ? "Text Study" : study?.study_type === "layer" ? "Layer Study" : "Loading..."}
+                  </span>
                 </div>
                 <h1 className="text-2xl font-bold">Study Responses</h1>
                 <p className="text-blue-100 text-sm">Analyze and export response data</p>
               </div>
               <div className="flex gap-2">
                 <button onClick={() => router.push(`/home/study/${studyId}`)} className="px-4 py-2 rounded-md bg-white/10 hover:bg-white/20 text-white">Back to Study</button>
-                <button 
-                  onClick={exportCsv} 
-                  disabled={exporting} 
+                <button
+                  onClick={exportCsv}
+                  disabled={exporting}
                   className="px-4 py-2 rounded-md bg-white text-[#2674BA] hover:opacity-90 disabled:opacity-60 flex items-center gap-2"
                 >
                   {exporting ? (
@@ -262,7 +278,7 @@ export default function StudyResponsesPage() {
                               if (age && gender) {
                                 return `${age}Y, ${gender.charAt(0).toUpperCase() + gender.slice(1)}`
                               }
-                              return (gender || '-').replace(/^./, c=>c.toUpperCase())
+                              return (gender || '-').replace(/^./, c => c.toUpperCase())
                             })()}
                           </div>
                         </td>
