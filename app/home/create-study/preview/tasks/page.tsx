@@ -724,7 +724,7 @@ export default function TasksPage() {
                           {task?.gridUrls?.map((statement, idx) => (
                             <div
                               key={idx}
-                              className="w-full flex-1 flex items-center justify-center text-center p-4 border rounded-lg shadow-sm"
+                              className="w-full flex-1 flex items-center justify-center text-center p-4 rounded-lg shadow-sm"
                               style={{
                                 minHeight: '60px',
                                 fontSize: 'clamp(14px, 2vw, 18px)',
@@ -918,8 +918,8 @@ export default function TasksPage() {
 
             {/* Desktop Layout */}
             <div className="hidden lg:block">
-              <div className="flex items-start justify-between text-sm text-gray-600 mb-1 gap-4">
-                <div className="text-base font-medium text-gray-800 flex-1 leading-tight break-words hyphens-auto max-w-[calc(100%-5rem)]">
+              <div className="flex items-start justify-between text-sm text-gray-600 mb-4 gap-4">
+                <div className="text-lg font-semibold text-gray-800 flex-1 leading-tight break-words hyphens-auto max-w-[calc(100%-5rem)]">
                   {mainQuestion || `Question ${Math.min(currentTaskIndex + 1, totalTasks)}`}
                 </div>
               </div>
@@ -1043,7 +1043,7 @@ export default function TasksPage() {
                         {task?.gridUrls?.map((statement, idx) => (
                           <div
                             key={idx}
-                            className="w-full flex-1 flex items-center justify-center text-center p-6 border rounded-xl shadow-sm transition-colors"
+                            className="w-full flex-1 flex items-center justify-center text-center p-6 rounded-xl shadow-sm transition-colors"
                             style={{
                               minHeight: '80px',
                               fontSize: 'clamp(16px, 1.5vw, 24px)',
@@ -1065,7 +1065,7 @@ export default function TasksPage() {
 
                         if (urls.length <= 2) {
                           return (
-                            <div className="flex flex-col gap-4 relative max-w-md mx-auto items-center">
+                            <div className="flex flex-col gap-4 relative max-w-lg mx-auto items-center">
                               {backgroundUrl && (
                                 <img
                                   src={getCachedUrl(backgroundUrl) || "/placeholder.svg"}
@@ -1077,7 +1077,7 @@ export default function TasksPage() {
                                   style={{ zIndex: 0 }}
                                 />
                               )}
-                              <div className="aspect-square w-full max-w-[50%] overflow-hidden border" style={{ zIndex: 1 }}>
+                              <div className="aspect-square w-1/2 overflow-hidden" style={{ zIndex: 1 }}>
                                 {urls[0] && (
                                   <Image
                                     src={getCachedUrl(urls[0]) || "/placeholder.svg"}
@@ -1090,7 +1090,7 @@ export default function TasksPage() {
                                   />
                                 )}
                               </div>
-                              <div className="aspect-square w-full max-w-[50%] overflow-hidden border" style={{ zIndex: 1 }}>
+                              <div className="aspect-square w-1/2 overflow-hidden" style={{ zIndex: 1 }}>
                                 {urls[1] && (
                                   <Image
                                     src={getCachedUrl(urls[1]) || "/placeholder.svg"}
@@ -1109,7 +1109,7 @@ export default function TasksPage() {
 
                         if (urls.length === 3) {
                           return (
-                            <div className="relative max-w-2xl mx-auto">
+                            <div className="relative max-w-lg mx-auto">
                               {backgroundUrl && (
                                 <img
                                   src={getCachedUrl(backgroundUrl) || "/placeholder.svg"}
@@ -1124,7 +1124,7 @@ export default function TasksPage() {
                               <div className="flex flex-col gap-4" style={{ zIndex: 1 }}>
                                 <div className="grid grid-cols-2 gap-4">
                                   {urls.slice(0, 2).map((url, i) => (
-                                    <div key={i} className="aspect-square w-full overflow-hidden border">
+                                    <div key={i} className="aspect-square w-full overflow-hidden">
                                       <Image
                                         src={getCachedUrl(url as string) || "/placeholder.svg"}
                                         alt={`element-${i + 1}`}
@@ -1137,7 +1137,7 @@ export default function TasksPage() {
                                   ))}
                                 </div>
                                 <div className="w-full flex justify-center">
-                                  <div className="aspect-square w-1/2 overflow-hidden border">
+                                  <div className="aspect-square w-1/2 overflow-hidden">
                                     <Image
                                       src={getCachedUrl(urls[2] as string) || "/placeholder.svg"}
                                       alt="element-3"
@@ -1154,7 +1154,7 @@ export default function TasksPage() {
                         }
 
                         return (
-                          <div className="grid grid-cols-2 gap-4 relative max-w-2xl mx-auto">
+                          <div className="grid grid-cols-2 gap-4 relative max-w-lg mx-auto">
                             {backgroundUrl && (
                               <img
                                 src={getCachedUrl(backgroundUrl) || "/placeholder.svg"}
@@ -1169,7 +1169,7 @@ export default function TasksPage() {
                             {urls.slice(0, 4).map((url, i) => (
                               <div
                                 key={i}
-                                className="aspect-square w-full overflow-hidden border"
+                                className="aspect-square w-full overflow-hidden"
                                 style={{ zIndex: 1 }}
                               >
                                 <Image
@@ -1192,7 +1192,7 @@ export default function TasksPage() {
                       <div className="text-center text-balance">{task?.rightLabel ?? ""}</div>
                     </div>
 
-                    <div className="flex flex-col items-start justify-center gap-2 px-2">
+                    <div className="flex flex-col items-center justify-center gap-2 px-2">
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <div className="h-8 w-8 lg:h-9 lg:w-9 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs lg:text-sm font-semibold text-gray-700 flex-shrink-0">
                           1

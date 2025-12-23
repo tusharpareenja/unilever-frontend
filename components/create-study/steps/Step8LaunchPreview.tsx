@@ -66,8 +66,24 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
         // Fire-and-forget
         putUpdateStudyAsync(String(studyId), { last_step: 8 })
       }
+
+      // Check if steps 1-7 are completed to mark step 8 as complete
+      const s1 = localStorage.getItem('cs_step1')
+      const s2 = localStorage.getItem('cs_step2')
+      const s6 = localStorage.getItem('cs_step6')
+      const s7 = localStorage.getItem('cs_step7_tasks')
+
+      if (s1 && s2 && s6 && s7) {
+        try {
+          const s7Data = JSON.parse(s7)
+          if (s7Data.completed) {
+            localStorage.setItem('cs_step8', JSON.stringify({ completed: true, timestamp: Date.now() }))
+            onDataChange?.()
+          }
+        } catch { }
+      }
     } catch { }
-  }, [])
+  }, [onDataChange])
 
   const handleLaunchStudy = async () => {
     if (!isConfirmed) {
@@ -247,7 +263,7 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
         const keysToRemove = [
           'cs_step1', 'cs_step2', 'cs_step3', 'cs_step4', 'cs_step5_grid', 'cs_step5_layer', 'cs_step5_layer_background',
           'cs_step6', 'cs_step7', 'cs_step7_tasks', 'cs_step7_matrix', 'cs_step7_meta', 'cs_step7_signature',
-          'cs_current_step', 'cs_backup_steps', 'cs_study_id', 'cs_flash_message'
+          'cs_step8', 'cs_current_step', 'cs_backup_steps', 'cs_study_id', 'cs_flash_message'
         ]
 
         // Remove all keys and log for debugging
@@ -504,10 +520,19 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
 
         <section className="rounded-lg border bg-white p-4">
           <div className="text-sm font-semibold mb-2">Audience</div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
             <div><div className="text-gray-500">Respondents</div><div className="font-medium">{step6.respondents}</div></div>
             <div><div className="text-gray-500">Countries</div><div className="font-medium">{step6.countries?.join(', ') || '-'}</div></div>
             <div><div className="text-gray-500">Gender Split</div><div className="font-medium">M {step6.genderMale}% / F {step6.genderFemale}%</div></div>
+            <div>
+              <div className="text-gray-500">Age Split</div>
+              <div className="font-medium capitalize">
+                {Object.entries(step6.ageSelections || {})
+                  .filter(([_, v]: any) => v.checked)
+                  .map(([label, v]: any) => `${label} (${v.percent}%)`)
+                  .join(', ') || '-'}
+              </div>
+            </div>
           </div>
         </section>
 
@@ -554,7 +579,7 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
                 PREVIOUS
               </Button>
               <Button
-                className="flex-1 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] text-white rounded-full disabled:opacity-80 cursor-pointer"
+                className="flex-1 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] text-white rounded-full disabled:opacity-50 cursor-pointer"
                 onClick={handleLaunchStudy}
                 disabled={isLaunching || !isConfirmed}
               >

@@ -143,7 +143,7 @@ export function Step2StudyType({ onNext, onBack, value, onDataChange }: Step2Stu
             <button
               type="button"
               onClick={() => setType("grid")}
-              className={`border rounded-3xl aspect-square w-full max-w-[18rem] mx-auto flex items-center justify-center text-left transition-all ${type === "grid" ? "border-[rgba(38,116,186,1)] ring-2 ring-[rgba(38,116,186,0.2)] bg-[rgba(38,116,186,0.05)]" : "border-gray-200 bg-white"}`}
+              className={`border-2 cursor-pointer rounded-3xl aspect-square w-full max-w-[18rem] mx-auto flex items-center justify-center text-left transition-all ${type === "grid" ? "border-[rgba(38,116,186,1)] ring-2 ring-[rgba(38,116,186,0.2)] bg-[rgba(38,116,186,0.05)] opacity-100" : "border-gray-200 bg-white opacity-50 hover:opacity-100"}`}
             >
               <div className="w-full h-full p-2">
                 <GridStudy />
@@ -153,7 +153,7 @@ export function Step2StudyType({ onNext, onBack, value, onDataChange }: Step2Stu
             <button
               type="button"
               onClick={() => setType("layer")}
-              className={`border rounded-3xl aspect-square w-full max-w-[18rem] mx-auto flex items-center justify-center text-left transition-all ${type === "layer" ? "border-[rgba(38,116,186,1)] ring-2 ring-[rgba(38,116,186,0.2)] bg-[rgba(38,116,186,0.05)]" : "border-gray-200 bg-white"}`}
+              className={`border-2 cursor-pointer rounded-3xl aspect-square w-full max-w-[18rem] mx-auto flex items-center justify-center text-left transition-all ${type === "layer" ? "border-[rgba(38,116,186,1)] ring-2 ring-[rgba(38,116,186,0.2)] bg-[rgba(38,116,186,0.05)] opacity-100" : "border-gray-200 bg-white opacity-50 hover:opacity-100"}`}
             >
               <div className="w-full h-full p-2">
                 <LayerStudy />
@@ -163,7 +163,7 @@ export function Step2StudyType({ onNext, onBack, value, onDataChange }: Step2Stu
             <button
               type="button"
               onClick={() => setType("text")}
-              className={`border rounded-3xl aspect-square w-full max-w-[18rem] mx-auto flex items-center justify-center text-left transition-all ${type === "text" ? "border-[rgba(38,116,186,1)] ring-2 ring-[rgba(38,116,186,0.2)] bg-[rgba(38,116,186,0.05)]" : "border-gray-200 bg-white"}`}
+              className={`border-2 cursor-pointer rounded-3xl aspect-square w-full max-w-[18rem] mx-auto flex items-center justify-center text-left transition-all ${type === "text" ? "border-[rgba(38,116,186,1)] ring-2 ring-[rgba(38,116,186,0.2)] bg-[rgba(38,116,186,0.05)] opacity-100" : "border-gray-200 bg-white opacity-50 hover:opacity-100"}`}
             >
               <div className="w-full h-full p-2">
                 <TextStudy />

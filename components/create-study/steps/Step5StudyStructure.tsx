@@ -769,13 +769,13 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => toggleCategoryCollapse(category.id)}
-                      className="flex items-center gap-2 hover:bg-gray-100 px-2 py-1 rounded cursor-pointer"
+                      className="flex-1 flex items-start gap-2 hover:bg-gray-100 px-2 py-1 rounded cursor-pointer text-left w-full"
                     >
-                      <div className={`transform transition-transform ${collapsedCategories.has(category.id) ? 'rotate-0' : 'rotate-90'}`}>
+                      <div className={`mt-1 transform transition-transform ${collapsedCategories.has(category.id) ? 'rotate-0' : 'rotate-90'}`}>
                         ▶
                       </div>
-                      <div>
-                        <div className="font-medium flex items-center gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium flex items-start gap-2 text-left">
                           {category.title || `Category ${catIdx + 1}`}
                           {(!category.title || category.title.trim().length === 0) && (
                             <span className="text-red-500 text-xs">* Required</span>

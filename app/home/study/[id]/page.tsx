@@ -6,8 +6,56 @@ import { DashboardHeader } from "../../components/dashboard-header"
 import { AuthGuard } from "@/components/auth/AuthGuard"
 import { updateStudyStatus, putUpdateStudy, StudyDetails, getStudyBasicDetails } from "@/lib/api/StudyAPI"
 import { StudyAnalytics, downloadStudyResponsesCsv, subscribeStudyAnalytics } from "@/lib/api/ResponseAPI"
-import { Pause, Play, CheckCircle, Share, Download, BarChart3, ArrowLeft } from "lucide-react"
+import { Pause, Play, CheckCircle, Share, Download, BarChart3, ArrowLeft, ChevronDown } from "lucide-react"
 import Link from "next/link"
+import { motion, AnimatePresence } from "framer-motion"
+
+interface AccordionSectionProps {
+  title: string
+  children: React.ReactNode
+  defaultOpen?: boolean
+}
+
+const AccordionSection = ({ title, children, defaultOpen = true }: AccordionSectionProps) => {
+  const [isOpen, setIsOpen] = useState(defaultOpen)
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm border mb-6 overflow-hidden">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors duration-200 border-b group"
+        style={{ borderColor: isOpen ? '#2674BA' : '#e5e7eb' }}
+      >
+        <h3
+          className="text-lg font-semibold transition-colors duration-200"
+          style={{ color: '#2674BA' }}
+        >
+          {title}
+        </h3>
+        <motion.div
+          animate={{ rotate: isOpen ? 0 : -90 }}
+          transition={{ duration: 0.2 }}
+        >
+          <ChevronDown className="w-5 h-5 text-gray-400 group-hover:text-gray-600" />
+        </motion.div>
+      </button>
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+          >
+            <div className="px-6 pb-6 pt-2">
+              {children}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
 
 export default function StudyManagementPage() {
   const params = useParams()
@@ -222,6 +270,11 @@ export default function StudyManagementPage() {
   }
 
   const buildCsvAndDownload = async () => {
+    if (!analytics || (analytics.total_responses ?? 0) === 0) {
+      alert('There are no responses to export yet.')
+      return
+    }
+
     try {
       setExporting(true)
       setExportStage(0)
@@ -294,8 +347,7 @@ export default function StudyManagementPage() {
 
   // Display helpers
   const createdDisplay = study.created_at ? new Date(study.created_at)
-    .toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })
-    .replace(", ", ",") : 'N/A'
+    .toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }) : 'N/A'
 
   return (
     <AuthGuard requireAuth={true}>
@@ -321,17 +373,50 @@ export default function StudyManagementPage() {
               <div className="flex items-center gap-3 flex-wrap">
                 <button
                   onClick={() => (typeof window !== 'undefined' && window.history.length > 1) ? router.back() : router.push('/home')}
-                  className="flex items-center gap-2 px-4 py-2 border rounded-lg hover:opacity-80"
+                  className="flex cursor-pointer items-center gap-2 px-4 py-2 border rounded-lg hover:opacity-80"
                   style={{ borderColor: '#FFFFFF', color: '#FFFFFF' }}
                 >
                   <ArrowLeft className="w-4 h-4" />
                   Back
                 </button>
+
+                <button
+                  onClick={() => router.push(`/home/study/${studyId}/response`)}
+                  className="flex cursor-pointer items-center gap-2 px-4 py-2 bg-white rounded-lg hover:opacity-90 font-medium whitespace-nowrap"
+                  style={{ color: '#2674BA' }}
+                >
+                  <BarChart3 className="w-4 h-4" />
+                  View All Response
+                </button>
+
+                <button
+                  onClick={buildCsvAndDownload}
+                  disabled={exporting}
+                  className="flex cursor-pointer items-center gap-2 px-4 py-2 border rounded-lg hover:opacity-80 disabled:opacity-60 whitespace-nowrap"
+                  style={{ borderColor: '#FFFFFF', color: '#FFFFFF' }}
+                >
+                  {exporting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                      <span>
+                        {exportStage === 1 && "Extracting data..."}
+                        {exportStage === 2 && "Processing responses..."}
+                        {exportStage === 3 && "Generating CSV..."}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4" />
+                      <span>Export CSV</span>
+                    </>
+                  )}
+                </button>
+
                 {getActionButton()}
                 <button
                   onClick={() => handleStatusUpdate("completed")}
                   disabled={updating || study.status === "completed"}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                  className="flex cursor-pointer items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
                 >
                   <CheckCircle className="w-4 h-4" />
                   Complete Study
@@ -394,45 +479,15 @@ export default function StudyManagementPage() {
             </div>
           </div>
 
-          {/* Study Configuration */}
+          {/* Response Statistics */}
           <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
             <h3
               className="text-lg font-semibold border-b pb-2 mb-4"
               style={{ color: '#2674BA', borderColor: '#2674BA' }}
             >
-              Study Configuration
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Background</label>
-                <div className="w-full px-3 py-2 bg-white text-gray-700 whitespace-pre-wrap break-words">
-                  {study.background}
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Main Question</label>
-                <div className="w-full px-3 py-2 bg-white text-gray-700 whitespace-pre-wrap break-words">
-                  {study.main_question || ''}
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Orientation Text</label>
-                <div className="w-full px-3 py-2 bg-white text-gray-700 whitespace-pre-wrap break-words">
-                  {study.orientation_text}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Response Statistics */}
-          <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-            <h3
-              className="text-lg font-semibold mb-4"
-              style={{ color: '#2674BA' }}
-            >
               Response Statistics
             </h3>
-            <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
               <div className="text-center p-4 border rounded-lg" style={{ borderColor: '#2674BA' }}>
                 <div className="text-2xl font-bold" style={{ color: '#2674BA' }}>
                   {analyticsLoading ? (
@@ -496,45 +551,59 @@ export default function StudyManagementPage() {
             </div>
           </div>
 
+          {/* Study Configuration */}
+          <AccordionSection title="Study Configuration">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Background</label>
+                <div className="w-full py-2 bg-white text-gray-700 whitespace-pre-wrap break-words">
+                  {study.background}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Main Question</label>
+                <div className="w-full py-2 bg-white text-gray-700 whitespace-pre-wrap break-words">
+                  {study.main_question || ''}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Orientation Text</label>
+                <div className="w-full py-2 bg-white text-gray-700 whitespace-pre-wrap break-words">
+                  {study.orientation_text}
+                </div>
+              </div>
+            </div>
+          </AccordionSection>
+
+
+
           {/* Study Configuration Details */}
-          <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-            <h3
-              className="text-lg font-semibold border-b pb-2 mb-4"
-              style={{ color: '#2674BA', borderColor: '#2674BA' }}
-            >
-              Study Configuration
-            </h3>
+          <AccordionSection title="Study Metadata">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Scale</label>
-                <div className="w-full px-3 py-2 bg-white text-gray-700 whitespace-pre-wrap break-words">
+                <div className="w-full py-2 bg-white text-gray-700 whitespace-pre-wrap break-words">
                   {`${study.rating_scale.min_value} to ${study.rating_scale.max_value} ${study.rating_scale.min_label}-${study.rating_scale.max_label}`}
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Study Elements</label>
-                <div className="w-full px-3 py-2 bg-white text-gray-700 whitespace-pre-wrap break-words">
-                  {`${(study as any).study_config?.number_of_respondents || 0} Respondents - ${study.study_type === "grid" ? "Grid" : study.study_type === "text" ? "Text" : "Layer"} Based Study`}
+                <label className="block text-sm font-medium text-gray-700 mb-1">Study Elements Content</label>
+                <div className="w-full py-2 bg-white text-gray-700 whitespace-pre-wrap break-words">
+                  {`${(study as any).element_count || 0}`} Elements
                 </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Classification Questions</label>
-                <div className="w-full px-3 py-2 bg-white text-gray-700 whitespace-pre-wrap break-words">
+                <div className="w-full py-2 bg-white text-gray-700 whitespace-pre-wrap break-words">
                   {`${(study as any).classification_questions?.length || 0} Question${((study as any).classification_questions?.length || 0) !== 1 ? 's' : ''}`}
                 </div>
               </div>
             </div>
-          </div>
+          </AccordionSection>
 
           {/* Classification Questions */}
           {(study as any).classification_questions && (study as any).classification_questions.length > 0 && (
-            <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-              <h3
-                className="text-lg font-semibold border-b pb-2 mb-4"
-                style={{ color: '#2674BA', borderColor: '#2674BA' }}
-              >
-                Classification Questions
-              </h3>
+            <AccordionSection title="Classification Questions">
               <div className="space-y-4">
                 {(study as any).classification_questions.map((question: any, index: number) => (
                   <div key={question.id || index} className="border rounded-lg p-4 bg-white">
@@ -561,42 +630,42 @@ export default function StudyManagementPage() {
                   </div>
                 ))}
               </div>
-            </div>
+            </AccordionSection>
           )}
 
           {/* Audience Segmentation */}
           {(study as any).study_config && (
-            <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-              <h3
-                className="text-lg font-semibold border-b pb-2 mb-4"
-                style={{ color: '#2674BA', borderColor: '#2674BA' }}
-              >
-                Audience Segmentation
-              </h3>
+            <AccordionSection title="Audience Segmentation">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Target Country</label>
-                  <div className="px-3 py-2 bg-white text-gray-700 whitespace-pre-wrap break-words">
+                  <div className="py-2 bg-white text-gray-700 whitespace-pre-wrap break-words">
                     {(study as any).study_config.country || 'Not specified'}
                   </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Number of Respondents</label>
-                  <div className="px-3 py-2 bg-white text-gray-700 whitespace-pre-wrap break-words">
+                  <div className="py-2 bg-white text-gray-700 whitespace-pre-wrap break-words">
                     {(study as any).study_config.number_of_respondents || 0}
                   </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Gender Distribution</label>
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Male</span>
-                      <span className="text-sm font-medium">{(study as any).study_config.gender_distribution?.male || 0}%</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Female</span>
-                      <span className="text-sm font-medium">{(study as any).study_config.gender_distribution?.female || 0}%</span>
-                    </div>
+                    {Object.entries((study as any).study_config.gender_distribution || {}).map(([gender, percentage]: [string, any]) => (
+                      percentage > 0 && (
+                        <div key={gender} className="flex items-center gap-4 py-1">
+                          <span className="text-sm text-gray-600 capitalize w-16">{gender}</span>
+                          <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all duration-1000 ease-out"
+                              style={{ width: `${percentage}%`, backgroundColor: '#2674BA' }}
+                            />
+                          </div>
+                          <span className="text-sm font-medium text-gray-900 w-10 text-right">{percentage}%</span>
+                        </div>
+                      )
+                    ))}
                   </div>
                 </div>
                 <div>
@@ -604,35 +673,35 @@ export default function StudyManagementPage() {
                   <div className="space-y-1">
                     {Object.entries((study as any).study_config.age_distribution || {}).map(([ageGroup, percentage]: [string, any]) => (
                       percentage > 0 && (
-                        <div key={ageGroup} className="flex items-center justify-between">
-                          <span className="text-sm text-gray-600">{ageGroup}</span>
-                          <span className="text-sm font-medium">{percentage}%</span>
+                        <div key={ageGroup} className="flex items-center gap-4 py-1">
+                          <span className="text-sm text-gray-600 w-16">{ageGroup}</span>
+                          <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all duration-1000 ease-out"
+                              style={{ width: `${percentage}%`, backgroundColor: '#2674BA' }}
+                            />
+                          </div>
+                          <span className="text-sm font-medium text-gray-900 w-10 text-right">{percentage}%</span>
                         </div>
                       )
                     ))}
                   </div>
                 </div>
               </div>
-            </div>
+            </AccordionSection>
           )}
 
           {/* Orientation Text */}
           {study.orientation_text && (
-            <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-              <h3
-                className="text-lg font-semibold border-b pb-2 mb-4"
-                style={{ color: '#2674BA', borderColor: '#2674BA' }}
-              >
-                Orientation Text
-              </h3>
+            <AccordionSection title="Orientation Text">
               <div className="bg-white p-4">
                 <p className="text-gray-700 leading-relaxed whitespace-pre-wrap break-words">{study.orientation_text}</p>
               </div>
-            </div>
+            </AccordionSection>
           )}
 
           {/* Study Response */}
-          <div className="bg-white rounded-lg shadow-sm border p-6">
+          {/* <div className="bg-white rounded-lg shadow-sm border p-6">
             <h3
               className="text-lg font-semibold border-b pb-2 mb-4"
               style={{ color: '#2674BA', borderColor: '#2674BA' }}
@@ -706,39 +775,7 @@ export default function StudyManagementPage() {
                 </span>
               </div>
             </div>
-            <div className="flex gap-3">
-              <button
-                onClick={() => router.push(`/home/study/${studyId}/response`)}
-                className="flex items-center gap-2 px-4 py-2 text-white rounded-lg hover:opacity-90"
-                style={{ backgroundColor: '#2674BA' }}
-              >
-                <BarChart3 className="w-4 h-4" />
-                View All Response
-              </button>
-              <button
-                onClick={buildCsvAndDownload}
-                disabled={exporting}
-                className="flex items-center gap-2 px-4 py-2 border rounded-lg hover:opacity-80 disabled:opacity-60"
-                style={{ borderColor: '#2674BA', color: '#2674BA' }}
-              >
-                {exporting ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#2674BA]"></div>
-                    <span>
-                      {exportStage === 1 && "Extracting data..."}
-                      {exportStage === 2 && "Processing responses..."}
-                      {exportStage === 3 && "Generating CSV..."}
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <Download className="w-4 h-4" />
-                    <span>Export CSV</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
+          </div> */}
         </div>
       </div>
     </AuthGuard>

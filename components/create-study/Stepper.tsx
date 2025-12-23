@@ -139,10 +139,13 @@ function isStepCompleted(stepId: number): boolean {
         return !!data
       }
       case 8: {
-        // Step 8 is only completed when the user reaches it
-        // We don't need to check for specific data since it's the final step
-        // It should only be blue when it's the current step or when study is actually launched
-        return false
+        // Step 8 is completed if cs_step8 flag is set
+        const data = localStorage.getItem('cs_step8')
+        if (!data) return false
+        try {
+          const parsed = JSON.parse(data)
+          return !!parsed.completed
+        } catch { return false }
       }
       default:
         return false
@@ -253,11 +256,20 @@ export default function Stepper({ currentStep = 5, className = "", onStepChange 
         {/* Steps container */}
         <div ref={stepsContainerRef} className="relative flex flex-row justify-between items-start gap-2 overflow-x-auto pb-2">
           {steps.map((step, index) => {
-            const isCompleted = isStepCompletedWithRefresh(step.id)
+            let isCompleted = isStepCompletedWithRefresh(step.id)
             const isCurrent = step.id === currentStep
             const isUpcoming = step.id > currentStep
 
+            // Step 8 should show as completed (blue) when all previous steps (1-7) are completed
+            if (step.id === 8 && !isCompleted) {
+              const allPreviousCompleted = [1, 2, 3, 4, 5, 6, 7].every(id => isStepCompletedWithRefresh(id))
+              if (allPreviousCompleted) {
+                isCompleted = true
+              }
+            }
+
             // Determine if step is clickable
+            // Step 8 should be clickable when all previous steps (1-7) are completed
             const isClickable = isCompleted || isCurrent || step.id < currentStep
 
             return (

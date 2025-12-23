@@ -397,6 +397,8 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
     try {
       console.log('[Step7] Marking step7 as completed')
       localStorage.setItem('cs_step7_tasks', JSON.stringify({ completed: true, timestamp: Date.now() }))
+      // Dispatch custom event to trigger Stepper refresh (storage event only fires for other tabs)
+      window.dispatchEvent(new CustomEvent('stepDataChanged'))
       onDataChange?.()
     } catch { }
   }
@@ -1615,12 +1617,25 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
       // Create and download CSV
       const csvContent = csvRows.join('\n')
 
+      // Get study title for filename
+      let studyTitle = "study"
+      try {
+        const step1Raw = localStorage.getItem('cs_step1')
+        if (step1Raw) {
+          const step1 = JSON.parse(step1Raw)
+          if (step1.title) {
+            studyTitle = step1.title.trim().replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '') || "study"
+          }
+        }
+      } catch (err) {
+        console.warn('[CSV] Failed to get study title for filename:', err)
+      }
 
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
       const link = document.createElement('a')
       const url = URL.createObjectURL(blob)
       link.setAttribute('href', url)
-      link.setAttribute('download', `task_matrix_${new Date().toISOString().split('T')[0]}.csv`)
+      link.setAttribute('download', `${studyTitle}_matrix.csv`)
       link.style.visibility = 'hidden'
       document.body.appendChild(link)
       link.click()
