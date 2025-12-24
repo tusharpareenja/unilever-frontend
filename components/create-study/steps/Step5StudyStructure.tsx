@@ -16,7 +16,7 @@ interface ElementItem {
 }
 
 // Simple large preview mirroring background-fit logic
-function LargePreview({ background, layers, aspect }: { background: { secureUrl?: string; previewUrl?: string } | null; layers: any[]; aspect: 'portrait' | 'landscape' | 'square' }) {
+function LargePreview({ background, layers, aspect, selectedImageIds = {} }: { background: { secureUrl?: string; previewUrl?: string } | null; layers: any[]; aspect: 'portrait' | 'landscape' | 'square'; selectedImageIds?: Record<string, string> }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const imgRef = useRef<HTMLImageElement>(null)
   const [fit, setFit] = useState<{ left: number; top: number; width: number; height: number }>({ left: 0, top: 0, width: 0, height: 0 })
@@ -68,7 +68,10 @@ function LargePreview({ background, layers, aspect }: { background: { secureUrl?
       )}
       <div className="absolute overflow-hidden" style={{ left: fit.left, top: fit.top, width: fit.width || '100%', height: fit.height || '100%', zIndex: 1 }}>
         {layers.map((l: any) => {
-          const base = l.images?.[0]
+          if (l.visible === false) return null
+          const selectedImageId = selectedImageIds[l.id]
+          const base = selectedImageId ? l.images?.find((img: any) => img.id === selectedImageId) : l.images?.[0]
+
           if (!base) return null
           const widthPct = Math.max(1, Math.min(100, Number(base.width ?? 100)))
           const heightPct = Math.max(1, Math.min(100, Number(base.height ?? 100)))
@@ -3205,7 +3208,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       </div>
 
       <div className="mt-4 grid grid-cols-1 md:grid-cols-5 gap-5">
-        <div className={`${previewAspect === 'landscape' ? 'md:col-span-3' : 'md:col-span-2'} rounded-xl bg-white p-4 flex flex-col`}>
+        <div className={`${previewAspect === 'landscape' ? 'md:col-span-3' : 'md:col-span-2'} rounded-xl bg-white p-4 flex flex-col md:sticky md:top-24 md:self-start`}>
           {/* Preview canvas built from z order with draggable/resizable layers */}
           <div
             ref={previewContainerRef}
@@ -5573,7 +5576,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                 <div className="text-sm font-semibold text-gray-800">Preview</div>
                 <Button variant="outline" onClick={() => setShowFullPreview(false)} className="cursor-pointer">Close</Button>
               </div>
-              <LargePreview background={background} layers={layers} aspect={previewAspect} />
+              <LargePreview background={background} layers={layers} aspect={previewAspect} selectedImageIds={selectedImageIds} />
             </div>
           </div>
         )
