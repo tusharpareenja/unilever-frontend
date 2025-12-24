@@ -156,7 +156,11 @@ export default function StudyResponsesPage() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
-      a.download = `study-${studyId}-responses.csv`
+      // Use study name for filename, fallback to studyId if not available
+      const studyName = study?.title || `study-${studyId}`
+      // Sanitize filename by replacing invalid characters
+      const safeStudyName = studyName.replace(/[<>:"/\\|?*]/g, '-')
+      a.download = `${safeStudyName}-response.csv`
       a.click()
       URL.revokeObjectURL(url)
     } catch (e) {
