@@ -3207,8 +3207,8 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 md:grid-cols-5 gap-5">
-        <div className={`${previewAspect === 'landscape' ? 'md:col-span-3' : 'md:col-span-2'} rounded-xl bg-white p-4 flex flex-col md:sticky md:top-24 md:self-start`}>
+      <div className="mt-4 grid grid-cols-1 md:grid-cols-5 gap-5 md:h-[calc(100vh-180px)] md:overflow-hidden">
+        <div className={`${previewAspect === 'landscape' ? 'md:col-span-3' : 'md:col-span-2'} rounded-xl bg-white p-4 flex flex-col md:h-full md:overflow-hidden`}>
           {/* Preview canvas built from z order with draggable/resizable layers */}
           <div
             ref={previewContainerRef}
@@ -3415,7 +3415,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
             <Button variant="outline" className="rounded-full px-4 py-1 cursor-pointer" onClick={() => setShowFullPreview(true)}>Preview</Button>
           </div>
         </div>
-        <div className={previewAspect === 'landscape' ? 'md:col-span-2' : 'md:col-span-3'}>
+        <div className={previewAspect === 'landscape' ? 'md:col-span-2 md:h-full md:flex md:flex-col' : 'md:col-span-3 md:h-full md:flex md:flex-col'}>
           {/* Background controls */}
           <div className="border rounded-xl bg-white p-4 mb-4">
             <div className="flex items-center justify-between mb-2">
@@ -3440,207 +3440,209 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
             )}
           </div>
           <div className="text-xs text-gray-600 mb-2">Min {LAYER_MIN}, Max {LAYER_MAX}. Current: {layers.length}</div>
-          {layers.map((layer, idx) => (
-            <Fragment key={layer.id}>
-              {overIndex === idx && (
-                <div className="h-2 rounded bg-[rgba(38,116,186,0.3)] border border-[rgba(38,116,186,0.5)] mb-2" />
-              )}
-              <div
-                className={`border rounded-xl bg-white ${dragIndex === idx ? 'opacity-70' : ''} ${selectedLayerId === layer.id ? 'border-blue-500 ring-2 ring-blue-200' : ''}`}
-                onClick={() => setSelectedLayerId(layer.id)}
-              >
+          <div className={`md:flex-1 md:pr-2 custom-scrollbar ${layers.length >= 4 ? 'md:max-h-[320px] md:overflow-y-auto' : 'md:overflow-y-auto'}`}>
+            {layers.map((layer, idx) => (
+              <Fragment key={layer.id}>
+                {overIndex === idx && (
+                  <div className="h-2 rounded bg-[rgba(38,116,186,0.3)] border border-[rgba(38,116,186,0.5)] mb-2" />
+                )}
                 <div
-                  className="flex items-center justify-between px-4 py-2 bg-slate-50 rounded-t-xl cursor-move"
-                  draggable
-                  onDragStart={(e) => { setDragIndex(idx); setOverIndex(idx); e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', String(idx)); } catch { } }}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.dataTransfer.dropEffect = 'move'
-                    if (dragIndex === null) return
-                    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                    const isBefore = e.clientY < rect.top + rect.height / 2
-                    let targetIndex = isBefore ? idx : idx + 1
-                    if (targetIndex < 0) targetIndex = 0
-                    if (targetIndex > layers.length) targetIndex = layers.length
-                    setOverIndex(targetIndex)
-                  }}
-                  onDrop={(e) => { e.preventDefault(); if (dragIndex !== null && overIndex !== null) { let to = overIndex; if (dragIndex < to) to = to - 1; if (to !== dragIndex) moveLayer(dragIndex, to) } setDragIndex(null); setOverIndex(null) }}
-                  onDragEnd={() => { if (dragIndex !== null && overIndex !== null) { let to = overIndex; if (dragIndex < to) to = to - 1; if (to !== dragIndex) moveLayer(dragIndex, to) } setDragIndex(null); setOverIndex(null) }}
+                  className={`border rounded-xl bg-white ${dragIndex === idx ? 'opacity-70' : ''} ${selectedLayerId === layer.id ? 'border-blue-500 ring-2 ring-blue-200' : ''}`}
+                  onClick={() => setSelectedLayerId(layer.id)}
                 >
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                      <span className="truncate max-w-[20ch]">{layer.name || `Layer ${idx + 1}`}</span>
+                  <div
+                    className="flex items-center justify-between px-4 py-2 bg-slate-50 rounded-t-xl cursor-move"
+                    draggable
+                    onDragStart={(e) => { setDragIndex(idx); setOverIndex(idx); e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', String(idx)); } catch { } }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = 'move'
+                      if (dragIndex === null) return
+                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                      const isBefore = e.clientY < rect.top + rect.height / 2
+                      let targetIndex = isBefore ? idx : idx + 1
+                      if (targetIndex < 0) targetIndex = 0
+                      if (targetIndex > layers.length) targetIndex = layers.length
+                      setOverIndex(targetIndex)
+                    }}
+                    onDrop={(e) => { e.preventDefault(); if (dragIndex !== null && overIndex !== null) { let to = overIndex; if (dragIndex < to) to = to - 1; if (to !== dragIndex) moveLayer(dragIndex, to) } setDragIndex(null); setOverIndex(null) }}
+                    onDragEnd={() => { if (dragIndex !== null && overIndex !== null) { let to = overIndex; if (dragIndex < to) to = to - 1; if (to !== dragIndex) moveLayer(dragIndex, to) } setDragIndex(null); setOverIndex(null) }}
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                        <span className="truncate max-w-[20ch]">{layer.name || `Layer ${idx + 1}`}</span>
 
-                    </div>
-                    {layer.description ? (
-                      <div className="text-xs text-gray-500 truncate max-w-[25ch]">{layer.description}</div>
-                    ) : null}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); setLayers(prev => prev.map(l => l.id === layer.id ? { ...l, visible: !l.visible } : l)) }}
-                      className="w-7 h-7 border rounded-md flex items-center justify-center cursor-pointer hover:bg-gray-50 text-gray-600"
-                      title={layer.visible !== false ? "Hide layer" : "Show layer"}
-                    >
-                      {layer.visible !== false ? (
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></svg>
-                      ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" /><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" /><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7c.44 0 .87-.03 1.28-.09" /><line x1="2" x2="22" y1="2" y2="22" /></svg>
-                      )}
-                    </button>
-                    <Button variant="outline" onClick={() => removeLayer(layer.id)} className="cursor-pointer">Remove</Button>
-                    <button
-                      type="button"
-                      aria-label="Toggle layer"
-                      onClick={() => setLayers(prev => prev.map(l => l.id === layer.id ? { ...l, open: !l.open } : l))}
-                      className="w-7 h-7 border rounded-md flex items-center justify-center cursor-pointer"
-                    >
-                      <span className={`transition-transform ${layer.open ? 'rotate-180' : ''}`}>﹀</span>
-                    </button>
-                  </div>
-                </div>
-                {layer.open && (
-                  <div className="p-4 space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-800 mb-2">Layer Name <span className="text-red-500">*</span></label>
-                        <input value={layer.name} onChange={(e) => setLayers(prev => prev.map(l => l.id === layer.id ? { ...l, name: e.target.value } : l))} className="w-full rounded-lg border border-gray-200 px-3 py-2" />
                       </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-800 mb-2">Description (Optional)</label>
-                        <input value={layer.description || ''} onChange={(e) => setLayers(prev => prev.map(l => l.id === layer.id ? { ...l, description: e.target.value } : l))} className="w-full rounded-lg border border-gray-200 px-3 py-2" />
-                      </div>
+                      {layer.description ? (
+                        <div className="text-xs text-gray-500 truncate max-w-[25ch]">{layer.description}</div>
+                      ) : null}
                     </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setLayers(prev => prev.map(l => l.id === layer.id ? { ...l, visible: !l.visible } : l)) }}
+                        className="w-7 h-7 border rounded-md flex items-center justify-center cursor-pointer hover:bg-gray-50 text-gray-600"
+                        title={layer.visible !== false ? "Hide layer" : "Show layer"}
+                      >
+                        {layer.visible !== false ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></svg>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" /><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" /><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7c.44 0 .87-.03 1.28-.09" /><line x1="2" x2="22" y1="2" y2="22" /></svg>
+                        )}
+                      </button>
+                      <Button variant="outline" onClick={() => removeLayer(layer.id)} className="cursor-pointer">Remove</Button>
+                      <button
+                        type="button"
+                        aria-label="Toggle layer"
+                        onClick={() => setLayers(prev => prev.map(l => l.id === layer.id ? { ...l, open: !l.open } : l))}
+                        className="w-7 h-7 border rounded-md flex items-center justify-center cursor-pointer"
+                      >
+                        <span className={`transition-transform ${layer.open ? 'rotate-180' : ''}`}>﹀</span>
+                      </button>
+                    </div>
+                  </div>
+                  {layer.open && (
+                    <div className="p-4 space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-800 mb-2">Layer Name <span className="text-red-500">*</span></label>
+                          <input value={layer.name} onChange={(e) => setLayers(prev => prev.map(l => l.id === layer.id ? { ...l, name: e.target.value } : l))} className="w-full rounded-lg border border-gray-200 px-3 py-2" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-800 mb-2">Description (Optional)</label>
+                          <input value={layer.description || ''} onChange={(e) => setLayers(prev => prev.map(l => l.id === layer.id ? { ...l, description: e.target.value } : l))} className="w-full rounded-lg border border-gray-200 px-3 py-2" />
+                        </div>
+                      </div>
 
-                    <div>
-                      <div className="text-sm font-medium text-gray-700 mb-2">Images</div>
-                      <div className="flex flex-wrap gap-3">
-                        {layer.images.map(img => {
-                          const isSelected = selectedImageIds[layer.id] === img.id || (!selectedImageIds[layer.id] && layer.images[0]?.id === img.id)
-                          return (
-                            <div key={img.id} className="relative group">
-                              <div
-                                className={`w-20 h-20 rounded-md border-2 cursor-pointer transition-all ${isSelected ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-200 hover:border-gray-300'
-                                  }`}
-                                onClick={() => selectImage(layer.id, img.id)}
-                              >
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src={img.secureUrl || img.previewUrl} alt="layer" className="w-full h-full object-contain rounded-md" />
+                      <div>
+                        <div className="text-sm font-medium text-gray-700 mb-2">Images</div>
+                        <div className="flex flex-wrap gap-3">
+                          {layer.images.map(img => {
+                            const isSelected = selectedImageIds[layer.id] === img.id || (!selectedImageIds[layer.id] && layer.images[0]?.id === img.id)
+                            return (
+                              <div key={img.id} className="relative group">
+                                <div
+                                  className={`w-20 h-20 rounded-md border-2 cursor-pointer transition-all ${isSelected ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-200 hover:border-gray-300'
+                                    }`}
+                                  onClick={() => selectImage(layer.id, img.id)}
+                                >
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img src={img.secureUrl || img.previewUrl} alt="layer" className="w-full h-full object-contain rounded-md" />
+                                </div>
+                                {layer.layer_type === 'text' && (
+                                  <button
+                                    onClick={() => openLayerTextModal(layer.id, { imageId: img.id })}
+                                    className="absolute -top-2 -left-2 w-5 h-5 bg-blue-500 text-white rounded-full text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-blue-600 cursor-pointer flex items-center justify-center z-10"
+                                    title="Edit text"
+                                  >
+                                    ✎
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => removeImageFromLayer(layer.id, img.id)}
+                                  className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-red-600 cursor-pointer z-10"
+                                >
+                                  ×
+                                </button>
+                                {layer.layer_type === 'text' && (
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); duplicateLayerImage(layer.id, img.id) }}
+                                    className="absolute -bottom-2 -right-2 w-5 h-5 bg-green-500 text-white rounded-full text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-green-600 cursor-pointer flex items-center justify-center z-10"
+                                    title="Duplicate"
+                                  >
+                                    ⧉
+                                  </button>
+                                )}
+                                <input
+                                  type="text"
+                                  value={img.name || ''}
+                                  onChange={(e) => updateImageName(layer.id, img.id, e.target.value)}
+                                  className="w-20 mt-1 text-xs px-1 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                  placeholder="Image name"
+                                />
                               </div>
-                              {layer.layer_type === 'text' && (
-                                <button
-                                  onClick={() => openLayerTextModal(layer.id, { imageId: img.id })}
-                                  className="absolute -top-2 -left-2 w-5 h-5 bg-blue-500 text-white rounded-full text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-blue-600 cursor-pointer flex items-center justify-center z-10"
-                                  title="Edit text"
-                                >
-                                  ✎
-                                </button>
-                              )}
-                              <button
-                                onClick={() => removeImageFromLayer(layer.id, img.id)}
-                                className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-red-600 cursor-pointer z-10"
-                              >
-                                ×
-                              </button>
-                              {layer.layer_type === 'text' && (
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); duplicateLayerImage(layer.id, img.id) }}
-                                  className="absolute -bottom-2 -right-2 w-5 h-5 bg-green-500 text-white rounded-full text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-green-600 cursor-pointer flex items-center justify-center z-10"
-                                  title="Duplicate"
-                                >
-                                  ⧉
-                                </button>
-                              )}
-                              <input
-                                type="text"
-                                value={img.name || ''}
-                                onChange={(e) => updateImageName(layer.id, img.id, e.target.value)}
-                                className="w-20 mt-1 text-xs px-1 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                placeholder="Image name"
-                              />
-                            </div>
-                          )
-                        })}
-                        <div
-                          data-layer-add-menu
-                          className="relative w-20 h-20 border-2 border-dashed rounded-md flex items-center justify-center text-gray-400 cursor-pointer hover:border-gray-300 transition-colors"
-                          onDrop={(e) => {
-                            e.preventDefault()
-                            setLayerAddMenu(null)
-                            addImagesToLayer(layer.id, e.dataTransfer.files)
-                          }}
-                          onDragOver={(e) => {
-                            e.preventDefault()
-                            e.dataTransfer.dropEffect = 'copy'
-                          }}
-                          onDragEnter={(e) => {
-                            e.preventDefault()
-                            e.currentTarget.classList.add('bg-blue-50', 'border-blue-300')
-                          }}
-                          onDragLeave={(e) => {
-                            e.preventDefault()
-                            e.currentTarget.classList.remove('bg-blue-50', 'border-blue-300')
-                          }}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            const hasTextOnly = layer.images.length > 0 && layer.images.every(img => (img.sourceType ?? 'upload') === 'text')
-                            const hasImageOnly = layer.images.length === 0 || layer.images.every(img => (img.sourceType ?? 'upload') !== 'text')
-                            if (hasTextOnly) {
-                              openLayerTextModal(layer.id)
-                              return
-                            }
-                            if (hasImageOnly) {
+                            )
+                          })}
+                          <div
+                            data-layer-add-menu
+                            className="relative w-20 h-20 border-2 border-dashed rounded-md flex items-center justify-center text-gray-400 cursor-pointer hover:border-gray-300 transition-colors"
+                            onDrop={(e) => {
+                              e.preventDefault()
                               setLayerAddMenu(null)
-                              promptLayerImageUpload(layer.id)
-                              return
-                            }
-                            setLayerAddMenu(prev => prev === layer.id ? null : layer.id)
-                          }}
-                          title="Add more content"
-                        >
-                          <span className="text-2xl leading-none">+</span>
-                          {layerAddMenu === layer.id && (
-                            <div className="absolute z-20 top-full left-1/2 -translate-x-1/2 mt-2 w-36 rounded-md border border-gray-200 bg-white shadow-lg p-2 space-y-1">
-                              <button
-                                type="button"
-                                className="w-full text-xs px-2 py-1 rounded-md text-left hover:bg-gray-100 cursor-pointer"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setLayerAddMenu(null)
-                                  promptLayerImageUpload(layer.id)
-                                }}
-                              >
-                                Upload image(s)
-                              </button>
-                              <button
-                                type="button"
-                                className="w-full text-xs px-2 py-1 rounded-md text-left hover:bg-gray-100 cursor-pointer"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  openLayerTextModal(layer.id)
-                                }}
-                              >
-                                Add text
-                              </button>
-                            </div>
-                          )}
+                              addImagesToLayer(layer.id, e.dataTransfer.files)
+                            }}
+                            onDragOver={(e) => {
+                              e.preventDefault()
+                              e.dataTransfer.dropEffect = 'copy'
+                            }}
+                            onDragEnter={(e) => {
+                              e.preventDefault()
+                              e.currentTarget.classList.add('bg-blue-50', 'border-blue-300')
+                            }}
+                            onDragLeave={(e) => {
+                              e.preventDefault()
+                              e.currentTarget.classList.remove('bg-blue-50', 'border-blue-300')
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const hasTextOnly = layer.images.length > 0 && layer.images.every(img => (img.sourceType ?? 'upload') === 'text')
+                              const hasImageOnly = layer.images.length === 0 || layer.images.every(img => (img.sourceType ?? 'upload') !== 'text')
+                              if (hasTextOnly) {
+                                openLayerTextModal(layer.id)
+                                return
+                              }
+                              if (hasImageOnly) {
+                                setLayerAddMenu(null)
+                                promptLayerImageUpload(layer.id)
+                                return
+                              }
+                              setLayerAddMenu(prev => prev === layer.id ? null : layer.id)
+                            }}
+                            title="Add more content"
+                          >
+                            <span className="text-2xl leading-none">+</span>
+                            {layerAddMenu === layer.id && (
+                              <div className="absolute z-20 top-full left-1/2 -translate-x-1/2 mt-2 w-36 rounded-md border border-gray-200 bg-white shadow-lg p-2 space-y-1">
+                                <button
+                                  type="button"
+                                  className="w-full text-xs px-2 py-1 rounded-md text-left hover:bg-gray-100 cursor-pointer"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setLayerAddMenu(null)
+                                    promptLayerImageUpload(layer.id)
+                                  }}
+                                >
+                                  Upload image(s)
+                                </button>
+                                <button
+                                  type="button"
+                                  className="w-full text-xs px-2 py-1 rounded-md text-left hover:bg-gray-100 cursor-pointer"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    openLayerTextModal(layer.id)
+                                  }}
+                                >
+                                  Add text
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
+                  )}
+                  <div className="px-4 py-2 text-xs text-gray-500 border-t">Drag and drop layers to reorder.</div>
+                </div>
+                {idx === layers.length - 1 && overIndex === layers.length && (
+                  <div className="h-2 rounded bg-[rgba(38,116,186,0.3)] border border-[rgba(38,116,186,0.5)] mt-2" />
                 )}
-                <div className="px-4 py-2 text-xs text-gray-500 border-t">Drag and drop layers to reorder.</div>
-              </div>
-              {idx === layers.length - 1 && overIndex === layers.length && (
-                <div className="h-2 rounded bg-[rgba(38,116,186,0.3)] border border-[rgba(38,116,186,0.5)] mt-2" />
-              )}
-            </Fragment>
-          ))}
+              </Fragment>
+            ))}
 
-          {layers.length === 0 && (
-            <div className="text-sm text-gray-500">No layers added yet. Click &quot;Add New Layer&quot; to begin.</div>
-          )}
+            {layers.length === 0 && (
+              <div className="text-sm text-gray-500">No layers added yet. Click &quot;Add New Layer&quot; to begin.</div>
+            )}
+          </div>
         </div>
       </div>
 
