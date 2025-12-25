@@ -532,7 +532,7 @@ export function buildStudyPayloadFromLocalStorage(): CreateStudyPayload {
   const aspectRatioFromLS = (() => {
     try {
       const ar = localStorage.getItem('cs_step5_layer_preview_aspect')
-      const map: Record<string, string> = { portrait: '3:4', landscape: '4:3', square: '1:1' }
+      const map: Record<string, string> = { portrait: '9:16', landscape: '16:9', square: '1:1' }
       return ar && map[ar] ? map[ar] : undefined
     } catch { return undefined }
   })()
@@ -546,7 +546,7 @@ export function buildStudyPayloadFromLocalStorage(): CreateStudyPayload {
     study_type: (s2.type as StudyType) || "grid",
     ...((() => {
       try {
-        const map: Record<string, string> = { portrait: '3:4', landscape: '4:3', square: '1:1' }
+        const map: Record<string, string> = { portrait: '9:16', landscape: '16:9', square: '1:1' }
         const arKey = localStorage.getItem('cs_step5_layer_preview_aspect')
         let value = arKey && map[arKey] ? map[arKey] : undefined
         if (!value) {
@@ -915,7 +915,7 @@ export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayl
   const aspectRatioFromLS2 = (() => {
     try {
       const ar = localStorage.getItem('cs_step5_layer_preview_aspect')
-      const map: Record<string, string> = { portrait: '3:4', landscape: '4:3', square: '1:1' }
+      const map: Record<string, string> = { portrait: '9:16', landscape: '16:9', square: '1:1' }
       return ar && map[ar] ? map[ar] : undefined
     } catch { return undefined }
   })()
@@ -972,7 +972,7 @@ export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayl
     ...((() => {
       try {
         const ar = localStorage.getItem('cs_step5_layer_preview_aspect')
-        const map: Record<string, string> = { portrait: '3:4', landscape: '4:3', square: '1:1' }
+        const map: Record<string, string> = { portrait: '9:16', landscape: '16:9', square: '1:1' }
         const value = ar && map[ar] ? map[ar] : undefined
         return value ? { aspect_ratio: value } : {}
       } catch { return {} }

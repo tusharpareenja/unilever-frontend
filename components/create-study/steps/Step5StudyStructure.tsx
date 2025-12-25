@@ -5,6 +5,7 @@ import { Fragment, useEffect, useRef, useState, forwardRef } from "react"
 import { Rnd } from "react-rnd"
 import { Button } from "@/components/ui/button"
 import { uploadImages, putUpdateStudyAsync } from "@/lib/api/StudyAPI"
+import { renderLayersToCanvas } from "@/lib/canvas-export"
 
 interface ElementItem {
   id: string
@@ -80,8 +81,8 @@ function LargePreview({ background, layers, aspect, selectedImageIds = {} }: { b
           // Compute displayed pixel size. If the layer image includes captured pixel dimensions, prefer those.
           const iw = imgRef.current?.naturalWidth || fit.width || 1
           const ih = imgRef.current?.naturalHeight || fit.height || 1
-          const displayWidth = base.pixelWidth ? (base.pixelWidth * (fit.width / iw)) : (widthPct / 100 * fit.width)
-          const displayHeight = base.pixelHeight ? (base.pixelHeight * (fit.height / ih)) : (heightPct / 100 * fit.height)
+          const displayWidth = (widthPct / 100) * fit.width
+          const displayHeight = (heightPct / 100) * fit.height
           const leftPx = (leftPct / 100) * fit.width
           const topPx = (topPct / 100) * fit.height
           return (
@@ -1245,6 +1246,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
   })
   const aspectClass = previewAspect === 'portrait' ? 'aspect-[9/16]' : previewAspect === 'landscape' ? 'aspect-[16/9]' : 'aspect-square'
   const [showFullPreview, setShowFullPreview] = useState(false)
+  const [exportLoading, setExportLoading] = useState(false)
 
   // Comprehensive font options with their CSS font-family values
   const FONT_OPTIONS = [
@@ -2462,8 +2464,8 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
           name: baseName,
           x: baseTransform.x,
           y: baseTransform.y,
-          width: baseTransform.width,
-          height: baseTransform.height,
+          width: showLayerTextModal.mode === 'add' ? Math.max(5, (pixelWidth / (bgFit.width || 1)) * 100) : baseTransform.width,
+          height: showLayerTextModal.mode === 'add' ? Math.max(2, (pixelHeight / (bgFit.height || 1)) * 100) : baseTransform.height,
           pixelWidth,
           pixelHeight,
           sourceType: 'text' as const,
@@ -2598,8 +2600,8 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
           name: baseName,
           x: 0,
           y: 0,
-          width: 100,
-          height: 50, // Reduced height to 50% for text layers
+          width: Math.max(5, (pixelWidth / (bgFit.width || 1)) * 100),
+          height: Math.max(2, (pixelHeight / (bgFit.height || 1)) * 100),
           pixelWidth,
           pixelHeight,
           sourceType: 'text' as const,
@@ -2717,6 +2719,25 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     }
   }
 
+  const handleCanvasExport = async () => {
+    setExportLoading(true)
+    try {
+      const canvas = await renderLayersToCanvas(background, layers, selectedImageIds, previewAspect)
+      const dataUrl = canvas.toDataURL('image/png')
+      const link = document.createElement('a')
+      link.download = `study-export-${previewAspect}-${Date.now()}.png`
+      link.href = dataUrl
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    } catch (e) {
+      console.error('Export failed', e)
+      alert('Failed to export image. Please try again.')
+    } finally {
+      setExportLoading(false)
+    }
+  }
+
   const handleNext = async () => {
     setNextLoading(true)
     // Ensure all layer image uploads (including preview-only entries) complete
@@ -2735,7 +2756,15 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
         }
 
         // Build payload directly from in-memory layers & background using backend field names
-        const updatePayload: any = { study_type: 'layer' }
+        const aspectMap: Record<string, string> = { portrait: '9:16', landscape: '16:9', square: '1:1' }
+        const currentAspect = aspectMap[previewAspect] || '9:16'
+        const updatePayload: any = {
+          study_type: 'layer',
+          aspect_ratio: currentAspect,
+          audience_segmentation: {
+            aspect_ratio: currentAspect
+          }
+        }
         const sourceLayers = layersRef.current || []
         const mappedLayers: any[] = []
         // Background should not be sent as a layer object; instead include as `background_image_url`
@@ -3174,6 +3203,11 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     }
     onDataChange?.()
   }, [layers, background, onDataChange]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Persist preview aspect to local storage when it changes
+  useEffect(() => {
+    localStorage.setItem('cs_step5_layer_preview_aspect', previewAspect)
+  }, [previewAspect])
 
   return (
     <div>
@@ -5576,7 +5610,17 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
             <div className="relative bg-white rounded-xl w-full max-w-5xl shadow-xl p-4 z-10">
               <div className="flex items-center justify-between mb-3">
                 <div className="text-sm font-semibold text-gray-800">Preview</div>
-                <Button variant="outline" onClick={() => setShowFullPreview(false)} className="cursor-pointer">Close</Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={handleCanvasExport}
+                    disabled={exportLoading}
+                    className="cursor-pointer border-blue-500 text-blue-600 hover:bg-blue-50"
+                  >
+                    {exportLoading ? 'Exporting...' : 'Download Image'}
+                  </Button>
+                  <Button variant="outline" onClick={() => setShowFullPreview(false)} className="cursor-pointer">Close</Button>
+                </div>
               </div>
               <LargePreview background={background} layers={layers} aspect={previewAspect} selectedImageIds={selectedImageIds} />
             </div>

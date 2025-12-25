@@ -379,8 +379,8 @@ const loadDraftStudyData = async (studyId: string) => {
       // Store aspect ratio
       if (studyDetails.aspect_ratio) {
         const aspectMap: Record<string, string> = {
-          '3:4': 'portrait',
-          '4:3': 'landscape',
+          '9:16': 'portrait',
+          '16:9': 'landscape',
           '1:1': 'square',
         }
         localStorage.setItem('cs_step5_layer_preview_aspect', aspectMap[studyDetails.aspect_ratio] || 'portrait')
