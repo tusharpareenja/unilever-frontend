@@ -3082,11 +3082,22 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     setLayers(prev => prev.map(layer => {
       if (layer.id !== layerId) return layer
 
-      // Update individual images
-      const updatedImages = layer.images.map(img => ({ ...img, ...transform }))
+      // Update images: position (x, y) is synced across all, width/height is individual
+      const updatedImages = layer.images.map(img => {
+        const isTarget = img.id === imageId
+        return {
+          ...img,
+          // Sync x, y for all images in the layer
+          ...(transform.x !== undefined ? { x: transform.x } : {}),
+          ...(transform.y !== undefined ? { y: transform.y } : {}),
+          // Only update width, height for the target image
+          ...(isTarget && transform.width !== undefined ? { width: transform.width } : {}),
+          ...(isTarget && transform.height !== undefined ? { height: transform.height } : {}),
+        }
+      })
 
-      // Update layer-level transform for persistence
-      // We merge with existing transform to preserve other props if any
+      // Update layer-level transform for persistence/fallback
+      // This serves as the 'default' or 'last known' transform for the layer itself
       const newLayerTransform = {
         x: transform.x !== undefined ? transform.x : (layer.transform?.x || 0),
         y: transform.y !== undefined ? transform.y : (layer.transform?.y || 0),
@@ -3449,7 +3460,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
             <Button variant="outline" className="rounded-full px-4 py-1 cursor-pointer" onClick={() => setShowFullPreview(true)}>Preview</Button>
           </div>
         </div>
-        <div className={previewAspect === 'landscape' ? 'md:col-span-2 md:h-full md:flex md:flex-col' : 'md:col-span-3 md:h-full md:flex md:flex-col'}>
+        <div className={previewAspect === 'landscape' ? 'md:col-span-2 md:h-full md:flex md:flex-col md:overflow-hidden' : 'md:col-span-3 md:h-full md:flex md:flex-col md:overflow-hidden'}>
           {/* Background controls */}
           <div className="border rounded-xl bg-white p-4 mb-4">
             <div className="flex items-center justify-between mb-2">
@@ -3474,7 +3485,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
             )}
           </div>
           <div className="text-xs text-gray-600 mb-2">Min {LAYER_MIN}, Max {LAYER_MAX}. Current: {layers.length}</div>
-          <div className={`md:flex-1 md:pr-2 custom-scrollbar ${layers.length >= 4 ? 'md:max-h-[320px] md:overflow-y-auto' : 'md:overflow-y-auto'}`}>
+          <div className="md:flex-1 md:min-h-0 md:pr-2 custom-scrollbar md:overflow-y-auto md:max-h-[calc(100vh-400px)]">
             {layers.map((layer, idx) => (
               <Fragment key={layer.id}>
                 {overIndex === idx && (
