@@ -3082,22 +3082,13 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     setLayers(prev => prev.map(layer => {
       if (layer.id !== layerId) return layer
 
-      // Update images: position (x, y) is synced across all, width/height is individual
+      // Update ONLY the target image's transform (position and dimensions)
       const updatedImages = layer.images.map(img => {
-        const isTarget = img.id === imageId
-        return {
-          ...img,
-          // Sync x, y for all images in the layer
-          ...(transform.x !== undefined ? { x: transform.x } : {}),
-          ...(transform.y !== undefined ? { y: transform.y } : {}),
-          // Only update width, height for the target image
-          ...(isTarget && transform.width !== undefined ? { width: transform.width } : {}),
-          ...(isTarget && transform.height !== undefined ? { height: transform.height } : {}),
-        }
+        if (img.id !== imageId) return img
+        return { ...img, ...transform }
       })
 
-      // Update layer-level transform for persistence/fallback
-      // This serves as the 'default' or 'last known' transform for the layer itself
+      // Update layer-level transform for persistence/fallback for new images
       const newLayerTransform = {
         x: transform.x !== undefined ? transform.x : (layer.transform?.x || 0),
         y: transform.y !== undefined ? transform.y : (layer.transform?.y || 0),
@@ -3485,7 +3476,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
             )}
           </div>
           <div className="text-xs text-gray-600 mb-2">Min {LAYER_MIN}, Max {LAYER_MAX}. Current: {layers.length}</div>
-          <div className="md:flex-1 md:min-h-0 md:pr-2 custom-scrollbar md:overflow-y-auto md:max-h-[calc(100vh-400px)]">
+          <div className={`md:flex-1 md:min-h-0 md:pr-2 custom-scrollbar md:overflow-y-auto ${layers.length >= 4 ? 'md:max-h-[320px]' : 'md:max-h-[calc(100vh-400px)]'}`}>
             {layers.map((layer, idx) => (
               <Fragment key={layer.id}>
                 {overIndex === idx && (
