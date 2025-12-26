@@ -16,15 +16,15 @@ interface AccordionSectionProps {
   defaultOpen?: boolean
 }
 
-const AccordionSection = ({ title, children, defaultOpen = true }: AccordionSectionProps) => {
+const AccordionSection = ({ title, children, defaultOpen = false }: AccordionSectionProps) => {
   const [isOpen, setIsOpen] = useState(defaultOpen)
 
   return (
     <div className="bg-white rounded-lg shadow-sm border mb-6 overflow-hidden">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors duration-200 border-b group"
-        style={{ borderColor: isOpen ? '#2674BA' : '#e5e7eb' }}
+        className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors duration-200 border-b group cursor-pointer"
+        style={{ borderColor: '#e5e7eb' }}
       >
         <h3
           className="text-lg font-semibold transition-colors duration-200"
@@ -482,8 +482,8 @@ export default function StudyManagementPage() {
           {/* Response Statistics */}
           <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
             <h3
-              className="text-lg font-semibold border-b pb-2 mb-4"
-              style={{ color: '#2674BA', borderColor: '#2674BA' }}
+              className="text-lg font-semibold pb-2 mb-4"
+              style={{ color: '#2674BA' }}
             >
               Response Statistics
             </h3>

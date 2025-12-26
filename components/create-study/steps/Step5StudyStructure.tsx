@@ -3082,10 +3082,15 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
     setLayers(prev => prev.map(layer => {
       if (layer.id !== layerId) return layer
 
-      // Update ONLY the target image's transform (position and dimensions)
+      // Apply the transform to ALL images in this layer (not just the target)
       const updatedImages = layer.images.map(img => {
-        if (img.id !== imageId) return img
-        return { ...img, ...transform }
+        return {
+          ...img,
+          x: transform.x !== undefined ? transform.x : img.x,
+          y: transform.y !== undefined ? transform.y : img.y,
+          width: transform.width !== undefined ? transform.width : img.width,
+          height: transform.height !== undefined ? transform.height : img.height
+        }
       })
 
       // Update layer-level transform for persistence/fallback for new images
@@ -3213,13 +3218,11 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
 
   return (
     <div>
-      <div>
-        <h3 className="text-lg font-semibold text-gray-800">Layer Configuration</h3>
-        <p className="text-sm text-gray-600">Configure layers, upload images, and preview your layer study</p>
-      </div>
-
-      <div className="flex items-center justify-between mt-4">
-        <div className="text-sm font-semibold text-gray-800">Layer Management</div>
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-gray-800">Layer Configuration</h3>
+          <p className="text-sm text-gray-600">Configure layers, upload images, and preview your layer study</p>
+        </div>
         <div className="relative" data-layer-type-menu>
           <Button className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] cursor-pointer" onClick={addLayer} disabled={layers.length >= LAYER_MAX}>+ Add New Layer</Button>
           {showLayerTypeMenu && (
@@ -3243,12 +3246,12 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 md:grid-cols-5 gap-5 md:h-[calc(100vh-180px)] md:overflow-hidden">
+      <div className="mt-2 grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className={`${previewAspect === 'landscape' ? 'md:col-span-3' : 'md:col-span-2'} rounded-xl bg-white p-4 flex flex-col md:h-full md:overflow-hidden`}>
           {/* Preview canvas built from z order with draggable/resizable layers */}
           <div
             ref={previewContainerRef}
-            className={`relative w-full ${aspectClass} ${previewAspect === 'portrait' ? 'max-h-[55vh]' : 'max-h-[75vh]'} overflow-hidden bg-slate-50 rounded-lg border`}
+            className={`relative w-full ${aspectClass} ${previewAspect === 'portrait' ? 'max-h-[55vh]' : previewAspect === 'landscape' ? 'max-h-[50vh]' : 'max-h-[60vh]'} overflow-hidden bg-slate-50 rounded-lg border`}
             style={{ position: 'relative' }}
             onMouseDown={(e) => { if (e.currentTarget === e.target) setSelectedLayerId(null) }}
           >
@@ -3451,9 +3454,9 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
             <Button variant="outline" className="rounded-full px-4 py-1 cursor-pointer" onClick={() => setShowFullPreview(true)}>Preview</Button>
           </div>
         </div>
-        <div className={previewAspect === 'landscape' ? 'md:col-span-2 md:h-full md:flex md:flex-col md:overflow-hidden' : 'md:col-span-3 md:h-full md:flex md:flex-col md:overflow-hidden'}>
+        <div className={previewAspect === 'landscape' ? 'md:col-span-2 flex flex-col' : 'md:col-span-3 flex flex-col'}>
           {/* Background controls */}
-          <div className="border rounded-xl bg-white p-4 mb-4">
+          <div className="border rounded-xl bg-white p-2 mb-2">
             <div className="flex items-center justify-between mb-2">
               <div className="text-sm font-semibold text-gray-800">Background (Optional)</div>
               {background && (
@@ -3461,22 +3464,22 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
               )}
             </div>
             {background && (background.secureUrl || background.previewUrl) ? (
-              <div className="flex items-center gap-4">
-                <div className="w-24 h-24 border rounded-md overflow-hidden bg-gray-50">
+              <div className="flex items-center gap-2">
+                <div className="w-20 h-20 border rounded-md overflow-hidden bg-gray-50">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={background.secureUrl || background.previewUrl} alt="Background" className="w-full h-full object-contain" />
                 </div>
                 <div className="text-xs text-gray-600">Rendered behind all layers.</div>
               </div>
             ) : (
-              <label className="inline-flex items-center justify-center px-3 py-2 border-2 border-dashed rounded-md text-xs text-gray-600 cursor-pointer hover:bg-gray-50">
+              <label className="inline-flex items-center justify-center px-1 py-1 border-2 border-dashed rounded-md text-xs text-gray-600 cursor-pointer hover:bg-gray-50">
                 Upload Background
                 <input type="file" accept="image/*" className="hidden" onChange={(e) => handleBackgroundFile(e.target.files?.[0] || null)} />
               </label>
             )}
           </div>
           <div className="text-xs text-gray-600 mb-2">Min {LAYER_MIN}, Max {LAYER_MAX}. Current: {layers.length}</div>
-          <div className={`md:flex-1 md:min-h-0 md:pr-2 custom-scrollbar md:overflow-y-auto ${layers.length >= 4 ? 'md:max-h-[320px]' : 'md:max-h-[calc(100vh-400px)]'}`}>
+          <div className="md:pr-2 custom-scrollbar md:overflow-y-auto md:max-h-[220px]">
             {layers.map((layer, idx) => (
               <Fragment key={layer.id}>
                 {overIndex === idx && (
@@ -5630,7 +5633,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
         )
       }
 
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mt-10">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mt-2">
         <Button variant="outline" className="rounded-full cursor-pointer px-6 w-full sm:w-auto" onClick={onBack}>Back</Button>
         <Button
           className="rounded-full cursor-pointer px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] w-full sm:w-auto"
