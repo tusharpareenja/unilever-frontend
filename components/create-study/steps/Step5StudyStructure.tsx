@@ -3455,31 +3455,31 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
           </div>
         </div>
         <div className={previewAspect === 'landscape' ? 'md:col-span-2 flex flex-col' : 'md:col-span-3 flex flex-col'}>
-          {/* Background controls */}
-          <div className="border rounded-xl bg-white p-2 mb-2">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-sm font-semibold text-gray-800">Background (Optional)</div>
-              {background && (
-                <Button variant="outline" onClick={removeBackground} className="cursor-pointer">Remove</Button>
+          <div className="text-xs text-gray-600 mb-2">Min {LAYER_MIN}, Max {LAYER_MAX}. Current: {layers.length}</div>
+          <div className="md:pr-2 custom-scrollbar md:overflow-y-auto md:max-h-[300px]">
+            {/* Background controls merged into scrollable list */}
+            <div className="border rounded-xl bg-white p-2 mb-2">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-sm font-semibold text-gray-800">Background (Optional)</div>
+                {background && (
+                  <Button variant="outline" onClick={removeBackground} className="cursor-pointer">Remove</Button>
+                )}
+              </div>
+              {background && (background.secureUrl || background.previewUrl) ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-20 h-20 border rounded-md overflow-hidden bg-gray-50">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={background.secureUrl || background.previewUrl} alt="Background" className="w-full h-full object-contain" />
+                  </div>
+                  <div className="text-xs text-gray-600">Rendered behind all layers.</div>
+                </div>
+              ) : (
+                <label className="inline-flex items-center justify-center px-1 py-1 border-2 border-dashed rounded-md text-xs text-gray-600 cursor-pointer hover:bg-gray-50">
+                  Upload Background
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => handleBackgroundFile(e.target.files?.[0] || null)} />
+                </label>
               )}
             </div>
-            {background && (background.secureUrl || background.previewUrl) ? (
-              <div className="flex items-center gap-2">
-                <div className="w-20 h-20 border rounded-md overflow-hidden bg-gray-50">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={background.secureUrl || background.previewUrl} alt="Background" className="w-full h-full object-contain" />
-                </div>
-                <div className="text-xs text-gray-600">Rendered behind all layers.</div>
-              </div>
-            ) : (
-              <label className="inline-flex items-center justify-center px-1 py-1 border-2 border-dashed rounded-md text-xs text-gray-600 cursor-pointer hover:bg-gray-50">
-                Upload Background
-                <input type="file" accept="image/*" className="hidden" onChange={(e) => handleBackgroundFile(e.target.files?.[0] || null)} />
-              </label>
-            )}
-          </div>
-          <div className="text-xs text-gray-600 mb-2">Min {LAYER_MIN}, Max {LAYER_MAX}. Current: {layers.length}</div>
-          <div className="md:pr-2 custom-scrollbar md:overflow-y-auto md:max-h-[220px]">
             {layers.map((layer, idx) => (
               <Fragment key={layer.id}>
                 {overIndex === idx && (
@@ -3685,88 +3685,16 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
         </div>
       </div>
 
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => { if (!draftSaving) { setShowModal(false); resetDraftState(); } }}>
-          <div className={`bg-white rounded-2xl shadow-2xl ${draftType === 'text' ? 'w-full max-w-6xl h-[90vh] max-h-[90vh] flex flex-col' : 'w-full max-w-2xl'}`} onClick={(e) => e.stopPropagation()}>
-            <div className="px-5 py-4 border-b font-semibold">Add New {draftType === 'image' ? 'Image' : 'Text'} Layer</div>
-            <div className={draftType === 'text' ? 'flex-1 flex flex-col overflow-hidden p-5 gap-4' : 'p-5 space-y-5 overflow-y-auto max-h-[70vh] pr-1'}>
-              {draftType === 'image' ? (
-                <>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-800 mb-2">Layer Name <span className="text-red-500">*</span></label>
-                    <input
-                      value={draftName}
-                      onChange={(e) => setDraftName(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-800 mb-2">Description (Optional)</label>
-                    <input
-                      value={draftDescription}
-                      onChange={(e) => setDraftDescription(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
-                    />
-                  </div>
-                  <div
-                    className="border-2 border-dashed rounded-xl p-6 text-center cursor-pointer hover:border-[rgba(38,116,186,1)] hover:bg-blue-50 transition-colors"
-                    onClick={() => document.getElementById('draft-file-input')?.click()}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => {
-                      e.preventDefault()
-                      handleDraftFiles(e.dataTransfer.files)
-                    }}
-                  >
-                    <div className="text-sm text-[rgba(38,116,186,1)]">Drag And Drop</div>
-                    <div className="text-[10px] text-gray-500">Supports JPG, PNG (Max 10MB Each)</div>
-                    <div className="mt-3 text-sm text-gray-600">Click anywhere to select files</div>
-                    <input
-                      id="draft-file-input"
-                      type="file"
-                      multiple
-                      accept="image/*"
-                      onChange={(e) => handleDraftFiles(e.target.files)}
-                      className="hidden"
-                    />
-                    {draftImages.length > 0 && (
-                      <div className="mt-3 flex gap-3 flex-wrap justify-center">
-                        {draftImages.map(img => (
-                          <div key={img.id} className="relative group flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
-                            <div className="w-20 h-20 border rounded-md overflow-hidden">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={img.previewUrl} alt="preview" className="w-full h-full object-contain" />
-                            </div>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); removeDraftImage(img.id) }}
-                              className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-red-600 cursor-pointer"
-                              aria-label="Remove image"
-                            >
-                              ×
-                            </button>
-                            <input
-                              type="text"
-                              value={img.name || ''}
-                              onClick={(e) => e.stopPropagation()}
-                              onMouseDown={(e) => e.stopPropagation()}
-                              onFocus={(e) => e.stopPropagation()}
-                              onChange={(e) => setDraftImages(prev => prev.map(draftImg =>
-                                draftImg.id === img.id ? { ...draftImg, name: e.target.value } : draftImg
-                              ))}
-                              className="w-20 mt-1 text-xs px-1 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                              placeholder="Name"
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <>
-                  {/* Top - Layer Info */}
-                  <div className="flex-shrink-0 grid grid-cols-2 gap-2">
+      {
+        showModal && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => { if (!draftSaving) { setShowModal(false); resetDraftState(); } }}>
+            <div className={`bg-white rounded-2xl shadow-2xl ${draftType === 'text' ? 'w-full max-w-6xl h-[90vh] max-h-[90vh] flex flex-col' : 'w-full max-w-2xl'}`} onClick={(e) => e.stopPropagation()}>
+              <div className="px-5 py-4 border-b font-semibold">Add New {draftType === 'image' ? 'Image' : 'Text'} Layer</div>
+              <div className={draftType === 'text' ? 'flex-1 flex flex-col overflow-hidden p-5 gap-4' : 'p-5 space-y-5 overflow-y-auto max-h-[70vh] pr-1'}>
+                {draftType === 'image' ? (
+                  <>
                     <div>
-                      <label className="block text-sm font-semibold text-gray-800 ">Layer Name <span className="text-red-500">*</span></label>
+                      <label className="block text-sm font-semibold text-gray-800 mb-2">Layer Name <span className="text-red-500">*</span></label>
                       <input
                         value={draftName}
                         onChange={(e) => setDraftName(e.target.value)}
@@ -3774,274 +3702,243 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-gray-800">Description (Optional)</label>
+                      <label className="block text-sm font-semibold text-gray-800 mb-2">Description (Optional)</label>
                       <input
                         value={draftDescription}
                         onChange={(e) => setDraftDescription(e.target.value)}
                         className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
                       />
                     </div>
-                  </div>
+                    <div
+                      className="border-2 border-dashed rounded-xl p-6 text-center cursor-pointer hover:border-[rgba(38,116,186,1)] hover:bg-blue-50 transition-colors"
+                      onClick={() => document.getElementById('draft-file-input')?.click()}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => {
+                        e.preventDefault()
+                        handleDraftFiles(e.dataTransfer.files)
+                      }}
+                    >
+                      <div className="text-sm text-[rgba(38,116,186,1)]">Drag And Drop</div>
+                      <div className="text-[10px] text-gray-500">Supports JPG, PNG (Max 10MB Each)</div>
+                      <div className="mt-3 text-sm text-gray-600">Click anywhere to select files</div>
+                      <input
+                        id="draft-file-input"
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        onChange={(e) => handleDraftFiles(e.target.files)}
+                        className="hidden"
+                      />
+                      {draftImages.length > 0 && (
+                        <div className="mt-3 flex gap-3 flex-wrap justify-center">
+                          {draftImages.map(img => (
+                            <div key={img.id} className="relative group flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
+                              <div className="w-20 h-20 border rounded-md overflow-hidden">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={img.previewUrl} alt="preview" className="w-full h-full object-contain" />
+                              </div>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); removeDraftImage(img.id) }}
+                                className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-red-600 cursor-pointer"
+                                aria-label="Remove image"
+                              >
+                                ×
+                              </button>
+                              <input
+                                type="text"
+                                value={img.name || ''}
+                                onClick={(e) => e.stopPropagation()}
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onFocus={(e) => e.stopPropagation()}
+                                onChange={(e) => setDraftImages(prev => prev.map(draftImg =>
+                                  draftImg.id === img.id ? { ...draftImg, name: e.target.value } : draftImg
+                                ))}
+                                className="w-20 mt-1 text-xs px-1 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                placeholder="Name"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* Top - Layer Info */}
+                    <div className="flex-shrink-0 grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-800 ">Layer Name <span className="text-red-500">*</span></label>
+                        <input
+                          value={draftName}
+                          onChange={(e) => setDraftName(e.target.value)}
+                          className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-800">Description (Optional)</label>
+                        <input
+                          value={draftDescription}
+                          onChange={(e) => setDraftDescription(e.target.value)}
+                          className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+                        />
+                      </div>
+                    </div>
 
-                  {/* Middle - Main Content */}
-                  <div className="flex-1 flex overflow-hidden gap-6">
-                    {/* Left Side - Text Input & Preview */}
-                    <div className="flex-1 flex flex-col gap-4 overflow-hidden">
-                      <div className="flex-shrink-0 flex flex-col gap-2">
-                        <label className="block text-sm font-semibold text-gray-800">Text Content <span className="text-red-500">*</span></label>
+                    {/* Middle - Main Content */}
+                    <div className="flex-1 flex overflow-hidden gap-6">
+                      {/* Left Side - Text Input & Preview */}
+                      <div className="flex-1 flex flex-col gap-4 overflow-hidden">
+                        <div className="flex-shrink-0 flex flex-col gap-2">
+                          <label className="block text-sm font-semibold text-gray-800">Text Content <span className="text-red-500">*</span></label>
 
-                        {/* Rich Text Toolbar */}
+                          {/* Rich Text Toolbar */}
 
-                        <div className="flex flex-wrap items-center gap-2 p-2 border rounded-t-lg bg-gray-50">
-                          <select
-                            className="text-xs border rounded px-1 py-1 w-32"
-                            onMouseDown={() => {
-                              // Save selection before dropdown opens
-                              const sel = window.getSelection()
-                              if (sel && sel.rangeCount > 0) {
-                                lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
-                              }
-                            }}
-                            onChange={(e) => {
-                              const newFont = e.target.value
-                              setDraftSelectedFont(newFont)
-                              if (draftTextEditorRef.current) {
-                                draftTextEditorRef.current.focus()
-                                if (lastSelectionRange.current) {
-                                  const sel = window.getSelection()
-                                  sel?.removeAllRanges()
-                                  sel?.addRange(lastSelectionRange.current)
-                                }
-                                document.execCommand('styleWithCSS', false, 'true')
-                                document.execCommand('fontName', false, newFont)
-
-                                setDraftHtmlContent(draftTextEditorRef.current.innerHTML)
-                                setDraftText(draftTextEditorRef.current.innerText)
-
-                                // Re-save selection
-                                const sel = window.getSelection()
-                                if (sel && sel.rangeCount > 0) {
-                                  lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
-                                }
-                              }
-                            }}
-                            value={draftSelectedFont || draftTextFont}
-                          >
-
-                            {FONT_OPTIONS.map(f => (
-                              <option key={f} value={f} style={{ fontFamily: FONT_FAMILY_MAP[f] || f }}>
-                                {f}
-                              </option>
-
-                            ))}
-                          </select>
-                          <select
-                            className="text-xs border rounded px-1 py-1 w-20"
-                            onMouseDown={() => {
-                              // Save selection before dropdown opens
-                              const sel = window.getSelection()
-                              if (sel && sel.rangeCount > 0) {
-                                lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
-                              }
-                            }}
-                            onChange={(e) => {
-                              const value = e.target.value
-                              const editor = draftTextEditorRef.current
-                              if (!editor) return
-
-                              let size: number
-                              if (value === 'custom') {
-                                const customSize = prompt('Enter custom font size (px):', '60')
-                                if (!customSize) return
-                                size = parseInt(customSize)
-                                if (isNaN(size)) return
-                              } else {
-                                size = parseInt(value)
-                              }
-
-                              // Focus editor and restore selection
-                              editor.focus()
-                              const sel = window.getSelection()
-                              if (lastSelectionRange.current && sel) {
-                                sel.removeAllRanges()
-                                sel.addRange(lastSelectionRange.current)
-                              }
-
-                              // IMPORTANT: Disable CSS mode to force creation of <font size="7"> tags
-                              // This is required for the replacement logic below to work
-                              document.execCommand('styleWithCSS', false, 'false')
-                              document.execCommand('fontSize', false, '7')
-                              // Re-enable CSS mode for other controls
-                              document.execCommand('styleWithCSS', false, 'true')
-
-                              setTimeout(() => {
-                                const fontElements = editor.querySelectorAll('font[size="7"]')
-                                fontElements.forEach((font) => {
-                                  const span = document.createElement('span')
-                                  span.style.fontSize = `${size}px`
-                                  span.innerHTML = font.innerHTML
-                                  font.parentNode?.replaceChild(span, font)
-                                })
-
-                                setDraftHtmlContent(editor.innerHTML)
-                                setDraftText(editor.innerText)
-                                setDraftSelectedFontSize(String(size))
-                              }, 0)
-                            }}
-                            value={draftSelectedFontSize || String(draftTextSize)}
-                            title="Font Size"
-                          >
-                            <option value="">Size</option>
-                            {(() => {
-                              const predefined = [12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 56, 60, 64, 72, 80, 96]
-                              const current = parseInt(draftSelectedFontSize || String(draftTextSize))
-                              const allSizes = !isNaN(current) && !predefined.includes(current)
-                                ? [...predefined, current].sort((a, b) => a - b)
-                                : predefined
-                              return allSizes.map(s => (
-                                <option key={s} value={s}>{s}px</option>
-                              ))
-                            })()}
-                            <option value="custom">Custom...</option>
-                          </select>
-                          <div className="flex items-center border rounded bg-white overflow-hidden">
-                            <button
-                              className="px-2 py-1 hover:bg-gray-100 font-bold"
-                              onMouseDown={(e) => e.preventDefault()}
-                              onClick={() => {
-                                document.execCommand('bold')
-                                if (draftTextEditorRef.current) {
-                                  setDraftHtmlContent(draftTextEditorRef.current.innerHTML)
-                                  setDraftText(draftTextEditorRef.current.innerText)
-                                }
-                              }}
-                              title="Bold"
-                            >
-                              B
-                            </button>
-                            <button
-                              className="px-2 py-1 hover:bg-gray-100 italic"
-                              onMouseDown={(e) => e.preventDefault()}
-                              onClick={() => {
-                                document.execCommand('italic')
-                                if (draftTextEditorRef.current) {
-                                  setDraftHtmlContent(draftTextEditorRef.current.innerHTML)
-                                  setDraftText(draftTextEditorRef.current.innerText)
-                                }
-                              }}
-                              title="Italic"
-                            >
-                              I
-                            </button>
-                          </div>
-                          <div className="relative w-6 h-6 overflow-hidden rounded cursor-pointer border hover:border-gray-400">
-                            <input
-                              type="color"
-                              className="absolute -top-2 -left-2 w-12 h-12 p-0 border-0 cursor-pointer"
+                          <div className="flex flex-wrap items-center gap-2 p-2 border rounded-t-lg bg-gray-50">
+                            <select
+                              className="text-xs border rounded px-1 py-1 w-32"
                               onMouseDown={() => {
+                                // Save selection before dropdown opens
                                 const sel = window.getSelection()
                                 if (sel && sel.rangeCount > 0) {
                                   lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
                                 }
                               }}
                               onChange={(e) => {
+                                const newFont = e.target.value
+                                setDraftSelectedFont(newFont)
+                                if (draftTextEditorRef.current) {
+                                  draftTextEditorRef.current.focus()
+                                  if (lastSelectionRange.current) {
+                                    const sel = window.getSelection()
+                                    sel?.removeAllRanges()
+                                    sel?.addRange(lastSelectionRange.current)
+                                  }
+                                  document.execCommand('styleWithCSS', false, 'true')
+                                  document.execCommand('fontName', false, newFont)
+
+                                  setDraftHtmlContent(draftTextEditorRef.current.innerHTML)
+                                  setDraftText(draftTextEditorRef.current.innerText)
+
+                                  // Re-save selection
+                                  const sel = window.getSelection()
+                                  if (sel && sel.rangeCount > 0) {
+                                    lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
+                                  }
+                                }
+                              }}
+                              value={draftSelectedFont || draftTextFont}
+                            >
+
+                              {FONT_OPTIONS.map(f => (
+                                <option key={f} value={f} style={{ fontFamily: FONT_FAMILY_MAP[f] || f }}>
+                                  {f}
+                                </option>
+
+                              ))}
+                            </select>
+                            <select
+                              className="text-xs border rounded px-1 py-1 w-20"
+                              onMouseDown={() => {
+                                // Save selection before dropdown opens
+                                const sel = window.getSelection()
+                                if (sel && sel.rangeCount > 0) {
+                                  lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
+                                }
+                              }}
+                              onChange={(e) => {
+                                const value = e.target.value
                                 const editor = draftTextEditorRef.current
-                                if (editor) editor.focus()
+                                if (!editor) return
+
+                                let size: number
+                                if (value === 'custom') {
+                                  const customSize = prompt('Enter custom font size (px):', '60')
+                                  if (!customSize) return
+                                  size = parseInt(customSize)
+                                  if (isNaN(size)) return
+                                } else {
+                                  size = parseInt(value)
+                                }
+
+                                // Focus editor and restore selection
+                                editor.focus()
                                 const sel = window.getSelection()
                                 if (lastSelectionRange.current && sel) {
                                   sel.removeAllRanges()
                                   sel.addRange(lastSelectionRange.current)
                                 }
-                                document.execCommand('styleWithCSS', false, 'true')
-                                document.execCommand('foreColor', false, e.target.value)
 
-                                if (editor) {
+                                // IMPORTANT: Disable CSS mode to force creation of <font size="7"> tags
+                                // This is required for the replacement logic below to work
+                                document.execCommand('styleWithCSS', false, 'false')
+                                document.execCommand('fontSize', false, '7')
+                                // Re-enable CSS mode for other controls
+                                document.execCommand('styleWithCSS', false, 'true')
+
+                                setTimeout(() => {
+                                  const fontElements = editor.querySelectorAll('font[size="7"]')
+                                  fontElements.forEach((font) => {
+                                    const span = document.createElement('span')
+                                    span.style.fontSize = `${size}px`
+                                    span.innerHTML = font.innerHTML
+                                    font.parentNode?.replaceChild(span, font)
+                                  })
+
                                   setDraftHtmlContent(editor.innerHTML)
                                   setDraftText(editor.innerText)
-                                }
+                                  setDraftSelectedFontSize(String(size))
+                                }, 0)
                               }}
-                              title="Text Color"
-                            />
-                          </div>
-                          <button
-                            className="text-xs px-2 py-1 border rounded hover:bg-gray-100"
-                            onMouseDown={(e) => e.preventDefault()}
-                            onClick={() => {
-                              // 1. Standard Remove Format
-                              document.execCommand('removeFormat')
-
-                              // 2. Clear Background
-                              document.execCommand('styleWithCSS', false, 'true')
-                              document.execCommand('hiliteColor', false, 'transparent')
-                              document.execCommand('backColor', false, 'transparent')
-
-                              // 3. Clear Custom Styles
-                              applyStyleToSelection(draftTextEditorRef, 'letter-spacing', 'normal', setDraftHtmlContent, setDraftText)
-                              applyStyleToSelection(draftTextEditorRef, '-webkit-text-stroke', '0px', setDraftHtmlContent, setDraftText)
-                              applyStyleToSelection(draftTextEditorRef, 'text-shadow', 'none', setDraftHtmlContent, setDraftText)
-
-                              // 4. Reset Selection State Inputs
-                              setDraftSelectionLetterSpacing(0)
-                              setDraftSelectionBackgroundColor("")
-                              setDraftSelectionStrokeWidth(0)
-                              setDraftSelectionStrokeColor("#000000")
-                              setDraftSelectionShadowColor("#000000")
-                              setDraftSelectionShadowBlur(0)
-                              setDraftSelectionShadowOffsetX(0)
-                              setDraftSelectionShadowOffsetY(0)
-
-                              if (draftTextEditorRef.current) {
-                                setDraftHtmlContent(draftTextEditorRef.current.innerHTML)
-                                setDraftText(draftTextEditorRef.current.innerText)
-                              }
-                            }}
-                            title="Clear Formatting"
-                          >
-                            Clear
-                          </button>
-                        </div>
-
-                        {/* Individual Text Styling Row - applies to SELECTED text only */}
-                        <div className="flex flex-wrap items-center gap-2 p-2 border-x border-b bg-gray-50 text-xs">
-                          {/* Letter Spacing */}
-                          <div className="flex items-center gap-1" title="Letter Spacing (selection)">
-                            <span className="text-gray-500">Ls:</span>
-                            <input
-                              type="number"
-                              className="w-12 border rounded px-1 py-0.5 text-xs"
-                              value={draftSelectionLetterSpacing}
-                              onMouseDown={() => {
-                                const sel = window.getSelection()
-                                if (sel && sel.rangeCount > 0) {
-                                  lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
-                                }
-                              }}
-                              onChange={(e) => {
-                                const value = Number(e.target.value)
-                                setDraftSelectionLetterSpacing(value)
-                                applyStyleToSelection(
-                                  draftTextEditorRef,
-                                  'letter-spacing',
-                                  `${value}px`,
-                                  setDraftHtmlContent,
-                                  setDraftText
-                                )
-                              }}
-                              min="-5"
-                              max="50"
-                            />
-                          </div>
-
-                          <div className="w-px h-5 bg-gray-300" />
-
-                          {/* Background Color */}
-                          <div className="flex items-center gap-1" title="Background Color (selection)">
-                            <span className="text-gray-500">Bg:</span>
-                            <div className="flex items-center gap-1 bg-white border rounded px-1">
+                              value={draftSelectedFontSize || String(draftTextSize)}
+                              title="Font Size"
+                            >
+                              <option value="">Size</option>
+                              {(() => {
+                                const predefined = [12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 56, 60, 64, 72, 80, 96]
+                                const current = parseInt(draftSelectedFontSize || String(draftTextSize))
+                                const allSizes = !isNaN(current) && !predefined.includes(current)
+                                  ? [...predefined, current].sort((a, b) => a - b)
+                                  : predefined
+                                return allSizes.map(s => (
+                                  <option key={s} value={s}>{s}px</option>
+                                ))
+                              })()}
+                              <option value="custom">Custom...</option>
+                            </select>
+                            <div className="flex items-center border rounded bg-white overflow-hidden">
+                              <button
+                                className="px-2 py-1 hover:bg-gray-100 font-bold"
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => {
+                                  document.execCommand('bold')
+                                  if (draftTextEditorRef.current) {
+                                    setDraftHtmlContent(draftTextEditorRef.current.innerHTML)
+                                    setDraftText(draftTextEditorRef.current.innerText)
+                                  }
+                                }}
+                                title="Bold"
+                              >
+                                B
+                              </button>
+                              <button
+                                className="px-2 py-1 hover:bg-gray-100 italic"
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => {
+                                  document.execCommand('italic')
+                                  if (draftTextEditorRef.current) {
+                                    setDraftHtmlContent(draftTextEditorRef.current.innerHTML)
+                                    setDraftText(draftTextEditorRef.current.innerText)
+                                  }
+                                }}
+                                title="Italic"
+                              >
+                                I
+                              </button>
+                            </div>
+                            <div className="relative w-6 h-6 overflow-hidden rounded cursor-pointer border hover:border-gray-400">
                               <input
                                 type="color"
-                                className="w-5 h-5 p-0 border-0 rounded cursor-pointer"
-                                value={draftSelectionBackgroundColor || '#ffffff'}
+                                className="absolute -top-2 -left-2 w-12 h-12 p-0 border-0 cursor-pointer"
                                 onMouseDown={() => {
                                   const sel = window.getSelection()
                                   if (sel && sel.rangeCount > 0) {
@@ -4049,27 +3946,6 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                                   }
                                 }}
                                 onChange={(e) => {
-                                  const val = e.target.value
-                                  setDraftSelectionBackgroundColor(val)
-                                  applyStyleToSelection(
-                                    draftTextEditorRef,
-                                    'background-color',
-                                    val,
-                                    setDraftHtmlContent,
-                                    setDraftText
-                                  )
-                                }}
-                              />
-                              <button
-                                onMouseDown={(e) => {
-                                  e.preventDefault()
-                                  const sel = window.getSelection()
-                                  if (sel && sel.rangeCount > 0) {
-                                    lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
-                                  }
-                                }}
-                                onClick={() => {
-                                  setDraftSelectionBackgroundColor("")
                                   const editor = draftTextEditorRef.current
                                   if (editor) editor.focus()
                                   const sel = window.getSelection()
@@ -4078,549 +3954,674 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                                     sel.addRange(lastSelectionRange.current)
                                   }
                                   document.execCommand('styleWithCSS', false, 'true')
-                                  document.execCommand('hiliteColor', false, 'transparent')
-                                  document.execCommand('backColor', false, 'transparent')
+                                  document.execCommand('foreColor', false, e.target.value)
 
-                                  // Manually trigger updates as execCommand modifies the DOM directly
-                                  setDraftHtmlContent(editor?.innerHTML || "")
-                                  setDraftText(editor?.innerText || "")
+                                  if (editor) {
+                                    setDraftHtmlContent(editor.innerHTML)
+                                    setDraftText(editor.innerText)
+                                  }
                                 }}
-                                className="text-gray-400 hover:text-red-500 font-bold px-1"
-                                title="Clear Background"
-                              >
-                                &times;
-                              </button>
-                            </div>
-                          </div>
-
-                          <div className="w-px h-5 bg-gray-300" />
-
-                          {/* Stroke */}
-                          <div className="flex items-center gap-1" title="Text Stroke (selection)">
-                            <span className="text-gray-500">Stroke:</span>
-                            <input
-                              type="color"
-                              className="w-5 h-5 p-0 border rounded cursor-pointer"
-                              value={draftSelectionStrokeColor || '#000000'}
-                              onMouseDown={() => {
-                                const sel = window.getSelection()
-                                if (sel && sel.rangeCount > 0) {
-                                  lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
-                                }
-                              }}
-                              onChange={(e) => {
-                                const color = e.target.value
-                                setDraftSelectionStrokeColor(color)
-                                applyStyleToSelection(
-                                  draftTextEditorRef,
-                                  '-webkit-text-stroke',
-                                  `${draftSelectionStrokeWidth}px ${color}`,
-                                  setDraftHtmlContent,
-                                  setDraftText
-                                )
-                              }}
-                            />
-                            <input
-                              id="draft-stroke-width"
-                              type="number"
-                              className="w-10 border rounded px-1 py-0.5 text-xs"
-                              value={draftSelectionStrokeWidth}
-                              min="0"
-                              max="10"
-                              step="0.5"
-                              onMouseDown={() => {
-                                const sel = window.getSelection()
-                                if (sel && sel.rangeCount > 0) {
-                                  lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
-                                }
-                              }}
-                              onChange={(e) => {
-                                const width = Number(e.target.value)
-                                setDraftSelectionStrokeWidth(width)
-                                applyStyleToSelection(
-                                  draftTextEditorRef,
-                                  '-webkit-text-stroke',
-                                  `${width}px ${draftSelectionStrokeColor}`,
-                                  setDraftHtmlContent,
-                                  setDraftText
-                                )
-                              }}
-                              title="Stroke Width"
-                            />
-                          </div>
-
-                          <div className="w-px h-5 bg-gray-300" />
-
-                          {/* Shadow */}
-                          <div className="flex items-center gap-1" title="Text Shadow (selection)">
-                            <span className="text-gray-500">Shadow:</span>
-                            <input
-                              id="draft-shadow-color"
-                              type="color"
-                              className="w-5 h-5 p-0 border rounded cursor-pointer"
-                              value={draftSelectionShadowColor || '#000000'}
-                              onMouseDown={() => {
-                                const sel = window.getSelection()
-                                if (sel && sel.rangeCount > 0) {
-                                  lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
-                                }
-                              }}
-                              onChange={(e) => {
-                                const color = e.target.value
-                                setDraftSelectionShadowColor(color)
-                                applyStyleToSelection(
-                                  draftTextEditorRef,
-                                  'text-shadow',
-                                  `${draftSelectionShadowOffsetX}px ${draftSelectionShadowOffsetY}px ${draftSelectionShadowBlur}px ${color}`,
-                                  setDraftHtmlContent,
-                                  setDraftText
-                                )
-                              }}
-                            />
-                            <input
-                              id="draft-shadow-blur"
-                              type="number"
-                              className="w-10 border rounded px-1 py-0.5 text-xs"
-                              value={draftSelectionShadowBlur}
-                              onMouseDown={() => {
-                                const sel = window.getSelection()
-                                if (sel && sel.rangeCount > 0) {
-                                  lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
-                                }
-                              }}
-                              onChange={(e) => {
-                                const blur = Number(e.target.value)
-                                setDraftSelectionShadowBlur(blur)
-                                applyStyleToSelection(
-                                  draftTextEditorRef,
-                                  'text-shadow',
-                                  `${draftSelectionShadowOffsetX}px ${draftSelectionShadowOffsetY}px ${blur}px ${draftSelectionShadowColor}`,
-                                  setDraftHtmlContent,
-                                  setDraftText
-                                )
-                              }}
-                              title="Blur Radius"
-                            />
-                            <input
-                              id="draft-shadow-x"
-                              type="number"
-                              className="w-8 border rounded px-1 py-0.5 text-xs"
-                              value={draftSelectionShadowOffsetX}
-                              onMouseDown={() => {
-                                const sel = window.getSelection()
-                                if (sel && sel.rangeCount > 0) {
-                                  lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
-                                }
-                              }}
-                              onChange={(e) => {
-                                const x = Number(e.target.value)
-                                setDraftSelectionShadowOffsetX(x)
-                                applyStyleToSelection(
-                                  draftTextEditorRef,
-                                  'text-shadow',
-                                  `${x}px ${draftSelectionShadowOffsetY}px ${draftSelectionShadowBlur}px ${draftSelectionShadowColor}`,
-                                  setDraftHtmlContent,
-                                  setDraftText
-                                )
-                              }}
-                              title="X Offset"
-                            />
-                            <input
-                              id="draft-shadow-y"
-                              type="number"
-                              className="w-8 border rounded px-1 py-0.5 text-xs"
-                              value={draftSelectionShadowOffsetY}
-                              onMouseDown={() => {
-                                const sel = window.getSelection()
-                                if (sel && sel.rangeCount > 0) {
-                                  lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
-                                }
-                              }}
-                              onChange={(e) => {
-                                const y = Number(e.target.value)
-                                setDraftSelectionShadowOffsetY(y)
-                                applyStyleToSelection(
-                                  draftTextEditorRef,
-                                  'text-shadow',
-                                  `${draftSelectionShadowOffsetX}px ${y}px ${draftSelectionShadowBlur}px ${draftSelectionShadowColor}`,
-                                  setDraftHtmlContent,
-                                  setDraftText
-                                )
-                              }}
-                              title="Y Offset"
-                            />
-                          </div>
-                        </div>
-
-                        {/* Content Editable Area */}
-                        <div
-                          ref={draftTextEditorRef}
-                          className="w-full rounded-b-lg border border-t-0 border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] h-20 overflow-y-auto text-base bg-white [&_*]:!text-[16px] [&_*]:![-webkit-text-stroke-width:0px]"
-                          contentEditable
-                          onInput={(e) => {
-                            const target = e.currentTarget
-                            setDraftHtmlContent(target.innerHTML)
-                            // Use innerText to capture newlines as \n
-                            setDraftText(target.innerText)
-                            setDraftError(null)
-                            detectSelectionStyles(draftTextEditorRef, false)
-                          }}
-                          onBlur={(e) => {
-                            // Ensure we persist the text with newlines
-                            setDraftText(e.currentTarget.innerText)
-                          }}
-                          onSelect={() => detectSelectionStyles(draftTextEditorRef, false)}
-                          onClick={() => detectSelectionStyles(draftTextEditorRef, false)}
-                          onKeyUp={() => detectSelectionStyles(draftTextEditorRef, false)}
-                          style={{
-                            fontFamily: FONT_OPTIONS.find(f => f === draftTextFont) ? `'${draftTextFont}', sans-serif` : 'Inter, sans-serif',
-                            fontWeight: draftTextWeight,
-                            color: draftTextColor,
-                            fontSize: '16px',
-                            textAlign: draftTextAlign,
-                            fontStyle: draftTextFontStyle,
-                            textDecoration: draftTextDecoration,
-                          }}
-                        />
-                        <div className="text-xs text-gray-500">
-                          Tip: Select text to apply specific styles. Global styles below apply to the container.
-                        </div>
-                      </div>
-
-                      {/* Preview Section */}
-                      <div className="flex-1 flex flex-col overflow-hidden gap-2">
-                        <label className="block text-sm font-semibold text-gray-800">Preview (This is how it will look when saved)</label>
-                        <div className="flex-1 bg-gray-50 rounded-lg p-6 border border-gray-200 overflow-auto flex items-center justify-center">
-                          {(draftHtmlContent || draftText) ? (
-                            <TextLayerPreview
-                              ref={(el) => { draftTextPreviewRef.current = el }}
-                              text={draftText}
-                              html={draftHtmlContent}
-                              color={draftTextColor}
-                              fontWeight={draftTextWeight}
-                              fontSize={draftTextSize}
-                              fontFamily={draftTextFont}
-                              backgroundColor={draftTextBackgroundColor}
-                              backgroundRadius={draftTextBackgroundRadius}
-                              textAlign={draftTextAlign}
-                              letterSpacing={draftTextLetterSpacing}
-                              fontStyle={draftTextFontStyle}
-                              textDecoration={draftTextDecoration}
-                              textOpacity={draftTextOpacity}
-                              textRotation={draftTextRotation}
-                              shadowColor={draftTextShadowColor}
-                              shadowBlur={draftTextShadowBlur}
-                              shadowOffsetX={draftTextShadowOffsetX}
-                              shadowOffsetY={draftTextShadowOffsetY}
-                              strokeColor={draftTextStrokeColor}
-                              strokeWidth={draftTextStrokeWidth}
-                            />
-                          ) : (
-                            <div className="text-gray-400 text-sm">Your text preview will appear here</div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Right Side - Designing Tools */}
-                    <div className="w-80 overflow-y-auto pr-2 flex flex-col gap-5">
-                      <div>
-                        <h4 className="text-sm font-semibold text-gray-800 mb-4">Text Styling</h4>
-                        <div className="space-y-4">
-                          {/* Color */}
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Color</label>
-                            <div className="flex items-center gap-3">
-                              <input
-                                type="color"
-                                value={draftTextColor}
-                                onChange={(e) => setDraftTextColor(e.target.value)}
-                                className="w-12 h-12 rounded-2xl cursor-pointer flex-shrink-0"
-                              />
-                              <input
-                                type="text"
-                                value={draftTextColor}
-                                onChange={(e) => setDraftTextColor(e.target.value)}
-                                className="flex-1 rounded-lg border border-gray-500 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
-                                placeholder="#000000"
+                                title="Text Color"
                               />
                             </div>
-                          </div>
+                            <button
+                              className="text-xs px-2 py-1 border rounded hover:bg-gray-100"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => {
+                                // 1. Standard Remove Format
+                                document.execCommand('removeFormat')
 
-                          {/* Font Weight */}
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Font Weight</label>
-                            <select
-                              value={draftTextWeight}
-                              onChange={(e) => setDraftTextWeight(e.target.value as '300' | '400' | '600' | '700')}
-                              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+                                // 2. Clear Background
+                                document.execCommand('styleWithCSS', false, 'true')
+                                document.execCommand('hiliteColor', false, 'transparent')
+                                document.execCommand('backColor', false, 'transparent')
+
+                                // 3. Clear Custom Styles
+                                applyStyleToSelection(draftTextEditorRef, 'letter-spacing', 'normal', setDraftHtmlContent, setDraftText)
+                                applyStyleToSelection(draftTextEditorRef, '-webkit-text-stroke', '0px', setDraftHtmlContent, setDraftText)
+                                applyStyleToSelection(draftTextEditorRef, 'text-shadow', 'none', setDraftHtmlContent, setDraftText)
+
+                                // 4. Reset Selection State Inputs
+                                setDraftSelectionLetterSpacing(0)
+                                setDraftSelectionBackgroundColor("")
+                                setDraftSelectionStrokeWidth(0)
+                                setDraftSelectionStrokeColor("#000000")
+                                setDraftSelectionShadowColor("#000000")
+                                setDraftSelectionShadowBlur(0)
+                                setDraftSelectionShadowOffsetX(0)
+                                setDraftSelectionShadowOffsetY(0)
+
+                                if (draftTextEditorRef.current) {
+                                  setDraftHtmlContent(draftTextEditorRef.current.innerHTML)
+                                  setDraftText(draftTextEditorRef.current.innerText)
+                                }
+                              }}
+                              title="Clear Formatting"
                             >
-                              <option value="300">Light (300)</option>
-                              <option value="400">Regular (400)</option>
-                              <option value="600">Semi Bold (600)</option>
-                              <option value="700">Bold (700)</option>
-                            </select>
+                              Clear
+                            </button>
                           </div>
 
-                          {/* Font Family */}
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Font Family</label>
-                            <select
-                              value={draftTextFont}
-                              onChange={(e) => setDraftTextFont(e.target.value)}
-                              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
-                            >
-                              {FONT_OPTIONS.map(font => (
-                                <option key={font} value={font} style={{ fontFamily: FONT_FAMILY_MAP[font] || font }}>
-                                  {font}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          {/* Font Size */}
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Font Size: <span className="font-semibold text-[rgba(38,116,186,1)]">{draftTextSize}px</span>
-                            </label>
-                            <div className="flex items-center gap-3">
-                              <input
-                                type="range"
-                                min="12"
-                                max="100"
-                                value={draftTextSize}
-                                onChange={(e) => setDraftTextSize(Number(e.target.value))}
-                                className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
-                              />
+                          {/* Individual Text Styling Row - applies to SELECTED text only */}
+                          <div className="flex flex-wrap items-center gap-2 p-2 border-x border-b bg-gray-50 text-xs">
+                            {/* Letter Spacing */}
+                            <div className="flex items-center gap-1" title="Letter Spacing (selection)">
+                              <span className="text-gray-500">Ls:</span>
                               <input
                                 type="number"
-                                min="12"
-                                max="100"
-                                value={draftTextSize}
-                                onChange={(e) => setDraftTextSize(Number(e.target.value))}
-                                className="w-16 rounded-lg border border-gray-200 px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+                                className="w-12 border rounded px-1 py-0.5 text-xs"
+                                value={draftSelectionLetterSpacing}
+                                onMouseDown={() => {
+                                  const sel = window.getSelection()
+                                  if (sel && sel.rangeCount > 0) {
+                                    lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
+                                  }
+                                }}
+                                onChange={(e) => {
+                                  const value = Number(e.target.value)
+                                  setDraftSelectionLetterSpacing(value)
+                                  applyStyleToSelection(
+                                    draftTextEditorRef,
+                                    'letter-spacing',
+                                    `${value}px`,
+                                    setDraftHtmlContent,
+                                    setDraftText
+                                  )
+                                }}
+                                min="-5"
+                                max="50"
                               />
                             </div>
+
+                            <div className="w-px h-5 bg-gray-300" />
+
+                            {/* Background Color */}
+                            <div className="flex items-center gap-1" title="Background Color (selection)">
+                              <span className="text-gray-500">Bg:</span>
+                              <div className="flex items-center gap-1 bg-white border rounded px-1">
+                                <input
+                                  type="color"
+                                  className="w-5 h-5 p-0 border-0 rounded cursor-pointer"
+                                  value={draftSelectionBackgroundColor || '#ffffff'}
+                                  onMouseDown={() => {
+                                    const sel = window.getSelection()
+                                    if (sel && sel.rangeCount > 0) {
+                                      lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
+                                    }
+                                  }}
+                                  onChange={(e) => {
+                                    const val = e.target.value
+                                    setDraftSelectionBackgroundColor(val)
+                                    applyStyleToSelection(
+                                      draftTextEditorRef,
+                                      'background-color',
+                                      val,
+                                      setDraftHtmlContent,
+                                      setDraftText
+                                    )
+                                  }}
+                                />
+                                <button
+                                  onMouseDown={(e) => {
+                                    e.preventDefault()
+                                    const sel = window.getSelection()
+                                    if (sel && sel.rangeCount > 0) {
+                                      lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
+                                    }
+                                  }}
+                                  onClick={() => {
+                                    setDraftSelectionBackgroundColor("")
+                                    const editor = draftTextEditorRef.current
+                                    if (editor) editor.focus()
+                                    const sel = window.getSelection()
+                                    if (lastSelectionRange.current && sel) {
+                                      sel.removeAllRanges()
+                                      sel.addRange(lastSelectionRange.current)
+                                    }
+                                    document.execCommand('styleWithCSS', false, 'true')
+                                    document.execCommand('hiliteColor', false, 'transparent')
+                                    document.execCommand('backColor', false, 'transparent')
+
+                                    // Manually trigger updates as execCommand modifies the DOM directly
+                                    setDraftHtmlContent(editor?.innerHTML || "")
+                                    setDraftText(editor?.innerText || "")
+                                  }}
+                                  className="text-gray-400 hover:text-red-500 font-bold px-1"
+                                  title="Clear Background"
+                                >
+                                  &times;
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="w-px h-5 bg-gray-300" />
+
+                            {/* Stroke */}
+                            <div className="flex items-center gap-1" title="Text Stroke (selection)">
+                              <span className="text-gray-500">Stroke:</span>
+                              <input
+                                type="color"
+                                className="w-5 h-5 p-0 border rounded cursor-pointer"
+                                value={draftSelectionStrokeColor || '#000000'}
+                                onMouseDown={() => {
+                                  const sel = window.getSelection()
+                                  if (sel && sel.rangeCount > 0) {
+                                    lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
+                                  }
+                                }}
+                                onChange={(e) => {
+                                  const color = e.target.value
+                                  setDraftSelectionStrokeColor(color)
+                                  applyStyleToSelection(
+                                    draftTextEditorRef,
+                                    '-webkit-text-stroke',
+                                    `${draftSelectionStrokeWidth}px ${color}`,
+                                    setDraftHtmlContent,
+                                    setDraftText
+                                  )
+                                }}
+                              />
+                              <input
+                                id="draft-stroke-width"
+                                type="number"
+                                className="w-10 border rounded px-1 py-0.5 text-xs"
+                                value={draftSelectionStrokeWidth}
+                                min="0"
+                                max="10"
+                                step="0.5"
+                                onMouseDown={() => {
+                                  const sel = window.getSelection()
+                                  if (sel && sel.rangeCount > 0) {
+                                    lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
+                                  }
+                                }}
+                                onChange={(e) => {
+                                  const width = Number(e.target.value)
+                                  setDraftSelectionStrokeWidth(width)
+                                  applyStyleToSelection(
+                                    draftTextEditorRef,
+                                    '-webkit-text-stroke',
+                                    `${width}px ${draftSelectionStrokeColor}`,
+                                    setDraftHtmlContent,
+                                    setDraftText
+                                  )
+                                }}
+                                title="Stroke Width"
+                              />
+                            </div>
+
+                            <div className="w-px h-5 bg-gray-300" />
+
+                            {/* Shadow */}
+                            <div className="flex items-center gap-1" title="Text Shadow (selection)">
+                              <span className="text-gray-500">Shadow:</span>
+                              <input
+                                id="draft-shadow-color"
+                                type="color"
+                                className="w-5 h-5 p-0 border rounded cursor-pointer"
+                                value={draftSelectionShadowColor || '#000000'}
+                                onMouseDown={() => {
+                                  const sel = window.getSelection()
+                                  if (sel && sel.rangeCount > 0) {
+                                    lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
+                                  }
+                                }}
+                                onChange={(e) => {
+                                  const color = e.target.value
+                                  setDraftSelectionShadowColor(color)
+                                  applyStyleToSelection(
+                                    draftTextEditorRef,
+                                    'text-shadow',
+                                    `${draftSelectionShadowOffsetX}px ${draftSelectionShadowOffsetY}px ${draftSelectionShadowBlur}px ${color}`,
+                                    setDraftHtmlContent,
+                                    setDraftText
+                                  )
+                                }}
+                              />
+                              <input
+                                id="draft-shadow-blur"
+                                type="number"
+                                className="w-10 border rounded px-1 py-0.5 text-xs"
+                                value={draftSelectionShadowBlur}
+                                onMouseDown={() => {
+                                  const sel = window.getSelection()
+                                  if (sel && sel.rangeCount > 0) {
+                                    lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
+                                  }
+                                }}
+                                onChange={(e) => {
+                                  const blur = Number(e.target.value)
+                                  setDraftSelectionShadowBlur(blur)
+                                  applyStyleToSelection(
+                                    draftTextEditorRef,
+                                    'text-shadow',
+                                    `${draftSelectionShadowOffsetX}px ${draftSelectionShadowOffsetY}px ${blur}px ${draftSelectionShadowColor}`,
+                                    setDraftHtmlContent,
+                                    setDraftText
+                                  )
+                                }}
+                                title="Blur Radius"
+                              />
+                              <input
+                                id="draft-shadow-x"
+                                type="number"
+                                className="w-8 border rounded px-1 py-0.5 text-xs"
+                                value={draftSelectionShadowOffsetX}
+                                onMouseDown={() => {
+                                  const sel = window.getSelection()
+                                  if (sel && sel.rangeCount > 0) {
+                                    lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
+                                  }
+                                }}
+                                onChange={(e) => {
+                                  const x = Number(e.target.value)
+                                  setDraftSelectionShadowOffsetX(x)
+                                  applyStyleToSelection(
+                                    draftTextEditorRef,
+                                    'text-shadow',
+                                    `${x}px ${draftSelectionShadowOffsetY}px ${draftSelectionShadowBlur}px ${draftSelectionShadowColor}`,
+                                    setDraftHtmlContent,
+                                    setDraftText
+                                  )
+                                }}
+                                title="X Offset"
+                              />
+                              <input
+                                id="draft-shadow-y"
+                                type="number"
+                                className="w-8 border rounded px-1 py-0.5 text-xs"
+                                value={draftSelectionShadowOffsetY}
+                                onMouseDown={() => {
+                                  const sel = window.getSelection()
+                                  if (sel && sel.rangeCount > 0) {
+                                    lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
+                                  }
+                                }}
+                                onChange={(e) => {
+                                  const y = Number(e.target.value)
+                                  setDraftSelectionShadowOffsetY(y)
+                                  applyStyleToSelection(
+                                    draftTextEditorRef,
+                                    'text-shadow',
+                                    `${draftSelectionShadowOffsetX}px ${y}px ${draftSelectionShadowBlur}px ${draftSelectionShadowColor}`,
+                                    setDraftHtmlContent,
+                                    setDraftText
+                                  )
+                                }}
+                                title="Y Offset"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Content Editable Area */}
+                          <div
+                            ref={draftTextEditorRef}
+                            className="w-full rounded-b-lg border border-t-0 border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] h-20 overflow-y-auto text-base bg-white [&_*]:!text-[16px] [&_*]:![-webkit-text-stroke-width:0px]"
+                            contentEditable
+                            onInput={(e) => {
+                              const target = e.currentTarget
+                              setDraftHtmlContent(target.innerHTML)
+                              // Use innerText to capture newlines as \n
+                              setDraftText(target.innerText)
+                              setDraftError(null)
+                              detectSelectionStyles(draftTextEditorRef, false)
+                            }}
+                            onBlur={(e) => {
+                              // Ensure we persist the text with newlines
+                              setDraftText(e.currentTarget.innerText)
+                            }}
+                            onSelect={() => detectSelectionStyles(draftTextEditorRef, false)}
+                            onClick={() => detectSelectionStyles(draftTextEditorRef, false)}
+                            onKeyUp={() => detectSelectionStyles(draftTextEditorRef, false)}
+                            style={{
+                              fontFamily: FONT_OPTIONS.find(f => f === draftTextFont) ? `'${draftTextFont}', sans-serif` : 'Inter, sans-serif',
+                              fontWeight: draftTextWeight,
+                              color: draftTextColor,
+                              fontSize: '16px',
+                              textAlign: draftTextAlign,
+                              fontStyle: draftTextFontStyle,
+                              textDecoration: draftTextDecoration,
+                            }}
+                          />
+                          <div className="text-xs text-gray-500">
+                            Tip: Select text to apply specific styles. Global styles below apply to the container.
+                          </div>
+                        </div>
+
+                        {/* Preview Section */}
+                        <div className="flex-1 flex flex-col overflow-hidden gap-2">
+                          <label className="block text-sm font-semibold text-gray-800">Preview (This is how it will look when saved)</label>
+                          <div className="flex-1 bg-gray-50 rounded-lg p-6 border border-gray-200 overflow-auto flex items-center justify-center">
+                            {(draftHtmlContent || draftText) ? (
+                              <TextLayerPreview
+                                ref={(el) => { draftTextPreviewRef.current = el }}
+                                text={draftText}
+                                html={draftHtmlContent}
+                                color={draftTextColor}
+                                fontWeight={draftTextWeight}
+                                fontSize={draftTextSize}
+                                fontFamily={draftTextFont}
+                                backgroundColor={draftTextBackgroundColor}
+                                backgroundRadius={draftTextBackgroundRadius}
+                                textAlign={draftTextAlign}
+                                letterSpacing={draftTextLetterSpacing}
+                                fontStyle={draftTextFontStyle}
+                                textDecoration={draftTextDecoration}
+                                textOpacity={draftTextOpacity}
+                                textRotation={draftTextRotation}
+                                shadowColor={draftTextShadowColor}
+                                shadowBlur={draftTextShadowBlur}
+                                shadowOffsetX={draftTextShadowOffsetX}
+                                shadowOffsetY={draftTextShadowOffsetY}
+                                strokeColor={draftTextStrokeColor}
+                                strokeWidth={draftTextStrokeWidth}
+                              />
+                            ) : (
+                              <div className="text-gray-400 text-sm">Your text preview will appear here</div>
+                            )}
                           </div>
                         </div>
                       </div>
 
-                      {/* Background & Stroke Effects */}
-                      <div className="border-t pt-4">
-                        <h5 className="text-sm font-bold text-gray-900 mb-3">Background & Stroke</h5>
+                      {/* Right Side - Designing Tools */}
+                      <div className="w-80 overflow-y-auto pr-2 flex flex-col gap-5">
+                        <div>
+                          <h4 className="text-sm font-semibold text-gray-800 mb-4">Text Styling</h4>
+                          <div className="space-y-4">
+                            {/* Color */}
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Color</label>
+                              <div className="flex items-center gap-3">
+                                <input
+                                  type="color"
+                                  value={draftTextColor}
+                                  onChange={(e) => setDraftTextColor(e.target.value)}
+                                  className="w-12 h-12 rounded-2xl cursor-pointer flex-shrink-0"
+                                />
+                                <input
+                                  type="text"
+                                  value={draftTextColor}
+                                  onChange={(e) => setDraftTextColor(e.target.value)}
+                                  className="flex-1 rounded-lg border border-gray-500 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+                                  placeholder="#000000"
+                                />
+                              </div>
+                            </div>
 
-                        {/* Background Color */}
-                        <div className="mb-4">
-                          <label className="block text-sm font-semibold text-gray-800 mb-2">Background Color</label>
-                          <div className="flex items-center gap-3">
-                            <input
-                              type="color"
-                              value={draftTextBackgroundColor || "#ffffff"}
-                              onChange={(e) => setDraftTextBackgroundColor(e.target.value)}
-                              className="w-12 h-12 rounded-2xl cursor-pointer flex-shrink-0 hover:border-[rgba(38,116,186,1)] transition-colors"
-                            />
-                            <div className="text-xs flex-1 flex flex-col gap-1">
-                              <p className="text-gray-700 font-medium text-xs">{draftTextBackgroundColor || "No bg"}</p>
-                              <button
-                                onClick={() => setDraftTextBackgroundColor("")}
-                                className="text-xs text-red-500 hover:text-red-700 underline text-left"
+                            {/* Font Weight */}
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Font Weight</label>
+                              <select
+                                value={draftTextWeight}
+                                onChange={(e) => setDraftTextWeight(e.target.value as '300' | '400' | '600' | '700')}
+                                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
                               >
-                                Clear
-                              </button>
+                                <option value="300">Light (300)</option>
+                                <option value="400">Regular (400)</option>
+                                <option value="600">Semi Bold (600)</option>
+                                <option value="700">Bold (700)</option>
+                              </select>
+                            </div>
+
+                            {/* Font Family */}
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Font Family</label>
+                              <select
+                                value={draftTextFont}
+                                onChange={(e) => setDraftTextFont(e.target.value)}
+                                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+                              >
+                                {FONT_OPTIONS.map(font => (
+                                  <option key={font} value={font} style={{ fontFamily: FONT_FAMILY_MAP[font] || font }}>
+                                    {font}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            {/* Font Size */}
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Font Size: <span className="font-semibold text-[rgba(38,116,186,1)]">{draftTextSize}px</span>
+                              </label>
+                              <div className="flex items-center gap-3">
+                                <input
+                                  type="range"
+                                  min="12"
+                                  max="100"
+                                  value={draftTextSize}
+                                  onChange={(e) => setDraftTextSize(Number(e.target.value))}
+                                  className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
+                                />
+                                <input
+                                  type="number"
+                                  min="12"
+                                  max="100"
+                                  value={draftTextSize}
+                                  onChange={(e) => setDraftTextSize(Number(e.target.value))}
+                                  className="w-16 rounded-lg border border-gray-200 px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+                                />
+                              </div>
                             </div>
                           </div>
                         </div>
 
-                        {/* Background Radius */}
-                        <div className="mb-4">
-                          <label className="block text-sm font-semibold text-gray-800 mb-2">
-                            Background Radius: <span className="text-[rgba(38,116,186,1)]">{draftTextBackgroundRadius}px</span>
-                          </label>
-                          <input
-                            type="range"
-                            min="0"
-                            max="50"
-                            value={draftTextBackgroundRadius}
-                            onChange={(e) => setDraftTextBackgroundRadius(Number(e.target.value))}
-                            className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
-                          />
-                        </div>
+                        {/* Background & Stroke Effects */}
+                        <div className="border-t pt-4">
+                          <h5 className="text-sm font-bold text-gray-900 mb-3">Background & Stroke</h5>
 
-                        {/* Stroke Color */}
-                        <div className="mb-4">
-                          <label className="block text-sm font-semibold text-gray-800 mb-2">Stroke Color</label>
-                          <div className="flex items-center gap-3">
-                            <input
-                              type="color"
-                              value={draftTextStrokeColor || "#000000"}
-                              onChange={(e) => setDraftTextStrokeColor(e.target.value)}
-                              className="w-12 h-12 rounded-2xl cursor-pointer flex-shrink-0 hover:border-[rgba(38,116,186,1)] transition-colors"
-                            />
-                            <div className="text-xs flex-1">
-                              <p className="text-gray-700 font-medium text-xs">{draftTextStrokeColor || "#000000"}</p>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Stroke Width */}
-                        <div className="mb-4">
-                          <label className="block text-sm font-semibold text-gray-800 mb-2">
-                            Stroke Width: <span className="text-[rgba(38,116,186,1)]">{draftTextStrokeWidth}px</span>
-                          </label>
-                          <input
-                            type="range"
-                            min="0"
-                            max="10"
-                            value={draftTextStrokeWidth}
-                            onChange={(e) => setDraftTextStrokeWidth(Number(e.target.value))}
-                            className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
-                          />
-                        </div>
-
-                        {/* Letter Spacing */}
-                        <div className="mb-4">
-                          <label className="block text-sm font-semibold text-gray-800 mb-2">
-                            Letter Spacing: <span className="text-[rgba(38,116,186,1)]">{draftTextLetterSpacing}px</span>
-                          </label>
-                          <input
-                            type="range"
-                            min="-5"
-                            max="50"
-                            value={draftTextLetterSpacing}
-                            onChange={(e) => setDraftTextLetterSpacing(Number(e.target.value))}
-                            className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
-                          />
-                        </div>
-
-                        {/* Text Shadow */}
-                        <div className="mb-4">
-                          <label className="block text-sm font-semibold text-gray-800 mb-2">Text Shadow</label>
-                          <div className="space-y-2">
+                          {/* Background Color */}
+                          <div className="mb-4">
+                            <label className="block text-sm font-semibold text-gray-800 mb-2">Background Color</label>
                             <div className="flex items-center gap-3">
                               <input
                                 type="color"
-                                value={draftTextShadowColor || "#000000"}
-                                onChange={(e) => setDraftTextShadowColor(e.target.value)}
-                                className="w-8 h-8 rounded-lg cursor-pointer flex-shrink-0"
+                                value={draftTextBackgroundColor || "#ffffff"}
+                                onChange={(e) => setDraftTextBackgroundColor(e.target.value)}
+                                className="w-12 h-12 rounded-2xl cursor-pointer flex-shrink-0 hover:border-[rgba(38,116,186,1)] transition-colors"
                               />
-                              <div className="text-xs text-gray-600">Shadow Color</div>
-                            </div>
-                            <div className="grid grid-cols-3 gap-2">
-                              <div>
-                                <label className="text-[10px] text-gray-500">Blur</label>
-                                <input
-                                  type="number"
-                                  value={draftTextShadowBlur}
-                                  onChange={(e) => setDraftTextShadowBlur(Number(e.target.value))}
-                                  className="w-full border rounded px-1 py-1 text-xs"
-                                />
-                              </div>
-                              <div>
-                                <label className="text-[10px] text-gray-500">X Offset</label>
-                                <input
-                                  type="number"
-                                  value={draftTextShadowOffsetX}
-                                  onChange={(e) => setDraftTextShadowOffsetX(Number(e.target.value))}
-                                  className="w-full border rounded px-1 py-1 text-xs"
-                                />
-                              </div>
-                              <div>
-                                <label className="text-[10px] text-gray-500">Y Offset</label>
-                                <input
-                                  type="number"
-                                  value={draftTextShadowOffsetY}
-                                  onChange={(e) => setDraftTextShadowOffsetY(Number(e.target.value))}
-                                  className="w-full border rounded px-1 py-1 text-xs"
-                                />
+                              <div className="text-xs flex-1 flex flex-col gap-1">
+                                <p className="text-gray-700 font-medium text-xs">{draftTextBackgroundColor || "No bg"}</p>
+                                <button
+                                  onClick={() => setDraftTextBackgroundColor("")}
+                                  className="text-xs text-red-500 hover:text-red-700 underline text-left"
+                                >
+                                  Clear
+                                </button>
                               </div>
                             </div>
                           </div>
-                        </div>
 
-                        {/* Global Font Style & Decoration */}
-                        <div className="mb-4">
-                          <label className="block text-sm font-semibold text-gray-800 mb-2">Global Style</label>
-                          <div className="flex gap-2">
-                            <button
-                              className={`flex-1 py-1 text-xs border rounded ${draftTextFontStyle === 'italic' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white'}`}
-                              onClick={() => setDraftTextFontStyle(prev => prev === 'italic' ? 'normal' : 'italic')}
-                            >
-                              Italic
-                            </button>
-
+                          {/* Background Radius */}
+                          <div className="mb-4">
+                            <label className="block text-sm font-semibold text-gray-800 mb-2">
+                              Background Radius: <span className="text-[rgba(38,116,186,1)]">{draftTextBackgroundRadius}px</span>
+                            </label>
+                            <input
+                              type="range"
+                              min="0"
+                              max="50"
+                              value={draftTextBackgroundRadius}
+                              onChange={(e) => setDraftTextBackgroundRadius(Number(e.target.value))}
+                              className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
+                            />
                           </div>
-                        </div>
 
-                        {/* Text Alignment */}
-                        <div className="mb-4">
-                          <label className="block text-sm font-semibold text-gray-800 mb-2">Text Alignment</label>
-                          <div className="flex gap-2">
-                            <button
-                              className={`flex-1 py-1 text-xs border rounded ${draftTextAlign === 'left' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white'}`}
-                              onClick={() => setDraftTextAlign('left')}
-                            >
-                              Left
-                            </button>
-                            <button
-                              className={`flex-1 py-1 text-xs border rounded ${draftTextAlign === 'center' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white'}`}
-                              onClick={() => setDraftTextAlign('center')}
-                            >
-                              Center
-                            </button>
-                            <button
-                              className={`flex-1 py-1 text-xs border rounded ${draftTextAlign === 'right' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white'}`}
-                              onClick={() => setDraftTextAlign('right')}
-                            >
-                              Right
-                            </button>
+                          {/* Stroke Color */}
+                          <div className="mb-4">
+                            <label className="block text-sm font-semibold text-gray-800 mb-2">Stroke Color</label>
+                            <div className="flex items-center gap-3">
+                              <input
+                                type="color"
+                                value={draftTextStrokeColor || "#000000"}
+                                onChange={(e) => setDraftTextStrokeColor(e.target.value)}
+                                className="w-12 h-12 rounded-2xl cursor-pointer flex-shrink-0 hover:border-[rgba(38,116,186,1)] transition-colors"
+                              />
+                              <div className="text-xs flex-1">
+                                <p className="text-gray-700 font-medium text-xs">{draftTextStrokeColor || "#000000"}</p>
+                              </div>
+                            </div>
                           </div>
-                        </div>
 
-                        {/* Opacity */}
-                        <div className="mb-4">
-                          <label className="block text-sm font-semibold text-gray-800 mb-2">
-                            Opacity: <span className="text-[rgba(38,116,186,1)]">{draftTextOpacity}%</span>
-                          </label>
-                          <input
-                            type="range"
-                            min="0"
-                            max="100"
-                            value={draftTextOpacity}
-                            onChange={(e) => setDraftTextOpacity(Number(e.target.value))}
-                            className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
-                          />
-                        </div>
+                          {/* Stroke Width */}
+                          <div className="mb-4">
+                            <label className="block text-sm font-semibold text-gray-800 mb-2">
+                              Stroke Width: <span className="text-[rgba(38,116,186,1)]">{draftTextStrokeWidth}px</span>
+                            </label>
+                            <input
+                              type="range"
+                              min="0"
+                              max="10"
+                              value={draftTextStrokeWidth}
+                              onChange={(e) => setDraftTextStrokeWidth(Number(e.target.value))}
+                              className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
+                            />
+                          </div>
 
-                        {/* Rotation */}
-                        <div className="mb-4">
-                          <label className="block text-sm font-semibold text-gray-800 mb-2">
-                            Rotation: <span className="text-[rgba(38,116,186,1)]">{draftTextRotation}°</span>
-                          </label>
-                          <input
-                            type="range"
-                            min="-180"
-                            max="180"
-                            value={draftTextRotation}
-                            onChange={(e) => setDraftTextRotation(Number(e.target.value))}
-                            className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
-                          />
+                          {/* Letter Spacing */}
+                          <div className="mb-4">
+                            <label className="block text-sm font-semibold text-gray-800 mb-2">
+                              Letter Spacing: <span className="text-[rgba(38,116,186,1)]">{draftTextLetterSpacing}px</span>
+                            </label>
+                            <input
+                              type="range"
+                              min="-5"
+                              max="50"
+                              value={draftTextLetterSpacing}
+                              onChange={(e) => setDraftTextLetterSpacing(Number(e.target.value))}
+                              className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
+                            />
+                          </div>
+
+                          {/* Text Shadow */}
+                          <div className="mb-4">
+                            <label className="block text-sm font-semibold text-gray-800 mb-2">Text Shadow</label>
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-3">
+                                <input
+                                  type="color"
+                                  value={draftTextShadowColor || "#000000"}
+                                  onChange={(e) => setDraftTextShadowColor(e.target.value)}
+                                  className="w-8 h-8 rounded-lg cursor-pointer flex-shrink-0"
+                                />
+                                <div className="text-xs text-gray-600">Shadow Color</div>
+                              </div>
+                              <div className="grid grid-cols-3 gap-2">
+                                <div>
+                                  <label className="text-[10px] text-gray-500">Blur</label>
+                                  <input
+                                    type="number"
+                                    value={draftTextShadowBlur}
+                                    onChange={(e) => setDraftTextShadowBlur(Number(e.target.value))}
+                                    className="w-full border rounded px-1 py-1 text-xs"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-[10px] text-gray-500">X Offset</label>
+                                  <input
+                                    type="number"
+                                    value={draftTextShadowOffsetX}
+                                    onChange={(e) => setDraftTextShadowOffsetX(Number(e.target.value))}
+                                    className="w-full border rounded px-1 py-1 text-xs"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-[10px] text-gray-500">Y Offset</label>
+                                  <input
+                                    type="number"
+                                    value={draftTextShadowOffsetY}
+                                    onChange={(e) => setDraftTextShadowOffsetY(Number(e.target.value))}
+                                    className="w-full border rounded px-1 py-1 text-xs"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Global Font Style & Decoration */}
+                          <div className="mb-4">
+                            <label className="block text-sm font-semibold text-gray-800 mb-2">Global Style</label>
+                            <div className="flex gap-2">
+                              <button
+                                className={`flex-1 py-1 text-xs border rounded ${draftTextFontStyle === 'italic' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white'}`}
+                                onClick={() => setDraftTextFontStyle(prev => prev === 'italic' ? 'normal' : 'italic')}
+                              >
+                                Italic
+                              </button>
+
+                            </div>
+                          </div>
+
+                          {/* Text Alignment */}
+                          <div className="mb-4">
+                            <label className="block text-sm font-semibold text-gray-800 mb-2">Text Alignment</label>
+                            <div className="flex gap-2">
+                              <button
+                                className={`flex-1 py-1 text-xs border rounded ${draftTextAlign === 'left' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white'}`}
+                                onClick={() => setDraftTextAlign('left')}
+                              >
+                                Left
+                              </button>
+                              <button
+                                className={`flex-1 py-1 text-xs border rounded ${draftTextAlign === 'center' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white'}`}
+                                onClick={() => setDraftTextAlign('center')}
+                              >
+                                Center
+                              </button>
+                              <button
+                                className={`flex-1 py-1 text-xs border rounded ${draftTextAlign === 'right' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white'}`}
+                                onClick={() => setDraftTextAlign('right')}
+                              >
+                                Right
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Opacity */}
+                          <div className="mb-4">
+                            <label className="block text-sm font-semibold text-gray-800 mb-2">
+                              Opacity: <span className="text-[rgba(38,116,186,1)]">{draftTextOpacity}%</span>
+                            </label>
+                            <input
+                              type="range"
+                              min="0"
+                              max="100"
+                              value={draftTextOpacity}
+                              onChange={(e) => setDraftTextOpacity(Number(e.target.value))}
+                              className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
+                            />
+                          </div>
+
+                          {/* Rotation */}
+                          <div className="mb-4">
+                            <label className="block text-sm font-semibold text-gray-800 mb-2">
+                              Rotation: <span className="text-[rgba(38,116,186,1)]">{draftTextRotation}°</span>
+                            </label>
+                            <input
+                              type="range"
+                              min="-180"
+                              max="180"
+                              value={draftTextRotation}
+                              onChange={(e) => setDraftTextRotation(Number(e.target.value))}
+                              className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
+                            />
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                </>
-              )}
+                  </>
+                )}
 
-              {draftError && (
-                <div className="text-red-600 text-sm bg-red-50 px-4 py-2 rounded-lg border border-red-200">
-                  {draftError}
-                </div>
-              )}
-            </div>
-            <div className="px-5 py-4 border-t flex items-center justify-between">
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={resetDraftState} disabled={draftSaving} className="cursor-pointer">Cancel</Button>
-                {/* {draftType === 'text' && (
+                {draftError && (
+                  <div className="text-red-600 text-sm bg-red-50 px-4 py-2 rounded-lg border border-red-200">
+                    {draftError}
+                  </div>
+                )}
+              </div>
+              <div className="px-5 py-4 border-t flex items-center justify-between">
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={resetDraftState} disabled={draftSaving} className="cursor-pointer">Cancel</Button>
+                  {/* {draftType === 'text' && (
                   <Button
                     variant="outline"
                     onClick={async () => {
@@ -4666,622 +4667,44 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                     Download PNG
                   </Button>
                 )} */}
+                </div>
+                <Button
+                  className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                  onClick={() => void saveLayer()}
+                  disabled={
+                    draftSaving ||
+                    layers.length >= LAYER_MAX ||
+                    (draftType === 'image' ? draftImages.length === 0 : !draftText.trim())
+                  }
+                >
+                  {draftSaving ? 'Saving...' : layers.length >= LAYER_MAX ? 'Max layers reached' : 'Save Layer'}
+                </Button>
               </div>
-              <Button
-                className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-                onClick={() => void saveLayer()}
-                disabled={
-                  draftSaving ||
-                  layers.length >= LAYER_MAX ||
-                  (draftType === 'image' ? draftImages.length === 0 : !draftText.trim())
-                }
-              >
-                {draftSaving ? 'Saving...' : layers.length >= LAYER_MAX ? 'Max layers reached' : 'Save Layer'}
-              </Button>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
-      {showLayerTextModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => { if (!layerTextSaving) { closeLayerTextModal(); } }}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl h-[90vh] max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-            <div className="px-5 py-4 border-b font-semibold">Edit Text Layer</div>
+      {
+        showLayerTextModal && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => { if (!layerTextSaving) { closeLayerTextModal(); } }}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl h-[90vh] max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+              <div className="px-5 py-4 border-b font-semibold">Edit Text Layer</div>
 
-            {/* Main Content Area */}
-            <div className="flex-1 flex overflow-hidden gap-6 p-5">
+              {/* Main Content Area */}
+              <div className="flex-1 flex overflow-hidden gap-6 p-5">
 
-              {/* Left Side - Text Input & Preview */}
-              <div className="flex-1 flex flex-col gap-4 overflow-hidden">
-                <div className="flex-shrink-0 flex flex-col gap-2">
-                  <label className="block text-sm font-semibold text-gray-800">Text Content <span className="text-red-500">*</span></label>
+                {/* Left Side - Text Input & Preview */}
+                <div className="flex-1 flex flex-col gap-4 overflow-hidden">
+                  <div className="flex-shrink-0 flex flex-col gap-2">
+                    <label className="block text-sm font-semibold text-gray-800">Text Content <span className="text-red-500">*</span></label>
 
-                  {/* Rich Text Toolbar */}
-                  <div className="flex flex-wrap items-center gap-2 p-2 border rounded-t-lg bg-gray-50">
-                    <select
-                      className="text-xs border rounded px-1 py-1 w-32"
-                      onMouseDown={() => {
-                        // Save selection before dropdown opens
-                        const sel = window.getSelection()
-                        if (sel && sel.rangeCount > 0) {
-                          lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
-                        }
-                      }}
-                      onChange={(e) => {
-                        const newFont = e.target.value
-                        // Removed setLayerTextFont(newFont) to prevent global update
-                        setLayerSelectedFont(newFont)
-                        if (layerTextEditorRef.current) {
-                          layerTextEditorRef.current.focus()
-                          if (lastSelectionRange.current) {
-                            const sel = window.getSelection()
-                            sel?.removeAllRanges()
-                            sel?.addRange(lastSelectionRange.current)
-                          }
-                          document.execCommand('styleWithCSS', false, 'true')
-                          document.execCommand('fontName', false, newFont)
-
-                          setLayerHtmlContent(layerTextEditorRef.current.innerHTML)
-                          setLayerTextValue(layerTextEditorRef.current.innerText)
-
-                          // Re-save selection
-                          const sel = window.getSelection()
-                          if (sel && sel.rangeCount > 0) {
-                            lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
-                          }
-                        }
-                      }}
-                      value={layerSelectedFont || layerTextFont}
-                    >
-                      {FONT_OPTIONS.map(f => (
-                        <option key={f} value={f} style={{ fontFamily: FONT_FAMILY_MAP[f] || f }}>
-                          {f}
-                        </option>
-                      ))}
-                    </select>
-
-                    <select
-                      className="text-xs border rounded px-1 py-1 w-20"
-                      onMouseDown={() => {
-                        // Save selection before dropdown opens
-                        const sel = window.getSelection()
-                        if (sel && sel.rangeCount > 0) {
-                          lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
-                        }
-                      }}
-                      onChange={(e) => {
-                        const value = e.target.value
-                        const editor = layerTextEditorRef.current
-                        if (!editor) return
-
-                        let size: number
-                        if (value === 'custom') {
-                          const customSize = prompt('Enter custom font size (px):', '60')
-                          if (!customSize) return
-                          size = parseInt(customSize)
-                          if (isNaN(size)) return
-                        } else {
-                          size = parseInt(value)
-                        }
-
-                        // Focus editor and restore selection
-                        editor.focus()
-                        const sel = window.getSelection()
-                        if (lastSelectionRange.current && sel) {
-                          sel.removeAllRanges()
-                          sel.addRange(lastSelectionRange.current)
-                        }
-
-                        // IMPORTANT: Disable CSS mode to force creation of <font size="7"> tags
-                        // This is required for the replacement logic below to work
-                        document.execCommand('styleWithCSS', false, 'false')
-                        document.execCommand('fontSize', false, '7')
-                        // Re-enable CSS mode for other controls
-                        document.execCommand('styleWithCSS', false, 'true')
-
-                        setTimeout(() => {
-                          const fontElements = editor.querySelectorAll('font[size="7"]')
-                          fontElements.forEach((font) => {
-                            const span = document.createElement('span')
-                            span.style.fontSize = `${size}px`
-                            span.innerHTML = font.innerHTML
-                            font.parentNode?.replaceChild(span, font)
-                          })
-
-                          setLayerHtmlContent(editor.innerHTML)
-                          setLayerTextValue(editor.innerText)
-                          setLayerSelectedFontSize(String(size))
-                        }, 0)
-                      }}
-                      value={layerSelectedFontSize || String(layerTextSize)}
-                      title="Font Size"
-                    >
-                      <option value="">Size</option>
-                      {(() => {
-                        const predefined = [12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 56, 60, 64, 72, 80, 96]
-                        const current = parseInt(layerSelectedFontSize || String(layerTextSize))
-                        const allSizes = !isNaN(current) && !predefined.includes(current)
-                          ? [...predefined, current].sort((a, b) => a - b)
-                          : predefined
-                        return allSizes.map(s => (
-                          <option key={s} value={s}>{s}px</option>
-                        ))
-                      })()}
-                      <option value="custom">Custom...</option>
-                    </select>
-                    <div className="flex items-center border rounded bg-white overflow-hidden">
-                      <button
-                        className="px-2 py-1 hover:bg-gray-100 font-bold"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => {
-                          document.execCommand('bold')
-                          if (layerTextEditorRef.current) {
-                            setLayerHtmlContent(layerTextEditorRef.current.innerHTML)
-                            setLayerTextValue(layerTextEditorRef.current.innerText)
-                          }
-                        }}
-                        title="Bold"
-                      >
-                        B
-                      </button>
-                      <button
-                        className="px-2 py-1 hover:bg-gray-100 italic"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => {
-                          document.execCommand('italic')
-                          if (layerTextEditorRef.current) {
-                            setLayerHtmlContent(layerTextEditorRef.current.innerHTML)
-                            setLayerTextValue(layerTextEditorRef.current.innerText)
-                          }
-                        }}
-                        title="Italic"
-                      >
-                        I
-                      </button>
-                    </div>
-                    <div className="relative w-6 h-6 overflow-hidden rounded cursor-pointer border hover:border-gray-400">
-                      <input
-                        type="color"
-                        className="absolute -top-2 -left-2 w-12 h-12 p-0 border-0 cursor-pointer"
-                        onMouseDown={() => {
-                          const sel = window.getSelection()
-                          if (sel && sel.rangeCount > 0) {
-                            lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
-                          }
-                        }}
-                        onChange={(e) => {
-                          const editor = layerTextEditorRef.current
-                          if (editor) editor.focus()
-                          const sel = window.getSelection()
-                          if (lastSelectionRange.current && sel) {
-                            sel.removeAllRanges()
-                            sel.addRange(lastSelectionRange.current)
-                          }
-                          document.execCommand('styleWithCSS', false, 'true')
-                          document.execCommand('foreColor', false, e.target.value)
-
-                          if (editor) {
-                            setLayerHtmlContent(editor.innerHTML)
-                            setLayerTextValue(editor.innerText)
-                          }
-                        }}
-                        title="Text Color"
-                      />
-                    </div>
-                    <button
-                      className="text-xs px-2 py-1 border rounded hover:bg-gray-100"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => {
-                        // 1. Standard Remove Format
-                        document.execCommand('removeFormat')
-
-                        // 2. Clear Background
-                        document.execCommand('styleWithCSS', false, 'true')
-                        document.execCommand('hiliteColor', false, 'transparent')
-                        document.execCommand('backColor', false, 'transparent')
-
-                        // 3. Clear Custom Styles
-                        applyStyleToSelection(layerTextEditorRef, 'letter-spacing', 'normal', setLayerHtmlContent, setLayerTextValue)
-                        applyStyleToSelection(layerTextEditorRef, '-webkit-text-stroke', '0px', setLayerHtmlContent, setLayerTextValue)
-                        applyStyleToSelection(layerTextEditorRef, 'text-shadow', 'none', setLayerHtmlContent, setLayerTextValue)
-
-                        // 4. Reset Selection State Inputs
-                        setLayerSelectionLetterSpacing(0)
-                        setLayerSelectionBackgroundColor("")
-                        setLayerSelectionStrokeWidth(0)
-                        setLayerSelectionStrokeColor("#000000")
-                        setLayerSelectionShadowColor("#000000")
-                        setLayerSelectionShadowBlur(0)
-                        setLayerSelectionShadowOffsetX(0)
-                        setLayerSelectionShadowOffsetY(0)
-
-                        if (layerTextEditorRef.current) {
-                          setLayerHtmlContent(layerTextEditorRef.current.innerHTML)
-                          setLayerTextValue(layerTextEditorRef.current.innerText)
-                        }
-                      }}
-                      title="Clear Formatting"
-                    >
-                      Clear
-                    </button>
-                  </div>
-
-                  {/* Individual Text Styling Row - applies to SELECTED text only */}
-                  <div className="flex flex-wrap items-center gap-2 p-2 border-x border-b bg-gray-50 text-xs">
-                    {/* Letter Spacing */}
-                    <div className="flex items-center gap-1" title="Letter Spacing (selection)">
-                      <span className="text-gray-500">Ls:</span>
-                      <input
-                        type="number"
-                        className="w-12 border rounded px-1 py-0.5 text-xs"
-                        value={layerSelectionLetterSpacing}
-                        onMouseDown={() => {
-                          const sel = window.getSelection()
-                          if (sel && sel.rangeCount > 0) {
-                            lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
-                          }
-                        }}
-                        onChange={(e) => {
-                          const value = Number(e.target.value)
-                          setLayerSelectionLetterSpacing(value)
-                          applyStyleToSelection(
-                            layerTextEditorRef,
-                            'letter-spacing',
-                            `${value}px`,
-                            setLayerHtmlContent,
-                            setLayerTextValue
-                          )
-                        }}
-                        min="-5"
-                        max="50"
-                      />
-                    </div>
-
-                    <div className="w-px h-5 bg-gray-300" />
-
-                    {/* Background Color */}
-                    <div className="flex items-center gap-1" title="Background Color (selection)">
-                      <span className="text-gray-500">Bg:</span>
-                      <div className="flex items-center gap-1 bg-white border rounded px-1">
-                        <input
-                          type="color"
-                          className="w-5 h-5 p-0 border-0 rounded cursor-pointer"
-                          value={layerSelectionBackgroundColor || '#ffffff'}
-                          onMouseDown={() => {
-                            const sel = window.getSelection()
-                            if (sel && sel.rangeCount > 0) {
-                              lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
-                            }
-                          }}
-                          onChange={(e) => {
-                            const val = e.target.value
-                            setLayerSelectionBackgroundColor(val)
-                            applyStyleToSelection(
-                              layerTextEditorRef,
-                              'background-color',
-                              val,
-                              setLayerHtmlContent,
-                              setLayerTextValue
-                            )
-                          }}
-                        />
-                        <button
-                          onMouseDown={(e) => {
-                            e.preventDefault()
-                            const sel = window.getSelection()
-                            if (sel && sel.rangeCount > 0) {
-                              lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
-                            }
-                          }}
-                          onClick={() => {
-                            setLayerSelectionBackgroundColor("")
-                            // Use execCommand for better clearing support
-                            const editor = layerTextEditorRef.current
-                            if (editor) editor.focus()
-                            const sel = window.getSelection()
-                            if (lastSelectionRange.current && sel) {
-                              sel.removeAllRanges()
-                              sel.addRange(lastSelectionRange.current)
-                            }
-                            document.execCommand('styleWithCSS', false, 'true')
-                            // Try both hiliteColor and backColor for browser compatibility
-                            document.execCommand('hiliteColor', false, 'transparent')
-                            document.execCommand('backColor', false, 'transparent')
-
-                            // Manually trigger updates as execCommand modifies the DOM directly
-                            setLayerHtmlContent(editor?.innerHTML || "")
-                            setLayerTextValue(editor?.innerText || "")
-                          }}
-                          className="text-gray-400 hover:text-red-500 font-bold px-1"
-                          title="Clear Background"
-                        >
-                          &times;
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="w-px h-5 bg-gray-300" />
-
-                    {/* Stroke */}
-                    <div className="flex items-center gap-1" title="Text Stroke (selection)">
-                      <span className="text-gray-500">Stroke:</span>
-                      <input
-                        type="color"
-                        className="w-5 h-5 p-0 border rounded cursor-pointer"
-                        value={layerSelectionStrokeColor || '#000000'}
-                        onMouseDown={() => {
-                          const sel = window.getSelection()
-                          if (sel && sel.rangeCount > 0) {
-                            lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
-                          }
-                        }}
-                        onChange={(e) => {
-                          const color = e.target.value
-                          setLayerSelectionStrokeColor(color)
-                          applyStyleToSelection(
-                            layerTextEditorRef,
-                            '-webkit-text-stroke',
-                            `${layerSelectionStrokeWidth}px ${color}`,
-                            setLayerHtmlContent,
-                            setLayerTextValue
-                          )
-                        }}
-                      />
-                      <input
-                        id="layer-stroke-width"
-                        type="number"
-                        className="w-10 border rounded px-1 py-0.5 text-xs"
-                        value={layerSelectionStrokeWidth}
-                        min="0"
-                        max="10"
-                        step="0.5"
-                        onMouseDown={() => {
-                          const sel = window.getSelection()
-                          if (sel && sel.rangeCount > 0) {
-                            lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
-                          }
-                        }}
-                        onChange={(e) => {
-                          const width = Number(e.target.value)
-                          setLayerSelectionStrokeWidth(width)
-                          applyStyleToSelection(
-                            layerTextEditorRef,
-                            '-webkit-text-stroke',
-                            `${width}px ${layerSelectionStrokeColor}`,
-                            setLayerHtmlContent,
-                            setLayerTextValue
-                          )
-                        }}
-                        title="Stroke Width"
-                      />
-                    </div>
-
-                    <div className="w-px h-5 bg-gray-300" />
-
-                    {/* Shadow */}
-                    <div className="flex items-center gap-1" title="Text Shadow (selection)">
-                      <span className="text-gray-500">Shadow:</span>
-                      <input
-                        id="layer-shadow-color"
-                        type="color"
-                        className="w-5 h-5 p-0 border rounded cursor-pointer"
-                        value={layerSelectionShadowColor || '#000000'}
-                        onMouseDown={() => {
-                          const sel = window.getSelection()
-                          if (sel && sel.rangeCount > 0) {
-                            lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
-                          }
-                        }}
-                        onChange={(e) => {
-                          const color = e.target.value
-                          setLayerSelectionShadowColor(color)
-                          applyStyleToSelection(
-                            layerTextEditorRef,
-                            'text-shadow',
-                            `${layerSelectionShadowOffsetX}px ${layerSelectionShadowOffsetY}px ${layerSelectionShadowBlur}px ${color}`,
-                            setLayerHtmlContent,
-                            setLayerTextValue
-                          )
-                        }}
-                      />
-                      <input
-                        id="layer-shadow-blur"
-                        type="number"
-                        className="w-10 border rounded px-1 py-0.5 text-xs"
-                        value={layerSelectionShadowBlur}
-                        onMouseDown={() => {
-                          const sel = window.getSelection()
-                          if (sel && sel.rangeCount > 0) {
-                            lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
-                          }
-                        }}
-                        onChange={(e) => {
-                          const blur = Number(e.target.value)
-                          setLayerSelectionShadowBlur(blur)
-                          applyStyleToSelection(
-                            layerTextEditorRef,
-                            'text-shadow',
-                            `${layerSelectionShadowOffsetX}px ${layerSelectionShadowOffsetY}px ${blur}px ${layerSelectionShadowColor}`,
-                            setLayerHtmlContent,
-                            setLayerTextValue
-                          )
-                        }}
-                        title="Blur Radius"
-                      />
-                      <input
-                        id="layer-shadow-x"
-                        type="number"
-                        className="w-8 border rounded px-1 py-0.5 text-xs"
-                        value={layerSelectionShadowOffsetX}
-                        onMouseDown={() => {
-                          const sel = window.getSelection()
-                          if (sel && sel.rangeCount > 0) {
-                            lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
-                          }
-                        }}
-                        onChange={(e) => {
-                          const x = Number(e.target.value)
-                          setLayerSelectionShadowOffsetX(x)
-                          applyStyleToSelection(
-                            layerTextEditorRef,
-                            'text-shadow',
-                            `${x}px ${layerSelectionShadowOffsetY}px ${layerSelectionShadowBlur}px ${layerSelectionShadowColor}`,
-                            setLayerHtmlContent,
-                            setLayerTextValue
-                          )
-                        }}
-                        title="X Offset"
-                      />
-                      <input
-                        id="layer-shadow-y"
-                        type="number"
-                        className="w-8 border rounded px-1 py-0.5 text-xs"
-                        value={layerSelectionShadowOffsetY}
-                        onMouseDown={() => {
-                          const sel = window.getSelection()
-                          if (sel && sel.rangeCount > 0) {
-                            lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
-                          }
-                        }}
-                        onChange={(e) => {
-                          const y = Number(e.target.value)
-                          setLayerSelectionShadowOffsetY(y)
-                          applyStyleToSelection(
-                            layerTextEditorRef,
-                            'text-shadow',
-                            `${layerSelectionShadowOffsetX}px ${y}px ${layerSelectionShadowBlur}px ${layerSelectionShadowColor}`,
-                            setLayerHtmlContent,
-                            setLayerTextValue
-                          )
-                        }}
-                        title="Y Offset"
-                      />
-                    </div>
-
-                  </div>
-
-                  {/* Content Editable Area */}
-                  <div
-                    ref={layerTextEditorRef}
-                    className="w-full rounded-b-lg border border-t-0 border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] h-20 overflow-y-auto text-base bg-white [&_*]:!text-[16px] [&_*]:![-webkit-text-stroke-width:0px]"
-                    contentEditable
-                    onInput={(e) => {
-                      const target = e.currentTarget
-                      setLayerHtmlContent(target.innerHTML)
-                      // Use innerText to capture newlines as \n
-                      setLayerTextValue(target.innerText)
-                      setLayerTextError(null)
-                      detectSelectionStyles(layerTextEditorRef, true)
-                    }}
-                    onBlur={(e) => {
-                      // Ensure we persist the text with newlines
-                      setLayerTextValue(e.currentTarget.innerText)
-                    }}
-                    onSelect={() => detectSelectionStyles(layerTextEditorRef, true)}
-                    onClick={() => detectSelectionStyles(layerTextEditorRef, true)}
-                    onKeyUp={() => detectSelectionStyles(layerTextEditorRef, true)}
-                    style={{
-                      fontFamily: FONT_OPTIONS.find(f => f === layerTextFont) ? `'${layerTextFont}', sans-serif` : 'Inter, sans-serif',
-                      fontWeight: layerTextWeight,
-                      color: layerTextColor,
-                      fontSize: '16px',
-                      textAlign: layerTextAlign,
-                      fontStyle: layerTextFontStyle,
-                      textDecoration: layerTextDecoration,
-                    }}
-                  />
-                  <div className="text-xs text-gray-500">
-                    Tip: Select text to apply specific styles. Global styles below apply to the container.
-                  </div>
-                </div>
-
-                {/* Preview Section */}
-                <div className="flex-1 flex flex-col overflow-hidden">
-                  <label className="block text-sm font-semibold text-gray-800 mb-2">Preview (This is how it will look when saved)</label>
-                  <div className="flex-1 bg-gray-50 rounded-lg p-6 border border-gray-200 overflow-auto flex items-center justify-center">
-                    {(layerHtmlContent || layerTextValue) ? (
-                      <TextLayerPreview
-                        ref={(el) => { layerTextPreviewRef.current = el }}
-                        text={layerTextValue}
-                        html={layerHtmlContent}
-                        color={layerTextColor}
-                        fontWeight={layerTextWeight}
-                        fontSize={layerTextSize}
-                        fontFamily={layerTextFont}
-                        backgroundColor={layerTextBackgroundColor}
-                        backgroundRadius={layerTextBackgroundRadius}
-                        textAlign={layerTextAlign}
-                        letterSpacing={layerTextLetterSpacing}
-                        fontStyle={layerTextFontStyle}
-                        textDecoration={layerTextDecoration}
-                        textOpacity={layerTextOpacity}
-                        textRotation={layerTextRotation}
-                        shadowColor={layerTextShadowColor}
-                        shadowBlur={layerTextShadowBlur}
-                        shadowOffsetX={layerTextShadowOffsetX}
-                        shadowOffsetY={layerTextShadowOffsetY}
-                        strokeColor={layerTextStrokeColor}
-                        strokeWidth={layerTextStrokeWidth}
-                      />
-                    ) : (
-                      <div className="text-gray-400 text-sm">Your text preview will appear here</div>
-                    )}
-                  </div>
-                </div>
-
-                {layerTextError && (
-                  <div className="text-red-600 text-sm bg-red-50 px-4 py-2 rounded-lg border border-red-200 flex-shrink-0">
-                    {layerTextError}
-                  </div>
-                )}
-              </div>
-
-              {/* Right Side - Designing Tools */}
-              <div className="w-80 overflow-y-auto pr-2 flex flex-col gap-5">
-                <div>
-                  <h4 className="text-sm font-semibold text-gray-800 mb-4">Text Styling</h4>
-                  <div className="space-y-4">
-                    {/* Color */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Color</label>
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="color"
-                          value={layerTextColor}
-                          onChange={(e) => setLayerTextColor(e.target.value)}
-                          className="w-12 h-12 rounded-2xl cursor-pointer flex-shrink-0"
-                        />
-                        <input
-                          type="text"
-                          value={layerTextColor}
-                          onChange={(e) => setLayerTextColor(e.target.value)}
-                          className="flex-1 rounded-lg border border-gray-500 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
-                          placeholder="#000000"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Font Weight */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Font Weight</label>
+                    {/* Rich Text Toolbar */}
+                    <div className="flex flex-wrap items-center gap-2 p-2 border rounded-t-lg bg-gray-50">
                       <select
-                        value={layerTextWeight}
-                        onChange={(e) => setLayerTextWeight(e.target.value as '300' | '400' | '600' | '700')}
-                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
-                      >
-                        <option value="300">Light (300)</option>
-                        <option value="400">Regular (400)</option>
-                        <option value="600">Semi Bold (600)</option>
-                        <option value="700">Bold (700)</option>
-                      </select>
-                    </div>
-
-                    {/* Font Family */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Font Family</label>
-                      <select
-                        value={layerSelectedFont || layerTextFont}
+                        className="text-xs border rounded px-1 py-1 w-32"
                         onMouseDown={() => {
+                          // Save selection before dropdown opens
                           const sel = window.getSelection()
                           if (sel && sel.rangeCount > 0) {
                             lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
@@ -5289,7 +4712,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                         }}
                         onChange={(e) => {
                           const newFont = e.target.value
-                          setLayerTextFont(newFont)
+                          // Removed setLayerTextFont(newFont) to prevent global update
                           setLayerSelectedFont(newFont)
                           if (layerTextEditorRef.current) {
                             layerTextEditorRef.current.focus()
@@ -5298,7 +4721,12 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                               sel?.removeAllRanges()
                               sel?.addRange(lastSelectionRange.current)
                             }
+                            document.execCommand('styleWithCSS', false, 'true')
                             document.execCommand('fontName', false, newFont)
+
+                            setLayerHtmlContent(layerTextEditorRef.current.innerHTML)
+                            setLayerTextValue(layerTextEditorRef.current.innerText)
+
                             // Re-save selection
                             const sel = window.getSelection()
                             if (sel && sel.rangeCount > 0) {
@@ -5306,250 +4734,825 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                             }
                           }
                         }}
-                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+                        value={layerSelectedFont || layerTextFont}
                       >
-                        {FONT_OPTIONS.map(font => (
-                          <option key={font} value={font} style={{ fontFamily: FONT_FAMILY_MAP[font] || font }}>
-                            {font}
+                        {FONT_OPTIONS.map(f => (
+                          <option key={f} value={f} style={{ fontFamily: FONT_FAMILY_MAP[f] || f }}>
+                            {f}
                           </option>
                         ))}
                       </select>
-                    </div>
 
-                    {/* Font Size */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Font Size: <span className="font-semibold text-[rgba(38,116,186,1)]">{layerTextSize}px</span>
-                      </label>
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="range"
-                          min="12"
-                          max="120"
-                          value={layerTextSize}
-                          onChange={(e) => setLayerTextSize(Number(e.target.value))}
-                          className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
-                        />
-                        <input
-                          type="number"
-                          min="12"
-                          max="120"
-                          value={layerTextSize}
-                          onChange={(e) => setLayerTextSize(Number(e.target.value))}
-                          className="w-16 rounded-lg border border-gray-200 px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                      <select
+                        className="text-xs border rounded px-1 py-1 w-20"
+                        onMouseDown={() => {
+                          // Save selection before dropdown opens
+                          const sel = window.getSelection()
+                          if (sel && sel.rangeCount > 0) {
+                            lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
+                          }
+                        }}
+                        onChange={(e) => {
+                          const value = e.target.value
+                          const editor = layerTextEditorRef.current
+                          if (!editor) return
 
-                {/* Background & Stroke Effects */}
-                <div className="border-t pt-4">
-                  <h5 className="text-sm font-bold text-gray-900 mb-3">Background & Stroke</h5>
+                          let size: number
+                          if (value === 'custom') {
+                            const customSize = prompt('Enter custom font size (px):', '60')
+                            if (!customSize) return
+                            size = parseInt(customSize)
+                            if (isNaN(size)) return
+                          } else {
+                            size = parseInt(value)
+                          }
 
-                  {/* Background Color */}
-                  <div className="mb-4">
-                    <label className="block text-sm font-semibold text-gray-800 mb-2">Background Color</label>
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="color"
-                        value={layerTextBackgroundColor || "#ffffff"}
-                        onChange={(e) => setLayerTextBackgroundColor(e.target.value)}
-                        className="w-12 h-12 rounded-2xl cursor-pointer flex-shrink-0 hover:border-[rgba(38,116,186,1)] transition-colors"
-                      />
-                      <div className="text-xs flex-1 flex flex-col gap-1">
-                        <p className="text-gray-700 font-medium text-xs">{layerTextBackgroundColor || "No bg"}</p>
+                          // Focus editor and restore selection
+                          editor.focus()
+                          const sel = window.getSelection()
+                          if (lastSelectionRange.current && sel) {
+                            sel.removeAllRanges()
+                            sel.addRange(lastSelectionRange.current)
+                          }
+
+                          // IMPORTANT: Disable CSS mode to force creation of <font size="7"> tags
+                          // This is required for the replacement logic below to work
+                          document.execCommand('styleWithCSS', false, 'false')
+                          document.execCommand('fontSize', false, '7')
+                          // Re-enable CSS mode for other controls
+                          document.execCommand('styleWithCSS', false, 'true')
+
+                          setTimeout(() => {
+                            const fontElements = editor.querySelectorAll('font[size="7"]')
+                            fontElements.forEach((font) => {
+                              const span = document.createElement('span')
+                              span.style.fontSize = `${size}px`
+                              span.innerHTML = font.innerHTML
+                              font.parentNode?.replaceChild(span, font)
+                            })
+
+                            setLayerHtmlContent(editor.innerHTML)
+                            setLayerTextValue(editor.innerText)
+                            setLayerSelectedFontSize(String(size))
+                          }, 0)
+                        }}
+                        value={layerSelectedFontSize || String(layerTextSize)}
+                        title="Font Size"
+                      >
+                        <option value="">Size</option>
+                        {(() => {
+                          const predefined = [12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 56, 60, 64, 72, 80, 96]
+                          const current = parseInt(layerSelectedFontSize || String(layerTextSize))
+                          const allSizes = !isNaN(current) && !predefined.includes(current)
+                            ? [...predefined, current].sort((a, b) => a - b)
+                            : predefined
+                          return allSizes.map(s => (
+                            <option key={s} value={s}>{s}px</option>
+                          ))
+                        })()}
+                        <option value="custom">Custom...</option>
+                      </select>
+                      <div className="flex items-center border rounded bg-white overflow-hidden">
                         <button
-                          onClick={() => setLayerTextBackgroundColor("")}
-                          className="text-xs text-red-500 hover:text-red-700 underline text-left"
+                          className="px-2 py-1 hover:bg-gray-100 font-bold"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            document.execCommand('bold')
+                            if (layerTextEditorRef.current) {
+                              setLayerHtmlContent(layerTextEditorRef.current.innerHTML)
+                              setLayerTextValue(layerTextEditorRef.current.innerText)
+                            }
+                          }}
+                          title="Bold"
                         >
-                          Clear
+                          B
+                        </button>
+                        <button
+                          className="px-2 py-1 hover:bg-gray-100 italic"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            document.execCommand('italic')
+                            if (layerTextEditorRef.current) {
+                              setLayerHtmlContent(layerTextEditorRef.current.innerHTML)
+                              setLayerTextValue(layerTextEditorRef.current.innerText)
+                            }
+                          }}
+                          title="Italic"
+                        >
+                          I
                         </button>
                       </div>
+                      <div className="relative w-6 h-6 overflow-hidden rounded cursor-pointer border hover:border-gray-400">
+                        <input
+                          type="color"
+                          className="absolute -top-2 -left-2 w-12 h-12 p-0 border-0 cursor-pointer"
+                          onMouseDown={() => {
+                            const sel = window.getSelection()
+                            if (sel && sel.rangeCount > 0) {
+                              lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
+                            }
+                          }}
+                          onChange={(e) => {
+                            const editor = layerTextEditorRef.current
+                            if (editor) editor.focus()
+                            const sel = window.getSelection()
+                            if (lastSelectionRange.current && sel) {
+                              sel.removeAllRanges()
+                              sel.addRange(lastSelectionRange.current)
+                            }
+                            document.execCommand('styleWithCSS', false, 'true')
+                            document.execCommand('foreColor', false, e.target.value)
+
+                            if (editor) {
+                              setLayerHtmlContent(editor.innerHTML)
+                              setLayerTextValue(editor.innerText)
+                            }
+                          }}
+                          title="Text Color"
+                        />
+                      </div>
+                      <button
+                        className="text-xs px-2 py-1 border rounded hover:bg-gray-100"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          // 1. Standard Remove Format
+                          document.execCommand('removeFormat')
+
+                          // 2. Clear Background
+                          document.execCommand('styleWithCSS', false, 'true')
+                          document.execCommand('hiliteColor', false, 'transparent')
+                          document.execCommand('backColor', false, 'transparent')
+
+                          // 3. Clear Custom Styles
+                          applyStyleToSelection(layerTextEditorRef, 'letter-spacing', 'normal', setLayerHtmlContent, setLayerTextValue)
+                          applyStyleToSelection(layerTextEditorRef, '-webkit-text-stroke', '0px', setLayerHtmlContent, setLayerTextValue)
+                          applyStyleToSelection(layerTextEditorRef, 'text-shadow', 'none', setLayerHtmlContent, setLayerTextValue)
+
+                          // 4. Reset Selection State Inputs
+                          setLayerSelectionLetterSpacing(0)
+                          setLayerSelectionBackgroundColor("")
+                          setLayerSelectionStrokeWidth(0)
+                          setLayerSelectionStrokeColor("#000000")
+                          setLayerSelectionShadowColor("#000000")
+                          setLayerSelectionShadowBlur(0)
+                          setLayerSelectionShadowOffsetX(0)
+                          setLayerSelectionShadowOffsetY(0)
+
+                          if (layerTextEditorRef.current) {
+                            setLayerHtmlContent(layerTextEditorRef.current.innerHTML)
+                            setLayerTextValue(layerTextEditorRef.current.innerText)
+                          }
+                        }}
+                        title="Clear Formatting"
+                      >
+                        Clear
+                      </button>
+                    </div>
+
+                    {/* Individual Text Styling Row - applies to SELECTED text only */}
+                    <div className="flex flex-wrap items-center gap-2 p-2 border-x border-b bg-gray-50 text-xs">
+                      {/* Letter Spacing */}
+                      <div className="flex items-center gap-1" title="Letter Spacing (selection)">
+                        <span className="text-gray-500">Ls:</span>
+                        <input
+                          type="number"
+                          className="w-12 border rounded px-1 py-0.5 text-xs"
+                          value={layerSelectionLetterSpacing}
+                          onMouseDown={() => {
+                            const sel = window.getSelection()
+                            if (sel && sel.rangeCount > 0) {
+                              lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
+                            }
+                          }}
+                          onChange={(e) => {
+                            const value = Number(e.target.value)
+                            setLayerSelectionLetterSpacing(value)
+                            applyStyleToSelection(
+                              layerTextEditorRef,
+                              'letter-spacing',
+                              `${value}px`,
+                              setLayerHtmlContent,
+                              setLayerTextValue
+                            )
+                          }}
+                          min="-5"
+                          max="50"
+                        />
+                      </div>
+
+                      <div className="w-px h-5 bg-gray-300" />
+
+                      {/* Background Color */}
+                      <div className="flex items-center gap-1" title="Background Color (selection)">
+                        <span className="text-gray-500">Bg:</span>
+                        <div className="flex items-center gap-1 bg-white border rounded px-1">
+                          <input
+                            type="color"
+                            className="w-5 h-5 p-0 border-0 rounded cursor-pointer"
+                            value={layerSelectionBackgroundColor || '#ffffff'}
+                            onMouseDown={() => {
+                              const sel = window.getSelection()
+                              if (sel && sel.rangeCount > 0) {
+                                lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
+                              }
+                            }}
+                            onChange={(e) => {
+                              const val = e.target.value
+                              setLayerSelectionBackgroundColor(val)
+                              applyStyleToSelection(
+                                layerTextEditorRef,
+                                'background-color',
+                                val,
+                                setLayerHtmlContent,
+                                setLayerTextValue
+                              )
+                            }}
+                          />
+                          <button
+                            onMouseDown={(e) => {
+                              e.preventDefault()
+                              const sel = window.getSelection()
+                              if (sel && sel.rangeCount > 0) {
+                                lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
+                              }
+                            }}
+                            onClick={() => {
+                              setLayerSelectionBackgroundColor("")
+                              // Use execCommand for better clearing support
+                              const editor = layerTextEditorRef.current
+                              if (editor) editor.focus()
+                              const sel = window.getSelection()
+                              if (lastSelectionRange.current && sel) {
+                                sel.removeAllRanges()
+                                sel.addRange(lastSelectionRange.current)
+                              }
+                              document.execCommand('styleWithCSS', false, 'true')
+                              // Try both hiliteColor and backColor for browser compatibility
+                              document.execCommand('hiliteColor', false, 'transparent')
+                              document.execCommand('backColor', false, 'transparent')
+
+                              // Manually trigger updates as execCommand modifies the DOM directly
+                              setLayerHtmlContent(editor?.innerHTML || "")
+                              setLayerTextValue(editor?.innerText || "")
+                            }}
+                            className="text-gray-400 hover:text-red-500 font-bold px-1"
+                            title="Clear Background"
+                          >
+                            &times;
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="w-px h-5 bg-gray-300" />
+
+                      {/* Stroke */}
+                      <div className="flex items-center gap-1" title="Text Stroke (selection)">
+                        <span className="text-gray-500">Stroke:</span>
+                        <input
+                          type="color"
+                          className="w-5 h-5 p-0 border rounded cursor-pointer"
+                          value={layerSelectionStrokeColor || '#000000'}
+                          onMouseDown={() => {
+                            const sel = window.getSelection()
+                            if (sel && sel.rangeCount > 0) {
+                              lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
+                            }
+                          }}
+                          onChange={(e) => {
+                            const color = e.target.value
+                            setLayerSelectionStrokeColor(color)
+                            applyStyleToSelection(
+                              layerTextEditorRef,
+                              '-webkit-text-stroke',
+                              `${layerSelectionStrokeWidth}px ${color}`,
+                              setLayerHtmlContent,
+                              setLayerTextValue
+                            )
+                          }}
+                        />
+                        <input
+                          id="layer-stroke-width"
+                          type="number"
+                          className="w-10 border rounded px-1 py-0.5 text-xs"
+                          value={layerSelectionStrokeWidth}
+                          min="0"
+                          max="10"
+                          step="0.5"
+                          onMouseDown={() => {
+                            const sel = window.getSelection()
+                            if (sel && sel.rangeCount > 0) {
+                              lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
+                            }
+                          }}
+                          onChange={(e) => {
+                            const width = Number(e.target.value)
+                            setLayerSelectionStrokeWidth(width)
+                            applyStyleToSelection(
+                              layerTextEditorRef,
+                              '-webkit-text-stroke',
+                              `${width}px ${layerSelectionStrokeColor}`,
+                              setLayerHtmlContent,
+                              setLayerTextValue
+                            )
+                          }}
+                          title="Stroke Width"
+                        />
+                      </div>
+
+                      <div className="w-px h-5 bg-gray-300" />
+
+                      {/* Shadow */}
+                      <div className="flex items-center gap-1" title="Text Shadow (selection)">
+                        <span className="text-gray-500">Shadow:</span>
+                        <input
+                          id="layer-shadow-color"
+                          type="color"
+                          className="w-5 h-5 p-0 border rounded cursor-pointer"
+                          value={layerSelectionShadowColor || '#000000'}
+                          onMouseDown={() => {
+                            const sel = window.getSelection()
+                            if (sel && sel.rangeCount > 0) {
+                              lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
+                            }
+                          }}
+                          onChange={(e) => {
+                            const color = e.target.value
+                            setLayerSelectionShadowColor(color)
+                            applyStyleToSelection(
+                              layerTextEditorRef,
+                              'text-shadow',
+                              `${layerSelectionShadowOffsetX}px ${layerSelectionShadowOffsetY}px ${layerSelectionShadowBlur}px ${color}`,
+                              setLayerHtmlContent,
+                              setLayerTextValue
+                            )
+                          }}
+                        />
+                        <input
+                          id="layer-shadow-blur"
+                          type="number"
+                          className="w-10 border rounded px-1 py-0.5 text-xs"
+                          value={layerSelectionShadowBlur}
+                          onMouseDown={() => {
+                            const sel = window.getSelection()
+                            if (sel && sel.rangeCount > 0) {
+                              lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
+                            }
+                          }}
+                          onChange={(e) => {
+                            const blur = Number(e.target.value)
+                            setLayerSelectionShadowBlur(blur)
+                            applyStyleToSelection(
+                              layerTextEditorRef,
+                              'text-shadow',
+                              `${layerSelectionShadowOffsetX}px ${layerSelectionShadowOffsetY}px ${blur}px ${layerSelectionShadowColor}`,
+                              setLayerHtmlContent,
+                              setLayerTextValue
+                            )
+                          }}
+                          title="Blur Radius"
+                        />
+                        <input
+                          id="layer-shadow-x"
+                          type="number"
+                          className="w-8 border rounded px-1 py-0.5 text-xs"
+                          value={layerSelectionShadowOffsetX}
+                          onMouseDown={() => {
+                            const sel = window.getSelection()
+                            if (sel && sel.rangeCount > 0) {
+                              lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
+                            }
+                          }}
+                          onChange={(e) => {
+                            const x = Number(e.target.value)
+                            setLayerSelectionShadowOffsetX(x)
+                            applyStyleToSelection(
+                              layerTextEditorRef,
+                              'text-shadow',
+                              `${x}px ${layerSelectionShadowOffsetY}px ${layerSelectionShadowBlur}px ${layerSelectionShadowColor}`,
+                              setLayerHtmlContent,
+                              setLayerTextValue
+                            )
+                          }}
+                          title="X Offset"
+                        />
+                        <input
+                          id="layer-shadow-y"
+                          type="number"
+                          className="w-8 border rounded px-1 py-0.5 text-xs"
+                          value={layerSelectionShadowOffsetY}
+                          onMouseDown={() => {
+                            const sel = window.getSelection()
+                            if (sel && sel.rangeCount > 0) {
+                              lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
+                            }
+                          }}
+                          onChange={(e) => {
+                            const y = Number(e.target.value)
+                            setLayerSelectionShadowOffsetY(y)
+                            applyStyleToSelection(
+                              layerTextEditorRef,
+                              'text-shadow',
+                              `${layerSelectionShadowOffsetX}px ${y}px ${layerSelectionShadowBlur}px ${layerSelectionShadowColor}`,
+                              setLayerHtmlContent,
+                              setLayerTextValue
+                            )
+                          }}
+                          title="Y Offset"
+                        />
+                      </div>
+
+                    </div>
+
+                    {/* Content Editable Area */}
+                    <div
+                      ref={layerTextEditorRef}
+                      className="w-full rounded-b-lg border border-t-0 border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] h-20 overflow-y-auto text-base bg-white [&_*]:!text-[16px] [&_*]:![-webkit-text-stroke-width:0px]"
+                      contentEditable
+                      onInput={(e) => {
+                        const target = e.currentTarget
+                        setLayerHtmlContent(target.innerHTML)
+                        // Use innerText to capture newlines as \n
+                        setLayerTextValue(target.innerText)
+                        setLayerTextError(null)
+                        detectSelectionStyles(layerTextEditorRef, true)
+                      }}
+                      onBlur={(e) => {
+                        // Ensure we persist the text with newlines
+                        setLayerTextValue(e.currentTarget.innerText)
+                      }}
+                      onSelect={() => detectSelectionStyles(layerTextEditorRef, true)}
+                      onClick={() => detectSelectionStyles(layerTextEditorRef, true)}
+                      onKeyUp={() => detectSelectionStyles(layerTextEditorRef, true)}
+                      style={{
+                        fontFamily: FONT_OPTIONS.find(f => f === layerTextFont) ? `'${layerTextFont}', sans-serif` : 'Inter, sans-serif',
+                        fontWeight: layerTextWeight,
+                        color: layerTextColor,
+                        fontSize: '16px',
+                        textAlign: layerTextAlign,
+                        fontStyle: layerTextFontStyle,
+                        textDecoration: layerTextDecoration,
+                      }}
+                    />
+                    <div className="text-xs text-gray-500">
+                      Tip: Select text to apply specific styles. Global styles below apply to the container.
                     </div>
                   </div>
 
-                  {/* Background Radius */}
-                  <div className="mb-4">
-                    <label className="block text-sm font-semibold text-gray-800 mb-2">
-                      Background Radius: <span className="text-[rgba(38,116,186,1)]">{layerTextBackgroundRadius}px</span>
-                    </label>
-                    <input
-                      type="range"
-                      min="0"
-                      max="50"
-                      value={layerTextBackgroundRadius}
-                      onChange={(e) => setLayerTextBackgroundRadius(Number(e.target.value))}
-                      className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
-                    />
+                  {/* Preview Section */}
+                  <div className="flex-1 flex flex-col overflow-hidden">
+                    <label className="block text-sm font-semibold text-gray-800 mb-2">Preview (This is how it will look when saved)</label>
+                    <div className="flex-1 bg-gray-50 rounded-lg p-6 border border-gray-200 overflow-auto flex items-center justify-center">
+                      {(layerHtmlContent || layerTextValue) ? (
+                        <TextLayerPreview
+                          ref={(el) => { layerTextPreviewRef.current = el }}
+                          text={layerTextValue}
+                          html={layerHtmlContent}
+                          color={layerTextColor}
+                          fontWeight={layerTextWeight}
+                          fontSize={layerTextSize}
+                          fontFamily={layerTextFont}
+                          backgroundColor={layerTextBackgroundColor}
+                          backgroundRadius={layerTextBackgroundRadius}
+                          textAlign={layerTextAlign}
+                          letterSpacing={layerTextLetterSpacing}
+                          fontStyle={layerTextFontStyle}
+                          textDecoration={layerTextDecoration}
+                          textOpacity={layerTextOpacity}
+                          textRotation={layerTextRotation}
+                          shadowColor={layerTextShadowColor}
+                          shadowBlur={layerTextShadowBlur}
+                          shadowOffsetX={layerTextShadowOffsetX}
+                          shadowOffsetY={layerTextShadowOffsetY}
+                          strokeColor={layerTextStrokeColor}
+                          strokeWidth={layerTextStrokeWidth}
+                        />
+                      ) : (
+                        <div className="text-gray-400 text-sm">Your text preview will appear here</div>
+                      )}
+                    </div>
                   </div>
 
-                  {/* Stroke Color */}
-                  <div className="mb-4">
-                    <label className="block text-sm font-semibold text-gray-800 mb-2">Stroke Color</label>
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="color"
-                        value={layerTextStrokeColor || "#000000"}
-                        onChange={(e) => setLayerTextStrokeColor(e.target.value)}
-                        className="w-12 h-12 rounded-2xl cursor-pointer flex-shrink-0 hover:border-[rgba(38,116,186,1)] transition-colors"
-                      />
-                      <div className="text-xs flex-1">
-                        <p className="text-gray-700 font-medium text-xs">{layerTextStrokeColor || "#000000"}</p>
+                  {layerTextError && (
+                    <div className="text-red-600 text-sm bg-red-50 px-4 py-2 rounded-lg border border-red-200 flex-shrink-0">
+                      {layerTextError}
+                    </div>
+                  )}
+                </div>
+
+                {/* Right Side - Designing Tools */}
+                <div className="w-80 overflow-y-auto pr-2 flex flex-col gap-5">
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-800 mb-4">Text Styling</h4>
+                    <div className="space-y-4">
+                      {/* Color */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Color</label>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="color"
+                            value={layerTextColor}
+                            onChange={(e) => setLayerTextColor(e.target.value)}
+                            className="w-12 h-12 rounded-2xl cursor-pointer flex-shrink-0"
+                          />
+                          <input
+                            type="text"
+                            value={layerTextColor}
+                            onChange={(e) => setLayerTextColor(e.target.value)}
+                            className="flex-1 rounded-lg border border-gray-500 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+                            placeholder="#000000"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Font Weight */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Font Weight</label>
+                        <select
+                          value={layerTextWeight}
+                          onChange={(e) => setLayerTextWeight(e.target.value as '300' | '400' | '600' | '700')}
+                          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+                        >
+                          <option value="300">Light (300)</option>
+                          <option value="400">Regular (400)</option>
+                          <option value="600">Semi Bold (600)</option>
+                          <option value="700">Bold (700)</option>
+                        </select>
+                      </div>
+
+                      {/* Font Family */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Font Family</label>
+                        <select
+                          value={layerSelectedFont || layerTextFont}
+                          onMouseDown={() => {
+                            const sel = window.getSelection()
+                            if (sel && sel.rangeCount > 0) {
+                              lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
+                            }
+                          }}
+                          onChange={(e) => {
+                            const newFont = e.target.value
+                            setLayerTextFont(newFont)
+                            setLayerSelectedFont(newFont)
+                            if (layerTextEditorRef.current) {
+                              layerTextEditorRef.current.focus()
+                              if (lastSelectionRange.current) {
+                                const sel = window.getSelection()
+                                sel?.removeAllRanges()
+                                sel?.addRange(lastSelectionRange.current)
+                              }
+                              document.execCommand('fontName', false, newFont)
+                              // Re-save selection
+                              const sel = window.getSelection()
+                              if (sel && sel.rangeCount > 0) {
+                                lastSelectionRange.current = sel.getRangeAt(0).cloneRange()
+                              }
+                            }
+                          }}
+                          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+                        >
+                          {FONT_OPTIONS.map(font => (
+                            <option key={font} value={font} style={{ fontFamily: FONT_FAMILY_MAP[font] || font }}>
+                              {font}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Font Size */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Font Size: <span className="font-semibold text-[rgba(38,116,186,1)]">{layerTextSize}px</span>
+                        </label>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="range"
+                            min="12"
+                            max="120"
+                            value={layerTextSize}
+                            onChange={(e) => setLayerTextSize(Number(e.target.value))}
+                            className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
+                          />
+                          <input
+                            type="number"
+                            min="12"
+                            max="120"
+                            value={layerTextSize}
+                            onChange={(e) => setLayerTextSize(Number(e.target.value))}
+                            className="w-16 rounded-lg border border-gray-200 px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Stroke Width */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-800 mb-2">
-                      Stroke Width: <span className="text-[rgba(38,116,186,1)]">{layerTextStrokeWidth}px</span>
-                    </label>
-                    <input
-                      type="range"
-                      min="0"
-                      max="10"
-                      value={layerTextStrokeWidth}
-                      onChange={(e) => setLayerTextStrokeWidth(Number(e.target.value))}
-                      className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
-                    />
-                  </div>
+                  {/* Background & Stroke Effects */}
+                  <div className="border-t pt-4">
+                    <h5 className="text-sm font-bold text-gray-900 mb-3">Background & Stroke</h5>
 
-                  {/* Letter Spacing */}
-                  <div className="mb-4 mt-4">
-                    <label className="block text-sm font-semibold text-gray-800 mb-2">
-                      Letter Spacing: <span className="text-[rgba(38,116,186,1)]">{layerTextLetterSpacing}px</span>
-                    </label>
-                    <input
-                      type="range"
-                      min="-5"
-                      max="50"
-                      value={layerTextLetterSpacing}
-                      onChange={(e) => setLayerTextLetterSpacing(Number(e.target.value))}
-                      className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
-                    />
-                  </div>
-
-                  {/* Text Shadow */}
-                  <div className="mb-4">
-                    <label className="block text-sm font-semibold text-gray-800 mb-2">Text Shadow</label>
-                    <div className="space-y-2">
+                    {/* Background Color */}
+                    <div className="mb-4">
+                      <label className="block text-sm font-semibold text-gray-800 mb-2">Background Color</label>
                       <div className="flex items-center gap-3">
                         <input
                           type="color"
-                          value={layerTextShadowColor || "#000000"}
-                          onChange={(e) => setLayerTextShadowColor(e.target.value)}
-                          className="w-8 h-8 rounded-lg cursor-pointer flex-shrink-0"
+                          value={layerTextBackgroundColor || "#ffffff"}
+                          onChange={(e) => setLayerTextBackgroundColor(e.target.value)}
+                          className="w-12 h-12 rounded-2xl cursor-pointer flex-shrink-0 hover:border-[rgba(38,116,186,1)] transition-colors"
                         />
-                        <div className="text-xs text-gray-600">Shadow Color</div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2">
-                        <div>
-                          <label className="text-[10px] text-gray-500">Blur</label>
-                          <input
-                            type="number"
-                            value={layerTextShadowBlur}
-                            onChange={(e) => setLayerTextShadowBlur(Number(e.target.value))}
-                            className="w-full border rounded px-1 py-1 text-xs"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[10px] text-gray-500">X Offset</label>
-                          <input
-                            type="number"
-                            value={layerTextShadowOffsetX}
-                            onChange={(e) => setLayerTextShadowOffsetX(Number(e.target.value))}
-                            className="w-full border rounded px-1 py-1 text-xs"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[10px] text-gray-500">Y Offset</label>
-                          <input
-                            type="number"
-                            value={layerTextShadowOffsetY}
-                            onChange={(e) => setLayerTextShadowOffsetY(Number(e.target.value))}
-                            className="w-full border rounded px-1 py-1 text-xs"
-                          />
+                        <div className="text-xs flex-1 flex flex-col gap-1">
+                          <p className="text-gray-700 font-medium text-xs">{layerTextBackgroundColor || "No bg"}</p>
+                          <button
+                            onClick={() => setLayerTextBackgroundColor("")}
+                            className="text-xs text-red-500 hover:text-red-700 underline text-left"
+                          >
+                            Clear
+                          </button>
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Global Font Style & Decoration */}
-                  <div className="mb-4">
-                    <label className="block text-sm font-semibold text-gray-800 mb-2">Global Style</label>
-                    <div className="flex gap-2">
-                      <button
-                        className={`flex-1 py-1 text-xs border rounded ${layerTextFontStyle === 'italic' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white'}`}
-                        onClick={() => setLayerTextFontStyle(prev => prev === 'italic' ? 'normal' : 'italic')}
-                      >
-                        Italic
-                      </button>
-
+                    {/* Background Radius */}
+                    <div className="mb-4">
+                      <label className="block text-sm font-semibold text-gray-800 mb-2">
+                        Background Radius: <span className="text-[rgba(38,116,186,1)]">{layerTextBackgroundRadius}px</span>
+                      </label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="50"
+                        value={layerTextBackgroundRadius}
+                        onChange={(e) => setLayerTextBackgroundRadius(Number(e.target.value))}
+                        className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
+                      />
                     </div>
-                  </div>
 
-                  {/* Text Alignment */}
-                  <div className="mb-4">
-                    <label className="block text-sm font-semibold text-gray-800 mb-2">Text Alignment</label>
-                    <div className="flex gap-2">
-                      <button
-                        className={`flex-1 py-1 text-xs border rounded ${layerTextAlign === 'left' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white'}`}
-                        onClick={() => setLayerTextAlign('left')}
-                      >
-                        Left
-                      </button>
-                      <button
-                        className={`flex-1 py-1 text-xs border rounded ${layerTextAlign === 'center' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white'}`}
-                        onClick={() => setLayerTextAlign('center')}
-                      >
-                        Center
-                      </button>
-                      <button
-                        className={`flex-1 py-1 text-xs border rounded ${layerTextAlign === 'right' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white'}`}
-                        onClick={() => setLayerTextAlign('right')}
-                      >
-                        Right
-                      </button>
+                    {/* Stroke Color */}
+                    <div className="mb-4">
+                      <label className="block text-sm font-semibold text-gray-800 mb-2">Stroke Color</label>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="color"
+                          value={layerTextStrokeColor || "#000000"}
+                          onChange={(e) => setLayerTextStrokeColor(e.target.value)}
+                          className="w-12 h-12 rounded-2xl cursor-pointer flex-shrink-0 hover:border-[rgba(38,116,186,1)] transition-colors"
+                        />
+                        <div className="text-xs flex-1">
+                          <p className="text-gray-700 font-medium text-xs">{layerTextStrokeColor || "#000000"}</p>
+                        </div>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Opacity */}
-                  <div className="mb-4">
-                    <label className="block text-sm font-semibold text-gray-800 mb-2">
-                      Opacity: <span className="text-[rgba(38,116,186,1)]">{layerTextOpacity}%</span>
-                    </label>
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      value={layerTextOpacity}
-                      onChange={(e) => setLayerTextOpacity(Number(e.target.value))}
-                      className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
-                    />
-                  </div>
+                    {/* Stroke Width */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-800 mb-2">
+                        Stroke Width: <span className="text-[rgba(38,116,186,1)]">{layerTextStrokeWidth}px</span>
+                      </label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="10"
+                        value={layerTextStrokeWidth}
+                        onChange={(e) => setLayerTextStrokeWidth(Number(e.target.value))}
+                        className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
+                      />
+                    </div>
 
-                  {/* Rotation */}
-                  <div className="mb-4">
-                    <label className="block text-sm font-semibold text-gray-800 mb-2">
-                      Rotation: <span className="text-[rgba(38,116,186,1)]">{layerTextRotation}°</span>
-                    </label>
-                    <input
-                      type="range"
-                      min="-180"
-                      max="180"
-                      value={layerTextRotation}
-                      onChange={(e) => setLayerTextRotation(Number(e.target.value))}
-                      className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
-                    />
+                    {/* Letter Spacing */}
+                    <div className="mb-4 mt-4">
+                      <label className="block text-sm font-semibold text-gray-800 mb-2">
+                        Letter Spacing: <span className="text-[rgba(38,116,186,1)]">{layerTextLetterSpacing}px</span>
+                      </label>
+                      <input
+                        type="range"
+                        min="-5"
+                        max="50"
+                        value={layerTextLetterSpacing}
+                        onChange={(e) => setLayerTextLetterSpacing(Number(e.target.value))}
+                        className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
+                      />
+                    </div>
+
+                    {/* Text Shadow */}
+                    <div className="mb-4">
+                      <label className="block text-sm font-semibold text-gray-800 mb-2">Text Shadow</label>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="color"
+                            value={layerTextShadowColor || "#000000"}
+                            onChange={(e) => setLayerTextShadowColor(e.target.value)}
+                            className="w-8 h-8 rounded-lg cursor-pointer flex-shrink-0"
+                          />
+                          <div className="text-xs text-gray-600">Shadow Color</div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div>
+                            <label className="text-[10px] text-gray-500">Blur</label>
+                            <input
+                              type="number"
+                              value={layerTextShadowBlur}
+                              onChange={(e) => setLayerTextShadowBlur(Number(e.target.value))}
+                              className="w-full border rounded px-1 py-1 text-xs"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-gray-500">X Offset</label>
+                            <input
+                              type="number"
+                              value={layerTextShadowOffsetX}
+                              onChange={(e) => setLayerTextShadowOffsetX(Number(e.target.value))}
+                              className="w-full border rounded px-1 py-1 text-xs"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-gray-500">Y Offset</label>
+                            <input
+                              type="number"
+                              value={layerTextShadowOffsetY}
+                              onChange={(e) => setLayerTextShadowOffsetY(Number(e.target.value))}
+                              className="w-full border rounded px-1 py-1 text-xs"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Global Font Style & Decoration */}
+                    <div className="mb-4">
+                      <label className="block text-sm font-semibold text-gray-800 mb-2">Global Style</label>
+                      <div className="flex gap-2">
+                        <button
+                          className={`flex-1 py-1 text-xs border rounded ${layerTextFontStyle === 'italic' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white'}`}
+                          onClick={() => setLayerTextFontStyle(prev => prev === 'italic' ? 'normal' : 'italic')}
+                        >
+                          Italic
+                        </button>
+
+                      </div>
+                    </div>
+
+                    {/* Text Alignment */}
+                    <div className="mb-4">
+                      <label className="block text-sm font-semibold text-gray-800 mb-2">Text Alignment</label>
+                      <div className="flex gap-2">
+                        <button
+                          className={`flex-1 py-1 text-xs border rounded ${layerTextAlign === 'left' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white'}`}
+                          onClick={() => setLayerTextAlign('left')}
+                        >
+                          Left
+                        </button>
+                        <button
+                          className={`flex-1 py-1 text-xs border rounded ${layerTextAlign === 'center' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white'}`}
+                          onClick={() => setLayerTextAlign('center')}
+                        >
+                          Center
+                        </button>
+                        <button
+                          className={`flex-1 py-1 text-xs border rounded ${layerTextAlign === 'right' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white'}`}
+                          onClick={() => setLayerTextAlign('right')}
+                        >
+                          Right
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Opacity */}
+                    <div className="mb-4">
+                      <label className="block text-sm font-semibold text-gray-800 mb-2">
+                        Opacity: <span className="text-[rgba(38,116,186,1)]">{layerTextOpacity}%</span>
+                      </label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={layerTextOpacity}
+                        onChange={(e) => setLayerTextOpacity(Number(e.target.value))}
+                        className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
+                      />
+                    </div>
+
+                    {/* Rotation */}
+                    <div className="mb-4">
+                      <label className="block text-sm font-semibold text-gray-800 mb-2">
+                        Rotation: <span className="text-[rgba(38,116,186,1)]">{layerTextRotation}°</span>
+                      </label>
+                      <input
+                        type="range"
+                        min="-180"
+                        max="180"
+                        value={layerTextRotation}
+                        onChange={(e) => setLayerTextRotation(Number(e.target.value))}
+                        className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[rgba(38,116,186,1)] [&::-webkit-slider-thumb]:cursor-pointer"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Footer */}
-            <div className="px-5 py-4 border-t flex justify-end gap-3 flex-shrink-0">
-              {/* <Button
+              {/* Footer */}
+              <div className="px-5 py-4 border-t flex justify-end gap-3 flex-shrink-0">
+                {/* <Button
                 variant="outline"
                 onClick={async () => {
                   try {
@@ -5593,18 +5596,19 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
               >
                 Download PNG
               </Button> */}
-              <Button variant="outline" onClick={closeLayerTextModal} disabled={layerTextSaving} className="cursor-pointer">Cancel</Button>
-              <Button
-                className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] cursor-pointer"
-                onClick={() => void saveLayerTextToExistingLayer()}
-                disabled={layerTextSaving || !layerTextValue.trim()}
-              >
-                {layerTextSaving ? 'Saving...' : 'Save Changes'}
-              </Button>
+                <Button variant="outline" onClick={closeLayerTextModal} disabled={layerTextSaving} className="cursor-pointer">Cancel</Button>
+                <Button
+                  className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] cursor-pointer"
+                  onClick={() => void saveLayerTextToExistingLayer()}
+                  disabled={layerTextSaving || !layerTextValue.trim()}
+                >
+                  {layerTextSaving ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
 
       {/* Fullscreen Preview Modal */}
