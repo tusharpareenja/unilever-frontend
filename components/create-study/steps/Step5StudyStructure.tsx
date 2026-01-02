@@ -2478,6 +2478,19 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
         } : { x: 0, y: 0, width: 100, height: 100 }
 
         const imageId = crypto.randomUUID()
+
+        // Calculate clamped dimensions preserving aspect ratio
+        let finalWidth = baseTransform.width
+        let finalHeight = baseTransform.height
+
+        if (showLayerTextModal.mode === 'add') {
+          const rawW = (pixelWidth / (bgFit.width || 1)) * 100
+          const rawH = (pixelHeight / (bgFit.height || 1)) * 100
+          const scale = Math.min(1, 100 / (rawW || 1), 100 / (rawH || 1))
+          finalWidth = Math.max(5, rawW * scale)
+          finalHeight = Math.max(2, rawH * scale)
+        }
+
         const image: LayerImage = {
           id: imageId,
           previewUrl: secureUrl || previewUrl,
@@ -2485,8 +2498,8 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
           name: baseName,
           x: baseTransform.x,
           y: baseTransform.y,
-          width: showLayerTextModal.mode === 'add' ? Math.max(5, (pixelWidth / (bgFit.width || 1)) * 100) : baseTransform.width,
-          height: showLayerTextModal.mode === 'add' ? Math.max(2, (pixelHeight / (bgFit.height || 1)) * 100) : baseTransform.height,
+          width: finalWidth,
+          height: finalHeight,
           pixelWidth,
           pixelHeight,
           sourceType: 'text' as const,
@@ -2614,6 +2627,14 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
         const nextZ = layers.length
         const initialName = draftName || `Layer ${nextZ + 1}`
         const name = uniqueLayerName(initialName)
+
+        // Calculate clamped dimensions for new layer
+        const rawW = (pixelWidth / (bgFit.width || 1)) * 100
+        const rawH = (pixelHeight / (bgFit.height || 1)) * 100
+        const scale = Math.min(1, 100 / (rawW || 1), 100 / (rawH || 1))
+        const finalWidth = Math.max(5, rawW * scale)
+        const finalHeight = Math.max(2, rawH * scale)
+
         const layerImage: LayerImage = {
           id: imageId,
           previewUrl: secureUrl || previewUrl,
@@ -2621,8 +2642,8 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
           name: baseName,
           x: 0,
           y: 0,
-          width: Math.max(5, (pixelWidth / (bgFit.width || 1)) * 100),
-          height: Math.max(2, (pixelHeight / (bgFit.height || 1)) * 100),
+          width: finalWidth,
+          height: finalHeight,
           pixelWidth,
           pixelHeight,
           sourceType: 'text' as const,
