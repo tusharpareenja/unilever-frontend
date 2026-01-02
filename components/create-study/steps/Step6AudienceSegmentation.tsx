@@ -52,7 +52,32 @@ export function Step6AudienceSegmentation({ onNext, onBack, onDataChange }: Step
 	const [countries, setCountries] = useState<string[]>(() => { try { const v = localStorage.getItem('cs_step6'); if (v) { const o = JSON.parse(v); return Array.isArray(o.countries) ? o.countries : [] } } catch { }; return [] })
 	const [genderMale, setGenderMale] = useState<number | ''>(() => { try { const v = localStorage.getItem('cs_step6'); if (v) { const o = JSON.parse(v); return typeof o.genderMale === 'number' ? o.genderMale : 50 } } catch { }; return 50 })
 	const [genderFemale, setGenderFemale] = useState<number | ''>(() => { try { const v = localStorage.getItem('cs_step6'); if (v) { const o = JSON.parse(v); return typeof o.genderFemale === 'number' ? o.genderFemale : 50 } } catch { }; return 50 })
-	const [ageSelections, setAgeSelections] = useState<Record<string, { checked: boolean; percent: string }>>(() => { try { const v = localStorage.getItem('cs_step6'); if (v) { const o = JSON.parse(v); if (o.ageSelections && typeof o.ageSelections === 'object') return o.ageSelections } } catch { }; return { "18 - 24": { checked: false, percent: "" }, "25 - 34": { checked: false, percent: "" }, "35 - 44": { checked: false, percent: "" }, "45 - 54": { checked: false, percent: "" }, "55 - 64": { checked: false, percent: "" }, "65+": { checked: false, percent: "" } } })
+	const [ageSelections, setAgeSelections] = useState<Record<string, { checked: boolean; percent: string }>>(() => {
+		const defaults: Record<string, { checked: boolean; percent: string }> = {
+			"18 - 24": { checked: false, percent: "" },
+			"25 - 34": { checked: false, percent: "" },
+			"35 - 44": { checked: false, percent: "" },
+			"45 - 54": { checked: false, percent: "" },
+			"55 - 64": { checked: false, percent: "" },
+			"65+": { checked: false, percent: "" }
+		}
+		try {
+			const v = localStorage.getItem('cs_step6')
+			if (v) {
+				const o = JSON.parse(v)
+				if (o.ageSelections && typeof o.ageSelections === 'object') {
+					const merged = { ...defaults }
+					Object.keys(defaults).forEach((k) => {
+						if (o.ageSelections[k]) {
+							merged[k] = o.ageSelections[k]
+						}
+					})
+					return merged
+				}
+			}
+		} catch { }
+		return defaults
+	})
 
 	const suggestions = useCountryFilter(countryQuery)
 
