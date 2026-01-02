@@ -299,4 +299,3 @@ export function Step1BasicDetails({ onNext, onCancel, onDataChange }: Step1Basic
   )
 }
 
-

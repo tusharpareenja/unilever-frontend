@@ -126,8 +126,10 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
   // Dynamic limits from env with sensible defaults
   // const GRID_MIN = Number.parseInt(process.env.NEXT_PUBLIC_GRID_MIN_ELEMENTS || '4') || 4
   const GRID_MAX = Number.parseInt(process.env.NEXT_PUBLIC_GRID_MAX_ELEMENTS || '20') || 20
-  const CATEGORY_MIN = 4
+  const CATEGORY_MIN = 3
   const CATEGORY_MAX = 10
+  const ELEMENT_MIN = 3
+  const ELEMENT_MAX = 10
 
   const [categories, setCategories] = useState<CategoryItem[]>(() => {
     try {
@@ -231,7 +233,7 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
       category.title &&
       category.title.trim().length > 0 &&
       category.elements &&
-      category.elements.length > 0
+      category.elements.length >= ELEMENT_MIN
     )
 
     if (mode === 'text') {
@@ -253,12 +255,12 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
     if (invalidCategories.length > 0) {
       return 'Complete category titles'
     }
-    // Check if any category is missing elements
-    const hasEmptyCategories = categories.some(category =>
-      !category.elements || category.elements.length === 0
+    // Check if any category is missing elements or has too few
+    const hasInsufficientElements = categories.some(category =>
+      !category.elements || category.elements.length < ELEMENT_MIN
     )
-    if (hasEmptyCategories) {
-      return mode === 'text' ? 'Add at least one statement to each category' : 'Add at least one image to each category'
+    if (hasInsufficientElements) {
+      return mode === 'text' ? `Add at least ${ELEMENT_MIN} statements to each category` : `Add at least ${ELEMENT_MIN} images to each category`
     }
     // For text mode, check if any element has empty name
     if (mode === 'text') {
@@ -424,7 +426,13 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
   const handleCategoryFiles = async (categoryId: string, files: FileList) => {
 
 
-    const list = Array.from(files)
+    const category = categories.find(c => c.id === categoryId)
+    if (category && category.elements.length >= ELEMENT_MAX) return
+
+    let list = Array.from(files)
+    const remaining = ELEMENT_MAX - (category?.elements.length || 0)
+    if (list.length > remaining) list = list.slice(0, remaining)
+
     const selectionIds: string[] = []
 
     list.forEach((file) => {
@@ -531,6 +539,9 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
   }
 
   const addTextStatement = (categoryId: string) => {
+    const category = categories.find(c => c.id === categoryId)
+    if (category && category.elements.length >= ELEMENT_MAX) return
+
     const newElement: ElementItem = {
       id: crypto.randomUUID(),
       name: "",
@@ -822,6 +833,7 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <div className="text-sm font-semibold text-gray-800">{mode === 'text' ? 'Statements' : 'Elements'} ({category.elements.length})</div>
+                        <div className="text-[10px] text-gray-500">Min {ELEMENT_MIN}, Max {ELEMENT_MAX}</div>
                       </div>
 
                       {category.elements.length > 0 ? (
@@ -1083,8 +1095,10 @@ type LayerTextModalState =
 
 function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
   // Dynamic limits from env with sensible defaults
-  const LAYER_MIN = Number.parseInt(process.env.NEXT_PUBLIC_LAYER_MIN_LAYERS || '2') || 2
-  const LAYER_MAX = Number.parseInt(process.env.NEXT_PUBLIC_LAYER_MAX_LAYERS || '10') || 10
+  const LAYER_MIN = 3
+  const LAYER_MAX = 10
+  const ELEMENT_MIN = 3
+  const ELEMENT_MAX = 10
   const [layers, setLayers] = useState<Layer[]>(() => {
     try {
       const raw = localStorage.getItem('cs_step5_layer')
@@ -2412,12 +2426,19 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
       setLayerTextError('Enter some text to add')
       return
     }
+    const { layerId } = showLayerTextModal
+    const targetLayer = layers.find(l => l.id === layerId)
+    if (!targetLayer) return
+
+    if (targetLayer.images.length >= ELEMENT_MAX) {
+      setLayerTextError(`Maximum ${ELEMENT_MAX} elements allowed per layer`)
+      return
+    }
+
     setLayerTextSaving(true)
     setLayerTextError(null)
-    const { layerId } = showLayerTextModal
+
     try {
-      const targetLayer = layers.find(l => l.id === layerId)
-      if (!targetLayer) throw new Error('Layer not found')
       const baseName = layerTextValue.split('\n')[0].trim() || 'Text'
       const { file, previewUrl, width: pixelWidth, height: pixelHeight } = await renderTextLayerImage({
         text: layerTextValue,
@@ -2640,6 +2661,10 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
 
     if (draftImages.length === 0) {
       setDraftError('Add at least one image to this layer')
+      return
+    }
+    if (draftImages.length > ELEMENT_MAX) {
+      setDraftError(`Maximum ${ELEMENT_MAX} images allowed per layer`)
       return
     }
 
@@ -2966,10 +2991,15 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
   }
 
   const addImagesToLayer = (layerId: string, files: FileList | null) => {
-    if (!files) return
-    const list = Array.from(files)
+    const layer = layers.find(l => l.id === layerId)
+    if (layer && layer.images.length >= ELEMENT_MAX) return
+
+    const list = Array.from(files || [])
+    const remaining = ELEMENT_MAX - (layer?.images.length || 0)
+    const limitedList = list.slice(0, remaining)
+
     const ids: string[] = []
-    list.forEach((file) => {
+    limitedList.forEach((file) => {
       const tempId = crypto.randomUUID()
       const url = URL.createObjectURL(file)
       const fileName = file.name.replace(/\.[^/.]+$/, "")
@@ -3554,7 +3584,10 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                       </div>
 
                       <div>
-                        <div className="text-sm font-medium text-gray-700 mb-2">Images</div>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="text-sm font-medium text-gray-700">Elements ({layer.images.length})</div>
+                          <div className="text-[10px] text-gray-500">Min {ELEMENT_MIN}, Max {ELEMENT_MAX}</div>
+                        </div>
                         <div className="flex flex-wrap gap-3">
                           {layer.images.map(img => {
                             const isSelected = selectedImageIds[layer.id] === img.id || (!selectedImageIds[layer.id] && layer.images[0]?.id === img.id)
@@ -5642,9 +5675,15 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
         <Button
           className="rounded-full cursor-pointer px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] w-full sm:w-auto"
           onClick={handleNext}
-          disabled={nextLoading || layers.length < LAYER_MIN}
+          disabled={nextLoading || layers.length < LAYER_MIN || layers.some(l => l.images.length < ELEMENT_MIN)}
         >
-          {nextLoading ? 'Uploading...' : (layers.length < LAYER_MIN ? `Add at least ${LAYER_MIN}` : 'Save & Next')}
+          {nextLoading ? 'Uploading...' : (
+            layers.length < LAYER_MIN
+              ? `Add at least ${LAYER_MIN} layers`
+              : layers.some(l => l.images.length < ELEMENT_MIN)
+                ? `Each layer needs ${ELEMENT_MIN} elements`
+                : 'Save & Next'
+          )}
         </Button>
       </div>
     </div >
