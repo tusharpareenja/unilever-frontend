@@ -64,6 +64,7 @@ export default function TasksPage() {
   const [containerSizeDesktop, setContainerSizeDesktop] = useState({ width: 0, height: 0 })
   const [bgFitDesktop, setBgFitDesktop] = useState({ left: 0, top: 0, width: 0, height: 0 })
   const bgReadyRefDesktop = useRef(false)
+  const [isBgLandscape, setIsBgLandscape] = useState(false)
 
   useEffect(() => {
     firstViewTimeRef.current = new Date().toISOString()
@@ -418,6 +419,7 @@ export default function TasksPage() {
       const top = (ch - h) / 2
 
       setBgFit({ left, top, width: w, height: h })
+      setIsBgLandscape(iw > ih)
       bgReadyRef.current = true
     }
 
@@ -732,7 +734,7 @@ export default function TasksPage() {
       className="h-[100dvh] lg:min-h-screen lg:bg-white overflow-hidden lg:overflow-visible"
       style={{ paddingTop: "max(10px, env(safe-area-inset-top))" }}
     >
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 sm:pt-12 md:pt-14 pb-16">
+      <div className={`max-w-6xl mx-auto ${isBgLandscape ? 'px-0 sm:px-6 lg:px-8' : 'px-4 sm:px-6 lg:px-8'} pt-2 sm:pt-12 md:pt-14 pb-16`}>
         {isFetching ? (
           <div className="p-10 text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[rgba(38,116,186,1)] mx-auto mb-4" />
@@ -750,7 +752,7 @@ export default function TasksPage() {
               style={{ paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}
             >
               {/* Progress Section */}
-              <div className="mb-2 sm:mb-4 flex-shrink-0">
+              <div className={`mb-2 sm:mb-4 flex-shrink-0 ${isBgLandscape ? 'px-4 sm:px-0' : ''}`}>
                 <div className="h-2 w-full bg-gray-200 rounded overflow-hidden mb-5 sm:mb-5">
                   <div
                     className="h-full bg-[rgba(38,116,186,1)] rounded transition-all duration-300"
@@ -782,10 +784,10 @@ export default function TasksPage() {
                   </div>
                 ) : (
                   <>
-                    <div className="flex-1 flex items-center justify-center min-h-0 overflow-hidden px-2">
+                    <div className={`flex-1 flex items-center justify-center min-h-0 overflow-hidden ${studyType === 'layer' && isBgLandscape ? 'px-0' : 'px-2'}`}>
                       {studyType === "layer" ? (
                         <div className="relative w-full h-full flex items-center justify-center">
-                          <div ref={previewContainerRef} className="relative w-full max-w-xs sm:max-w-sm md:max-w-md aspect-square" style={{ minHeight: 240 }}>
+                          <div ref={previewContainerRef} className={`relative w-full aspect-square ${isBgLandscape ? '' : 'max-w-xs sm:max-w-sm md:max-w-md'}`} style={{ minHeight: 240 }}>
                             {backgroundUrl && (
                               <img
                                 ref={bgImgRef}
@@ -811,6 +813,7 @@ export default function TasksPage() {
                                     const left = (cw - w) / 2
                                     const top = (ch - h) / 2
                                     setBgFit({ left, top, width: w, height: h })
+                                    setIsBgLandscape(iw > ih)
                                     bgReadyRef.current = true
                                   })
                                 }}
@@ -1006,13 +1009,13 @@ export default function TasksPage() {
                     </div>
 
                     {studyType === "grid" && (
-                      <div className="grid grid-cols-2 gap-4 text-xs sm:text-sm font-semibold text-gray-800 mb-2 px-2 flex-shrink-0">
+                      <div className={`grid grid-cols-2 gap-4 text-xs sm:text-sm font-semibold text-gray-800 mb-2 flex-shrink-0 ${isBgLandscape ? 'px-6 sm:px-2' : 'px-2'}`}>
                         <div className="text-center text-balance">{task?.leftLabel ?? ""}</div>
                         <div className="text-center text-balance">{task?.rightLabel ?? ""}</div>
                       </div>
                     )}
 
-                    <div className="flex flex-col items-start px-4 mb-6 gap-2">
+                    <div className={`flex flex-col items-start mb-6 gap-2 ${isBgLandscape ? 'px-8 sm:px-4' : 'px-4'}`}>
                       <div className="flex items-center gap-[9px]">
                         <div className="h-6 w-6 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs font-semibold text-gray-700 flex-shrink-0">
                           1
@@ -1038,7 +1041,7 @@ export default function TasksPage() {
 
                     {/* Rating Scale */}
                     <div
-                      className="mt-auto pb-2 px-2 flex-shrink-0"
+                      className={`mt-auto pb-2 flex-shrink-0 ${isBgLandscape ? 'px-6 sm:px-2' : 'px-2'}`}
                       style={{ paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}
                     >
                       <div className="flex items-center justify-center mb-2">
