@@ -144,7 +144,7 @@ export default function StudyManagementPage() {
   //   }
   // }
 
-  const handleStatusUpdate = async (newStatus: "active" | "paused" | "completed") => {
+  const handleStatusUpdate = async (newStatus: "active" | "paused" | "completed" | "draft") => {
     if (!study) return
 
     try {
@@ -192,7 +192,7 @@ export default function StudyManagementPage() {
 
   const getStatusDisplay = (status: string | undefined) => {
     switch (status) {
-      case "draft": return "Paused"
+      case "draft": return "Draft"
       case "active": return "Active"
       case "paused": return "Paused"
       case "completed": return "Completed"
@@ -222,7 +222,7 @@ export default function StudyManagementPage() {
     if (isActive) {
       return (
         <button
-          onClick={() => handleStatusUpdate("paused")}
+          onClick={() => handleStatusUpdate("draft")}
           disabled={updating}
           className="flex items-center gap-2 px-4 py-2 text-white rounded-lg hover:opacity-90 disabled:opacity-50"
           style={{ backgroundColor: '#FF6B35' }}

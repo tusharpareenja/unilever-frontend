@@ -584,7 +584,7 @@ export default function TasksPage() {
             >
               {/* Progress Section */}
               <div className="mb-2 sm:mb-4 flex-shrink-0">
-                <div className="h-2 w-full bg-gray-200 rounded overflow-hidden mb-2 sm:mb-3">
+                <div className="h-2 w-full bg-gray-200 rounded overflow-hidden mb-5 sm:mb-5">
                   <div
                     className="h-full bg-[rgba(38,116,186,1)] rounded transition-all duration-300"
                     style={{ width: `${progressPct}%` }}
@@ -684,8 +684,8 @@ export default function TasksPage() {
                                           position: 'absolute',
                                           top: `${topPct}%`,
                                           left: `${leftPct}%`,
-                                          width: `${widthPct}%`,
-                                          height: `${heightPct}%`,
+                                          width: `calc(${widthPct}% + 1.5px)`,
+                                          height: `calc(${heightPct}% + 1.5px)`,
                                         }}
                                         onError={() => {
                                           console.error("Layer image failed to load:", img.url)
@@ -845,35 +845,24 @@ export default function TasksPage() {
                       </div>
                     )}
 
-                    <div className="flex flex-col items-start justify-center gap-2 px-2 mb-2">
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">
+                    <div className="flex flex-col items-start px-4 mb-6 gap-2">
+                      <div className="flex items-center gap-[9px]">
+                        <div className="h-6 w-6 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs font-semibold text-gray-700 flex-shrink-0">
                           1
                         </div>
                         {scaleLabels.left && (
-                          <div className="text-xs sm:text-sm font-medium text-gray-700 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
+                          <div className="text-xs font-medium text-gray-700 leading-tight">
                             {scaleLabels.left}
                           </div>
                         )}
                       </div>
 
-                      {scaleLabels.middle && (
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">
-                            3
-                          </div>
-                          <div className="text-xs sm:text-sm font-medium text-gray-700 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
-                            {scaleLabels.middle}
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">
+                      <div className="flex items-center gap-[9px]">
+                        <div className="h-6 w-6 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs font-semibold text-gray-700 flex-shrink-0">
                           5
                         </div>
                         {scaleLabels.right && (
-                          <div className="text-xs sm:text-sm font-medium text-gray-700 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
+                          <div className="text-xs font-medium text-gray-700 leading-tight">
                             {scaleLabels.right}
                           </div>
                         )}
@@ -886,7 +875,7 @@ export default function TasksPage() {
                       style={{ paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}
                     >
                       <div className="flex items-center justify-center mb-2">
-                        <div className="flex items-center justify-center gap-4">
+                        <div className="flex items-center justify-between w-full max-w-[320px] mx-auto">
                           {[1, 2, 3, 4, 5].map((n) => {
                             const selected = lastSelected === n
                             return (

@@ -260,107 +260,119 @@ const loadDraftStudyData = async (studyId: string) => {
     } else if (studyDetails.study_type === 'layer' && studyDetails.study_layers) {
       // Handle layer study structure - transform to frontend format
       const layers = Array.isArray(studyDetails.study_layers) ? studyDetails.study_layers : []
-      const transformedLayers = layers.map((layer: StudyLayer, layerIdx: number) => {
-        // Extract transform from layer - log for debugging
-        console.log(`[LoadDraft] Processing layer ${layerIdx}:`, {
-          layer_id: layer.layer_id,
-          has_transform: !!layer.transform,
-          transform_data: layer.transform,
-          z_index: layer.z_index
+      const bgUrl = studyDetails.background_image_url
+
+      const transformedLayers = layers
+        .filter((layer: StudyLayer) => {
+          if (!bgUrl) return true
+          const firstImgUrl = layer.images?.[0]?.url
+          // Skip if it's the auto-added background layer (by description or name+URL)
+          const isBackgroundDescription = layer.description === "Auto-added background layer"
+          const isBackgroundNameAndUrl = (layer.name === 'Background' || layer.layer_name === 'Background') && firstImgUrl === bgUrl
+
+          return !(isBackgroundDescription || isBackgroundNameAndUrl)
         })
-
-        // Extract transform from layer - handle both nested and direct properties
-        let layerTransform = layer.transform
-
-        // If transform is an object with x, y, width, height, use it
-        if (layerTransform && typeof layerTransform === 'object' &&
-          (typeof layerTransform.x === 'number' || typeof layerTransform.y === 'number' ||
-            typeof layerTransform.width === 'number' || typeof layerTransform.height === 'number')) {
-          layerTransform = {
-            x: layerTransform.x ?? 0,
-            y: layerTransform.y ?? 0,
-            width: layerTransform.width ?? 100,
-            height: layerTransform.height ?? 100
-          }
-        } else {
-          // Fallback to direct properties or defaults
-          layerTransform = {
-            x: layer.x ?? 0,
-            y: layer.y ?? 0,
-            width: layer.width ?? 100,
-            height: layer.height ?? 100
-          }
-        }
-
-        return {
-          id: layer.id || layer.layer_id || `layer-${layerIdx}`,
-          name: layer.name || layer.layer_name || `Layer ${layerIdx + 1}`,
-          description: layer.description || '',
-          z: typeof layer.z_index === 'number' ? layer.z_index : layerIdx,
-          layer_type: layer.layer_type || 'image',
-          transform: layerTransform,
-          images: (layer.images || []).map((img: LayerImage, imgIdx: number) => {
-            // Extract config from either top-level or nested config object
-            const config = (img as any).config || {}
-
-            const coerceNumber = (v: any, fallback = 0) => (v === null || typeof v === 'undefined') ? fallback : Number(v)
-            const coerceString = (v: any, fallback = '') => (v === null || typeof v === 'undefined') ? fallback : String(v)
-
-            const textContent = coerceString(config.text_content ?? (img as any).text_content ?? img.name ?? '')
-            const textColor = coerceString(config.text_color ?? (img as any).text_color ?? '')
-            const textWeight = coerceString(config.text_weight ?? (img as any).text_weight ?? '600')
-            const textSize = coerceNumber(config.text_size ?? (img as any).text_size ?? 48)
-            const textFont = coerceString(config.text_font ?? (img as any).text_font ?? 'Inter')
-            const textBackgroundColor = coerceString(config.text_background_color ?? (img as any).text_background_color ?? '')
-            const textBackgroundRadius = coerceNumber(config.text_background_radius ?? (img as any).text_background_radius ?? 0)
-            const textStrokeColor = coerceString(config.text_stroke_color ?? (img as any).text_stroke_color ?? '')
-            const textStrokeWidth = coerceNumber(config.text_stroke_width ?? (img as any).text_stroke_width ?? 0)
-            const textLetterSpacing = coerceNumber(config.text_letter_spacing ?? (img as any).text_letter_spacing ?? 0)
-            const textShadowColor = coerceString(config.text_shadow_color ?? (img as any).text_shadow_color ?? '')
-            const textShadowBlur = coerceNumber(config.text_shadow_blur ?? (img as any).text_shadow_blur ?? 0)
-            const textShadowOffsetX = coerceNumber(config.text_shadow_offset_x ?? (img as any).text_shadow_offset_x ?? 0)
-            const textShadowOffsetY = coerceNumber(config.text_shadow_offset_y ?? (img as any).text_shadow_offset_y ?? 0)
-            const textFontStyle = coerceString(config.text_font_style ?? (img as any).text_font_style ?? 'normal')
-            const textDecoration = coerceString(config.text_decoration ?? (img as any).text_decoration ?? 'none')
-            const textAlign = coerceString(config.text_align ?? (img as any).text_align ?? 'left')
-            const textOpacity = coerceNumber(config.text_opacity ?? (img as any).text_opacity ?? 100)
-            const textRotation = coerceNumber(config.text_rotation ?? (img as any).text_rotation ?? 0)
-            const htmlContent = coerceString(config.html_content ?? (img as any).html_content ?? '')
-
-            return {
-              id: img.id || img.image_id || `img-${layerIdx}-${imgIdx}`,
-              previewUrl: img.url || '',
-              secureUrl: img.url || '',
-              name: img.name || '',
-              x: typeof img.x === 'number' ? img.x : layerTransform.x,
-              y: typeof img.y === 'number' ? img.y : layerTransform.y,
-              width: typeof img.width === 'number' ? img.width : layerTransform.width,
-              height: typeof img.height === 'number' ? img.height : layerTransform.height,
-              sourceType: layer.layer_type === 'text' ? 'text' : 'upload',
-              textContent,
-              htmlContent,
-              textColor,
-              textWeight: textWeight as any,
-              textSize,
-              textFont,
-              textBackgroundColor,
-              textBackgroundRadius,
-              textStrokeColor,
-              textStrokeWidth,
-              textLetterSpacing,
-              textShadowColor,
-              textShadowBlur,
-              textShadowOffsetX,
-              textShadowOffsetY,
-              textFontStyle,
-              textDecoration,
-              textAlign,
-              textOpacity,
-              textRotation,
-            }
+        .map((layer: StudyLayer, layerIdx: number) => {
+          // Extract transform from layer - log for debugging
+          console.log(`[LoadDraft] Processing layer ${layerIdx}:`, {
+            layer_id: layer.layer_id,
+            has_transform: !!layer.transform,
+            transform_data: layer.transform,
+            z_index: layer.z_index
           })
-        }
-      })
+
+          // Extract transform from layer - handle both nested and direct properties
+          let layerTransform = layer.transform
+
+          // If transform is an object with x, y, width, height, use it
+          if (layerTransform && typeof layerTransform === 'object' &&
+            (typeof layerTransform.x === 'number' || typeof layerTransform.y === 'number' ||
+              typeof layerTransform.width === 'number' || typeof layerTransform.height === 'number')) {
+            layerTransform = {
+              x: layerTransform.x ?? 0,
+              y: layerTransform.y ?? 0,
+              width: layerTransform.width ?? 100,
+              height: layerTransform.height ?? 100
+            }
+          } else {
+            // Fallback to direct properties or defaults
+            layerTransform = {
+              x: layer.x ?? 0,
+              y: layer.y ?? 0,
+              width: layer.width ?? 100,
+              height: layer.height ?? 100
+            }
+          }
+
+          return {
+            id: layer.id || layer.layer_id || `layer-${layerIdx}`,
+            name: layer.name || layer.layer_name || `Layer ${layerIdx + 1}`,
+            description: layer.description || '',
+            z: typeof layer.z_index === 'number' ? layer.z_index : layerIdx,
+            layer_type: layer.layer_type || 'image',
+            transform: layerTransform,
+            images: (layer.images || []).map((img: LayerImage, imgIdx: number) => {
+              // Extract config from either top-level or nested config object
+              const config = (img as any).config || {}
+
+              const coerceNumber = (v: any, fallback = 0) => (v === null || typeof v === 'undefined') ? fallback : Number(v)
+              const coerceString = (v: any, fallback = '') => (v === null || typeof v === 'undefined') ? fallback : String(v)
+
+              const textContent = coerceString(config.text_content ?? (img as any).text_content ?? img.name ?? '')
+              const textColor = coerceString(config.text_color ?? (img as any).text_color ?? '')
+              const textWeight = coerceString(config.text_weight ?? (img as any).text_weight ?? '600')
+              const textSize = coerceNumber(config.text_size ?? (img as any).text_size ?? 48)
+              const textFont = coerceString(config.text_font ?? (img as any).text_font ?? 'Inter')
+              const textBackgroundColor = coerceString(config.text_background_color ?? (img as any).text_background_color ?? '')
+              const textBackgroundRadius = coerceNumber(config.text_background_radius ?? (img as any).text_background_radius ?? 0)
+              const textStrokeColor = coerceString(config.text_stroke_color ?? (img as any).text_stroke_color ?? '')
+              const textStrokeWidth = coerceNumber(config.text_stroke_width ?? (img as any).text_stroke_width ?? 0)
+              const textLetterSpacing = coerceNumber(config.text_letter_spacing ?? (img as any).text_letter_spacing ?? 0)
+              const textShadowColor = coerceString(config.text_shadow_color ?? (img as any).text_shadow_color ?? '')
+              const textShadowBlur = coerceNumber(config.text_shadow_blur ?? (img as any).text_shadow_blur ?? 0)
+              const textShadowOffsetX = coerceNumber(config.text_shadow_offset_x ?? (img as any).text_shadow_offset_x ?? 0)
+              const textShadowOffsetY = coerceNumber(config.text_shadow_offset_y ?? (img as any).text_shadow_offset_y ?? 0)
+              const textFontStyle = coerceString(config.text_font_style ?? (img as any).text_font_style ?? 'normal')
+              const textDecoration = coerceString(config.text_decoration ?? (img as any).text_decoration ?? 'none')
+              const textAlign = coerceString(config.text_align ?? (img as any).text_align ?? 'left')
+              const textOpacity = coerceNumber(config.text_opacity ?? (img as any).text_opacity ?? 100)
+              const textRotation = coerceNumber(config.text_rotation ?? (img as any).text_rotation ?? 0)
+              const htmlContent = coerceString(config.html_content ?? (img as any).html_content ?? '')
+
+              return {
+                id: img.id || img.image_id || `img-${layerIdx}-${imgIdx}`,
+                previewUrl: img.url || '',
+                secureUrl: img.url || '',
+                name: img.name || '',
+                x: typeof img.x === 'number' ? img.x : layerTransform.x,
+                y: typeof img.y === 'number' ? img.y : layerTransform.y,
+                width: typeof img.width === 'number' ? img.width : layerTransform.width,
+                height: typeof img.height === 'number' ? img.height : layerTransform.height,
+                sourceType: layer.layer_type === 'text' ? 'text' : 'upload',
+                textContent,
+                htmlContent,
+                textColor,
+                textWeight: textWeight as any,
+                textSize,
+                textFont,
+                textBackgroundColor,
+                textBackgroundRadius,
+                textStrokeColor,
+                textStrokeWidth,
+                textLetterSpacing,
+                textShadowColor,
+                textShadowBlur,
+                textShadowOffsetX,
+                textShadowOffsetY,
+                textFontStyle,
+                textDecoration,
+                textAlign,
+                textOpacity,
+                textRotation,
+              }
+            })
+          }
+        })
       console.log('[LoadDraft] Transformed layers with transform data:', transformedLayers)
       localStorage.setItem('cs_step5_layer', JSON.stringify(transformedLayers))
       localStorage.setItem('cs_step5_grid', JSON.stringify([]))

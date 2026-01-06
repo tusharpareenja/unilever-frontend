@@ -584,12 +584,53 @@ export default function TasksPage() {
       const q: any[] = qRaw ? JSON.parse(qRaw) : []
       q.push(item)
       localStorage.setItem("task_submit_queue", JSON.stringify(q))
+
+      // Progressive flush: send every 15 tasks
+      if (q.length >= 15) {
+        flushQueueInBackground(sessionId)
+      }
     } catch (e) {
       console.error("Failed to enqueue task:", e)
     }
   }
 
-  const submitSessionInBackground = () => {
+  // Helper: flush queue in background without blocking UI
+  const flushQueueInBackground = (sessionId: string) => {
+    try {
+      const qRaw = localStorage.getItem("task_submit_queue")
+      const q: any[] = qRaw ? JSON.parse(qRaw) : []
+      if (!Array.isArray(q) || q.length === 0) return
+
+      // Take items to send
+      const tasksToSend = q.map((it) => ({
+        task_id: it.task_id,
+        rating_given: it.rating_given,
+        task_duration_seconds: it.task_duration_seconds,
+        element_interactions: Array.isArray(it.element_interactions)
+          ? it.element_interactions.slice(0, 10)
+          : [],
+        elements_shown_in_task: it.elements_shown_in_task || undefined,
+        elements_shown_content: it.elements_shown_content || undefined,
+      }))
+
+      // Clear queue immediately (optimistic)
+      localStorage.removeItem("task_submit_queue")
+
+      // Send in background
+      submitTasksBulk(String(sessionId), tasksToSend)
+        .catch((e) => {
+          console.error("Background flush failed:", e)
+          // Re-queue failed items for ThankYouPage retry
+          try {
+            const existingRaw = localStorage.getItem("task_submit_queue")
+            const existing: any[] = existingRaw ? JSON.parse(existingRaw) : []
+            localStorage.setItem("task_submit_queue", JSON.stringify([...existing, ...q]))
+          } catch { }
+        })
+    } catch { }
+  }
+
+  const submitSessionInBackground = async () => {
     try {
       const sessionRaw = localStorage.getItem("study_session")
       if (!sessionRaw) return
@@ -650,42 +691,29 @@ export default function TasksPage() {
     if (currentTaskIndex < totalTasks - 1) {
       setTimeout(() => setCurrentTaskIndex((i) => i + 1), 80)
     } else {
+      // Final task: show brief loading, fire completion, flush remaining, then navigate
       setIsLoading(true)
-      const doFinish = async () => {
+
+      // Fire completion signal immediately
+      submitSessionInBackground()
+
+      // Flush any remaining tasks in the queue
+      const doFinalFlush = () => {
         try {
           const sessionRaw = localStorage.getItem("study_session")
           const { sessionId } = sessionRaw ? JSON.parse(sessionRaw) : { sessionId: null }
           if (sessionId) {
-            const qRaw = localStorage.getItem("task_submit_queue")
-            const q: any[] = qRaw ? JSON.parse(qRaw) : []
-            if (Array.isArray(q) && q.length) {
-              const tasksToSend = q.map((it) => ({
-                task_id: it.task_id,
-                rating_given: it.rating_given,
-                task_duration_seconds: it.task_duration_seconds,
-                element_interactions: Array.isArray(it.element_interactions)
-                  ? it.element_interactions.slice(0, 10)
-                  : [],
-                elements_shown_in_task: it.elements_shown_in_task || undefined,
-                elements_shown_content: it.elements_shown_content || undefined,
-              }))
-
-              submitTasksBulk(String(sessionId), tasksToSend)
-                .then(() => {
-                  localStorage.removeItem("task_submit_queue")
-                })
-                .catch((e) => {
-                  console.error("Final flush failed:", e)
-                })
-            }
+            flushQueueInBackground(sessionId)
           }
         } catch { }
-        submitSessionInBackground()
       }
-      try {
-        void doFinish()
-      } catch { }
-      setTimeout(() => router.push(`/participate/${params.id}/thank-you`), 200)
+
+      doFinalFlush()
+
+      // Navigate after 1 second (brief loading screen)
+      setTimeout(() => {
+        router.push(`/participate/${params.id}/thank-you`)
+      }, 1000)
     }
   }
 
@@ -723,7 +751,7 @@ export default function TasksPage() {
             >
               {/* Progress Section */}
               <div className="mb-2 sm:mb-4 flex-shrink-0">
-                <div className="h-2 w-full bg-gray-200 rounded overflow-hidden mb-2 sm:mb-3">
+                <div className="h-2 w-full bg-gray-200 rounded overflow-hidden mb-5 sm:mb-5">
                   <div
                     className="h-full bg-[rgba(38,116,186,1)] rounded transition-all duration-300"
                     style={{ width: `${progressPct}%` }}
@@ -823,8 +851,8 @@ export default function TasksPage() {
                                           position: 'absolute',
                                           top: `${topPct}%`,
                                           left: `${leftPct}%`,
-                                          width: `${widthPct}%`,
-                                          height: `${heightPct}%`,
+                                          width: `calc(${widthPct}% + 1.5px)`,
+                                          height: `calc(${heightPct}% + 1.5px)`,
                                         }}
                                         onError={() => {
                                           console.error("Layer image failed to load:", img.url)
@@ -984,35 +1012,24 @@ export default function TasksPage() {
                       </div>
                     )}
 
-                    <div className="flex flex-col items-center justify-center gap-2 px-2 mb-2">
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">
+                    <div className="flex flex-col items-start px-4 mb-6 gap-2">
+                      <div className="flex items-center gap-[9px]">
+                        <div className="h-6 w-6 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs font-semibold text-gray-700 flex-shrink-0">
                           1
                         </div>
                         {scaleLabels.left && (
-                          <div className="text-xs sm:text-sm font-medium text-gray-700 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
+                          <div className="text-xs font-medium text-gray-700 leading-tight">
                             {scaleLabels.left}
                           </div>
                         )}
                       </div>
 
-                      {scaleLabels.middle && (
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">
-                            3
-                          </div>
-                          <div className="text-xs sm:text-sm font-medium text-gray-700 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
-                            {scaleLabels.middle}
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">
+                      <div className="flex items-center gap-[9px]">
+                        <div className="h-6 w-6 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs font-semibold text-gray-700 flex-shrink-0">
                           5
                         </div>
                         {scaleLabels.right && (
-                          <div className="text-xs sm:text-sm font-medium text-gray-700 leading-tight whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0">
+                          <div className="text-xs font-medium text-gray-700 leading-tight">
                             {scaleLabels.right}
                           </div>
                         )}
@@ -1025,7 +1042,7 @@ export default function TasksPage() {
                       style={{ paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}
                     >
                       <div className="flex items-center justify-center mb-2">
-                        <div className="flex items-center justify-center gap-4">
+                        <div className="flex items-center justify-between w-full max-w-[320px] mx-auto">
                           {[1, 2, 3, 4, 5].map((n) => {
                             const selected = lastSelected === n
                             return (

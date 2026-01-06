@@ -399,6 +399,7 @@ export function buildStudyPayloadFromLocalStorage(): CreateStudyPayload {
           description: 'Auto-added background layer',
           z_index: 0,
           order: 0,
+          transform: { x: 0, y: 0, width: 100, height: 100 },
           images: [
             {
               image_id: layerBackground.id || crypto.randomUUID?.() || Math.random().toString(36).slice(2),
@@ -406,6 +407,7 @@ export function buildStudyPayloadFromLocalStorage(): CreateStudyPayload {
               url,
               alt_text: layerBackground.name || 'Background',
               order: 0,
+              config: {},
             },
           ],
         }
@@ -426,6 +428,7 @@ export function buildStudyPayloadFromLocalStorage(): CreateStudyPayload {
           ...(typeof img.y === 'number' ? { y: img.y } : {}),
           ...(typeof img.width === 'number' ? { width: img.width } : {}),
           ...(typeof img.height === 'number' ? { height: img.height } : {}),
+          config: {}, // Initialize as empty object
         }
 
         // Include text properties if this is a text layer - add them at image level AND in config
@@ -487,10 +490,39 @@ export function buildStudyPayloadFromLocalStorage(): CreateStudyPayload {
         description: l.description || "",
         z_index: typeof l.z === "number" ? l.z : layerIdx + (backgroundLayer ? 1 : 0),
         order: typeof l.z === "number" ? l.z : layerIdx + (backgroundLayer ? 1 : 0),
+        // PRIORITIZE explicitly saved layer transform
+        ...(l.transform ? {
+          transform: {
+            x: l.transform.x || 0,
+            y: l.transform.y || 0,
+            width: l.transform.width || 100,
+            height: l.transform.height || 100
+          }
+        } : (l.images && l.images.length > 0 ? {
+          // Fallback to first image transform if no layer transform exists
+          transform: {
+            x: l.images[0].x || 0,
+            y: l.images[0].y || 0,
+            width: l.images[0].width || 100,
+            height: l.images[0].height || 100
+          }
+        } : {})),
         images: imageObjects,
       }
     })
-    study_layers = backgroundLayer ? [backgroundLayer, ...userLayers] : userLayers
+    // Prepend background layer but ensure we don't have a duplicate in userLayers 
+    // (e.g. if state was somehow polluted or resuming from an old version)
+    const bgUrl = backgroundLayer?.images?.[0]?.url
+    study_layers = backgroundLayer ? [
+      backgroundLayer,
+      ...userLayers.filter((l: any) => {
+        const isBgDescription = l.description === "Auto-added background layer"
+        const firstImgUrl = l.images?.[0]?.url
+        const isBgNameAndUrl = (l.name === 'Background' || l.name === 'Background Image') && firstImgUrl === bgUrl
+
+        return !(isBgDescription || isBgNameAndUrl)
+      })
+    ] : userLayers
   }
 
   // Build classification questions from localStorage (Step 4 format)
@@ -818,8 +850,33 @@ export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayl
         }))
     }
   } else {
-    // Layer mode: use study_layers array
-    study_layers = layer.map((l: any, layerIdx: number) => {
+    // Build study_layers
+    const backgroundLayer = (() => {
+      if (layerBackground && (layerBackground.secureUrl || layerBackground.previewUrl)) {
+        const url = layerBackground.secureUrl || layerBackground.previewUrl
+        return {
+          layer_id: layerBackground.id || crypto.randomUUID?.() || Math.random().toString(36).slice(2),
+          name: layerBackground.name || 'Background',
+          description: 'Auto-added background layer',
+          z_index: 0,
+          order: 0,
+          transform: { x: 0, y: 0, width: 100, height: 100 },
+          images: [
+            {
+              image_id: layerBackground.id || crypto.randomUUID?.() || Math.random().toString(36).slice(2),
+              name: layerBackground.name || 'Background',
+              url,
+              alt_text: layerBackground.name || 'Background',
+              order: 0,
+              config: {},
+            },
+          ],
+        }
+      }
+      return null
+    })()
+
+    const userLayers = layer.map((l: any, layerIdx: number) => {
       const imageObjects = l.images?.filter((img: any) => img.secureUrl || img.sourceType === 'text').map((img: any, imgIdx: number) => {
         const imageObj: any = {
           image_id: img.id || crypto.randomUUID?.() || Math.random().toString(36).slice(2),
@@ -831,6 +888,7 @@ export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayl
           ...(typeof img.y === 'number' ? { y: img.y } : {}),
           ...(typeof img.width === 'number' ? { width: img.width } : {}),
           ...(typeof img.height === 'number' ? { height: img.height } : {}),
+          config: {},
         }
 
         // Include text properties if this is a text layer - add them at image level AND in config
@@ -885,25 +943,35 @@ export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayl
 
         return imageObj
       }) || []
-      // Derive layer-level transform from first image (percentages) if present
-      const first = Array.isArray(l.images) && l.images.length > 0 ? l.images[0] : null
-      const transform = first ? {
-        x: typeof first.x === 'number' ? first.x : 10,
-        y: typeof first.y === 'number' ? first.y : 10,
-        width: typeof first.width === 'number' ? first.width : 80,
-        height: typeof first.height === 'number' ? first.height : 80,
-      } : undefined
+      // Build transform: prioritize stored layer transform, fallback to first image
+      const transform = l.transform ? {
+        x: typeof l.transform.x === 'number' ? l.transform.x : 0,
+        y: typeof l.transform.y === 'number' ? l.transform.y : 0,
+        width: typeof l.transform.width === 'number' ? l.transform.width : 100,
+        height: typeof l.transform.height === 'number' ? l.transform.height : 100,
+      } : (() => {
+        const first = Array.isArray(l.images) && l.images.length > 0 ? l.images[0] : null
+        if (!first) return undefined
+        return {
+          x: typeof first.x === 'number' ? first.x : 10,
+          y: typeof first.y === 'number' ? first.y : 10,
+          width: typeof first.width === 'number' ? first.width : 80,
+          height: typeof first.height === 'number' ? first.height : 80,
+        }
+      })()
 
       return {
         layer_id: l.id || crypto.randomUUID?.() || Math.random().toString(36).slice(2),
         name: l.name || `Layer ${layerIdx + 1}`,
         description: l.description || "",
-        z_index: typeof l.z === "number" ? l.z : layerIdx,
-        order: typeof l.z === "number" ? l.z : layerIdx,
+        z_index: typeof l.z === "number" ? l.z : layerIdx + (backgroundLayer ? 1 : 0),
+        order: typeof l.z === "number" ? l.z : layerIdx + (backgroundLayer ? 1 : 0),
         ...(transform ? { transform } : {}),
         images: imageObjects,
       }
     })
+    study_layers = backgroundLayer ? [backgroundLayer, ...userLayers] : userLayers
+
   }
 
   // Get additional data from localStorage
@@ -1378,7 +1446,7 @@ export interface StudyDetails {
 }
 
 export interface UpdateStudyStatusPayload {
-  status: "active" | "paused" | "completed"
+  status: "active" | "paused" | "completed" | "draft"
 }
 
 // Full/partial update via PUT (backend expects PUT)
@@ -1442,7 +1510,7 @@ export async function getStudyPreview(studyId: string): Promise<StudyDetails> {
 }
 
 // Update study status (pause/activate/complete)
-export async function updateStudyStatus(studyId: string, status: "active" | "paused" | "completed"): Promise<StudyDetails> {
+export async function updateStudyStatus(studyId: string, status: "active" | "paused" | "completed" | "draft"): Promise<StudyDetails> {
   console.log('=== HTTP REQUEST TO /studies/{id} (PATCH) ===')
   console.log('URL:', `${API_BASE_URL}/studies/${studyId}`)
   console.log('Status update:', status)

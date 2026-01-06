@@ -90,6 +90,20 @@ export interface SubmitTaskPayload {
 
 /** Bulk submit multiple task responses at once (participant, no auth) */
 export async function submitTasksBulk(sessionId: string, tasks: SubmitTaskPayload[]): Promise<any> {
+	// Chunking logic to avoid payload size limits (keepalive limit is ~64KB)
+	const CHUNK_SIZE = 15
+	if (tasks.length > CHUNK_SIZE) {
+		const chunks: SubmitTaskPayload[][] = []
+		for (let i = 0; i < tasks.length; i += CHUNK_SIZE) {
+			chunks.push(tasks.slice(i, i + CHUNK_SIZE))
+		}
+
+		// Send chunks in parallel
+		return Promise.all(chunks.map(chunk => submitTasksBulk(sessionId, chunk)))
+			.then(results => ({ ok: results.every((r: any) => r?.ok !== false) }))
+			.catch(() => ({ ok: false }))
+	}
+
 	const q = encodeURIComponent(sessionId)
 	const body = { tasks }
 
@@ -97,18 +111,13 @@ export async function submitTasksBulk(sessionId: string, tasks: SubmitTaskPayloa
 	const baseUrl = API_BASE_URL
 	const url = `${baseUrl}/responses/submit-tasks-bulk?session_id=${q}`
 
-	// console.log(`submitTasksBulk: sending ${tasks.length} tasks for session ${sessionId}`)
-	// console.log('API_BASE_URL:', API_BASE_URL)
-	// console.log('Using URL:', url)
-
 	try {
 		const res = await fetch(url, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(body),
+			keepalive: true,
 		})
-
-		// console.log('submitTasksBulk response status:', res.status, res.statusText)
 
 		if (!res.ok) {
 			const text = await res.text().catch(() => '')
@@ -117,7 +126,6 @@ export async function submitTasksBulk(sessionId: string, tasks: SubmitTaskPayloa
 		}
 
 		const result = await res.json().catch(() => ({}))
-		// console.log('submitTasksBulk success:', result)
 		return result
 	} catch (error) {
 		// Swallow network errors to avoid UI disruption; backend will still have prior tasks
@@ -280,6 +288,7 @@ export async function submitTaskSession(payload: TaskSessionPayload): Promise<an
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(payload),
+		keepalive: true,
 	})
 	if (!res.ok) {
 		const errorData = await res.json().catch(() => ({}))
