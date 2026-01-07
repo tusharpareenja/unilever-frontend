@@ -229,12 +229,15 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
   // Validation functions
   const areCategoriesValid = () => {
     if (categories.length < CATEGORY_MIN) return false
-    return categories.every(category =>
+
+    const allBasicValid = categories.every(category =>
       category.title &&
       category.title.trim().length > 0 &&
       category.elements &&
       category.elements.length >= ELEMENT_MIN
     )
+
+    if (!allBasicValid) return false
 
     if (mode === 'text') {
       const allNames = categories.flatMap(c => c.elements.map(e => e.name?.trim())).filter(n => n && n.length > 0)

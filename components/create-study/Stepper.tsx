@@ -88,18 +88,18 @@ function isStepCompleted(stepId: number): boolean {
             }
 
             return Array.isArray(grid) &&
-              grid.length >= 4 && // Minimum 4 categories (match Step5 limits)
+              grid.length >= 3 && // Minimum 3 categories
               grid.every((category: any) =>
                 category.title &&
                 category.title.trim().length > 0 &&
                 category.elements &&
                 Array.isArray(category.elements) &&
-                category.elements.length > 0 &&
+                category.elements.length >= 3 &&
                 category.elements.every((element: any) => hasValidElement(element))
               )
           } else {
             // Legacy format
-            return Array.isArray(grid) && grid.length > 0 && grid.every((e: any) => (e && (e.secureUrl || e.previewUrl || e.textContent)))
+            return Array.isArray(grid) && grid.length >= 3 && grid.every((e: any) => (e && (e.secureUrl || e.previewUrl || e.textContent)))
           }
         } else if (step2.type === 'text') {
           if (!textData) return false
@@ -110,20 +110,20 @@ function isStepCompleted(stepId: number): boolean {
 
           // Text mode uses the category format
           return Array.isArray(text) &&
-            text.length >= 4 &&
+            text.length >= 3 &&
             text.every((category: any) =>
               category.title &&
               category.title.trim().length > 0 &&
               category.elements &&
               Array.isArray(category.elements) &&
-              category.elements.length > 0 &&
+              category.elements.length >= 3 &&
               category.elements.every((element: any) => element.name && element.name.trim().length > 0)
             )
         } else {
           if (!layerData) return false
           const layer = JSON.parse(layerData)
-          return Array.isArray(layer) && layer.length > 0 && layer.every((l: any) =>
-            l.images && l.images.length > 0 && l.images.every((img: any) => img.secureUrl)
+          return Array.isArray(layer) && layer.length >= 3 && layer.every((l: any) =>
+            l.images && l.images.length >= 3 && l.images.every((img: any) => img.secureUrl)
           )
         }
       }

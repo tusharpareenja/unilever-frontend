@@ -14,6 +14,7 @@ interface QuestionCard {
 	title: string
 	required: boolean
 	options: Option[]
+	isOpen?: boolean
 }
 
 interface Step4ClassificationQuestionsProps {
@@ -29,7 +30,7 @@ export function Step4ClassificationQuestions({ onNext, onBack, onDataChange }: S
 			if (raw) {
 				const data = JSON.parse(raw) as QuestionCard[]
 				if (Array.isArray(data) && data.length > 0) {
-					return data.map((q) => ({
+					return data.map((q, idx) => ({
 						id: q.id || crypto.randomUUID(),
 						title: q.title || "",
 						required: typeof q.required === 'boolean' ? q.required : true,
@@ -37,12 +38,16 @@ export function Step4ClassificationQuestions({ onNext, onBack, onDataChange }: S
 							{ id: crypto.randomUUID(), text: "" },
 							{ id: crypto.randomUUID(), text: "" },
 						],
+						isOpen: q.isOpen ?? (idx === 0),
 					}))
 				}
 			}
-		} catch {}
-		return [{ id: crypto.randomUUID(), title: "", required: true, options: [{ id: crypto.randomUUID(), text: "" }, { id: crypto.randomUUID(), text: "" }] }]
+		} catch { }
+		return [{ id: crypto.randomUUID(), title: "", required: true, options: [{ id: crypto.randomUUID(), text: "" }, { id: crypto.randomUUID(), text: "" }], isOpen: true }]
 	})
+
+	const [dragIndex, setDragIndex] = useState<number | null>(null)
+	const [overIndex, setOverIndex] = useState<number | null>(null)
 
 	// Hydrate marker (kept for compatibility)
 	const hasHydratedRef = useRef(true)
@@ -56,7 +61,7 @@ export function Step4ClassificationQuestions({ onNext, onBack, onDataChange }: S
 
 	const addQuestion = () => {
 		setQuestions((prev) => [
-			...prev,
+			...prev.map(q => ({ ...q, isOpen: false })),
 			{
 				id: crypto.randomUUID(),
 				title: "",
@@ -65,8 +70,24 @@ export function Step4ClassificationQuestions({ onNext, onBack, onDataChange }: S
 					{ id: crypto.randomUUID(), text: "" },
 					{ id: crypto.randomUUID(), text: "" },
 				],
+				isOpen: true,
 			},
 		])
+	}
+
+	const moveQuestion = (fromIdx: number, toIdx: number) => {
+		setQuestions(prev => {
+			const copy = [...prev]
+			const [item] = copy.splice(fromIdx, 1)
+			copy.splice(toIdx, 0, item)
+			return copy
+		})
+	}
+
+	const toggleQuestion = (id: string) => {
+		setQuestions(prev => prev.map(q =>
+			q.id === id ? { ...q, isOpen: !q.isOpen } : q
+		))
 	}
 
 	const removeQuestion = (qid: string) => {
@@ -103,9 +124,9 @@ export function Step4ClassificationQuestions({ onNext, onBack, onDataChange }: S
 		setQuestions((prev) => prev.map(q => q.id === qid ? { ...q, required: !q.required } : q))
 	}
 
-	const canProceed = questions.every(q => 
-		q.title.trim().length > 0 && 
-		q.options.length >= 2 && 
+	const canProceed = questions.every(q =>
+		q.title.trim().length > 0 &&
+		q.options.length >= 2 &&
 		q.options.every(o => o.text.trim().length > 0)
 	)
 
@@ -120,71 +141,156 @@ export function Step4ClassificationQuestions({ onNext, onBack, onDataChange }: S
 				<Button className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)]" onClick={addQuestion}>+ Add Question</Button>
 			</div>
 
-			<div className="space-y-6">
+			<div className="space-y-4">
 				{questions.map((q, idx) => (
-					<div key={q.id} className="border rounded-xl bg-white">
-						<div className="p-5">
-							<div className="flex items-center justify-between gap-3 mb-2">
-								<div className="text-xs font-semibold text-gray-600">Question {idx + 1}</div>
-								<Button
-									variant="outline"
-									onClick={() => removeQuestion(q.id)}
-									disabled={questions.length === 1}
-									className="px-3 py-1 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-								>
-									Remove Question
-								</Button>
+					<div
+						key={q.id}
+						onDragOver={(e) => {
+							e.preventDefault()
+							e.dataTransfer.dropEffect = 'move'
+							if (dragIndex === null) return
+							const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+							const isBefore = e.clientY < rect.top + rect.height / 2
+							let targetIndex = isBefore ? idx : idx + 1
+							if (targetIndex < 0) targetIndex = 0
+							if (targetIndex > questions.length) targetIndex = questions.length
+							setOverIndex(targetIndex)
+						}}
+						onDrop={(e) => {
+							e.preventDefault()
+							if (dragIndex !== null && overIndex !== null) {
+								let to = overIndex
+								if (dragIndex < to) to = to - 1
+								if (to !== dragIndex) moveQuestion(dragIndex, to)
+							}
+							setDragIndex(null)
+							setOverIndex(null)
+						}}
+						onDragEnd={() => {
+							setDragIndex(null)
+							setOverIndex(null)
+						}}
+					>
+						{overIndex === idx && (
+							<div className="h-2 rounded bg-[rgba(38,116,186,0.3)] border border-[rgba(38,116,186,0.5)] mb-2" />
+						)}
+						<div className={`border rounded-xl bg-white overflow-hidden ${dragIndex === idx ? 'opacity-50' : ''}`}>
+							{/* Header / Drag Handle */}
+							<div
+								className="flex items-center justify-between px-5 py-3 bg-slate-50 cursor-move"
+								draggable
+								onDragStart={(e) => {
+									setDragIndex(idx)
+									setOverIndex(idx)
+									e.dataTransfer.effectAllowed = 'move'
+									try { e.dataTransfer.setData('text/plain', String(idx)) } catch { }
+								}}
+								onClick={() => toggleQuestion(q.id)}
+							>
+								<div className="flex items-center gap-3 min-w-0">
+									<div className="text-gray-400">
+										<svg width="12" height="18" viewBox="0 0 12 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+											<circle cx="2" cy="2" r="2" fill="currentColor" />
+											<circle cx="2" cy="9" r="2" fill="currentColor" />
+											<circle cx="2" cy="16" r="2" fill="currentColor" />
+											<circle cx="10" cy="2" r="2" fill="currentColor" />
+											<circle cx="10" cy="9" r="2" fill="currentColor" />
+											<circle cx="10" cy="16" r="2" fill="currentColor" />
+										</svg>
+									</div>
+									<div className="truncate font-medium text-gray-800">
+										Question {idx + 1}: {q.title || <span className="text-gray-400 italic">Untitled Question</span>}
+									</div>
+								</div>
+								<div className="flex items-center gap-2">
+									<Button
+										variant="ghost"
+										size="sm"
+										onClick={(e) => {
+											e.stopPropagation()
+											removeQuestion(q.id)
+										}}
+										onDragStart={(e) => {
+											e.preventDefault()
+											e.stopPropagation()
+										}}
+										onMouseDown={(e) => e.stopPropagation()}
+										disabled={questions.length === 1}
+										className="h-8 px-2 text-red-500 hover:text-red-600 hover:bg-red-50 cursor-pointer"
+									>
+										Remove
+									</Button>
+									<div
+										className={`transition-transform duration-200 ${q.isOpen ? 'rotate-180' : ''} cursor-pointer p-1 rounded hover:bg-gray-100`}
+										onDragStart={(e) => {
+											e.preventDefault()
+											e.stopPropagation()
+										}}
+										onMouseDown={(e) => e.stopPropagation()}
+										onClick={(e) => {
+											e.stopPropagation()
+											toggleQuestion(q.id)
+										}}
+									>
+										<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+											<path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="1.66667" strokeLinecap="round" strokeLinejoin="round" />
+										</svg>
+									</div>
+								</div>
 							</div>
-							<input
-								className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
-								placeholder="e.g., Do you like deo?"
-								value={q.title}
-								onChange={(e) => updateQuestionTitle(q.id, e.target.value)}
-							/>
 
-							{/* <div className="mt-4">
-								<div className="text-sm font-semibold text-gray-800 mb-1">Required <span className="text-red-500">*</span></div>
-								<label className="inline-flex items-center gap-2 text-sm text-gray-600">
-									<input type="checkbox" checked={q.required} onChange={() => toggleRequired(q.id)} />
-									The minimum value on your rating scale
-								</label>
-							</div> */}
+							{q.isOpen && (
+								<div className="p-5 border-t">
+									<div className="mb-4">
+										<label className="block text-sm font-semibold text-gray-800 mb-2">Question Title <span className="text-red-500">*</span></label>
+										<input
+											className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+											placeholder="e.g., Do you like deo?"
+											value={q.title}
+											onChange={(e) => updateQuestionTitle(q.id, e.target.value)}
+										/>
+									</div>
 
-							<div className="mt-4">
-								<div className="text-sm font-semibold text-gray-800 mb-2">Answer Options <span className="text-red-500">*</span></div>
-								<div className="text-xs text-gray-500 mb-3">Minimum 2 options required</div>
-								<div className="space-y-3">
-									{q.options.map((o) => (
-										<div key={o.id} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-											<input
-												className="flex-1 rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
-												placeholder="e.g., Moderately important"
-												value={o.text}
-												onChange={(e) => updateOptionText(q.id, o.id, e.target.value)}
-											/>
-											<Button 
-												variant="outline" 
-												onClick={() => removeOption(q.id, o.id)} 
-												disabled={q.options.length <= 2}
-												className="sm:w-auto w-full disabled:opacity-50 disabled:cursor-not-allowed"
-											>
-												Remove
-											</Button>
+									<div className="mt-6">
+										<div className="text-sm font-semibold text-gray-800 mb-2">Answer Options <span className="text-red-500">*</span></div>
+										<div className="text-xs text-gray-500 mb-3">Minimum 2 options required</div>
+										<div className="space-y-3">
+											{q.options.map((o) => (
+												<div key={o.id} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+													<input
+														className="flex-1 rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+														placeholder="e.g., Moderately important"
+														value={o.text}
+														onChange={(e) => updateOptionText(q.id, o.id, e.target.value)}
+													/>
+													<Button
+														variant="outline"
+														onClick={() => removeOption(q.id, o.id)}
+														disabled={q.options.length <= 2}
+														className="sm:w-auto w-full disabled:opacity-50 disabled:cursor-not-allowed text-xs h-9"
+													>
+														Remove
+													</Button>
+												</div>
+											))}
 										</div>
-									))}
+										<div className="mt-4">
+											<Button variant="outline" className="rounded-full w-full sm:w-auto text-xs h-9" onClick={() => addOption(q.id)}>+ Add Options</Button>
+										</div>
+									</div>
 								</div>
-								<div className="mt-4">
-									<Button variant="outline" className="rounded-full w-full sm:w-auto" onClick={() => addOption(q.id)}>+ Add Options</Button>
-								</div>
-							</div>
+							)}
 						</div>
+						{idx === questions.length - 1 && overIndex === questions.length && (
+							<div className="h-2 rounded bg-[rgba(38,116,186,0.3)] border border-[rgba(38,116,186,0.5)] mt-2" />
+						)}
 					</div>
 				))}
 			</div>
 
 			{/* Add Question button at the bottom */}
 			<div className="flex justify-center mt-6">
-				<Button 
+				<Button
 					className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] rounded-full px-6"
 					onClick={addQuestion}
 				>
@@ -197,48 +303,48 @@ export function Step4ClassificationQuestions({ onNext, onBack, onDataChange }: S
 				<Button
 					className="rounded-full cursor-pointer px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)]"
 					onClick={() => {
-								if (canProceed) {
-									const studyIdRaw = localStorage.getItem('cs_study_id')
-									if (studyIdRaw) {
-										// parse study id if stringified
-										let studyId = studyIdRaw
-										try {
-											const parsed = JSON.parse(studyIdRaw)
-											if (typeof parsed === 'string') studyId = parsed
-										} catch {}
+						if (canProceed) {
+							const studyIdRaw = localStorage.getItem('cs_study_id')
+							if (studyIdRaw) {
+								// parse study id if stringified
+								let studyId = studyIdRaw
+								try {
+									const parsed = JSON.parse(studyIdRaw)
+									if (typeof parsed === 'string') studyId = parsed
+								} catch { }
 
-										// Build classification_questions payload from current state
-										const classification_questions = questions
-											.filter(q => q.title && q.title.trim().length > 0)
-											.map((q, idx) => ({
-												question_id: String(q.id || `Q${idx + 1}`).substring(0, 10),
-												question_text: q.title || "",
-												question_type: "multiple_choice",
-												is_required: q.required !== false,
-												order: idx + 1,
-												answer_options: (q.options || [])
-													.filter(o => o.text && o.text.trim().length > 0)
-													.map((o, optIdx) => ({ id: String(o.id || String.fromCharCode(65 + optIdx)).substring(0, 10), text: o.text || "", order: optIdx + 1 }))
-											}))
+								// Build classification_questions payload from current state
+								const classification_questions = questions
+									.filter(q => q.title && q.title.trim().length > 0)
+									.map((q, idx) => ({
+										question_id: String(q.id || `Q${idx + 1}`).substring(0, 10),
+										question_text: q.title || "",
+										question_type: "multiple_choice",
+										is_required: q.required !== false,
+										order: idx + 1,
+										answer_options: (q.options || [])
+											.filter(o => o.text && o.text.trim().length > 0)
+											.map((o, optIdx) => ({ id: String(o.id || String.fromCharCode(65 + optIdx)).substring(0, 10), text: o.text || "", order: optIdx + 1 }))
+									}))
 
-										// Include study_type and step metadata to help server
-										let studyType = 'grid'
-										try {
-											const s2raw = localStorage.getItem('cs_step2')
-											if (s2raw) studyType = JSON.parse(s2raw).type || 'grid'
-										} catch {}
+								// Include study_type and step metadata to help server
+								let studyType = 'grid'
+								try {
+									const s2raw = localStorage.getItem('cs_step2')
+									if (s2raw) studyType = JSON.parse(s2raw).type || 'grid'
+								} catch { }
 
-										const payload: any = {
-											last_step: 4,
-											study_type: studyType,
-											classification_questions: classification_questions.length > 0 ? classification_questions : undefined,
-										}
-
-										// Fire background PUT update that includes classification_questions
-										putUpdateStudyAsync(studyId, payload, 4)
-									}
-									onNext()
+								const payload: any = {
+									last_step: 4,
+									study_type: studyType,
+									classification_questions: classification_questions.length > 0 ? classification_questions : undefined,
 								}
+
+								// Fire background PUT update that includes classification_questions
+								putUpdateStudyAsync(studyId, payload, 4)
+							}
+							onNext()
+						}
 					}}
 					disabled={!canProceed}
 				>
