@@ -109,7 +109,7 @@ const notifyStepDataChanged = () => {
 }
 
 // Utility function to load draft study data from backend
-const loadDraftStudyData = async (studyId: string) => {
+const loadDraftStudyData = async (studyId: string, shouldUpdateStep: boolean = true) => {
   try {
     console.log('Loading draft study data for ID:', studyId)
     const studyDetails = await getStudyPreview(studyId)
@@ -122,6 +122,18 @@ const loadDraftStudyData = async (studyId: string) => {
       language: studyDetails.language || 'en',
       agree: true
     }))
+
+    // Save user role if present
+    if (studyDetails.user_role) {
+      localStorage.setItem('user_role', studyDetails.user_role)
+    } else {
+      // Default to admin if creating new or if backend doesn't send it (legacy)
+      // Actually strictly speaking for new study user is admin. But here we are loading draft.
+      // If missing, assume admin/owner? Or viewer?
+      // Let's assume 'admin' for now if it's missing to not break existing flows, 
+      // ensuring user can edit their study.
+      localStorage.setItem('user_role', 'admin')
+    }
 
     // Populate Step 2 - Study Type
     localStorage.setItem('cs_step2', JSON.stringify({
@@ -580,7 +592,9 @@ const loadDraftStudyData = async (studyId: string) => {
       console.log('[LoadDraft] Fallback to backend last_step:', targetStep)
     }
 
-    localStorage.setItem('cs_current_step', String(targetStep))
+    if (shouldUpdateStep) {
+      localStorage.setItem('cs_current_step', String(targetStep))
+    }
 
 
     console.log('Draft study data loaded successfully into localStorage')
@@ -595,6 +609,22 @@ export default function CreateStudyPage() {
   const [studyType, setStudyType] = useState<"grid" | "layer" | "text">("grid")
   const [isLoadingDraft, setIsLoadingDraft] = useState(false)
   const [draftLoadError, setDraftLoadError] = useState<string | null>(null)
+  const [userRole, setUserRole] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('user_role') || 'viewer'
+    }
+    return 'viewer'
+  })
+
+  useEffect(() => {
+    // Listen for storage changes in case it updates in another tab/component
+    const handleStorage = () => {
+      const r = localStorage.getItem('user_role')
+      if (r) setUserRole(r)
+    }
+    window.addEventListener('storage', handleStorage)
+    return () => window.removeEventListener('storage', handleStorage)
+  }, [])
 
   // Synchronous restore from backup before children mount
   const didRestoreBackupRef = useRef(false)
@@ -663,7 +693,9 @@ export default function CreateStudyPage() {
         const studyId = localStorage.getItem('cs_study_id')
         const isResumingDraft = localStorage.getItem('cs_resuming_draft') === 'true'
 
-        if (studyId && isResumingDraft) {
+        if (studyId) {
+          // ALWAYS Sync with backend on mount if we have a study ID
+          // This allows multiple users to see each other's changes on refresh
           // Load study data from backend
           // This will populate all step data from the backend for this specific study
           setIsLoadingDraft(true)
@@ -714,7 +746,7 @@ export default function CreateStudyPage() {
           }
 
           try {
-            await loadDraftStudyData(parsedStudyId)
+            await loadDraftStudyData(parsedStudyId, isResumingDraft)
 
             // Verify that key data was actually written to localStorage
             const step1Data = localStorage.getItem('cs_step1')
@@ -731,8 +763,9 @@ export default function CreateStudyPage() {
             localStorage.removeItem('cs_resuming_draft')
             setIsLoadingDraft(false)
 
-            // Refresh page instantly to load data into inputs
-            window.location.reload()
+            // No longer forcing a full page reload here, as we wrap the steps 
+            // in isLoadingDraft check which will trigger a re-mount when it turns false.
+            // window.location.reload()
           } catch (err) {
             const errorMsg = err instanceof Error ? err.message : 'Failed to load draft study data'
             console.error('[CreateStudy] Error loading draft study:', errorMsg, err)
@@ -868,51 +901,35 @@ export default function CreateStudyPage() {
 
             <div className="px-4 sm:px-6 lg:px-8 py-6">
               <div className={currentStep === 1 ? "block" : "hidden"} aria-hidden={currentStep !== 1}>
-                <Step1BasicDetails onNext={() => setCurrentStep(2)} onCancel={() => history.back()} onDataChange={notifyStepDataChanged} />
+                <Step1BasicDetails key={`step1-${isLoadingDraft}`} onNext={() => setCurrentStep(2)} onCancel={() => history.back()} onDataChange={notifyStepDataChanged} isReadOnly={userRole === 'viewer'} />
               </div>
               <div className={currentStep === 2 ? "block" : "hidden"} aria-hidden={currentStep !== 2}>
                 <Step2StudyType
+                  key={`step2-${isLoadingDraft}`}
                   value={studyType}
                   onNext={(selected) => { setStudyType(selected); setCurrentStep(3) }}
                   onBack={() => setCurrentStep(1)}
                   onDataChange={notifyStepDataChanged}
+                  isReadOnly={userRole === 'viewer'}
                 />
               </div>
               <div className={currentStep === 3 ? "block" : "hidden"} aria-hidden={currentStep !== 3}>
-                {isLoadingDraft ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="text-center">
-                      <div className="w-12 h-12 border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
-                      <p className="text-gray-600">Loading study data...</p>
-                    </div>
-                  </div>
-                ) : (
-                  <Step3RatingScale key={`step3-${isLoadingDraft}`} onNext={() => setCurrentStep(4)} onBack={() => setCurrentStep(2)} onDataChange={notifyStepDataChanged} />
-                )}
+                <Step3RatingScale key={`step3-${isLoadingDraft}`} onNext={() => setCurrentStep(4)} onBack={() => setCurrentStep(2)} onDataChange={notifyStepDataChanged} isReadOnly={userRole === 'viewer'} />
               </div>
               <div className={currentStep === 4 ? "block" : "hidden"} aria-hidden={currentStep !== 4}>
-                <Step4ClassificationQuestions onNext={() => setCurrentStep(5)} onBack={() => setCurrentStep(3)} onDataChange={notifyStepDataChanged} />
+                <Step4ClassificationQuestions key={`step4-${isLoadingDraft}`} onNext={() => setCurrentStep(5)} onBack={() => setCurrentStep(3)} onDataChange={notifyStepDataChanged} isReadOnly={userRole === 'viewer'} />
               </div>
               <div className={currentStep === 5 ? "block" : "hidden"} aria-hidden={currentStep !== 5}>
-                <Step5StudyStructure onNext={() => setCurrentStep(6)} onBack={() => setCurrentStep(4)} mode={studyType} onDataChange={notifyStepDataChanged} />
+                <Step5StudyStructure key={`step5-${isLoadingDraft}`} onNext={() => setCurrentStep(6)} onBack={() => setCurrentStep(4)} mode={studyType} onDataChange={notifyStepDataChanged} isReadOnly={userRole === 'viewer'} />
               </div>
               <div className={currentStep === 6 ? "block" : "hidden"} aria-hidden={currentStep !== 6}>
-                {isLoadingDraft ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="text-center">
-                      <div className="w-12 h-12 border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
-                      <p className="text-gray-600">Loading study data...</p>
-                    </div>
-                  </div>
-                ) : (
-                  <Step6AudienceSegmentation key={`step6-${isLoadingDraft}`} onNext={() => setCurrentStep(7)} onBack={() => setCurrentStep(5)} onDataChange={notifyStepDataChanged} />
-                )}
+                <Step6AudienceSegmentation key={`step6-${isLoadingDraft}`} onNext={() => setCurrentStep(7)} onBack={() => setCurrentStep(5)} onDataChange={notifyStepDataChanged} isReadOnly={userRole === 'viewer'} />
               </div>
               <div className={currentStep === 7 ? "block" : "hidden"} aria-hidden={currentStep !== 7}>
-                <Step7TaskGeneration active={currentStep === 7} onNext={() => setCurrentStep(8)} onBack={() => setCurrentStep(6)} onDataChange={notifyStepDataChanged} />
+                <Step7TaskGeneration key={`step7-${isLoadingDraft}`} active={currentStep === 7} onNext={() => setCurrentStep(8)} onBack={() => setCurrentStep(6)} onDataChange={notifyStepDataChanged} isReadOnly={userRole === 'viewer'} />
               </div>
               <div className={currentStep === 8 ? "block" : "hidden"} aria-hidden={currentStep !== 8}>
-                <Step8LaunchPreview onBack={() => setCurrentStep(7)} onDataChange={notifyStepDataChanged} />
+                <Step8LaunchPreview key={`step8-${isLoadingDraft}`} onBack={() => setCurrentStep(7)} onDataChange={notifyStepDataChanged} isReadOnly={userRole === 'viewer'} userRole={userRole} />
               </div>
             </div>
           </div>

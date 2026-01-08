@@ -9,6 +9,7 @@ interface Step2StudyTypeProps {
   onBack: () => void
   value?: StudyType
   onDataChange?: () => void
+  isReadOnly?: boolean
 }
 
 type StudyType = "grid" | "layer" | "text"
@@ -111,7 +112,7 @@ export function GridStudy() {
   )
 }
 
-export function Step2StudyType({ onNext, onBack, value, onDataChange }: Step2StudyTypeProps) {
+export function Step2StudyType({ onNext, onBack, value, onDataChange, isReadOnly = false }: Step2StudyTypeProps) {
   const [type, setType] = useState<StudyType | null>(() => {
     try { const v = localStorage.getItem('cs_step2'); if (v) { const o = JSON.parse(v); return (o.type === 'layer' || o.type === 'grid' || o.type === 'text') ? o.type : (value ?? 'grid') } } catch { }
     return value ?? 'grid'
@@ -135,14 +136,15 @@ export function Step2StudyType({ onNext, onBack, value, onDataChange }: Step2Stu
 
   return (
     <div>
-      <div className="space-y-6">
+      <div className={`space-y-6 ${isReadOnly ? "opacity-70 pointer-events-none" : ""}`}>
         <div>
           <label className="block text-sm font-semibold text-gray-800 mb-2">Study Type <span className="text-red-500">*</span></label>
           <p className="text-xs text-gray-500 mb-4">Choose whether your study will use images or text elements</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             <button
               type="button"
-              onClick={() => setType("grid")}
+              onClick={() => !isReadOnly && setType("grid")}
+              disabled={isReadOnly}
               className={`border-2 cursor-pointer rounded-3xl aspect-square w-full max-w-[18rem] mx-auto flex items-center justify-center text-left transition-all ${type === "grid" ? "border-[rgba(38,116,186,1)] ring-2 ring-[rgba(38,116,186,0.2)] bg-[rgba(38,116,186,0.05)] opacity-100" : "border-gray-200 bg-white opacity-50 hover:opacity-100"}`}
             >
               <div className="w-full h-full p-2">
@@ -152,7 +154,8 @@ export function Step2StudyType({ onNext, onBack, value, onDataChange }: Step2Stu
 
             <button
               type="button"
-              onClick={() => setType("layer")}
+              onClick={() => !isReadOnly && setType("layer")}
+              disabled={isReadOnly}
               className={`border-2 cursor-pointer rounded-3xl aspect-square w-full max-w-[18rem] mx-auto flex items-center justify-center text-left transition-all ${type === "layer" ? "border-[rgba(38,116,186,1)] ring-2 ring-[rgba(38,116,186,0.2)] bg-[rgba(38,116,186,0.05)] opacity-100" : "border-gray-200 bg-white opacity-50 hover:opacity-100"}`}
             >
               <div className="w-full h-full p-2">
@@ -162,7 +165,8 @@ export function Step2StudyType({ onNext, onBack, value, onDataChange }: Step2Stu
 
             <button
               type="button"
-              onClick={() => setType("text")}
+              onClick={() => !isReadOnly && setType("text")}
+              disabled={isReadOnly}
               className={`border-2 cursor-pointer rounded-3xl aspect-square w-full max-w-[18rem] mx-auto flex items-center justify-center text-left transition-all ${type === "text" ? "border-[rgba(38,116,186,1)] ring-2 ring-[rgba(38,116,186,0.2)] bg-[rgba(38,116,186,0.05)] opacity-100" : "border-gray-200 bg-white opacity-50 hover:opacity-100"}`}
             >
               <div className="w-full h-full p-2">
@@ -175,10 +179,11 @@ export function Step2StudyType({ onNext, onBack, value, onDataChange }: Step2Stu
         <div>
           <label className="block text-sm font-semibold text-gray-800 mb-2">Main Research Question <span className="text-red-500">*</span></label>
           <input
-            className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] disabled:bg-gray-50 disabled:text-gray-500"
             placeholder="What is the main question respondents will answer?"
             value={mainQuestion}
             onChange={(e) => setMainQuestion(e.target.value)}
+            disabled={isReadOnly}
           />
           <p className="mt-2 text-xs text-gray-500">This question will be displayed to respondents during each task</p>
         </div>
@@ -186,11 +191,12 @@ export function Step2StudyType({ onNext, onBack, value, onDataChange }: Step2Stu
         <div>
           <label className="block text-sm font-semibold text-gray-800 mb-2">Orientation Text for Respondents <span className="text-red-500">*</span></label>
           <textarea
-            className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] resize-none min-h-[120px] max-h-[300px] overflow-y-auto"
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] resize-none min-h-[120px] max-h-[300px] overflow-y-auto disabled:bg-gray-50 disabled:text-gray-500"
             placeholder="Enter the welcome message for respondents"
             value={orientationText}
             onChange={(e) => setOrientationText(e.target.value)}
             rows={4}
+            disabled={isReadOnly}
             style={{
               height: 'auto',
               minHeight: '120px',
@@ -213,6 +219,12 @@ export function Step2StudyType({ onNext, onBack, value, onDataChange }: Step2Stu
           className="rounded-full px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] w-full sm:w-auto cursor-pointer"
           onClick={() => {
             if (type && mainQuestion && orientationText) {
+              // If read-only, skip API call
+              if (isReadOnly) {
+                onNext(type, mainQuestion, orientationText)
+                return
+              }
+
               const studyId = localStorage.getItem('cs_study_id')
               if (studyId) {
                 // Fire API in background and redirect immediately

@@ -11,9 +11,10 @@ interface Step7TaskGenerationProps {
   onBack: () => void
   active?: boolean
   onDataChange?: () => void
+  isReadOnly?: boolean
 }
 
-export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChange }: Step7TaskGenerationProps) {
+export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChange, isReadOnly = false }: Step7TaskGenerationProps) {
   const [isGenerating, setIsGenerating] = useState(false)
   const [matrix, setMatrix] = useState<any | null>(null)
   const [isStatsOpen, setIsStatsOpen] = useState(false)
@@ -404,6 +405,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
   }
 
   const generateNow = async () => {
+    if (isReadOnly) return
     try {
       // Check if there's already a job in progress in localStorage
       const existingJobState = loadJobState()
@@ -2088,7 +2090,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
               onClick={handleRegenerateTasks}
               variant="outline"
               className="flex-shrink-0"
-              disabled={isGenerating || isPolling}
+              disabled={isGenerating || isPolling || isReadOnly}
             >
               {isGenerating ? "Regenerating..." : "Regenerate Tasks"}
             </Button>
@@ -2188,6 +2190,10 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
         <Button
           className="rounded-full cursor-pointer px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] w-full sm:w-auto"
           onClick={() => {
+            if (isReadOnly) {
+              onNext()
+              return
+            }
             try {
               // Read study id robustly
               let studyId: string | null = null

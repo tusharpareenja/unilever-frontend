@@ -9,9 +9,10 @@ interface Step3RatingScaleProps {
   onNext: () => void
   onBack: () => void
   onDataChange?: () => void
+  isReadOnly?: boolean
 }
 
-export function Step3RatingScale({ onNext, onBack, onDataChange }: Step3RatingScaleProps) {
+export function Step3RatingScale({ onNext, onBack, onDataChange, isReadOnly = false }: Step3RatingScaleProps) {
   const [minLabel, setMinLabel] = useState(() => {
     try {
       const v = localStorage.getItem("cs_step3")
@@ -19,7 +20,7 @@ export function Step3RatingScale({ onNext, onBack, onDataChange }: Step3RatingSc
         const o = JSON.parse(v)
         return o.minLabel || ""
       }
-    } catch {}
+    } catch { }
     return ""
   })
 
@@ -30,7 +31,7 @@ export function Step3RatingScale({ onNext, onBack, onDataChange }: Step3RatingSc
         const o = JSON.parse(v)
         return o.maxLabel || ""
       }
-    } catch {}
+    } catch { }
     return ""
   })
 
@@ -41,7 +42,7 @@ export function Step3RatingScale({ onNext, onBack, onDataChange }: Step3RatingSc
         const o = JSON.parse(v)
         return o.middleLabel || ""
       }
-    } catch {}
+    } catch { }
     return ""
   })
 
@@ -49,7 +50,7 @@ export function Step3RatingScale({ onNext, onBack, onDataChange }: Step3RatingSc
   const minValue = 1
   const maxValue = 5
 
-  useEffect(() => {}, [])
+  useEffect(() => { }, [])
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -79,7 +80,7 @@ export function Step3RatingScale({ onNext, onBack, onDataChange }: Step3RatingSc
           Configure the rating scale that respondents will use to evaluate elements.
         </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${isReadOnly ? "opacity-70 pointer-events-none" : ""}`}>
           <div>
             <label className="block text-sm font-semibold text-gray-800 mb-2">
               Minimum Label (Value: 1) <span className="text-red-500">*</span>
@@ -90,6 +91,7 @@ export function Step3RatingScale({ onNext, onBack, onDataChange }: Step3RatingSc
               onChange={(e) => setMinLabel(e.target.value)}
               maxLength={50}
               className="rounded-lg"
+              disabled={isReadOnly}
             />
             <p className="mt-2 text-xs text-gray-500">Label for the minimum value (1) - Max 50 characters</p>
           </div>
@@ -104,6 +106,7 @@ export function Step3RatingScale({ onNext, onBack, onDataChange }: Step3RatingSc
               onChange={(e) => setMaxLabel(e.target.value)}
               maxLength={50}
               className="rounded-lg"
+              disabled={isReadOnly}
             />
             <p className="mt-2 text-xs text-gray-500">Label for the maximum value (5) - Max 50 characters</p>
           </div>
@@ -116,6 +119,7 @@ export function Step3RatingScale({ onNext, onBack, onDataChange }: Step3RatingSc
               onChange={(e) => setMiddleLabel(e.target.value)}
               maxLength={50}
               className="rounded-lg"
+              disabled={isReadOnly}
             />
             <p className="mt-2 text-xs text-gray-500">Optional label for the middle value (3) - Max 50 characters</p>
           </div>
@@ -159,8 +163,8 @@ export function Step3RatingScale({ onNext, onBack, onDataChange }: Step3RatingSc
                 </div>
               ))}
             </div>
-            
-            
+
+
           </div>
         </div>
       </div>
@@ -173,6 +177,11 @@ export function Step3RatingScale({ onNext, onBack, onDataChange }: Step3RatingSc
           className="rounded-full cursor-pointer px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] w-full sm:w-auto"
           onClick={() => {
             if (canProceed) {
+              if (isReadOnly) {
+                onNext()
+                return
+              }
+
               const stored = localStorage.getItem('cs_study_id')
               let studyId: string | undefined = undefined
               if (stored) {

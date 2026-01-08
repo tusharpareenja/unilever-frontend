@@ -21,9 +21,10 @@ interface Step4ClassificationQuestionsProps {
 	onNext: () => void
 	onBack: () => void
 	onDataChange?: () => void
+	isReadOnly?: boolean
 }
 
-export function Step4ClassificationQuestions({ onNext, onBack, onDataChange }: Step4ClassificationQuestionsProps) {
+export function Step4ClassificationQuestions({ onNext, onBack, onDataChange, isReadOnly = false }: Step4ClassificationQuestionsProps) {
 	const [questions, setQuestions] = useState<QuestionCard[]>(() => {
 		try {
 			const raw = localStorage.getItem('cs_step4')
@@ -138,10 +139,16 @@ export function Step4ClassificationQuestions({ onNext, onBack, onDataChange }: S
 					<p className="text-sm text-gray-600">Add demographic and classification questions to segment your respondents. These questions will be asked before the main study tasks.</p>
 					<p className="text-sm text-gray-600 mt-1">Age and Gender will be asked by default (no need to put them here).</p>
 				</div>
-				<Button className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)]" onClick={addQuestion}>+ Add Question</Button>
+				<Button
+					className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)]"
+					onClick={addQuestion}
+					disabled={isReadOnly}
+				>
+					+ Add Question
+				</Button>
 			</div>
 
-			<div className="space-y-4">
+			<div className={`space-y-4 ${isReadOnly ? "opacity-70 pointer-events-none" : ""}`}>
 				{questions.map((q, idx) => (
 					<div
 						key={q.id}
@@ -177,9 +184,10 @@ export function Step4ClassificationQuestions({ onNext, onBack, onDataChange }: S
 						<div className={`border rounded-xl bg-white overflow-hidden ${dragIndex === idx ? 'opacity-50' : ''}`}>
 							{/* Header / Drag Handle */}
 							<div
-								className="flex items-center justify-between px-5 py-3 bg-slate-50 cursor-move"
-								draggable
+								className={`flex items-center justify-between px-5 py-3 bg-slate-50 ${isReadOnly ? "cursor-default" : "cursor-move"}`}
+								draggable={!isReadOnly}
 								onDragStart={(e) => {
+									if (isReadOnly) return
 									setDragIndex(idx)
 									setOverIndex(idx)
 									e.dataTransfer.effectAllowed = 'move'
@@ -208,14 +216,14 @@ export function Step4ClassificationQuestions({ onNext, onBack, onDataChange }: S
 										size="sm"
 										onClick={(e) => {
 											e.stopPropagation()
-											removeQuestion(q.id)
+											if (!isReadOnly) removeQuestion(q.id)
 										}}
 										onDragStart={(e) => {
 											e.preventDefault()
 											e.stopPropagation()
 										}}
 										onMouseDown={(e) => e.stopPropagation()}
-										disabled={questions.length === 1}
+										disabled={questions.length === 1 || isReadOnly}
 										className="h-8 px-2 text-red-500 hover:text-red-600 hover:bg-red-50 cursor-pointer"
 									>
 										Remove
@@ -244,10 +252,11 @@ export function Step4ClassificationQuestions({ onNext, onBack, onDataChange }: S
 									<div className="mb-4">
 										<label className="block text-sm font-semibold text-gray-800 mb-2">Question Title <span className="text-red-500">*</span></label>
 										<input
-											className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+											className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] disabled:bg-gray-50 disabled:text-gray-500"
 											placeholder="e.g., Do you like deo?"
 											value={q.title}
 											onChange={(e) => updateQuestionTitle(q.id, e.target.value)}
+											disabled={isReadOnly}
 										/>
 									</div>
 
@@ -258,15 +267,16 @@ export function Step4ClassificationQuestions({ onNext, onBack, onDataChange }: S
 											{q.options.map((o) => (
 												<div key={o.id} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
 													<input
-														className="flex-1 rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+														className="flex-1 rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] disabled:bg-gray-50 disabled:text-gray-500"
 														placeholder="e.g., Moderately important"
 														value={o.text}
 														onChange={(e) => updateOptionText(q.id, o.id, e.target.value)}
+														disabled={isReadOnly}
 													/>
 													<Button
 														variant="outline"
-														onClick={() => removeOption(q.id, o.id)}
-														disabled={q.options.length <= 2}
+														onClick={() => !isReadOnly && removeOption(q.id, o.id)}
+														disabled={q.options.length <= 2 || isReadOnly}
 														className="sm:w-auto w-full disabled:opacity-50 disabled:cursor-not-allowed text-xs h-9"
 													>
 														Remove
@@ -275,7 +285,14 @@ export function Step4ClassificationQuestions({ onNext, onBack, onDataChange }: S
 											))}
 										</div>
 										<div className="mt-4">
-											<Button variant="outline" className="rounded-full w-full sm:w-auto text-xs h-9" onClick={() => addOption(q.id)}>+ Add Options</Button>
+											<Button
+												variant="outline"
+												className="rounded-full w-full sm:w-auto text-xs h-9"
+												onClick={() => !isReadOnly && addOption(q.id)}
+												disabled={isReadOnly}
+											>
+												+ Add Options
+											</Button>
 										</div>
 									</div>
 								</div>
@@ -293,6 +310,7 @@ export function Step4ClassificationQuestions({ onNext, onBack, onDataChange }: S
 				<Button
 					className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] rounded-full px-6"
 					onClick={addQuestion}
+					disabled={isReadOnly}
 				>
 					+ Add Question
 				</Button>
@@ -304,6 +322,11 @@ export function Step4ClassificationQuestions({ onNext, onBack, onDataChange }: S
 					className="rounded-full cursor-pointer px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)]"
 					onClick={() => {
 						if (canProceed) {
+							if (isReadOnly) {
+								onNext()
+								return
+							}
+
 							const studyIdRaw = localStorage.getItem('cs_study_id')
 							if (studyIdRaw) {
 								// parse study id if stringified

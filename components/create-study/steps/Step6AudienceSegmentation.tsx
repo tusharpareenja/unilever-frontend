@@ -44,9 +44,10 @@ interface Step6AudienceSegmentationProps {
 	onNext: () => void
 	onBack: () => void
 	onDataChange?: () => void
+	isReadOnly?: boolean
 }
 
-export function Step6AudienceSegmentation({ onNext, onBack, onDataChange }: Step6AudienceSegmentationProps) {
+export function Step6AudienceSegmentation({ onNext, onBack, onDataChange, isReadOnly = false }: Step6AudienceSegmentationProps) {
 	const [respondents, setRespondents] = useState<number | ''>(() => { try { const v = localStorage.getItem('cs_step6'); if (v) { const o = JSON.parse(v); return typeof o.respondents === 'number' ? o.respondents : '' } } catch { }; return '' })
 	const [countryQuery, setCountryQuery] = useState("")
 	const [countries, setCountries] = useState<string[]>(() => { try { const v = localStorage.getItem('cs_step6'); if (v) { const o = JSON.parse(v); return Array.isArray(o.countries) ? o.countries : [] } } catch { }; return [] })
@@ -192,7 +193,7 @@ export function Step6AudienceSegmentation({ onNext, onBack, onDataChange }: Step
 				<p className="text-sm text-gray-600">Configure the parameters that will be used to generate the RDE task matrix.</p>
 			</div>
 
-			<div className="space-y-6 mt-5">
+			<div className={`space-y-6 mt-5 ${isReadOnly ? "opacity-70 pointer-events-none" : ""}`}>
 				<div>
 					<label className="block text-sm font-semibold text-gray-800 mb-2">Number of Respondents <span className="text-red-500">*</span></label>
 					<Input
@@ -305,6 +306,10 @@ export function Step6AudienceSegmentation({ onNext, onBack, onDataChange }: Step
 				<Button
 					className="rounded-full px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] w-full sm:w-auto cursor-pointer"
 					onClick={() => {
+						if (isReadOnly) {
+							onNext()
+							return
+						}
 						try {
 							// Read study id robustly (handle plain string or JSON string)
 							let studyId: string | null = null

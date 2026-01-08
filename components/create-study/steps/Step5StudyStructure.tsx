@@ -120,9 +120,10 @@ interface Step5StudyStructureProps {
   onBack: () => void
   mode?: "grid" | "layer" | "text"
   onDataChange?: () => void
+  isReadOnly?: boolean
 }
 
-export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChange }: Step5StudyStructureProps) {
+export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChange, isReadOnly = false }: Step5StudyStructureProps) {
   // Dynamic limits from env with sensible defaults
   // const GRID_MIN = Number.parseInt(process.env.NEXT_PUBLIC_GRID_MIN_ELEMENTS || '4') || 4
   const GRID_MAX = Number.parseInt(process.env.NEXT_PUBLIC_GRID_MAX_ELEMENTS || '20') || 20
@@ -559,6 +560,12 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
   }
 
   const handleNext = async () => {
+    // If read-only, just navigate
+    if (isReadOnly) {
+      onNext()
+      return
+    }
+
     setNextLoading(true)
     try {
       // Ensure all category uploads (including preview-only entries) complete
@@ -737,7 +744,7 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
 
   if (mode === "layer") {
     return (
-      <LayerMode onNext={onNext} onBack={onBack} onDataChange={onDataChange} />
+      <LayerMode onNext={onNext} onBack={onBack} onDataChange={onDataChange} isReadOnly={isReadOnly} />
     )
   }
 
@@ -771,7 +778,7 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
               // Auto-collapse all other categories when adding a new one
               setCollapsedCategories(new Set(categories.map(c => c.id)))
             }}
-            disabled={categories.length >= CATEGORY_MAX}
+            disabled={categories.length >= CATEGORY_MAX || isReadOnly}
           >
             + Add Category
           </Button>
@@ -779,138 +786,186 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
 
         <div className="text-xs text-gray-600 mb-4">Min {CATEGORY_MIN}, Max {CATEGORY_MAX}. Current: {categories.length}</div>
 
-        {categories.length > 0 && (
-          <div className="space-y-4">
-            {categories.map((category, catIdx) => (
-              <div key={category.id} className="border rounded-xl overflow-hidden">
-                <div className="flex items-center justify-between bg-slate-50 px-4 py-2 text-sm text-gray-700">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => toggleCategoryCollapse(category.id)}
-                      className="flex-1 flex items-start gap-2 hover:bg-gray-100 px-2 py-1 rounded cursor-pointer text-left w-full"
-                    >
-                      <div className={`mt-1 transform transition-transform ${collapsedCategories.has(category.id) ? 'rotate-0' : 'rotate-90'}`}>
-                        ▶
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium flex items-start gap-2 text-left">
-                          {category.title || `Category ${catIdx + 1}`}
-                          {(!category.title || category.title.trim().length === 0) && (
-                            <span className="text-red-500 text-xs">* Required</span>
+        <div className={isReadOnly ? "opacity-70 pointer-events-none" : ""}>
+          {categories.length > 0 && (
+            <div className="space-y-4">
+              {categories.map((category, catIdx) => (
+                <div key={category.id} className="border rounded-xl overflow-hidden">
+                  <div className="flex items-center justify-between bg-slate-50 px-4 py-2 text-sm text-gray-700">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => toggleCategoryCollapse(category.id)}
+                        className="flex-1 flex items-start gap-2 hover:bg-gray-100 px-2 py-1 rounded cursor-pointer text-left w-full"
+                      >
+                        <div className={`mt-1 transform transition-transform ${collapsedCategories.has(category.id) ? 'rotate-0' : 'rotate-90'}`}>
+                          ▶
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium flex items-start gap-2 text-left">
+                            {category.title || `Category ${catIdx + 1}`}
+                            {(!category.title || category.title.trim().length === 0) && (
+                              <span className="text-red-500 text-xs">* Required</span>
+                            )}
+                          </div>
+                          {category.description && (
+                            <div className="text-xs text-gray-500">{category.description}</div>
                           )}
                         </div>
-                        {category.description && (
-                          <div className="text-xs text-gray-500">{category.description}</div>
-                        )}
-                      </div>
-                    </button>
-                  </div>
-                  <Button variant="outline" onClick={() => setCategories(prev => prev.filter(c => c.id !== category.id))} className="px-3 py-1 cursor-pointer">Remove</Button>
-                </div>
-                {!collapsedCategories.has(category.id) && (
-                  <div className="p-4 space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-800 mb-2">Category Title <span className="text-red-500">*</span></label>
-                        <input
-                          value={category.title}
-                          onChange={(e) => setCategories(prev => prev.map(c => c.id === category.id ? { ...c, title: e.target.value } : c))}
-                          className={`w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] ${!category.title || category.title.trim().length === 0
-                            ? 'border-red-300 bg-red-50'
-                            : 'border-gray-200'
-                            }`}
-                          placeholder="Enter category title"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-800 mb-2">Description (Optional)</label>
-                        <input
-                          value={category.description || ""}
-                          onChange={(e) => setCategories(prev => prev.map(c => c.id === category.id ? { ...c, description: e.target.value } : c))}
-                          className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
-                          placeholder="Enter category description"
-                        />
-                      </div>
+                      </button>
                     </div>
-
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="text-sm font-semibold text-gray-800">{mode === 'text' ? 'Statements' : 'Elements'} ({category.elements.length})</div>
-                        <div className="text-[10px] text-gray-500">Min {ELEMENT_MIN}, Max {ELEMENT_MAX}</div>
+                    <Button variant="outline" onClick={() => setCategories(prev => prev.filter(c => c.id !== category.id))} className="px-3 py-1 cursor-pointer">Remove</Button>
+                  </div>
+                  {!collapsedCategories.has(category.id) && (
+                    <div className="p-4 space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-800 mb-2">Category Title <span className="text-red-500">*</span></label>
+                          <input
+                            value={category.title}
+                            onChange={(e) => setCategories(prev => prev.map(c => c.id === category.id ? { ...c, title: e.target.value } : c))}
+                            className={`w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] ${!category.title || category.title.trim().length === 0
+                              ? 'border-red-300 bg-red-50'
+                              : 'border-gray-200'
+                              }`}
+                            placeholder="Enter category title"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-800 mb-2">Description (Optional)</label>
+                          <input
+                            value={category.description || ""}
+                            onChange={(e) => setCategories(prev => prev.map(c => c.id === category.id ? { ...c, description: e.target.value } : c))}
+                            className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+                            placeholder="Enter category description"
+                          />
+                        </div>
                       </div>
 
-                      {category.elements.length > 0 ? (
-                        mode === 'text' ? (
-                          <div className="space-y-3">
-                            {category.elements.map((element, _elIdx) => (
-                              <div key={element.id} className="flex items-center gap-3">
-                                <textarea
-                                  value={element.name}
-                                  onChange={(e) => updateCategoryElement(category.id, element.id, { name: e.target.value.slice(0, 150) })}
-                                  onInput={(e) => {
-                                    const target = e.target as HTMLTextAreaElement;
-                                    target.style.height = 'auto';
-                                    target.style.height = target.scrollHeight + 'px';
-                                  }}
-                                  rows={1}
-                                  className={`flex-1 rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] resize-none overflow-hidden min-h-[40px] ${!element.name || element.name.trim().length === 0 ? 'border-red-300 bg-red-50' : 'border-gray-200'
-                                    }`}
-                                  placeholder="Enter statement... (max 150 chars)"
-                                  style={{ height: 'auto' }}
-                                  maxLength={150}
-                                />
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="text-sm font-semibold text-gray-800">{mode === 'text' ? 'Statements' : 'Elements'} ({category.elements.length})</div>
+                          <div className="text-[10px] text-gray-500">Min {ELEMENT_MIN}, Max {ELEMENT_MAX}</div>
+                        </div>
+
+                        {category.elements.length > 0 ? (
+                          mode === 'text' ? (
+                            <div className="space-y-3">
+                              {category.elements.map((element, _elIdx) => (
+                                <div key={element.id} className="flex items-center gap-3">
+                                  <textarea
+                                    value={element.name}
+                                    onChange={(e) => updateCategoryElement(category.id, element.id, { name: e.target.value.slice(0, 150) })}
+                                    onInput={(e) => {
+                                      const target = e.target as HTMLTextAreaElement;
+                                      target.style.height = 'auto';
+                                      target.style.height = target.scrollHeight + 'px';
+                                    }}
+                                    rows={1}
+                                    className={`flex-1 rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] resize-none overflow-hidden min-h-[40px] ${!element.name || element.name.trim().length === 0 ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                                      }`}
+                                    placeholder="Enter statement... (max 150 chars)"
+                                    style={{ height: 'auto' }}
+                                    maxLength={150}
+                                  />
+                                  <Button
+                                    variant="outline"
+                                    onClick={() => removeCategoryElement(category.id, element.id)}
+                                    className="w-auto cursor-pointer"
+                                  >
+                                    Remove
+                                  </Button>
+                                </div>
+                              ))}
+                              {/* Add more statements button */}
+                              <div className="pt-2">
                                 <Button
                                   variant="outline"
-                                  onClick={() => removeCategoryElement(category.id, element.id)}
-                                  className="w-auto cursor-pointer"
+                                  className="rounded-full w-full border-dashed border-2"
+                                  onClick={() => addTextStatement(category.id)}
                                 >
-                                  Remove
+                                  + Add Statement
                                 </Button>
                               </div>
-                            ))}
-                            {/* Add more statements button */}
-                            <div className="pt-2">
+                            </div>
+                          ) : (
+                            // Grid (Image) Mode
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                              {category.elements.map((element, _elIdx) => (
+                                <div key={element.id} className="border rounded-lg p-3">
+                                  <div className="aspect-square bg-gray-100 flex items-center justify-center mb-2 rounded-lg">
+                                    {(element.secureUrl || element.previewUrl) ? (
+                                      /* eslint-disable-next-line @next/next/no-img-element */
+                                      <img src={element.secureUrl || element.previewUrl} alt={element.name} className="max-w-full max-h-full object-contain" />
+                                    ) : (
+                                      <div className="text-gray-400 text-xs">No Image</div>
+                                    )}
+                                  </div>
+                                  <input
+                                    value={element.name}
+                                    onChange={(e) => updateCategoryElement(category.id, element.id, { name: e.target.value })}
+                                    className="w-full text-xs px-2 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-[rgba(38,116,186,0.3)]"
+                                    placeholder="Element name"
+                                  />
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => removeCategoryElement(category.id, element.id)}
+                                    className="w-full mt-1 text-xs cursor-pointer"
+                                  >
+                                    Remove
+                                  </Button>
+                                </div>
+                              ))}
+                              {/* Add more elements button */}
+                              <div
+                                className="border-2 border-dashed border-gray-300 rounded-lg p-3 cursor-pointer hover:bg-gray-50 transition-colors flex flex-col items-center justify-center min-h-[120px]"
+                                onDrop={(e) => {
+                                  e.preventDefault()
+                                  handleCategoryFiles(category.id, e.dataTransfer.files)
+                                }}
+                                onDragOver={(e) => {
+                                  e.preventDefault()
+                                  e.dataTransfer.dropEffect = 'copy'
+                                }}
+                                onDragEnter={(e) => {
+                                  e.preventDefault()
+                                  e.currentTarget.classList.add('bg-blue-50', 'border-blue-300')
+                                }}
+                                onDragLeave={(e) => {
+                                  e.preventDefault()
+                                  e.currentTarget.classList.remove('bg-blue-50', 'border-blue-300')
+                                }}
+                                onClick={() => {
+                                  const input = document.createElement('input')
+                                  input.type = 'file'
+                                  input.accept = 'image/*'
+                                  input.multiple = true
+                                  input.onchange = (e) => {
+                                    const files = (e.target as HTMLInputElement).files
+                                    if (files) handleCategoryFiles(category.id, files)
+                                  }
+                                  input.click()
+                                }}
+                              >
+                                <div className="text-gray-400 text-2xl mb-1">+</div>
+                                <div className="text-xs text-gray-500 text-center">Click anywhere to add more</div>
+                              </div>
+                            </div>
+                          )
+                        ) : (
+                          mode === 'text' ? (
+                            <div className="text-center py-4">
                               <Button
                                 variant="outline"
-                                className="rounded-full w-full border-dashed border-2"
+                                className="rounded-full border-dashed border-2 px-8"
                                 onClick={() => addTextStatement(category.id)}
                               >
                                 + Add Statement
                               </Button>
                             </div>
-                          </div>
-                        ) : (
-                          // Grid (Image) Mode
-                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                            {category.elements.map((element, _elIdx) => (
-                              <div key={element.id} className="border rounded-lg p-3">
-                                <div className="aspect-square bg-gray-100 flex items-center justify-center mb-2 rounded-lg">
-                                  {(element.secureUrl || element.previewUrl) ? (
-                                    /* eslint-disable-next-line @next/next/no-img-element */
-                                    <img src={element.secureUrl || element.previewUrl} alt={element.name} className="max-w-full max-h-full object-contain" />
-                                  ) : (
-                                    <div className="text-gray-400 text-xs">No Image</div>
-                                  )}
-                                </div>
-                                <input
-                                  value={element.name}
-                                  onChange={(e) => updateCategoryElement(category.id, element.id, { name: e.target.value })}
-                                  className="w-full text-xs px-2 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-[rgba(38,116,186,0.3)]"
-                                  placeholder="Element name"
-                                />
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => removeCategoryElement(category.id, element.id)}
-                                  className="w-full mt-1 text-xs cursor-pointer"
-                                >
-                                  Remove
-                                </Button>
-                              </div>
-                            ))}
-                            {/* Add more elements button */}
+                          ) : (
                             <div
-                              className="border-2 border-dashed border-gray-300 rounded-lg p-3 cursor-pointer hover:bg-gray-50 transition-colors flex flex-col items-center justify-center min-h-[120px]"
+                              className="border-2 border-dashed rounded-lg p-6 text-center text-gray-500 cursor-pointer hover:bg-gray-50 transition-colors"
                               onDrop={(e) => {
                                 e.preventDefault()
                                 handleCategoryFiles(category.id, e.dataTransfer.files)
@@ -939,92 +994,46 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
                                 input.click()
                               }}
                             >
-                              <div className="text-gray-400 text-2xl mb-1">+</div>
-                              <div className="text-xs text-gray-500 text-center">Click anywhere to add more</div>
+                              <div className="text-sm">No elements added yet</div>
+                              <div className="text-xs">Click anywhere to upload images or drag & drop</div>
                             </div>
-                          </div>
-                        )
-                      ) : (
-                        mode === 'text' ? (
-                          <div className="text-center py-4">
-                            <Button
-                              variant="outline"
-                              className="rounded-full border-dashed border-2 px-8"
-                              onClick={() => addTextStatement(category.id)}
-                            >
-                              + Add Statement
-                            </Button>
-                          </div>
-                        ) : (
-                          <div
-                            className="border-2 border-dashed rounded-lg p-6 text-center text-gray-500 cursor-pointer hover:bg-gray-50 transition-colors"
-                            onDrop={(e) => {
-                              e.preventDefault()
-                              handleCategoryFiles(category.id, e.dataTransfer.files)
-                            }}
-                            onDragOver={(e) => {
-                              e.preventDefault()
-                              e.dataTransfer.dropEffect = 'copy'
-                            }}
-                            onDragEnter={(e) => {
-                              e.preventDefault()
-                              e.currentTarget.classList.add('bg-blue-50', 'border-blue-300')
-                            }}
-                            onDragLeave={(e) => {
-                              e.preventDefault()
-                              e.currentTarget.classList.remove('bg-blue-50', 'border-blue-300')
-                            }}
-                            onClick={() => {
-                              const input = document.createElement('input')
-                              input.type = 'file'
-                              input.accept = 'image/*'
-                              input.multiple = true
-                              input.onchange = (e) => {
-                                const files = (e.target as HTMLInputElement).files
-                                if (files) handleCategoryFiles(category.id, files)
-                              }
-                              input.click()
-                            }}
-                          >
-                            <div className="text-sm">No elements added yet</div>
-                            <div className="text-xs">Click anywhere to upload images or drag & drop</div>
-                          </div>
-                        )
-                      )}
+                          )
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
+              ))}
+              {/* Centered Add Category at bottom */}
+              <div className="flex items-center justify-center pt-2">
+                <Button
+                  className="rounded-full px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] cursor-pointer"
+                  onClick={() => {
+                    if (categories.length >= CATEGORY_MAX) return
+                    const newCategory: CategoryItem = {
+                      id: crypto.randomUUID(),
+                      title: `Category ${categories.length + 1}`,
+                      description: "",
+                      elements: []
+                    }
+                    setCategories(prev => [...prev, newCategory])
+                    setCollapsedCategories(new Set(categories.map(c => c.id)))
+                  }}
+                  disabled={categories.length >= CATEGORY_MAX}
+                >
+                  + Add Category
+                </Button>
               </div>
-            ))}
-            {/* Centered Add Category at bottom */}
-            <div className="flex items-center justify-center pt-2">
-              <Button
-                className="rounded-full px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] cursor-pointer"
-                onClick={() => {
-                  if (categories.length >= CATEGORY_MAX) return
-                  const newCategory: CategoryItem = {
-                    id: crypto.randomUUID(),
-                    title: `Category ${categories.length + 1}`,
-                    description: "",
-                    elements: []
-                  }
-                  setCategories(prev => [...prev, newCategory])
-                  setCollapsedCategories(new Set(categories.map(c => c.id)))
-                }}
-                disabled={categories.length >= CATEGORY_MAX}
-              >
-                + Add Category
-              </Button>
             </div>
-          </div>
-        )}
+          )}
 
-        {categories.length === 0 && (
-          <div className="text-center py-8 text-gray-500">
-            <div className="text-sm">No categories added yet</div>
-            <div className="text-xs">Click "Add Category" to begin</div>
-          </div>
-        )}
+          {categories.length === 0 && (
+            <div className="text-center py-8 text-gray-500">
+              <div className="text-sm">No categories added yet</div>
+              <div className="text-xs">Click "Add Category" to begin</div>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mt-10">
@@ -1042,7 +1051,7 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
 }
 
 // ---------------- Layer Mode ----------------
-interface LayerModeProps { onNext: () => void; onBack: () => void; onDataChange?: () => void }
+interface LayerModeProps { onNext: () => void; onBack: () => void; onDataChange?: () => void; isReadOnly?: boolean }
 
 type LayerImage = {
   id: string
@@ -1096,7 +1105,7 @@ type LayerTextModalState =
   | { layerId: string; mode: 'add' }
   | { layerId: string; mode: 'edit'; imageId: string }
 
-function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
+function LayerMode({ onNext, onBack, onDataChange, isReadOnly = false }: LayerModeProps) {
   // Dynamic limits from env with sensible defaults
   const LAYER_MIN = 3
   const LAYER_MAX = 10
@@ -2788,6 +2797,10 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
   }
 
   const handleNext = async () => {
+    if (isReadOnly) {
+      onNext()
+      return
+    }
     setNextLoading(true)
     // Ensure all layer image uploads (including preview-only entries) complete
     await ensureLayerUploads()
@@ -3278,7 +3291,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
           <p className="text-sm text-gray-600">Configure layers, upload images, and preview your layer study</p>
         </div>
         <div className="relative" data-layer-type-menu>
-          <Button className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] cursor-pointer" onClick={addLayer} disabled={layers.length >= LAYER_MAX}>+ Add New Layer</Button>
+          <Button className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] cursor-pointer" onClick={addLayer} disabled={layers.length >= LAYER_MAX || isReadOnly}>+ Add New Layer</Button>
           {showLayerTypeMenu && (
             <div className="absolute right-0 top-full mt-2 w-36 rounded-md border border-gray-200 bg-white shadow-lg p-2 space-y-1 z-20">
               <button
@@ -3359,7 +3372,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                     key={`${layerKey}-${positionKey}-${bgFitKey}`}
                     default={{ x, y, width, height }}
                     onMouseDown={(e) => { e.stopPropagation(); setSelectedLayerId(l.id) }}
-                    disableDragging={!isSelected}
+                    disableDragging={!isSelected || isReadOnly}
                     onDragStart={() => {
                       draggingRef.current = layerKey
                     }}
@@ -3403,7 +3416,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                     minWidth={50}
                     minHeight={50}
                     lockAspectRatio={false}
-                    enableResizing={isSelected ? {
+                    enableResizing={isSelected && !isReadOnly ? {
                       top: true,
                       right: true,
                       bottom: true,
@@ -3468,7 +3481,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                     } : undefined}
                   >
                     <div
-                      className={`w-full h-full flex items-center justify-center bg-transparent ${isSelected ? 'cursor-move' : 'cursor-default'}`}
+                      className={`w-full h-full flex items-center justify-center bg-transparent ${isSelected && !isReadOnly ? 'cursor-move' : 'cursor-default'}`}
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
@@ -3489,20 +3502,23 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
               <button
                 type="button"
                 title="Portrait"
-                onClick={() => setPreviewAspect('portrait')}
-                className={`w-9 h-9 rounded-full border flex items-center justify-center text-xs cursor-pointer ${previewAspect === 'portrait' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300'}`}
+                onClick={() => !isReadOnly && setPreviewAspect('portrait')}
+                disabled={isReadOnly}
+                className={`w-9 h-9 rounded-full border flex items-center justify-center text-xs ${isReadOnly ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${previewAspect === 'portrait' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300'}`}
               >9:16</button>
               <button
                 type="button"
                 title="Landscape"
-                onClick={() => setPreviewAspect('landscape')}
-                className={`w-9 h-9 rounded-full border flex items-center justify-center text-xs cursor-pointer ${previewAspect === 'landscape' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300'}`}
+                onClick={() => !isReadOnly && setPreviewAspect('landscape')}
+                disabled={isReadOnly}
+                className={`w-9 h-9 rounded-full border flex items-center justify-center text-xs ${isReadOnly ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${previewAspect === 'landscape' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300'}`}
               >16:9</button>
               <button
                 type="button"
                 title="Square"
-                onClick={() => setPreviewAspect('square')}
-                className={`w-9 h-9 rounded-full border flex items-center justify-center text-xs cursor-pointer ${previewAspect === 'square' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300'}`}
+                onClick={() => !isReadOnly && setPreviewAspect('square')}
+                disabled={isReadOnly}
+                className={`w-9 h-9 rounded-full border flex items-center justify-center text-xs ${isReadOnly ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${previewAspect === 'square' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300'}`}
               >1:1</button>
             </div>
             <Button variant="outline" className="rounded-full px-4 py-1 cursor-pointer" onClick={() => setShowFullPreview(true)}>Preview</Button>
@@ -3516,7 +3532,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
               <div className="flex items-center justify-between mb-2">
                 <div className="text-sm font-semibold text-gray-800">Background (Optional)</div>
                 {background && (
-                  <Button variant="outline" onClick={removeBackground} className="cursor-pointer">Remove</Button>
+                  <Button variant="outline" onClick={removeBackground} className="cursor-pointer" disabled={isReadOnly}>Remove</Button>
                 )}
               </div>
               {background && (background.secureUrl || background.previewUrl) ? (
@@ -3528,9 +3544,9 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                   <div className="text-xs text-gray-600">Rendered behind all layers.</div>
                 </div>
               ) : (
-                <label className="inline-flex items-center justify-center px-1 py-1 border-2 border-dashed rounded-md text-xs text-gray-600 cursor-pointer hover:bg-gray-50">
+                <label className={`inline-flex items-center justify-center px-1 py-1 border-2 border-dashed rounded-md text-xs text-gray-600 ${isReadOnly ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-gray-50'}`}>
                   Upload Background
-                  <input type="file" accept="image/*" className="hidden" onChange={(e) => handleBackgroundFile(e.target.files?.[0] || null)} />
+                  {!isReadOnly && <input type="file" accept="image/*" className="hidden" onChange={(e) => handleBackgroundFile(e.target.files?.[0] || null)} />}
                 </label>
               )}
             </div>
@@ -3544,8 +3560,8 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                   onClick={() => setSelectedLayerId(layer.id)}
                 >
                   <div
-                    className="flex items-center justify-between px-4 py-2 bg-slate-50 rounded-t-xl cursor-move"
-                    draggable
+                    className={`flex items-center justify-between px-4 py-2 bg-slate-50 rounded-t-xl ${isReadOnly ? 'cursor-default' : 'cursor-move'}`}
+                    draggable={!isReadOnly}
                     onDragStart={(e) => { setDragIndex(idx); setOverIndex(idx); e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', String(idx)); } catch { } }}
                     onDragOver={(e) => {
                       e.preventDefault();
@@ -3583,7 +3599,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" /><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" /><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7c.44 0 .87-.03 1.28-.09" /><line x1="2" x2="22" y1="2" y2="22" /></svg>
                         )}
                       </button>
-                      <Button variant="outline" onClick={() => removeLayer(layer.id)} className="cursor-pointer">Remove</Button>
+                      <Button variant="outline" onClick={() => removeLayer(layer.id)} className="cursor-pointer" disabled={isReadOnly}>Remove</Button>
                       <button
                         type="button"
                         aria-label="Toggle layer"
@@ -3599,11 +3615,11 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <label className="block text-sm font-semibold text-gray-800 mb-2">Layer Name <span className="text-red-500">*</span></label>
-                          <input value={layer.name} onChange={(e) => setLayers(prev => prev.map(l => l.id === layer.id ? { ...l, name: e.target.value } : l))} className="w-full rounded-lg border border-gray-200 px-3 py-2" />
+                          <input value={layer.name} onChange={(e) => setLayers(prev => prev.map(l => l.id === layer.id ? { ...l, name: e.target.value } : l))} className="w-full rounded-lg border border-gray-200 px-3 py-2" disabled={isReadOnly} />
                         </div>
                         <div>
                           <label className="block text-sm font-semibold text-gray-800 mb-2">Description (Optional)</label>
-                          <input value={layer.description || ''} onChange={(e) => setLayers(prev => prev.map(l => l.id === layer.id ? { ...l, description: e.target.value } : l))} className="w-full rounded-lg border border-gray-200 px-3 py-2" />
+                          <input value={layer.description || ''} onChange={(e) => setLayers(prev => prev.map(l => l.id === layer.id ? { ...l, description: e.target.value } : l))} className="w-full rounded-lg border border-gray-200 px-3 py-2" disabled={isReadOnly} />
                         </div>
                       </div>
 
@@ -3628,7 +3644,8 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                                 {layer.layer_type === 'text' && (
                                   <button
                                     onClick={() => openLayerTextModal(layer.id, { imageId: img.id })}
-                                    className="absolute -top-2 -left-2 w-5 h-5 bg-blue-500 text-white rounded-full text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-blue-600 cursor-pointer flex items-center justify-center z-10"
+                                    disabled={isReadOnly}
+                                    className={`absolute -top-2 -left-2 w-5 h-5 bg-blue-500 text-white rounded-full text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-blue-600 ${isReadOnly ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} flex items-center justify-center z-10`}
                                     title="Edit text"
                                   >
                                     ✎
@@ -3636,6 +3653,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                                 )}
                                 <button
                                   onClick={() => removeImageFromLayer(layer.id, img.id)}
+                                  disabled={isReadOnly}
                                   className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-red-600 cursor-pointer z-10"
                                 >
                                   ×
@@ -3643,7 +3661,8 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                                 {layer.layer_type === 'text' && (
                                   <button
                                     onClick={(e) => { e.stopPropagation(); duplicateLayerImage(layer.id, img.id) }}
-                                    className="absolute -bottom-2 -right-2 w-5 h-5 bg-green-500 text-white rounded-full text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-green-600 cursor-pointer flex items-center justify-center z-10"
+                                    disabled={isReadOnly}
+                                    className={`absolute -bottom-2 -right-2 w-5 h-5 bg-green-500 text-white rounded-full text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-green-600 ${isReadOnly ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} flex items-center justify-center z-10`}
                                     title="Duplicate"
                                   >
                                     ⧉
@@ -3654,6 +3673,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                                   value={img.name || ''}
                                   onChange={(e) => updateImageName(layer.id, img.id, e.target.value)}
                                   className="w-20 mt-1 text-xs px-1 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                  disabled={isReadOnly}
                                   placeholder="Image name"
                                 />
                               </div>
@@ -3661,25 +3681,30 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                           })}
                           <div
                             data-layer-add-menu
-                            className="relative w-20 h-20 border-2 border-dashed rounded-md flex items-center justify-center text-gray-400 cursor-pointer hover:border-gray-300 transition-colors"
+                            className={`relative w-20 h-20 border-2 border-dashed rounded-md flex items-center justify-center text-gray-400 ${isReadOnly ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:border-gray-300'} transition-colors`}
                             onDrop={(e) => {
+                              if (isReadOnly) return
                               e.preventDefault()
                               setLayerAddMenu(null)
                               addImagesToLayer(layer.id, e.dataTransfer.files)
                             }}
                             onDragOver={(e) => {
+                              if (isReadOnly) return
                               e.preventDefault()
                               e.dataTransfer.dropEffect = 'copy'
                             }}
                             onDragEnter={(e) => {
+                              if (isReadOnly) return
                               e.preventDefault()
                               e.currentTarget.classList.add('bg-blue-50', 'border-blue-300')
                             }}
                             onDragLeave={(e) => {
+                              if (isReadOnly) return
                               e.preventDefault()
                               e.currentTarget.classList.remove('bg-blue-50', 'border-blue-300')
                             }}
                             onClick={(e) => {
+                              if (isReadOnly) return
                               e.stopPropagation()
                               const hasTextOnly = layer.images.length > 0 && layer.images.every(img => (img.sourceType ?? 'upload') === 'text')
                               const hasImageOnly = layer.images.length === 0 || layer.images.every(img => (img.sourceType ?? 'upload') !== 'text')
@@ -3694,7 +3719,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
                               }
                               setLayerAddMenu(prev => prev === layer.id ? null : layer.id)
                             }}
-                            title="Add more content"
+                            title={isReadOnly ? "Adding content disabled" : "Add more content"}
                           >
                             <span className="text-2xl leading-none">+</span>
                             {layerAddMenu === layer.id && (
@@ -5699,7 +5724,7 @@ function LayerMode({ onNext, onBack, onDataChange }: LayerModeProps) {
         <Button
           className="rounded-full cursor-pointer px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] w-full sm:w-auto"
           onClick={handleNext}
-          disabled={nextLoading || layers.length < LAYER_MIN || layers.some(l => l.images.length < ELEMENT_MIN)}
+          disabled={nextLoading || layers.length < LAYER_MIN || layers.some(l => l.images.length < ELEMENT_MIN) || isReadOnly}
         >
           {nextLoading ? 'Uploading...' : (
             layers.length < LAYER_MIN

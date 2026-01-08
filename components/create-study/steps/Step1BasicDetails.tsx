@@ -11,6 +11,7 @@ interface Step1BasicDetailsProps {
   onNext: () => void
   onCancel: () => void
   onDataChange?: () => void
+  isReadOnly?: boolean
 }
 
 function readTokens(): { access_token?: string; refresh_token?: string; token_type?: string } | null {
@@ -44,7 +45,7 @@ async function createStudyMinimal(title: string, background: string, language: s
   return data
 }
 
-export function Step1BasicDetails({ onNext, onCancel, onDataChange }: Step1BasicDetailsProps) {
+export function Step1BasicDetails({ onNext, onCancel, onDataChange, isReadOnly = false }: Step1BasicDetailsProps) {
   const [title, setTitle] = useState(() => {
     try { const v = localStorage.getItem('cs_step1'); if (v) { const o = JSON.parse(v); return o.title || "" } } catch { };
     return ""
@@ -112,6 +113,12 @@ export function Step1BasicDetails({ onNext, onCancel, onDataChange }: Step1Basic
     if (loading) return
     setError(null)
 
+    // If read-only, we just navigate. No saving.
+    if (isReadOnly) {
+      onNext()
+      return
+    }
+
     // Check if cs_study_id already exists in localStorage
     const existingStudyId = localStorage.getItem('cs_study_id')
     if (existingStudyId) {
@@ -138,31 +145,33 @@ export function Step1BasicDetails({ onNext, onCancel, onDataChange }: Step1Basic
   return (
     <div>
       <div className="space-y-5">
-        <div>
+        <div className={isReadOnly ? "opacity-70 pointer-events-none" : ""}>
           <label className="block text-sm font-semibold text-gray-800 mb-2">Study Title <span className="text-red-500">*</span></label>
           <Input
             placeholder="Enter a descriptive title for your study."
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             className="rounded-lg"
+            disabled={isReadOnly}
           />
           <p className="mt-2 text-xs text-gray-500">Choose a clear, descriptive title (3–200 characters)</p>
         </div>
 
-        <div>
+        <div className={isReadOnly ? "opacity-70 pointer-events-none" : ""}>
           <label className="block text-sm font-semibold text-gray-800 mb-2">Study Description <span className="text-red-500">*</span></label>
           <textarea
             placeholder="Describe the background and purpose of your study."
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="w-full min-h-[120px] rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
+            className="w-full min-h-[120px] rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] disabled:bg-gray-50 disabled:text-gray-500"
+            disabled={isReadOnly}
           />
           <p className="mt-2 text-xs text-gray-500">Provide context about your study (max 2000 characters)</p>
         </div>
 
-        <div>
+        <div className={isReadOnly ? "opacity-70 pointer-events-none" : ""}>
           <label className="block text-sm font-semibold text-gray-800 mb-2">Language <span className="text-red-500">*</span></label>
-          <Select value={language} onValueChange={setLanguage}>
+          <Select value={language} onValueChange={setLanguage} disabled={isReadOnly}>
             <SelectTrigger className="w-full rounded-lg">
               <SelectValue placeholder="Select a language" />
             </SelectTrigger>
@@ -192,12 +201,12 @@ export function Step1BasicDetails({ onNext, onCancel, onDataChange }: Step1Basic
           <p className="mt-2 text-xs text-gray-500">Choose the primary language for your study</p>
         </div>
 
-        <div className="flex items-start sm:items-center gap-2">
-          <input id="agree" type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="w-4 h-4 mt-1 sm:mt-0 cursor-pointer" />
+        <div className={`flex items-start sm:items-center gap-2 ${isReadOnly ? "opacity-70 pointer-events-none" : ""}`}>
+          <input id="agree" type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="w-4 h-4 mt-1 sm:mt-0 cursor-pointer" disabled={isReadOnly} />
           <label htmlFor="agree" className="text-sm text-gray-700">
             I Read and Agree to <span
               className="text-[rgba(38,116,186,1)] cursor-pointer hover:underline"
-              onClick={() => setShowTerms(true)}
+              onClick={() => !isReadOnly && setShowTerms(true)}
             >
               Terms and Conditions
             </span>

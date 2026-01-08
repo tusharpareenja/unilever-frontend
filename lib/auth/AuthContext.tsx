@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { signOut } from 'next-auth/react'
-import { Tokens, User } from '@/lib/api/LoginApi'
+import { Tokens, User, API_BASE_URL } from '@/lib/api/LoginApi'
 
 interface AuthContextType {
   user: User | null
@@ -159,7 +159,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/v1/auth/refresh', {
+      const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

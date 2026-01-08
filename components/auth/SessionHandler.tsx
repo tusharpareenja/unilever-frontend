@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import { useAuth } from '@/lib/auth/AuthContext'
+import { API_BASE_URL } from '@/lib/api/LoginApi'
 
 export function SessionHandler() {
   const { data: session, status } = useSession()
@@ -20,7 +21,7 @@ export function SessionHandler() {
       // Try to call the backend OAuth endpoint directly as a fallback
       const makeFallbackCall = async () => {
         try {
-          const response = await fetch('http://127.0.0.1:8000/api/v1/auth/oauth-login', {
+          const response = await fetch(`${API_BASE_URL}/auth/oauth-login`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

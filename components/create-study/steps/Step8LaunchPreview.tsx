@@ -20,7 +20,8 @@ function clearStoredStudyId() {
   }
 }
 
-export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => void; onDataChange?: () => void }) {
+export function Step8LaunchPreview({ onBack, onDataChange, isReadOnly = false, userRole = 'viewer' }: { onBack: () => void; onDataChange?: () => void; isReadOnly?: boolean; userRole?: string }) {
+  const canLaunch = userRole === 'admin'
   const [isLaunching, setIsLaunching] = useState(false)
   const [launchStage, setLaunchStage] = useState(0)
   const [launchError, setLaunchError] = useState<string | null>(null)
@@ -62,7 +63,7 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
       if (raw) {
         try { studyId = JSON.parse(raw) } catch { studyId = raw }
       }
-      if (studyId) {
+      if (studyId && !isReadOnly) {
         // Fire-and-forget
         putUpdateStudyAsync(String(studyId), { last_step: 8 })
       }
@@ -86,6 +87,7 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
   }, [onDataChange])
 
   const handleLaunchStudy = async () => {
+    if (!canLaunch || isReadOnly) return
     if (!isConfirmed) {
       setLaunchError('Please confirm you are ready to launch this study')
       return
@@ -536,7 +538,7 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
           </div>
         </section>
 
-        <section className="rounded-lg border-2 border-[rgba(38,116,186,1)] bg-white" style={{ borderTopWidth: '4px' }}>
+        <section className={`rounded-lg border-2 border-[rgba(38,116,186,1)] bg-white`} style={{ borderTopWidth: '4px' }}>
           <div className="p-6 space-y-4">
             <h3 className="text-lg font-bold text-[rgba(38,116,186,1)] text-center">Launch Study</h3>
 
@@ -581,7 +583,7 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
               <Button
                 className="flex-1 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] text-white rounded-full disabled:opacity-50 cursor-pointer"
                 onClick={handleLaunchStudy}
-                disabled={isLaunching || !isConfirmed}
+                disabled={isLaunching || !isConfirmed || isReadOnly || !canLaunch}
               >
                 {isLaunching ? (
                   <span className="flex items-center justify-center gap-2">
@@ -596,6 +598,11 @@ export function Step8LaunchPreview({ onBack, onDataChange }: { onBack: () => voi
                 )}
               </Button>
             </div>
+            {!canLaunch && (
+              <p className="text-xs text-center text-amber-600 font-medium">
+                Only study owners can launch. You have {userRole || 'viewer'} access.
+              </p>
+            )}
           </div>
         </section>
 

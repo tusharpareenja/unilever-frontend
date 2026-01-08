@@ -181,7 +181,7 @@ export async function fetchWithAuth(input: RequestInfo | URL, init: RequestInit 
   Object.entries(authHeader).forEach(([k, v]) => headers.set(k, String(v)))
 
   const res = await fetch(input, { ...init, headers })
-  if (res.status === 401 || res.status === 403) {
+  if (res.status === 401) {
     if (!retry) {
       // On final 401, clear tokens and redirect client-side
       clearTokensAndRedirect()
@@ -1416,6 +1416,7 @@ export interface StudyDetails {
   }
   categories?: any[]
   elements: Array<ElementPayload & { id: string }>
+  user_role?: string
   study_layers: Array<StudyLayerPayload & {
     id: string
     images: Array<{
@@ -1593,6 +1594,16 @@ export async function putUpdateStudy(studyId: string, payload: UpdateStudyPutPay
 
   if (!res.ok) {
     const msg = (data && (data.detail || data.message)) || text || `PUT study update failed (${res.status})`
+
+    // Handle case where study is already launched (prevents further editing)
+    if (typeof msg === 'string' && msg.toLowerCase().includes('already been launched')) {
+      if (typeof window !== 'undefined') {
+        alert(msg)
+        window.location.href = '/home'
+        return {} as any // Return empty to stop execution while redirect happens
+      }
+    }
+
     console.log('[API] PUT study update error:', msg, data)
     console.log('[API] PUT study update error - Payload was:', JSON.stringify(safePayload, null, 2))
     throw Object.assign(new Error(typeof msg === 'string' ? msg : JSON.stringify(msg)), { status: res.status, data })
@@ -1608,6 +1619,74 @@ export function putUpdateStudyAsync(studyId: string, payload: UpdateStudyPutPayl
   putUpdateStudy(studyId, payload, last_step ?? 8).catch((err) => {
     console.error('Background PUT update failed:', err)
   })
+}
+
+// Member Management API
+export interface StudyMember {
+  id: string
+  email: string
+  role: 'admin' | 'editor' | 'viewer'
+  user_id?: string
+  invited_email?: string
+  name?: string
+  status?: string
+}
+
+export async function getStudyMembers(studyId: string): Promise<StudyMember[]> {
+  const res = await fetchWithAuth(`${API_BASE_URL}/studies/${studyId}/members/`, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  })
+
+  if (!res.ok) {
+    throw new Error(`Failed to fetch study members: ${res.status}`)
+  }
+
+  return await res.json()
+}
+
+export async function inviteStudyMember(studyId: string, email: string, role: string): Promise<any> {
+  const res = await fetchWithAuth(`${API_BASE_URL}/studies/${studyId}/members/invite`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, role }),
+  })
+
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    throw new Error(data?.detail || "Failed to invite member")
+  }
+
+  return data
+}
+
+export async function updateStudyMemberRole(studyId: string, memberId: string, role: string): Promise<any> {
+  const res = await fetchWithAuth(`${API_BASE_URL}/studies/${studyId}/members/${memberId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ role }),
+  })
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data?.detail || "Failed to update member role")
+  }
+
+  return await res.json()
+}
+
+export async function removeStudyMember(studyId: string, memberId: string): Promise<any> {
+  const res = await fetchWithAuth(`${API_BASE_URL}/studies/${studyId}/members/${memberId}`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+  })
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data?.detail || "Failed to remove member")
+  }
+
+  return await res.json()
 }
 
 export async function getStudyDetailsWithoutAuth(studyId: string): Promise<StudyDetails> {
@@ -1814,8 +1893,19 @@ export async function updateStudy(studyId: string, payload: UpdateStudyPayload):
 
   const data = await res.json()
   if (!res.ok) {
+    const msg = data?.detail || data?.message || "Failed to update study"
+
+    // Handle case where study is already launched (prevents further editing)
+    if (typeof msg === 'string' && msg.toLowerCase().includes('already been launched')) {
+      if (typeof window !== 'undefined') {
+        alert(msg)
+        window.location.href = '/home'
+        return {} as any
+      }
+    }
+
     console.log('[API] updateStudy error:', data)
-    throw new Error(data?.detail || "Failed to update study")
+    throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg))
   }
   return data
 }
