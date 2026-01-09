@@ -611,9 +611,9 @@ export default function CreateStudyPage() {
   const [draftLoadError, setDraftLoadError] = useState<string | null>(null)
   const [userRole, setUserRole] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('user_role') || 'viewer'
+      return localStorage.getItem('user_role') || 'admin'
     }
-    return 'viewer'
+    return 'admin'
   })
 
   useEffect(() => {
@@ -763,6 +763,11 @@ export default function CreateStudyPage() {
 
             // Clear the flag
             localStorage.removeItem('cs_resuming_draft')
+
+            // Sync user role from localStorage after load
+            const loadedRole = localStorage.getItem('user_role')
+            if (loadedRole) setUserRole(loadedRole)
+
             setIsLoadingDraft(false)
 
             // No longer forcing a full page reload here, as we wrap the steps 

@@ -76,7 +76,8 @@ export function DashboardHeader() {
       'cs_resuming_draft',
       'cs_study_id',
       'cs_is_fresh_start',
-      'cs_step8'
+      'cs_step8',
+      'user_role'
     ]
 
     keysToRemove.forEach(key => {

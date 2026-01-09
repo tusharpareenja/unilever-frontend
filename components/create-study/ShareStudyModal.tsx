@@ -19,6 +19,7 @@ import {
     removeStudyMember,
     StudyMember
 } from "@/lib/api/StudyAPI"
+import { useAuth } from "@/lib/auth/AuthContext"
 
 interface ShareStudyModalProps {
     isOpen: boolean
@@ -34,6 +35,18 @@ export function ShareStudyModal({ isOpen, onClose, studyId, userRole = 'admin' }
     const [isLoading, setIsLoading] = useState(false)
     const [isActionLoading, setIsActionLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const { user: authUser } = useAuth()
+
+    // Robust user detection: Hook > LocalStorage
+    const currentUser = authUser || (() => {
+        if (typeof window !== 'undefined') {
+            try {
+                const ls = localStorage.getItem('user');
+                return ls ? JSON.parse(ls) : null;
+            } catch (e) { return null; }
+        }
+        return null;
+    })();
 
     useEffect(() => {
         if (studyId && userRole === 'admin') {
@@ -46,7 +59,44 @@ export function ShareStudyModal({ isOpen, onClose, studyId, userRole = 'admin' }
         setError(null)
         try {
             const data = await getStudyMembers(studyId)
-            setMembers(data)
+
+            // Post-process to ensure Admin (current user) is present
+            let finalMembers = [...data]
+            if (userRole === 'admin') {
+                // Try to get user from hook or LS
+                let myEmail = currentUser?.email
+                let myName = currentUser?.name
+
+                if (!myEmail && typeof window !== 'undefined') {
+                    try {
+                        const lsUser = localStorage.getItem('user')
+                        if (lsUser) {
+                            const parsed = JSON.parse(lsUser)
+                            myEmail = parsed.email
+                            myName = parsed.name
+                        }
+                    } catch (e) { }
+                }
+
+                if (myEmail) {
+                    const normalizedMyEmail = myEmail.trim().toLowerCase()
+                    const exists = finalMembers.some(m =>
+                        (m.email || m.invited_email || '').trim().toLowerCase() === normalizedMyEmail
+                    )
+
+                    if (!exists) {
+                        finalMembers.push({
+                            id: 'current-admin-injection',
+                            email: myEmail,
+                            name: myName || '',
+                            role: 'admin',
+                            status: 'active'
+                        })
+                    }
+                }
+            }
+
+            setMembers(finalMembers)
         } catch (err: any) {
             console.error("Failed to fetch members:", err)
             setError("Failed to load members")
@@ -58,7 +108,17 @@ export function ShareStudyModal({ isOpen, onClose, studyId, userRole = 'admin' }
     const handleInvite = async () => {
         if (!email) return
 
-        const inviteEmail = email
+        const inviteEmail = email.trim()
+
+        // Check for duplicate
+        const exists = members.some(m =>
+            (m.email || m.invited_email || '').toLowerCase() === inviteEmail.toLowerCase()
+        )
+        if (exists) {
+            setError("User is already a member")
+            return
+        }
+
         const inviteRole = role
 
         // Optimistic update
@@ -104,16 +164,20 @@ export function ShareStudyModal({ isOpen, onClose, studyId, userRole = 'admin' }
     }
 
     const handleRemoveMember = async (memberId: string) => {
-        if (!window.confirm("Are you sure you want to remove this member?")) return
-        setIsActionLoading(true)
+        // Optimistic update: instantly remove from UI
+        const previousMembers = [...members]
+        setMembers(prev => prev.filter(m => m.id !== memberId))
+        setError(null)
+
         try {
             await removeStudyMember(studyId, memberId)
-            await fetchMembers()
+            // No need to fetchMembers() here as we already removed it from local state
+            // fetchMembers() // Optional: keep if we want to sync with server eventually
         } catch (err: any) {
             console.error("Failed to remove member:", err)
             setError(err.message || "Failed to remove member")
-        } finally {
-            setIsActionLoading(false)
+            // Rollback on failure
+            setMembers(previousMembers)
         }
     }
 
@@ -202,60 +266,111 @@ export function ShareStudyModal({ isOpen, onClose, studyId, userRole = 'admin' }
                                     </h4>
 
                                     <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                                        {members.map((member) => (
-                                            <div key={member.id} className="flex items-center justify-between group">
-                                                <div className="flex items-center space-x-3">
-                                                    <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-                                                        {member.name ? (
-                                                            <span className="text-xs font-bold text-gray-600">
-                                                                {member.name.charAt(0).toUpperCase()}
-                                                            </span>
-                                                        ) : (
-                                                            <Mail className="w-4 h-4 text-gray-400" />
-                                                        )}
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-sm font-medium text-gray-800">
-                                                            {member.name || member.email || member.invited_email}
-                                                        </p>
-                                                        <p className="text-xs text-gray-500">
-                                                            {member.email || member.invited_email}
-                                                        </p>
-                                                    </div>
-                                                </div>
+                                        {[...members]
+                                            .sort((a, b) => {
+                                                const emailA = (a.email || a.invited_email || '').toLowerCase();
+                                                const emailB = (b.email || b.invited_email || '').toLowerCase();
+                                                const currentEmail = (currentUser?.email || '').toLowerCase();
 
-                                                <div className="flex items-center space-x-2">
-                                                    {member.role === 'admin' ? (
-                                                        <span className="text-xs font-medium text-gray-400 px-2 py-1 bg-gray-50 rounded italic">
-                                                            Owner
-                                                        </span>
-                                                    ) : (
-                                                        <>
-                                                            <Select
-                                                                value={member.role}
-                                                                onValueChange={(val) => handleUpdateRole(member.id, val)}
-                                                                disabled={isActionLoading}
-                                                            >
-                                                                <SelectTrigger className="h-8 border-transparent hover:bg-gray-100 transition-colors text-xs w-24">
-                                                                    <SelectValue />
-                                                                </SelectTrigger>
-                                                                <SelectContent>
-                                                                    <SelectItem value="editor">Editor</SelectItem>
-                                                                    <SelectItem value="viewer">Viewer</SelectItem>
-                                                                </SelectContent>
-                                                            </Select>
-                                                            <button
-                                                                onClick={() => handleRemoveMember(member.id)}
-                                                                disabled={isActionLoading}
-                                                                className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-all opacity-0 group-hover:opacity-100"
-                                                            >
-                                                                <Trash2 className="w-3.5 h-3.5" />
-                                                            </button>
-                                                        </>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
+                                                const isSelfA = currentUser && emailA === currentEmail;
+                                                const isSelfB = currentUser && emailB === currentEmail;
+
+                                                const roleA = (a.role || '').toLowerCase();
+                                                const roleB = (b.role || '').toLowerCase();
+                                                const isAdminA = roleA === 'admin' || roleA === 'owner';
+                                                const isAdminB = roleB === 'admin' || roleB === 'owner';
+
+                                                // Priority 1: Current User + Admin (force top per user request)
+                                                // If I am the user, and I have admin privileges (either from list or from prop context)
+                                                const isSelfAdminA = isSelfA && (isAdminA || userRole === 'admin');
+                                                const isSelfAdminB = isSelfB && (isAdminB || userRole === 'admin');
+
+                                                if (isSelfAdminA && !isSelfAdminB) return -1;
+                                                if (!isSelfAdminA && isSelfAdminB) return 1;
+
+                                                // Priority 2: Admin/Owner always first
+                                                if (isAdminA && !isAdminB) return -1;
+                                                if (!isAdminA && isAdminB) return 1;
+
+                                                // Priority 3: Current user (non-admin)
+                                                if (isSelfA && !isSelfB) return -1;
+                                                if (!isSelfA && isSelfB) return 1;
+
+                                                return 0
+                                            })
+                                            .map((member) => {
+                                                const currentEmail = (currentUser?.email || '').toLowerCase();
+                                                const memberEmail = (member.email || member.invited_email || '').toLowerCase();
+                                                const isSelf = currentUser && memberEmail === currentEmail;
+
+                                                // Determine "Admin" badge
+                                                // Logic: If member is explicitly admin in list OR (it is self + userRole prop says admin)
+                                                const rawRole = (member.role || '').toLowerCase();
+                                                const isExplicitAdmin = rawRole === 'admin' || rawRole === 'owner';
+                                                const isSelfAndStudyAdmin = isSelf && (userRole === 'admin');
+                                                const showAdminBadge = isExplicitAdmin || isSelfAndStudyAdmin;
+
+                                                return (
+                                                    <div key={member.id} className="flex items-center justify-between group">
+                                                        <div className="flex items-center space-x-3">
+                                                            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+                                                                {member.name ? (
+                                                                    <span className="text-xs font-bold text-gray-600">
+                                                                        {member.name.charAt(0).toUpperCase()}
+                                                                    </span>
+                                                                ) : (
+                                                                    <Mail className="w-4 h-4 text-gray-400" />
+                                                                )}
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-sm font-medium text-gray-800">
+                                                                    {showAdminBadge ? (
+                                                                        member.name || member.email || member.invited_email
+                                                                    ) : (
+                                                                        member.email || member.invited_email
+                                                                    )}
+                                                                    {isSelf && <span className="text-gray-400 ml-1">(you)</span>}
+                                                                </p>
+                                                                {showAdminBadge && (
+                                                                    <p className="text-xs text-gray-500">
+                                                                        {member.email || member.invited_email}
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="flex items-center space-x-2">
+                                                            {showAdminBadge ? (
+                                                                <span className="text-xs font-medium text-gray-400 px-2 py-1 bg-gray-50 rounded italic">
+                                                                    Admin
+                                                                </span>
+                                                            ) : (
+                                                                <>
+                                                                    <Select
+                                                                        value={member.role}
+                                                                        onValueChange={(val) => handleUpdateRole(member.id, val)}
+                                                                        disabled={isActionLoading}
+                                                                    >
+                                                                        <SelectTrigger className="h-8 border-transparent hover:bg-gray-100 transition-colors text-xs w-24">
+                                                                            <SelectValue />
+                                                                        </SelectTrigger>
+                                                                        <SelectContent>
+                                                                            <SelectItem value="editor">Editor</SelectItem>
+                                                                            <SelectItem value="viewer">Viewer</SelectItem>
+                                                                        </SelectContent>
+                                                                    </Select>
+                                                                    <button
+                                                                        onClick={() => handleRemoveMember(member.id)}
+                                                                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-all opacity-0 group-hover:opacity-100"
+                                                                    >
+                                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                                    </button>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )
+                                            })}
                                         {members.length === 0 && !isLoading && (
                                             <p className="text-sm text-gray-500 text-center py-4">
                                                 No members added yet.

@@ -1,9 +1,8 @@
 "use client"
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useRouter } from "next/navigation"
 import Image from "next/image"
-import { submitTaskSession, submitTasksBulk } from "@/lib/api/ResponseAPI"
 import { imageCacheManager } from "@/lib/utils/imageCacheManager"
 
 // Helper function to get cached URLs for display
@@ -22,7 +21,7 @@ type Task = {
   rightImageUrl?: string
   leftLabel?: string
   rightLabel?: string
-  layeredImages?: Array<{ url: string; z: number }>
+  layeredImages?: Array<{ url: string; z: number; layer_name?: string | null; transform?: { x: number; y: number; width: number; height: number } }>
   gridUrls?: string[]
   compositeLayerUrl?: string
   _elements_shown?: Record<string, unknown>
@@ -30,7 +29,6 @@ type Task = {
 }
 
 export default function TasksPage() {
-  const params = useParams<{ id: string }>()
   const router = useRouter()
 
   const [tasks, setTasks] = useState<Task[]>([])
@@ -65,7 +63,6 @@ export default function TasksPage() {
   const [bgFitDesktop, setBgFitDesktop] = useState({ left: 0, top: 0, width: 0, height: 0 })
   const bgReadyRefDesktop = useRef(false)
   const [isBgLandscape, setIsBgLandscape] = useState(false)
-  const [aspectRatio, setAspectRatio] = useState<string | null>(null)
 
   useEffect(() => {
     firstViewTimeRef.current = new Date().toISOString()
@@ -99,106 +96,106 @@ export default function TasksPage() {
 
   useEffect(() => {
     try {
-      const completedStudies = JSON.parse(localStorage.getItem("completed_studies") || "{}")
-      if (completedStudies[params.id]) {
-        router.push(`/participate/${params.id}/thank-you`)
-        return
-      }
-    } catch { }
-
-    const handlePopState = (event: PopStateEvent) => {
-      event.preventDefault()
-      router.push(`/participate/${params.id}/tasks`)
-    }
-
-    window.addEventListener("popstate", handlePopState)
-
-    try {
       setIsFetching(true)
       setFetchError(null)
 
-      const sessionRaw = typeof window !== "undefined" ? localStorage.getItem("study_session") : null
-      const detailsRaw = typeof window !== "undefined" ? localStorage.getItem("current_study_details") : null
+      const step2Raw = typeof window !== "undefined" ? localStorage.getItem("cs_step2") : null
+      const step3Raw = typeof window !== "undefined" ? localStorage.getItem("cs_step3") : null
+      const step7matrixRaw = typeof window !== "undefined" ? localStorage.getItem("cs_step7_matrix") : null
+      const layerBgRaw = typeof window !== "undefined" ? localStorage.getItem("cs_step5_layer_background") : null
+      const step5layerRaw = typeof window !== "undefined" ? localStorage.getItem("cs_step5_layer") : null
 
-      if (!sessionRaw || !detailsRaw) {
-        throw new Error("Missing session or study details in localStorage")
-      }
+      if (!step7matrixRaw) throw new Error("Missing tasks in localStorage (cs_step7_matrix)")
 
-      const { respondentId } = JSON.parse(sessionRaw || "{}")
-      const study = JSON.parse(detailsRaw || "{}")
+      const s2 = step2Raw ? JSON.parse(step2Raw) : {}
+      const s3 = step3Raw ? JSON.parse(step3Raw) : {}
+      const matrix = step7matrixRaw ? JSON.parse(step7matrixRaw) : {}
+      const layerBg = layerBgRaw ? JSON.parse(layerBgRaw) : null
+      const step5layer = step5layerRaw ? JSON.parse(step5layerRaw) : []
 
-      const studyInfo = study?.study_info || study
-      const assignedTasks = study?.assigned_tasks || []
+      const typeNorm = (matrix?.metadata?.study_type || s2?.study_type || s2?.metadata?.study_type || s2?.type || "")
+        .toString()
+        .toLowerCase()
+      const normalizedType: "grid" | "layer" | "text" | undefined = typeNorm.includes("layer")
+        ? "layer"
+        : typeNorm.includes("text")
+          ? "text"
+          : typeNorm.includes("grid")
+            ? "grid"
+            : undefined
+      setStudyType(normalizedType)
+
+      setMainQuestion(String(s2?.mainQuestion || s2?.main_question || s2?.question || ""))
 
       try {
-        const bg =
-          studyInfo?.metadata?.background_image_url ||
-          study?.metadata?.background_image_url ||
-          studyInfo?.background_image_url
-        if (typeof bg === "string" && bg) {
-          setBackgroundUrl(String(bg))
-        } else {
-          setBackgroundUrl(null)
-        }
+        const bg = layerBg?.secureUrl || layerBg?.previewUrl || null
+        setBackgroundUrl(bg || null)
       } catch {
         setBackgroundUrl(null)
       }
 
-      const detectedStudyType = studyInfo?.study_type || study?.study_type
+      const previewTransformsRaw = (() => {
+        try {
+          const src = matrix?.preview_layers_transforms || {}
+          const fallback: Record<string, any> = {}
 
-      setStudyType(detectedStudyType)
-      setMainQuestion(String(studyInfo?.main_question || study?.main_question || ""))
+          // Fallback transforms from Step 5 if not in matrix
+          if (Array.isArray(step5layer)) {
+            step5layer.forEach((l: any) => {
+              if (l?.id) fallback[l.id] = l.transform
+              if (l?.name) fallback[l.name] = l.transform
+            })
+          }
 
-      // Extract aspect ratio from metadata
-      try {
-        const aspectRatioValue = 
-          studyInfo?.metadata?.aspect_ratio || 
-          study?.metadata?.aspect_ratio || 
-          studyInfo?.aspect_ratio ||
-          study?.aspect_ratio
-        if (typeof aspectRatioValue === "string" && aspectRatioValue) {
-          setAspectRatio(aspectRatioValue)
-        } else {
-          setAspectRatio(null)
+          return { ...fallback, ...src }
+        } catch {
+          return {}
         }
-      } catch {
-        setAspectRatio(null)
-      }
+      })()
 
-      if (studyInfo?.rating_scale || study?.rating_scale) {
-        const rs = studyInfo?.rating_scale || study?.rating_scale || {}
-        const left = rs.min_label ? `${rs.min_label}` : ""
-        const right = rs.max_label ? `${rs.max_label}` : ""
-        const middle = rs.middle_label ? `${rs.middle_label}` : ""
-        setScaleLabels({ left, right, middle })
-      } else {
-        setScaleLabels({ left: "", right: "", middle: "" })
-      }
+      const normalizeTransform = (
+        src?: Partial<{ x: number; y: number; width: number; height: number }>,
+      ): { x: number; y: number; width: number; height: number } => ({
+        x: Number(src?.x) || 0,
+        y: Number(src?.y) || 0,
+        width: Number(src?.width) || 100,
+        height: Number(src?.height) || 100,
+      })
 
-      let userTasks: any[] = []
-      if (Array.isArray(assignedTasks) && assignedTasks.length > 0) {
-        userTasks = assignedTasks
-      } else {
-        const tasksObj = study?.tasks || study?.data?.tasks || study?.task_map || study?.task || {}
-        const respondentKey = String(respondentId ?? 0)
-        let respondentTasks: any[] = tasksObj?.[respondentKey] || tasksObj?.[Number(respondentKey)] || []
-        if (!Array.isArray(respondentTasks) || respondentTasks.length === 0) {
-          if (Array.isArray(tasksObj)) {
-            respondentTasks = tasksObj
-          } else if (tasksObj && typeof tasksObj === "object") {
-            for (const [k, v] of Object.entries(tasksObj)) {
+      const rsSrc = s3 && typeof s3 === "object" ? s3 : {}
+      const rs = (rsSrc as any).rating ?? (rsSrc as any).rating_scale ?? rsSrc
+      const left =
+        (rs?.minLabel ?? rs?.min_label ?? rs?.leftLabel ?? rs?.left_label ?? rs?.left ?? rs?.min ?? "") ?? ""
+      const right =
+        (rs?.maxLabel ?? rs?.max_label ?? rs?.rightLabel ?? rs?.right_label ?? rs?.right ?? rs?.max ?? "") ?? ""
+      const middle = (rs?.middleLabel ?? rs?.middle_label ?? rs?.middle ?? rs?.midLabel ?? rs?.mid_label ?? "") ?? ""
+      setScaleLabels({ left: String(left ?? ""), right: String(right ?? ""), middle: String(middle ?? "") })
+
+      let respondentTasks: any[] = []
+      if (Array.isArray(matrix)) {
+        respondentTasks = matrix
+      } else if (matrix && typeof matrix === "object") {
+        if (Array.isArray((matrix as any).preview_tasks)) {
+          respondentTasks = (matrix as any).preview_tasks
+        } else if (Array.isArray((matrix as any).tasks)) {
+          respondentTasks = (matrix as any).tasks
+        } else if ((matrix as any).tasks && typeof (matrix as any).tasks === "object") {
+          const buckets = (matrix as any).tasks as Record<string, any>
+          if (Array.isArray(buckets["0"]) && buckets["0"].length) {
+            respondentTasks = buckets["0"]
+          } else {
+            for (const v of Object.values(buckets)) {
               if (Array.isArray(v) && v.length) {
-                respondentTasks = v as any[]
+                respondentTasks = v
                 break
               }
             }
           }
         }
-        userTasks = respondentTasks
       }
 
-      const parsed: Task[] = (Array.isArray(userTasks) ? userTasks : []).map((t: any) => {
-        if ((studyInfo?.study_type as string) === "layer") {
+      const parsed: Task[] = (Array.isArray(respondentTasks) ? respondentTasks : []).map((t: any) => {
+        if (normalizedType === "layer") {
           const shown = t?.elements_shown || {}
           const content = t?.elements_shown_content || {}
 
@@ -206,98 +203,105 @@ export default function TasksPage() {
             .filter((k) => {
               const isShown = Number(shown[k]) === 1
               const hasContent = content?.[k] && content[k] !== null
-              // Check if we have either URL (original format) or transform (compacted format)
-              const hasData = hasContent && (content[k].url || content[k].transform)
-
+              const hasData = hasContent && (content[k].url || content[k].transform || content[k].previewUrl || content[k].secureUrl)
               return isShown && hasContent && hasData
             })
             .map((k) => {
               const layerData = content[k]
-              // Handle both formats: original (has url) and compacted (has transform)
-              const url = layerData.url || ''
-              const transform = layerData.transform || { x: 0, y: 0, width: 100, height: 100 }
+              const layerName = String(layerData?.layer_name || "").trim() || null
+              const transformSource =
+                layerData?.transform ||
+                (layerName ? (previewTransformsRaw as any)[layerName] : undefined) ||
+                (previewTransformsRaw as any)[k] ||
+                undefined
+              const resolvedUrl =
+                layerData?.url ||
+                layerData?.secureUrl ||
+                layerData?.previewUrl ||
+                layerData?.content ||
+                (typeof layerData === "string" ? layerData : "")
+              const urlString = typeof resolvedUrl === "string" ? resolvedUrl : ""
 
               return {
-                url: String(url),
-                z: Number(layerData.z_index ?? 0),
-                layer_name: layerData.layer_name || null,
-                transform: transform,
+                url: urlString,
+                z: Number(layerData?.z_index ?? 0),
+                layer_name: layerName,
+                transform: normalizeTransform(transformSource),
               }
             })
             .sort((a, b) => a.z - b.z)
+            .filter((entry) => Boolean(entry.url))
 
-          const taskResult = {
+          return {
             id: String(t?.task_id ?? t?.task_index ?? Math.random()),
             layeredImages: layers,
             _elements_shown: shown,
             _elements_shown_content: content,
           }
+        }
 
-          return taskResult
-        } else {
-          const es = t?.elements_shown || {}
-          const content = t?.elements_shown_content || {}
-          const activeKeys = Object.keys(es).filter((k) => Number(es[k]) === 1)
+        const es = t?.elements_shown || {}
+        const content = t?.elements_shown_content || {}
+        const activeKeys = Object.keys(es).filter((k) => Number(es[k]) === 1)
 
-          const getUrlForKey = (k: string): string | undefined => {
-            const elementContent = (content as any)[k]
-            if (elementContent && typeof elementContent === "object" && elementContent.content) {
-              return elementContent.content
-            }
-
-            const directUrl = (es as any)[`${k}_content`]
-            if (typeof directUrl === "string" && directUrl) return directUrl
-
-            const c1: any = (content as any)[k]
-            if (c1 && typeof c1 === "object" && typeof c1.url === "string") return c1.url
-
-            const c2: any = (content as any)[`${k}_content`]
-            if (c2 && typeof c2 === "object" && typeof c2.url === "string") return c2.url
-            if (typeof c2 === "string") return c2
-
-            const s2: any = (content as any)[k]
-            if (typeof s2 === "string") return s2
-
-            return undefined
+        const getUrlForKey = (k: string): string | undefined => {
+          const elementContent = (content as any)[k]
+          if (elementContent && typeof elementContent === "object" && elementContent.content) {
+            return elementContent.content
           }
 
-          const list: string[] = []
-          activeKeys.forEach((k) => {
-            const url = getUrlForKey(k)
-            if (typeof url === "string" && url) list.push(url)
-          })
+          const directUrl = (es as any)[`${k}_content`]
+          if (typeof directUrl === "string" && directUrl) return directUrl
 
-          if (list.length === 0 && content && typeof content === "object") {
-            Object.values(content).forEach((v: any) => {
-              if (v && typeof v === "object" && typeof v.url === "string") list.push(v.url)
-              if (v && typeof v === "object" && v.content) list.push(v.content)
-              if (typeof v === "string") list.push(v)
+          const c1: any = (content as any)[k]
+          if (c1 && typeof c1 === "object" && typeof c1.url === "string") return c1.url
+
+          const c2: any = (content as any)[`${k}_content`]
+          if (c2 && typeof c2 === "object" && typeof c2.url === "string") return c2.url
+          if (typeof c2 === "string") return c2
+
+          const s2: any = (content as any)[k]
+          if (typeof s2 === "string") return s2
+
+          return undefined
+        }
+
+        const list: string[] = []
+        activeKeys.forEach((k) => {
+          const url = getUrlForKey(k)
+          if (typeof url === "string" && url) list.push(url)
+        })
+
+        if (list.length === 0 && content && typeof content === "object") {
+          Object.values(content).forEach((v: any) => {
+            if (v && typeof v === "object" && typeof v.url === "string") list.push(v.url)
+            if (v && typeof v === "object" && v.content) list.push(v.content)
+            if (typeof v === "string") list.push(v)
+          })
+        }
+
+        try {
+          if (list.length < 4 && es && typeof es === "object") {
+            const seen = new Set(list)
+            Object.entries(es as Record<string, any>).forEach(([key, val]) => {
+              if (list.length >= 4) return
+              if (typeof val === "string" && key.endsWith("_content") && val.startsWith("http") && !seen.has(val)) {
+                list.push(val)
+                seen.add(val)
+              }
             })
           }
+        } catch { }
 
-          try {
-            if (list.length < 4 && es && typeof es === "object") {
-              const seen = new Set(list)
-              Object.entries(es as Record<string, any>).forEach(([key, val]) => {
-                if (list.length >= 4) return
-                if (typeof val === "string" && key.endsWith("_content") && val.startsWith("http") && !seen.has(val)) {
-                  list.push(val)
-                  seen.add(val)
-                }
-              })
-            }
-          } catch { }
-
-          return {
-            id: String(t?.task_id ?? t?.task_index ?? Math.random()),
-            leftImageUrl: list[0],
-            rightImageUrl: list[1],
-            leftLabel: "",
-            rightLabel: "",
-            gridUrls: list,
-            _elements_shown: es,
-            _elements_shown_content: content,
-          }
+        return {
+          id: String(t?.task_id ?? t?.task_index ?? Math.random()),
+          leftImageUrl: list[0],
+          rightImageUrl: list[1],
+          leftLabel: "",
+          rightLabel: "",
+          gridUrls: list,
+          _elements_shown: es,
+          _elements_shown_content: content,
         }
       })
 
@@ -305,18 +309,14 @@ export default function TasksPage() {
 
       const cacheStats = imageCacheManager.getCacheStats()
     } catch (err: unknown) {
+      console.error("Failed to load preview tasks:", err)
       setFetchError((err as Error)?.message || "Failed to load tasks")
     } finally {
       setIsFetching(false)
     }
-
-    return () => {
-      window.removeEventListener("popstate", handlePopState)
-    }
   }, [])
 
   const [currentTaskIndex, setCurrentTaskIndex] = useState(0)
-  const [responseTimesSec, setResponseTimesSec] = useState<number[]>([])
   const taskStartRef = useRef<number>(Date.now())
   const [lastSelected, setLastSelected] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -329,7 +329,7 @@ export default function TasksPage() {
   }, [])
 
   useEffect(() => {
-    if (!Array.isArray(tasks) || tasks.length === 0 || studyType === "text") return
+    if (!Array.isArray(tasks) || tasks.length === 0) return
     try {
       const allLayerUrls: string[] = Array.from(
         new Set(
@@ -344,7 +344,7 @@ export default function TasksPage() {
         imageCacheManager.prewarmUrls(allWithBg, "high")
       }
     } catch { }
-  }, [totalTasks, backgroundUrl, studyType])
+  }, [totalTasks, backgroundUrl])
 
   useEffect(() => {
     if (tasks.length === 0) return
@@ -370,9 +370,7 @@ export default function TasksPage() {
         urls.push(backgroundUrl)
       }
 
-      if (urls.length > 0 && studyType !== "text") {
-        await imageCacheManager.prewarmUrls(urls, "critical")
-      }
+      await imageCacheManager.prewarmUrls(urls, "critical")
     }
 
     preloadCurrentTask()
@@ -544,145 +542,8 @@ export default function TasksPage() {
     clickCountsRef.current = {}
   }, [currentTaskIndex])
 
-  const enqueueTask = (rating: number) => {
-    try {
-      const sessionRaw = localStorage.getItem("study_session")
-      if (!sessionRaw) return
-      const { sessionId } = JSON.parse(sessionRaw)
-      if (!sessionId) return
-
-      const task = tasks[currentTaskIndex]
-      const elapsedMs = Date.now() - taskStartRef.current
-      const seconds = Number((elapsedMs / 1000).toFixed(3))
-
-      const interactions = [1, 2, 3, 4, 5].map((n) => ({
-        element_id: `R${n}`,
-        view_time_seconds: seconds,
-        hover_count: hoverCountsRef.current[n] || 0,
-        click_count: clickCountsRef.current[n] || 0,
-        first_view_time: firstViewTimeRef.current || new Date().toISOString(),
-        last_view_time: new Date().toISOString(),
-      }))
-
-      let payloadShownContent: Record<string, string> | undefined = undefined
-      try {
-        const es: any = task?._elements_shown || {}
-        const content: any = task?._elements_shown_content || {}
-        const result: Record<string, string> = {}
-        if (es && typeof es === "object") {
-          Object.keys(es).forEach((k) => {
-            const s1 = (es as any)[`${k}_content`]
-            if (typeof s1 === "string" && s1.startsWith("http")) {
-              result[k] = s1
-            }
-          })
-        }
-        if (content && typeof content === "object") {
-          Object.keys(content).forEach((k) => {
-            const cv = (content as any)[k]
-            if (typeof cv === "string" && cv.startsWith("http")) {
-              result[k] = cv
-            } else if (cv && typeof cv === "object" && typeof cv.url === "string") {
-              result[k] = cv.url
-            }
-          })
-        }
-        if (Object.keys(result).length > 0) payloadShownContent = result
-      } catch { }
-
-      const item = {
-        task_id: task?.id || String(currentTaskIndex),
-        rating_given: rating,
-        task_duration_seconds: seconds,
-        element_interactions: interactions,
-        elements_shown_in_task: task?._elements_shown,
-        elements_shown_content: payloadShownContent,
-        _idemp: `${sessionId}:${task?.id || String(currentTaskIndex)}`,
-      }
-      const qRaw = localStorage.getItem("task_submit_queue")
-      const q: any[] = qRaw ? JSON.parse(qRaw) : []
-      q.push(item)
-      localStorage.setItem("task_submit_queue", JSON.stringify(q))
-
-      // Progressive flush: send every 15 tasks
-      if (q.length >= 15) {
-        flushQueueInBackground(sessionId)
-      }
-    } catch (e) {
-      console.error("Failed to enqueue task:", e)
-    }
-  }
-
-  // Helper: flush queue in background without blocking UI
-  const flushQueueInBackground = (sessionId: string) => {
-    try {
-      const qRaw = localStorage.getItem("task_submit_queue")
-      const q: any[] = qRaw ? JSON.parse(qRaw) : []
-      if (!Array.isArray(q) || q.length === 0) return
-
-      // Take items to send
-      const tasksToSend = q.map((it) => ({
-        task_id: it.task_id,
-        rating_given: it.rating_given,
-        task_duration_seconds: it.task_duration_seconds,
-        element_interactions: Array.isArray(it.element_interactions)
-          ? it.element_interactions.slice(0, 10)
-          : [],
-        elements_shown_in_task: it.elements_shown_in_task || undefined,
-        elements_shown_content: it.elements_shown_content || undefined,
-      }))
-
-      // Clear queue immediately (optimistic)
-      localStorage.removeItem("task_submit_queue")
-
-      // Send in background
-      submitTasksBulk(String(sessionId), tasksToSend)
-        .catch((e) => {
-          console.error("Background flush failed:", e)
-          // Re-queue failed items for ThankYouPage retry
-          try {
-            const existingRaw = localStorage.getItem("task_submit_queue")
-            const existing: any[] = existingRaw ? JSON.parse(existingRaw) : []
-            localStorage.setItem("task_submit_queue", JSON.stringify([...existing, ...q]))
-          } catch { }
-        })
-    } catch { }
-  }
-
-  const submitSessionInBackground = async () => {
-    try {
-      const sessionRaw = localStorage.getItem("study_session")
-      if (!sessionRaw) return
-      const { sessionId } = JSON.parse(sessionRaw)
-      if (!sessionId) return
-
-      const metrics = JSON.parse(localStorage.getItem("session_metrics") || "{}")
-      const timesMap = JSON.parse(localStorage.getItem("study_response_times") || "{}") as Record<string, number>
-      const individual = Object.keys(timesMap)
-        .sort((a, b) => Number(a.replace(/\D/g, "")) - Number(b.replace(/\D/g, "")))
-        .map((k) => Number(timesMap[k] || 0))
-
-      const payload = {
-        session_id: String(sessionId),
-        task_id: tasks?.[tasks.length - 1]?.id || String(tasks.length - 1),
-        classification_page_time: Number(metrics.classification_page_time || 0),
-        orientation_page_time: Number(metrics.orientation_page_time || 0),
-        individual_task_page_times: individual,
-        page_transitions: [],
-        is_completed: true,
-        abandonment_timestamp: null,
-        abandonment_reason: null,
-        recovery_attempts: 0,
-        browser_performance: {},
-        page_load_times: [],
-        device_info: {},
-        screen_resolution: typeof window !== "undefined" ? `${window.screen.width}x${window.screen.height}` : "",
-      }
-
-      submitTaskSession(payload).catch((e) => console.error("submitTaskSession error:", e))
-    } catch (e) {
-      console.error("Failed to submit task session:", e)
-    }
+  const enqueueTask = (_rating: number) => {
+    // Preview mode: no-op
   }
 
   const handleSelect = (value: number) => {
@@ -690,49 +551,16 @@ export default function TasksPage() {
 
     const elapsedMs = Date.now() - taskStartRef.current
     const seconds = Number((elapsedMs / 1000).toFixed(3))
-    setResponseTimesSec((prev) => {
-      const next = [...prev]
-      next[currentTaskIndex] = seconds
-      return next
-    })
     setLastSelected(value)
-
-    const updatedTimes = [...responseTimesSec]
-    updatedTimes[currentTaskIndex] = seconds
-    const localStorageData: Record<string, number> = {}
-    updatedTimes.forEach((time, index) => {
-      localStorageData[`task${index + 1}`] = time
-    })
-    localStorage.setItem("study_response_times", JSON.stringify(localStorageData))
+    lastViewTimeRef.current = new Date().toISOString()
 
     enqueueTask(value)
 
     if (currentTaskIndex < totalTasks - 1) {
       setTimeout(() => setCurrentTaskIndex((i) => i + 1), 80)
     } else {
-      // Final task: show brief loading, fire completion, flush remaining, then navigate
       setIsLoading(true)
-
-      // Fire completion signal immediately
-      submitSessionInBackground()
-
-      // Flush any remaining tasks in the queue
-      const doFinalFlush = () => {
-        try {
-          const sessionRaw = localStorage.getItem("study_session")
-          const { sessionId } = sessionRaw ? JSON.parse(sessionRaw) : { sessionId: null }
-          if (sessionId) {
-            flushQueueInBackground(sessionId)
-          }
-        } catch { }
-      }
-
-      doFinalFlush()
-
-      // Navigate after 1 second (brief loading screen)
-      setTimeout(() => {
-        router.push(`/participate/${params.id}/thank-you`)
-      }, 1000)
+      setTimeout(() => router.push(`/home/create-study/preview/thank-you`), 600)
     }
   }
 
@@ -764,32 +592,27 @@ export default function TasksPage() {
         ) : (
           <>
             {/* Mobile Layout */}
-            <div className="lg:hidden flex flex-col min-h-[100dvh]">
-              {/* Main stacked content with uniform gaps */}
-              <div className="flex-1 flex flex-col gap-6 pt-2 pb-4" style={{ paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}>
-                {/* Progress + Question */}
-                <div className={`${isBgLandscape ? "px-4 sm:px-0" : "px-4"}`}>
-                  <div className="flex flex-col gap-7">
-                    <div className="h-2 w-full bg-gray-200 rounded overflow-hidden">
-                      <div
-                        className="h-full bg-[rgba(38,116,186,1)] rounded transition-all duration-300"
-                        style={{ width: `${progressPct}%` }}
-                      ></div>
-                    </div>
-                    <div 
-                      className="text-sm sm:text-base font-medium text-gray-800 leading-tight break-words hyphens-auto"
-                      style={{ 
-                        marginTop: studyType === "layer" && isBgLandscape ? "10px" : "0px"
-                      }}
-                    >
-                      {mainQuestion || `Question ${Math.min(currentTaskIndex + 1, totalTasks)}`}
-                    </div>
-                  </div>
+            <div
+              className="lg:hidden flex flex-col h-[calc(100vh-140px)] overflow-hidden"
+              style={{ paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}
+            >
+              {/* Progress Section */}
+              <div className={`mb-2 sm:mb-4 flex-shrink-0 ${isBgLandscape ? 'px-4 sm:px-0' : ''}`}>
+                <div className="h-2 w-full bg-gray-200 rounded overflow-hidden mb-5 sm:mb-5">
+                  <div
+                    className="h-full bg-[rgba(38,116,186,1)] rounded transition-all duration-300"
+                    style={{ width: `${progressPct}%` }}
+                  ></div>
                 </div>
+                <div className="text-sm sm:text-base font-medium text-gray-800 leading-tight break-words hyphens-auto">
+                  {mainQuestion || `Question ${Math.min(currentTaskIndex + 1, totalTasks)}`}
+                </div>
+              </div>
 
-                {/* Main Content */}
+              {/* Main Content */}
+              <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
                 {isLoading ? (
-                  <div className="flex-1 flex items-center justify-center px-4">
+                  <div className="flex-1 flex items-center justify-center">
                     <div className="text-center">
                       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[rgba(38,116,186,1)] mx-auto mb-4"></div>
                       <h2 className="text-xl font-semibold text-gray-900">Processing your responses...</h2>
@@ -797,7 +620,7 @@ export default function TasksPage() {
                     </div>
                   </div>
                 ) : isInitialLoading ? (
-                  <div className="flex-1 flex items-center justify-center min-h-0 px-4">
+                  <div className="flex-1 flex items-center justify-center pb-2 min-h-0">
                     <div className="text-center">
                       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[rgba(38,116,186,1)] mx-auto mb-4"></div>
                       <h2 className="text-xl font-semibold text-gray-900">Loading images...</h2>
@@ -806,37 +629,10 @@ export default function TasksPage() {
                   </div>
                 ) : (
                   <>
-                    {/* Image / Stimulus area */}
-                    <div
-                      className={`flex-1 flex items-center justify-center min-h-0 max-h-[45vh] ${
-                        studyType === "layer" && isBgLandscape 
-                          ? "px-0 overflow-hidden" 
-                          : studyType === "text"
-                          ? "px-4 overflow-visible"
-                          : studyType === "grid" && task?.gridUrls && task.gridUrls.length === 2 
-                          ? "px-4 overflow-visible" 
-                          : "px-4 overflow-hidden"
-                      }`}
-                    >
+                    <div className={`flex-1 flex items-center justify-center min-h-0 overflow-hidden ${studyType === 'layer' && isBgLandscape ? 'px-0' : 'px-2'}`}>
                       {studyType === "layer" ? (
                         <div className="relative w-full h-full flex items-center justify-center">
-                          <div
-                            ref={previewContainerRef}
-                            className={`relative w-full ${
-                              aspectRatio === "16:9" 
-                                ? "aspect-video" 
-                                : aspectRatio === "4:3"
-                                ? "aspect-[4/3]"
-                                : aspectRatio === "1:1"
-                                ? "aspect-square"
-                                : isBgLandscape 
-                                ? "aspect-video" 
-                                : "aspect-square"
-                            } ${
-                              isBgLandscape ? "" : "max-w-xs sm:max-w-sm md:max-w-md"
-                            }`}
-                            style={{ minHeight: 240 }}
-                          >
+                          <div ref={previewContainerRef} className={`relative w-full aspect-square ${isBgLandscape ? '' : 'max-w-xs sm:max-w-sm md:max-w-md'}`} style={{ minHeight: 240 }}>
                             {backgroundUrl && (
                               <img
                                 ref={bgImgRef}
@@ -939,18 +735,16 @@ export default function TasksPage() {
                           </div>
                         </div>
                       ) : studyType === "text" ? (
-                        <div className="w-full h-full flex flex-col items-center justify-center relative p-2 sm:p-4" style={{ overflow: "visible", minHeight: 0, gap: "clamp(8px, 1.5vh, 12px)" }}>
+                        <div className="w-full h-full flex flex-col items-center justify-center overflow-hidden relative gap-2 sm:gap-4 p-4">
                           {task?.gridUrls?.map((statement, idx) => (
                             <div
                               key={idx}
-                              className="w-full flex items-center justify-center text-center p-2 sm:p-3 rounded-lg shadow-sm flex-shrink-0"
+                              className="w-full flex-1 flex items-center justify-center text-center p-4 rounded-lg shadow-sm"
                               style={{
-                                minHeight: 'clamp(40px, 8vh, 60px)',
-                                maxHeight: 'clamp(50px, 10vh, 80px)',
+                                minHeight: '60px',
                                 fontSize: 'clamp(14px, 2vw, 18px)',
                                 overflowWrap: 'break-word',
-                                wordBreak: 'break-word',
-                                overflow: 'visible'
+                                wordBreak: 'break-word'
                               }}
                             >
                               {statement}
@@ -970,25 +764,7 @@ export default function TasksPage() {
                               style={{ zIndex: 0 }}
                             />
                           )}
-                          {task?.gridUrls && task.gridUrls.length === 2 ? (
-                            // Special layout for exactly 2 images on mobile - stacked vertically
-                            <div className="flex flex-col gap-2 xs:gap-2 sm:gap-3 relative items-center justify-center w-full h-full" style={{ zIndex: 1, overflow: "visible" }}>
-                              {task.gridUrls.map((url: string, i: number) => (
-                                <div key={i} className="w-full max-w-[60%] flex-shrink-0" style={{ aspectRatio: "1/1", maxHeight: "calc(45vh / 2 - 8px)" }}>
-                                  <Image
-                                    src={getCachedUrl(url) || "/placeholder.svg"}
-                                    alt={`element-${i + 1}`}
-                                    width={299}
-                                    height={299}
-                                    className="h-full w-full object-contain"
-                                    loading="eager"
-                                    fetchPriority="high"
-                                    unoptimized={url?.includes('blob.core.windows.net')}
-                                  />
-                                </div>
-                              ))}
-                            </div>
-                          ) : task?.gridUrls && task.gridUrls.length === 3 ? (
+                          {task?.gridUrls && task.gridUrls.length === 3 ? (
                             // Special layout for exactly 3 images on mobile
                             <div className="flex flex-col gap-1 xs:gap-2 sm:gap-3 relative" style={{ zIndex: 1 }}>
                               {/* Top row: 2 images side by side */}
@@ -1042,8 +818,8 @@ export default function TasksPage() {
                               ))}
                             </div>
                           ) : (
-                            <div className="flex flex-col gap-2 xs:gap-2 sm:gap-3 relative items-center justify-center w-full h-full" style={{ zIndex: 1, overflow: "visible" }}>
-                              <div className="w-full max-w-[60%] flex-shrink-0" style={{ aspectRatio: "1/1", maxHeight: "calc(45vh / 2 - 8px)" }}>
+                            <div className="flex flex-col gap-1 xs:gap-2 sm:gap-3 relative items-center justify-center w-full h-full max-h-full overflow-hidden" style={{ zIndex: 1 }}>
+                              <div className="aspect-square w-full max-w-[50%] overflow-hidden flex-shrink">
                                 {task?.leftImageUrl ? (
                                   <Image
                                     src={getCachedUrl(task.leftImageUrl) || "/placeholder.svg"}
@@ -1057,7 +833,7 @@ export default function TasksPage() {
                                   />
                                 ) : null}
                               </div>
-                              <div className="w-full max-w-[60%] flex-shrink-0" style={{ aspectRatio: "1/1", maxHeight: "calc(45vh / 2 - 8px)" }}>
+                              <div className="aspect-square w-full max-w-[50%] overflow-hidden flex-shrink">
                                 {task?.rightImageUrl ? (
                                   <Image
                                     src={getCachedUrl(task.rightImageUrl) || "/placeholder.svg"}
@@ -1077,28 +853,15 @@ export default function TasksPage() {
                       )}
                     </div>
 
-                    {/* End labels */}
                     {studyType === "grid" && (
-                      <div
-                        className={`grid grid-cols-2 gap-4 text-xs sm:text-sm font-semibold text-gray-800 flex-shrink-0 ${
-                          isBgLandscape ? "px-8 sm:px-4" : "px-4"
-                        }`}
-                      >
+                      <div className={`grid grid-cols-2 gap-4 text-xs sm:text-sm font-semibold text-gray-800 mb-2 flex-shrink-0 ${isBgLandscape ? 'px-6 sm:px-2' : 'px-2'}`}>
                         <div className="text-center text-balance">{task?.leftLabel ?? ""}</div>
                         <div className="text-center text-balance">{task?.rightLabel ?? ""}</div>
                       </div>
                     )}
 
-                    {/* Scale labels */}
-                    <div
-                      className={`flex flex-col items-start gap-3 flex-shrink-0 ${
-                        isBgLandscape ? "px-8 sm:px-4" : "px-4"
-                      }`}
-                      style={{ 
-                        marginTop: studyType === "layer" && isBgLandscape ? "-7px" : "0px"
-                      }}
-                    >
-                      <div className="flex items-center gap-2">
+                    <div className={`flex flex-col items-start mb-6 gap-2 ${isBgLandscape ? 'px-8 sm:px-4' : 'px-4'}`}>
+                      <div className="flex items-center gap-[9px]">
                         <div className="h-6 w-6 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs font-semibold text-gray-700 flex-shrink-0">
                           1
                         </div>
@@ -1109,18 +872,7 @@ export default function TasksPage() {
                         )}
                       </div>
 
-                      {scaleLabels.middle && (
-                        <div className="flex items-center gap-2">
-                          <div className="h-6 w-6 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs font-semibold text-gray-700 flex-shrink-0">
-                            3
-                          </div>
-                          <div className="text-xs font-medium text-gray-700 leading-tight">
-                            {scaleLabels.middle}
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-[9px]">
                         <div className="h-6 w-6 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs font-semibold text-gray-700 flex-shrink-0">
                           5
                         </div>
@@ -1133,11 +885,9 @@ export default function TasksPage() {
                     </div>
 
                     {/* Rating Scale */}
-                    <div 
-                      className={`flex-shrink-0 ${isBgLandscape ? "px-8 sm:px-4" : "px-4"}`}
-                      style={{ 
-                        marginTop: studyType === "layer" && isBgLandscape ? "-1px" : "0px"
-                      }}
+                    <div
+                      className={`mt-auto pb-2 flex-shrink-0 ${isBgLandscape ? 'px-6 sm:px-2' : 'px-2'}`}
+                      style={{ paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}
                     >
                       <div className="flex items-center justify-center mb-2">
                         <div className="flex items-center justify-between w-full max-w-[320px] mx-auto">
@@ -1162,8 +912,9 @@ export default function TasksPage() {
                           })}
                         </div>
                       </div>
-                    </div>
 
+
+                    </div>
                   </>
                 )}
               </div>
@@ -1514,6 +1265,6 @@ export default function TasksPage() {
           </>
         )}
       </div>
-    </div>
+    </div >
   )
 }
