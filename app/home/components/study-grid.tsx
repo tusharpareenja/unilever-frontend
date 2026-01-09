@@ -51,7 +51,8 @@ export function StudyGrid({
       'cs_flash_message',
       'cs_resuming_draft',
       'cs_study_id',
-      'cs_is_fresh_start'  // Flag to indicate fresh start
+      'cs_is_fresh_start',
+      'cs_step8'
     ]
 
     keysToRemove.forEach(key => {
@@ -94,6 +95,8 @@ export function StudyGrid({
       localStorage.setItem('cs_resuming_draft', 'true')
       // Clear the fresh start flag to allow normal resuming
       localStorage.removeItem('cs_is_fresh_start')
+      // Also clear Step 8 status so it's re-evaluated
+      localStorage.removeItem('cs_step8')
 
       // Navigate to create-study page
       router.push('/home/create-study')

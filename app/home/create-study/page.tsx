@@ -666,7 +666,8 @@ export default function CreateStudyPage() {
             'cs_step7_tasks',
             'cs_step7_matrix',
             'cs_step7_job_state',
-            'cs_step7_timer_state'
+            'cs_step7_timer_state',
+            'cs_step8'
           ]
           keysToRemove.forEach(key => {
             try {
@@ -736,7 +737,8 @@ export default function CreateStudyPage() {
               'cs_step7_job_state',
               'cs_step7_timer_state',
               'cs_backup_steps',
-              'cs_flash_message'
+              'cs_flash_message',
+              'cs_step8'
             ]
             keysToRemove.forEach(key => {
               try {

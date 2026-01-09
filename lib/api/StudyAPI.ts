@@ -1672,7 +1672,8 @@ export async function updateStudyMemberRole(studyId: string, memberId: string, r
     throw new Error(data?.detail || "Failed to update member role")
   }
 
-  return await res.json()
+  if (res.status === 204) return {}
+  return await res.json().catch(() => ({}))
 }
 
 export async function removeStudyMember(studyId: string, memberId: string): Promise<any> {
@@ -1686,7 +1687,8 @@ export async function removeStudyMember(studyId: string, memberId: string): Prom
     throw new Error(data?.detail || "Failed to remove member")
   }
 
-  return await res.json()
+  if (res.status === 204) return {}
+  return await res.json().catch(() => ({}))
 }
 
 export async function getStudyDetailsWithoutAuth(studyId: string): Promise<StudyDetails> {

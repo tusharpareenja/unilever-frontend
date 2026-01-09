@@ -75,7 +75,8 @@ export function DashboardHeader() {
       'cs_flash_message',
       'cs_resuming_draft',
       'cs_study_id',
-      'cs_is_fresh_start'
+      'cs_is_fresh_start',
+      'cs_step8'
     ]
 
     keysToRemove.forEach(key => {

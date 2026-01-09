@@ -65,6 +65,7 @@ export default function TasksPage() {
   const [bgFitDesktop, setBgFitDesktop] = useState({ left: 0, top: 0, width: 0, height: 0 })
   const bgReadyRefDesktop = useRef(false)
   const [isBgLandscape, setIsBgLandscape] = useState(false)
+  const [aspectRatio, setAspectRatio] = useState<string | null>(null)
 
   useEffect(() => {
     firstViewTimeRef.current = new Date().toISOString()
@@ -147,6 +148,22 @@ export default function TasksPage() {
 
       setStudyType(detectedStudyType)
       setMainQuestion(String(studyInfo?.main_question || study?.main_question || ""))
+
+      // Extract aspect ratio from metadata
+      try {
+        const aspectRatioValue = 
+          studyInfo?.metadata?.aspect_ratio || 
+          study?.metadata?.aspect_ratio || 
+          studyInfo?.aspect_ratio ||
+          study?.aspect_ratio
+        if (typeof aspectRatioValue === "string" && aspectRatioValue) {
+          setAspectRatio(aspectRatioValue)
+        } else {
+          setAspectRatio(null)
+        }
+      } catch {
+        setAspectRatio(null)
+      }
 
       if (studyInfo?.rating_scale || study?.rating_scale) {
         const rs = studyInfo?.rating_scale || study?.rating_scale || {}
@@ -747,27 +764,32 @@ export default function TasksPage() {
         ) : (
           <>
             {/* Mobile Layout */}
-            <div
-              className="lg:hidden flex flex-col h-[calc(100vh-140px)] overflow-hidden"
-              style={{ paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}
-            >
-              {/* Progress Section */}
-              <div className={`mb-2 sm:mb-4 flex-shrink-0 ${isBgLandscape ? 'px-4 sm:px-0' : ''}`}>
-                <div className="h-2 w-full bg-gray-200 rounded overflow-hidden mb-5 sm:mb-5">
-                  <div
-                    className="h-full bg-[rgba(38,116,186,1)] rounded transition-all duration-300"
-                    style={{ width: `${progressPct}%` }}
-                  ></div>
+            <div className="lg:hidden flex flex-col min-h-[100dvh]">
+              {/* Main stacked content with uniform gaps */}
+              <div className="flex-1 flex flex-col gap-6 pt-2 pb-4" style={{ paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}>
+                {/* Progress + Question */}
+                <div className={`${isBgLandscape ? "px-4 sm:px-0" : "px-4"}`}>
+                  <div className="flex flex-col gap-7">
+                    <div className="h-2 w-full bg-gray-200 rounded overflow-hidden">
+                      <div
+                        className="h-full bg-[rgba(38,116,186,1)] rounded transition-all duration-300"
+                        style={{ width: `${progressPct}%` }}
+                      ></div>
+                    </div>
+                    <div 
+                      className="text-sm sm:text-base font-medium text-gray-800 leading-tight break-words hyphens-auto"
+                      style={{ 
+                        marginTop: studyType === "layer" && isBgLandscape ? "10px" : "0px"
+                      }}
+                    >
+                      {mainQuestion || `Question ${Math.min(currentTaskIndex + 1, totalTasks)}`}
+                    </div>
+                  </div>
                 </div>
-                <div className="text-sm sm:text-base font-medium text-gray-800 leading-tight break-words hyphens-auto">
-                  {mainQuestion || `Question ${Math.min(currentTaskIndex + 1, totalTasks)}`}
-                </div>
-              </div>
 
-              {/* Main Content */}
-              <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                {/* Main Content */}
                 {isLoading ? (
-                  <div className="flex-1 flex items-center justify-center">
+                  <div className="flex-1 flex items-center justify-center px-4">
                     <div className="text-center">
                       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[rgba(38,116,186,1)] mx-auto mb-4"></div>
                       <h2 className="text-xl font-semibold text-gray-900">Processing your responses...</h2>
@@ -775,7 +797,7 @@ export default function TasksPage() {
                     </div>
                   </div>
                 ) : isInitialLoading ? (
-                  <div className="flex-1 flex items-center justify-center pb-2 min-h-0">
+                  <div className="flex-1 flex items-center justify-center min-h-0 px-4">
                     <div className="text-center">
                       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[rgba(38,116,186,1)] mx-auto mb-4"></div>
                       <h2 className="text-xl font-semibold text-gray-900">Loading images...</h2>
@@ -784,10 +806,37 @@ export default function TasksPage() {
                   </div>
                 ) : (
                   <>
-                    <div className={`flex-1 flex items-center justify-center min-h-0 overflow-hidden ${studyType === 'layer' && isBgLandscape ? 'px-0' : 'px-2'}`}>
+                    {/* Image / Stimulus area */}
+                    <div
+                      className={`flex-1 flex items-center justify-center min-h-0 max-h-[45vh] ${
+                        studyType === "layer" && isBgLandscape 
+                          ? "px-0 overflow-hidden" 
+                          : studyType === "text"
+                          ? "px-4 overflow-visible"
+                          : studyType === "grid" && task?.gridUrls && task.gridUrls.length === 2 
+                          ? "px-4 overflow-visible" 
+                          : "px-4 overflow-hidden"
+                      }`}
+                    >
                       {studyType === "layer" ? (
                         <div className="relative w-full h-full flex items-center justify-center">
-                          <div ref={previewContainerRef} className={`relative w-full aspect-square ${isBgLandscape ? '' : 'max-w-xs sm:max-w-sm md:max-w-md'}`} style={{ minHeight: 240 }}>
+                          <div
+                            ref={previewContainerRef}
+                            className={`relative w-full ${
+                              aspectRatio === "16:9" 
+                                ? "aspect-video" 
+                                : aspectRatio === "4:3"
+                                ? "aspect-[4/3]"
+                                : aspectRatio === "1:1"
+                                ? "aspect-square"
+                                : isBgLandscape 
+                                ? "aspect-video" 
+                                : "aspect-square"
+                            } ${
+                              isBgLandscape ? "" : "max-w-xs sm:max-w-sm md:max-w-md"
+                            }`}
+                            style={{ minHeight: 240 }}
+                          >
                             {backgroundUrl && (
                               <img
                                 ref={bgImgRef}
@@ -890,16 +939,18 @@ export default function TasksPage() {
                           </div>
                         </div>
                       ) : studyType === "text" ? (
-                        <div className="w-full h-full flex flex-col items-center justify-center overflow-hidden relative gap-2 sm:gap-4 p-4">
+                        <div className="w-full h-full flex flex-col items-center justify-center relative p-2 sm:p-4" style={{ overflow: "visible", minHeight: 0, gap: "clamp(8px, 1.5vh, 12px)" }}>
                           {task?.gridUrls?.map((statement, idx) => (
                             <div
                               key={idx}
-                              className="w-full flex-1 flex items-center justify-center text-center p-4 rounded-lg shadow-sm"
+                              className="w-full flex items-center justify-center text-center p-2 sm:p-3 rounded-lg shadow-sm flex-shrink-0"
                               style={{
-                                minHeight: '60px',
+                                minHeight: 'clamp(40px, 8vh, 60px)',
+                                maxHeight: 'clamp(50px, 10vh, 80px)',
                                 fontSize: 'clamp(14px, 2vw, 18px)',
                                 overflowWrap: 'break-word',
-                                wordBreak: 'break-word'
+                                wordBreak: 'break-word',
+                                overflow: 'visible'
                               }}
                             >
                               {statement}
@@ -919,7 +970,25 @@ export default function TasksPage() {
                               style={{ zIndex: 0 }}
                             />
                           )}
-                          {task?.gridUrls && task.gridUrls.length === 3 ? (
+                          {task?.gridUrls && task.gridUrls.length === 2 ? (
+                            // Special layout for exactly 2 images on mobile - stacked vertically
+                            <div className="flex flex-col gap-2 xs:gap-2 sm:gap-3 relative items-center justify-center w-full h-full" style={{ zIndex: 1, overflow: "visible" }}>
+                              {task.gridUrls.map((url: string, i: number) => (
+                                <div key={i} className="w-full max-w-[60%] flex-shrink-0" style={{ aspectRatio: "1/1", maxHeight: "calc(45vh / 2 - 8px)" }}>
+                                  <Image
+                                    src={getCachedUrl(url) || "/placeholder.svg"}
+                                    alt={`element-${i + 1}`}
+                                    width={299}
+                                    height={299}
+                                    className="h-full w-full object-contain"
+                                    loading="eager"
+                                    fetchPriority="high"
+                                    unoptimized={url?.includes('blob.core.windows.net')}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          ) : task?.gridUrls && task.gridUrls.length === 3 ? (
                             // Special layout for exactly 3 images on mobile
                             <div className="flex flex-col gap-1 xs:gap-2 sm:gap-3 relative" style={{ zIndex: 1 }}>
                               {/* Top row: 2 images side by side */}
@@ -973,8 +1042,8 @@ export default function TasksPage() {
                               ))}
                             </div>
                           ) : (
-                            <div className="flex flex-col gap-1 xs:gap-2 sm:gap-3 relative items-center justify-center w-full h-full max-h-full overflow-hidden" style={{ zIndex: 1 }}>
-                              <div className="aspect-square w-full max-w-[50%] overflow-hidden flex-shrink">
+                            <div className="flex flex-col gap-2 xs:gap-2 sm:gap-3 relative items-center justify-center w-full h-full" style={{ zIndex: 1, overflow: "visible" }}>
+                              <div className="w-full max-w-[60%] flex-shrink-0" style={{ aspectRatio: "1/1", maxHeight: "calc(45vh / 2 - 8px)" }}>
                                 {task?.leftImageUrl ? (
                                   <Image
                                     src={getCachedUrl(task.leftImageUrl) || "/placeholder.svg"}
@@ -988,7 +1057,7 @@ export default function TasksPage() {
                                   />
                                 ) : null}
                               </div>
-                              <div className="aspect-square w-full max-w-[50%] overflow-hidden flex-shrink">
+                              <div className="w-full max-w-[60%] flex-shrink-0" style={{ aspectRatio: "1/1", maxHeight: "calc(45vh / 2 - 8px)" }}>
                                 {task?.rightImageUrl ? (
                                   <Image
                                     src={getCachedUrl(task.rightImageUrl) || "/placeholder.svg"}
@@ -1008,15 +1077,28 @@ export default function TasksPage() {
                       )}
                     </div>
 
+                    {/* End labels */}
                     {studyType === "grid" && (
-                      <div className={`grid grid-cols-2 gap-4 text-xs sm:text-sm font-semibold text-gray-800 mb-2 flex-shrink-0 ${isBgLandscape ? 'px-6 sm:px-2' : 'px-2'}`}>
+                      <div
+                        className={`grid grid-cols-2 gap-4 text-xs sm:text-sm font-semibold text-gray-800 flex-shrink-0 ${
+                          isBgLandscape ? "px-8 sm:px-4" : "px-4"
+                        }`}
+                      >
                         <div className="text-center text-balance">{task?.leftLabel ?? ""}</div>
                         <div className="text-center text-balance">{task?.rightLabel ?? ""}</div>
                       </div>
                     )}
 
-                    <div className={`flex flex-col items-start mb-6 gap-2 ${isBgLandscape ? 'px-8 sm:px-4' : 'px-4'}`}>
-                      <div className="flex items-center gap-[9px]">
+                    {/* Scale labels */}
+                    <div
+                      className={`flex flex-col items-start gap-3 flex-shrink-0 ${
+                        isBgLandscape ? "px-8 sm:px-4" : "px-4"
+                      }`}
+                      style={{ 
+                        marginTop: studyType === "layer" && isBgLandscape ? "-7px" : "0px"
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
                         <div className="h-6 w-6 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs font-semibold text-gray-700 flex-shrink-0">
                           1
                         </div>
@@ -1027,7 +1109,18 @@ export default function TasksPage() {
                         )}
                       </div>
 
-                      <div className="flex items-center gap-[9px]">
+                      {scaleLabels.middle && (
+                        <div className="flex items-center gap-2">
+                          <div className="h-6 w-6 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs font-semibold text-gray-700 flex-shrink-0">
+                            3
+                          </div>
+                          <div className="text-xs font-medium text-gray-700 leading-tight">
+                            {scaleLabels.middle}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-2">
                         <div className="h-6 w-6 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs font-semibold text-gray-700 flex-shrink-0">
                           5
                         </div>
@@ -1040,9 +1133,11 @@ export default function TasksPage() {
                     </div>
 
                     {/* Rating Scale */}
-                    <div
-                      className={`mt-auto pb-2 flex-shrink-0 ${isBgLandscape ? 'px-6 sm:px-2' : 'px-2'}`}
-                      style={{ paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}
+                    <div 
+                      className={`flex-shrink-0 ${isBgLandscape ? "px-8 sm:px-4" : "px-4"}`}
+                      style={{ 
+                        marginTop: studyType === "layer" && isBgLandscape ? "-1px" : "0px"
+                      }}
                     >
                       <div className="flex items-center justify-center mb-2">
                         <div className="flex items-center justify-between w-full max-w-[320px] mx-auto">
@@ -1067,9 +1162,8 @@ export default function TasksPage() {
                           })}
                         </div>
                       </div>
-
-
                     </div>
+
                   </>
                 )}
               </div>
