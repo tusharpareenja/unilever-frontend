@@ -49,7 +49,7 @@ export function ShareStudyModal({ isOpen, onClose, studyId, userRole = 'admin' }
     })();
 
     useEffect(() => {
-        if (studyId && userRole === 'admin') {
+        if (studyId && (userRole === 'admin' || userRole === 'editor')) {
             fetchMembers()
         }
     }, [studyId, userRole])
@@ -349,7 +349,7 @@ export function ShareStudyModal({ isOpen, onClose, studyId, userRole = 'admin' }
                                                                     <Select
                                                                         value={member.role}
                                                                         onValueChange={(val) => handleUpdateRole(member.id, val)}
-                                                                        disabled={isActionLoading}
+                                                                        disabled={isActionLoading || userRole !== 'admin'}
                                                                     >
                                                                         <SelectTrigger className="h-8 border-transparent hover:bg-gray-100 transition-colors text-xs w-24">
                                                                             <SelectValue />
@@ -359,12 +359,14 @@ export function ShareStudyModal({ isOpen, onClose, studyId, userRole = 'admin' }
                                                                             <SelectItem value="viewer">Viewer</SelectItem>
                                                                         </SelectContent>
                                                                     </Select>
-                                                                    <button
-                                                                        onClick={() => handleRemoveMember(member.id)}
-                                                                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-all opacity-0 group-hover:opacity-100"
-                                                                    >
-                                                                        <Trash2 className="w-3.5 h-3.5" />
-                                                                    </button>
+                                                                    {userRole === 'admin' && (
+                                                                        <button
+                                                                            onClick={() => handleRemoveMember(member.id)}
+                                                                            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-all opacity-0 group-hover:opacity-100"
+                                                                        >
+                                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                                        </button>
+                                                                    )}
                                                                 </>
                                                             )}
                                                         </div>

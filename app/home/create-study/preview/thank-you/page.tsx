@@ -76,7 +76,44 @@ export default function ThankYouPage() {
     window.close()
   }
 
-  const totalTasks = Object.keys(responseTimes).length
+  const totalTasks = (() => {
+    try {
+      const matrixRaw = localStorage.getItem('cs_step7_matrix')
+      if (!matrixRaw) return Object.keys(responseTimes).length
+
+      const matrix = JSON.parse(matrixRaw)
+
+      // Extract tasks array from matrix (similar logic to tasks page)
+      let tasksArray: any[] = []
+      if (Array.isArray(matrix)) {
+        tasksArray = matrix
+      } else if (matrix && typeof matrix === 'object') {
+        if (Array.isArray(matrix.preview_tasks)) {
+          tasksArray = matrix.preview_tasks
+        } else if (Array.isArray(matrix.tasks)) {
+          tasksArray = matrix.tasks
+        } else if (matrix.tasks && typeof matrix.tasks === 'object') {
+          const buckets = matrix.tasks as Record<string, any>
+          // Try bucket "0" first
+          if (Array.isArray(buckets["0"]) && buckets["0"].length) {
+            tasksArray = buckets["0"]
+          } else {
+            // Try first available bucket
+            for (const v of Object.values(buckets)) {
+              if (Array.isArray(v) && v.length) {
+                tasksArray = v
+                break
+              }
+            }
+          }
+        }
+      }
+
+      return tasksArray.length || Object.keys(responseTimes).length
+    } catch {
+      return Object.keys(responseTimes).length
+    }
+  })()
 
   // Show loading state until hydrated to prevent hydration mismatches
   if (!isHydrated) {
