@@ -1633,7 +1633,7 @@ export interface StudyMember {
 }
 
 export async function getStudyMembers(studyId: string): Promise<StudyMember[]> {
-  const res = await fetchWithAuth(`${API_BASE_URL}/studies/${studyId}/members/`, {
+  const res = await fetchWithAuth(`${API_BASE_URL}/studies/${studyId}/members`, {
     method: "GET",
     headers: { "Content-Type": "application/json" },
   })
