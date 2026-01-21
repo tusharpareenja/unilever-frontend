@@ -3,7 +3,7 @@ import Google from "next-auth/providers/google"
 import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id"
 import { Tokens } from "@/lib/api/LoginApi"
 
-// Extend NextAuth types
+// Extend NextAuth types??
 declare module "next-auth" {
   interface User {
     backendTokens?: Tokens
