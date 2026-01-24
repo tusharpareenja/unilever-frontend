@@ -297,16 +297,20 @@ export default function ResponseDetailsPage() {
                                 // Case 1: elements_shown_content is an object of strings or objects
                                 if (t.elements_shown_content && typeof t.elements_shown_content === 'object') {
                                   const contentObj: Record<string, any> = t.elements_shown_content as any
-                                  // In some responses, keys here don't match elements_shown_in_task keys.
-                                  // Prefer entries where value is an object having { url, visible: 1 }.
+                                  const shownMap: Record<string, any> = t.elements_shown_in_task || t.elements_shown || {}
+
                                   Object.entries(contentObj).forEach(([key, val]) => {
-                                    if (val && typeof val === 'object' && typeof (val as any).url === 'string') {
-                                      if (Number((val as any).visible ?? 1) === 1) {
-                                        list.push({ url: String((val as any).url), name: key })
+                                    const isVisible = Number(shownMap[key]) === 1 || (val && typeof val === 'object' && Number((val as any).visible) === 1)
+
+                                    if (isVisible) {
+                                      if (val && typeof val === 'object') {
+                                        const url = (val as any).url || (val as any).content
+                                        if (typeof url === 'string' && url) {
+                                          list.push({ url, name: key })
+                                        }
+                                      } else if (typeof val === 'string' && val) {
+                                        list.push({ url: val, name: key })
                                       }
-                                    } else if (typeof val === 'string' && val) {
-                                      // Fallback: include plain string URLs
-                                      list.push({ url: val, name: key })
                                     }
                                   })
                                 }

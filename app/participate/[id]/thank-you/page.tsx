@@ -15,6 +15,7 @@ export default function ThankYouPage() {
   const [isHydrated, setIsHydrated] = useState(false)
   const [redirecting, setRedirecting] = useState(false)
   const [countdown, setCountdown] = useState<number | null>(null)
+  const [totalTasks, setTotalTasks] = useState<number>(0)
 
 
   useEffect(() => {
@@ -135,6 +136,17 @@ export default function ThankYouPage() {
     }
     setResponseId(existingResponseId)
 
+    // Get total tasks from study_session
+    try {
+      const sessionRaw = localStorage.getItem('study_session')
+      if (sessionRaw) {
+        const { totalTasks: count } = JSON.parse(sessionRaw)
+        if (typeof count === 'number') {
+          setTotalTasks(count)
+        }
+      }
+    } catch { }
+
     // If redirected id exists, schedule redirect 2s after thank-you shows
     try {
       const rid = localStorage.getItem('redirect_rid')
@@ -206,7 +218,8 @@ export default function ThankYouPage() {
     }
   }
 
-  const totalTasks = Object.keys(responseTimes).length
+  // No longer use responseTimes for total count as it might be volatile
+  // const totalTasks = Object.keys(responseTimes).length
 
   // Show loading state until hydrated to prevent hydration mismatches
   if (!isHydrated) {
