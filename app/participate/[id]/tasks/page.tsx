@@ -17,6 +17,7 @@ const getCachedUrl = (url: string | undefined): string => {
 
 type Task = {
   id: string
+  type?: "grid" | "layer" | "text"
   leftImageUrl?: string
   rightImageUrl?: string
   leftLabel?: string
@@ -40,7 +41,7 @@ export default function TasksPage() {
     right: "",
     middle: "",
   })
-  const [studyType, setStudyType] = useState<"grid" | "layer" | "text" | undefined>(undefined)
+  const [studyType, setStudyType] = useState<"grid" | "layer" | "text" | "hybrid" | undefined>(undefined)
   const [mainQuestion, setMainQuestion] = useState<string>("")
   const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null)
 
@@ -232,8 +233,13 @@ export default function TasksPage() {
             .sort((a, b) => a.z - b.z)
             .filter((entry) => Boolean(entry.url))
 
+<<<<<<< Updated upstream
           return {
+=======
+          const taskResult: Task = {
+>>>>>>> Stashed changes
             id: String(t?.task_id ?? t?.task_index ?? Math.random()),
+            type: "layer",
             layeredImages: layers,
             _elements_shown: shown,
             _elements_shown_content: content,
@@ -293,6 +299,7 @@ export default function TasksPage() {
           }
         } catch { }
 
+<<<<<<< Updated upstream
         return {
           id: String(t?.task_id ?? t?.task_index ?? Math.random()),
           leftImageUrl: list[0],
@@ -302,6 +309,39 @@ export default function TasksPage() {
           gridUrls: list,
           _elements_shown: es,
           _elements_shown_content: content,
+=======
+          try {
+            if (list.length < 4 && es && typeof es === "object") {
+              const seen = new Set(list)
+              Object.entries(es as Record<string, any>).forEach(([key, val]) => {
+                if (list.length >= 4) return
+                if (typeof val === "string" && key.endsWith("_content") && val.startsWith("http") && !seen.has(val)) {
+                  list.push(val)
+                  seen.add(val)
+                }
+              })
+            }
+          } catch { }
+
+          const isTextTask = activeKeys.some(k => {
+            const elementContent = (content as any)[k]
+            return elementContent?.element_type === 'text'
+          }) || detectedStudyType === 'text'
+
+          const determinedType = t?.phase_type || (isTextTask ? "text" : "grid")
+
+          return {
+            id: String(t?.task_id ?? t?.task_index ?? Math.random()),
+            type: determinedType as "grid" | "text",
+            leftImageUrl: list[0],
+            rightImageUrl: list[1],
+            leftLabel: "",
+            rightLabel: "",
+            gridUrls: list,
+            _elements_shown: es,
+            _elements_shown_content: content,
+          }
+>>>>>>> Stashed changes
         }
       })
 
@@ -629,8 +669,8 @@ export default function TasksPage() {
                   </div>
                 ) : (
                   <>
-                    <div className={`flex-1 flex items-center justify-center min-h-0 overflow-hidden ${studyType === 'layer' && isBgLandscape ? 'px-0' : 'px-2'}`}>
-                      {studyType === "layer" ? (
+                    <div className={`flex-1 flex items-center justify-center min-h-0 overflow-hidden ${task?.type === 'layer' && isBgLandscape ? 'px-0' : 'px-2'}`}>
+                      {task?.type === "layer" ? (
                         <div className="relative w-full h-full flex items-center justify-center">
                           <div ref={previewContainerRef} className={`relative w-full aspect-square ${isBgLandscape ? '' : 'max-w-xs sm:max-w-sm md:max-w-md'}`} style={{ minHeight: 240 }}>
                             {backgroundUrl && (
@@ -734,7 +774,7 @@ export default function TasksPage() {
                             })}
                           </div>
                         </div>
-                      ) : studyType === "text" ? (
+                      ) : task?.type === "text" ? (
                         <div className="w-full h-full flex flex-col items-center justify-center overflow-hidden relative gap-2 sm:gap-4 p-4">
                           {task?.gridUrls?.map((statement, idx) => (
                             <div
@@ -853,7 +893,12 @@ export default function TasksPage() {
                       )}
                     </div>
 
+<<<<<<< Updated upstream
                     {studyType === "grid" && (
+=======
+                    {/* End labels */}
+                    {task?.type === "grid" && (
+>>>>>>> Stashed changes
                       <div className={`grid grid-cols-2 gap-4 text-xs sm:text-sm font-semibold text-gray-800 mb-2 flex-shrink-0 ${isBgLandscape ? 'px-6 sm:px-2' : 'px-2'}`}>
                         <div className="text-center text-balance">{task?.leftLabel ?? ""}</div>
                         <div className="text-center text-balance">{task?.rightLabel ?? ""}</div>
@@ -940,7 +985,7 @@ export default function TasksPage() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {studyType === "layer" ? (
+                    {task?.type === "layer" ? (
                       <div className="flex justify-center">
                         <div ref={previewContainerRefDesktop} className="relative w-full max-w-lg aspect-square overflow-hidden">
                           <div className="relative w-full h-full">
@@ -1042,7 +1087,7 @@ export default function TasksPage() {
                           </div>
                         </div>
                       </div>
-                    ) : studyType === "text" ? (
+                    ) : task?.type === "text" ? (
                       <div className="w-full h-full flex flex-col items-center justify-center overflow-hidden relative gap-4 p-6 min-h-[400px]">
                         {task?.gridUrls?.map((statement, idx) => (
                           <div

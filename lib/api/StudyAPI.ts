@@ -2,7 +2,7 @@
 import { API_BASE_URL } from "./LoginApi"
 
 // Types that mirror backend contract
-export type StudyType = "grid" | "layer" | "text"
+export type StudyType = "grid" | "layer" | "text" | "hybrid"
 
 export interface RatingScalePayload {
   min_value: number
@@ -21,7 +21,7 @@ export interface AgeDistributionPayload {
 }
 
 export interface AudienceSegmentationPayload {
-  number_of_respondents: number
+  number_of_respondents?: number
   country: string
   gender_distribution: GenderDistributionPayload
   age_distribution: AgeDistributionPayload
@@ -42,6 +42,7 @@ export interface CategoryPayload {
   category_id: string
   name: string
   order: number
+  phase_type?: "grid" | "text" // NEW: phase type for hybrid studies
 }
 
 export interface StudyLayerPayload {
@@ -96,6 +97,7 @@ export interface CreateStudyPayload {
   categories?: CategoryPayload[] // NEW: Optional categories for grid studies
   classification_questions?: ClassificationQuestionPayload[] // NEW: Optional classification questions
   background_image_url?: string // NEW: Optional background image for layer studies
+  phase_order?: ("grid" | "text" | "mix")[] // NEW: Phase order for hybrid studies
 }
 
 export interface UploadImageResult {
@@ -140,6 +142,16 @@ function clearTokensAndRedirect() {
   } catch {
     // no-op
   }
+}
+
+// Helper: Safely strip surrounding quotes from an ID (common if retrieved from JSON-stringified storage)
+export function normalizeStudyId(studyId: string): string {
+  if (!studyId) return studyId
+  let id = studyId.trim()
+  if (id.startsWith('"') && id.endsWith('"')) {
+    id = id.slice(1, -1)
+  }
+  return id
 }
 
 // Return a safe no-content response to avoid UI error flashes while redirecting
@@ -300,10 +312,13 @@ export function buildStudyPayloadFromLocalStorage(): CreateStudyPayload {
   const s3 = get("cs_step3", { minValue: 1, maxValue: 5, minLabel: "", maxLabel: "", middleLabel: "" }) as any
   const grid = get<any[]>("cs_step5_grid", [])
   const text = get<any[]>("cs_step5_text", []) // NEW: Get text study data
+  const hybridGrid = get<any[]>("cs_step5_hybrid_grid", []) // NEW: Get hybrid grid data
+  const hybridText = get<any[]>("cs_step5_hybrid_text", []) // NEW: Get hybrid text data
   const layer = get<any[]>("cs_step5_layer", [])
   const layerBackground = get<any | null>("cs_step5_layer_background", null)
   const s6 = get("cs_step6", { respondents: 0, countries: [], genderMale: 0, genderFemale: 0, ageSelections: {} }) as any
   const classificationQuestions = get<any[]>("cs_step4", []) // Get classification questions from localStorage
+  const phaseOrder = get<("grid" | "text")[]>("cs_step5_hybrid_phase_order", ["grid", "text"])
 
   // console.log('Step 1 data:', s1)
   // console.log('Step 2 data:', s2)
@@ -324,69 +339,66 @@ export function buildStudyPayloadFromLocalStorage(): CreateStudyPayload {
   const rawType = s2.type || "grid"
   const normalizedType = rawType.toLowerCase()
 
-  if (normalizedType === "grid" || normalizedType === "text") {
-    // Grid/Text mode: check if using new category format or legacy format
-    const sourceData = normalizedType === "text" ? text : grid
-    const isTextMode = normalizedType === "text"
-    console.log(`=== BUILDING ${isTextMode ? 'TEXT' : 'GRID'} STUDY ELEMENTS ===`)
-    console.log(`${isTextMode ? 'Text' : 'Grid'} data from localStorage:`, JSON.stringify(sourceData, null, 2))
+  if (normalizedType === "grid" || normalizedType === "text" || normalizedType === "hybrid") {
+    // Grid/Text/Hybrid mode: check if using new category format or legacy format
+    const isHybrid = normalizedType === "hybrid"
 
-    // Check if using new category format or legacy format
-    const isCategoryFormat = sourceData.length > 0 && sourceData[0].title && sourceData[0].elements
-    console.log('Is category format:', isCategoryFormat)
+    const buildElements = (sourceData: any[], typeSuffix: "grid" | "text") => {
+      const isTextMode = typeSuffix === "text"
+      const isCategoryFormat = sourceData.length > 0 && sourceData[0].title && sourceData[0].elements
 
-    if (isCategoryFormat) {
-      // New category format: flatten all elements from all categories
-      console.log('Processing category format...')
+      let localCategories: CategoryPayload[] = []
+      let localElements: ElementPayload[] = []
 
-      // Build categories array
-      categories = sourceData.map((category: any, catIdx: number) => ({
-        category_id: String(category.id || `C${catIdx + 1}`),
-        name: String(category.title || `Category ${catIdx + 1}`),
-        order: catIdx,
-      }))
-      console.log('Built categories:', categories)
+      if (isCategoryFormat) {
+        localCategories = sourceData.map((category: any, catIdx: number) => ({
+          category_id: String(category.id || `C_${typeSuffix}_${catIdx + 1}`),
+          name: String(category.title || `Category ${catIdx + 1}`),
+          order: catIdx,
+          phase_type: typeSuffix, // Set phase type based on the phase being built
+        }))
 
-      elements = sourceData
-        .flatMap((category: any, catIdx: number) => {
-          console.log(`Category ${catIdx} (${category.title}):`, {
-            elements_count: category.elements?.length || 0,
-            valid_elements: (category.elements || []).filter((e: any) => isTextMode ? (e?.name && e.name.trim()) : Boolean(e?.secureUrl)).length
+        localElements = sourceData
+          .flatMap((category: any, catIdx: number) => {
+            return (category.elements || [])
+              .filter((e: any) => isTextMode ? (e?.name && e.name.trim()) : Boolean(e?.secureUrl))
+              .map((e: any, idx: number) => ({
+                element_id: String(e.id || crypto.randomUUID?.() || `E_${typeSuffix}_${idx + 1}`),
+                name: e.name || `Element ${idx + 1}`,
+                description: e.description || "",
+                element_type: isTextMode ? "text" : "image",
+                content: isTextMode ? e.name : e.secureUrl,
+                alt_text: e.name || `Element ${idx + 1}`,
+                category_id: String(category.id || `C_${typeSuffix}_${catIdx + 1}`),
+              }))
           })
-          return (category.elements || [])
-            .filter((e: any) => isTextMode ? (e?.name && e.name.trim()) : Boolean(e?.secureUrl))
-            .map((e: any, idx: number) => ({
-              element_id: String(e.id || crypto.randomUUID?.() || `E${idx + 1}`),
-              name: e.name || `Element ${idx + 1}`,
-              description: e.description || "",
-              element_type: isTextMode ? "text" : "image",
-              content: isTextMode ? e.name : e.secureUrl,
-              alt_text: e.name || `Element ${idx + 1}`,
-              category_id: String(category.id || `C${catIdx + 1}`),
-            }))
-        })
-      console.log('Final elements count:', elements.length)
-      console.log('Elements:', elements.map(e => ({ id: e.element_id, name: e.name, content: e.content })))
-    } else {
-      // Legacy format: use elements array directly
-      console.log('Processing legacy format...')
-      const validElements = sourceData.filter(e => isTextMode ? (e.name && e.name.trim()) : e.secureUrl)
-      console.log('Valid elements count:', validElements.length)
-      elements = validElements.map((item, idx) => {
-        // console.log(`Element ${idx}:`, { id: item.id, name: item.name })
-        return {
-          element_id: String(item.id || crypto.randomUUID?.() || `E${idx + 1}`),
-          name: item.name || `Element ${idx + 1}`,
-          description: item.description || "",
-          element_type: isTextMode ? "text" : "image",
-          content: isTextMode ? item.name : item.secureUrl,
-          alt_text: item.name || `Element ${idx + 1}`,
-          category_id: "default-category", // Legacy format uses default category
-        }
-      })
-      console.log('Final elements count:', elements.length)
+      } else {
+        localElements = sourceData
+          .filter(e => isTextMode ? (e.name && e.name.trim()) : e.secureUrl)
+          .map((item, idx) => ({
+            element_id: String(item.id || crypto.randomUUID?.() || `E_${typeSuffix}_${idx + 1}`),
+            name: item.name || `Element ${idx + 1}`,
+            description: item.description || "",
+            element_type: isTextMode ? "text" : "image",
+            content: isTextMode ? item.name : item.secureUrl,
+            alt_text: item.name || `Element ${idx + 1}`,
+            category_id: `default-category-${typeSuffix}`,
+          }))
+      }
+      return { categories: localCategories, elements: localElements }
     }
-    console.log(`=== END BUILDING ${isTextMode ? 'TEXT' : 'GRID'} STUDY ELEMENTS ===`)
+
+    if (isHybrid) {
+      const gridResult = buildElements(hybridGrid, "grid")
+      const textResult = buildElements(hybridText, "text")
+      categories = [...gridResult.categories, ...textResult.categories]
+      elements = [...gridResult.elements, ...textResult.elements]
+    } else {
+      const sourceData = normalizedType === "text" ? text : grid
+      const result = buildElements(sourceData, normalizedType as "grid" | "text")
+      categories = result.categories
+      elements = result.elements
+    }
   } else {
     // For layer mode: use secure URLs directly (images already uploaded)
     // If background present, prepend a background layer at z_index 0
@@ -532,13 +544,13 @@ export function buildStudyPayloadFromLocalStorage(): CreateStudyPayload {
       const validOptions = q.options?.filter((opt: any) => opt.text && opt.text.trim().length > 0) || []
 
       return {
-        question_id: String(q.id || `Q${idx + 1}`).substring(0, 10), // Truncate to 10 characters
+        question_id: String(q.id || `Q${idx + 1}`).substring(0, 10),
         question_text: q.title || "",
         question_type: "multiple_choice", // Default to multiple choice
         is_required: q.required !== false, // Use the required field from Step 4
         order: idx + 1,
         answer_options: validOptions.map((option: any, optIdx: number) => ({
-          id: String(option.id || String.fromCharCode(65 + optIdx)).substring(0, 10), // Truncate to 10 characters
+          id: String(option.id || String.fromCharCode(65 + optIdx)).substring(0, 10),
           text: option.text || "",
           order: optIdx + 1
         })),
@@ -615,9 +627,10 @@ export function buildStudyPayloadFromLocalStorage(): CreateStudyPayload {
         } catch { return {} }
       })()),
     },
-    ...((normalizedType === 'text' || normalizedType === 'grid') ? { elements } : {}), // Only include elements for grid/text
+    ...((normalizedType === 'text' || normalizedType === 'grid' || normalizedType === 'hybrid') ? { elements } : {}), // Include elements for grid, text, or hybrid
     ...(normalizedType === 'layer' ? { study_layers } : {}), // Only include study_layers for layer studies
     categories: categories.length > 0 ? categories : undefined, // NEW: Include categories if any
+    phase_order: normalizedType === 'hybrid' ? (Array.isArray(phaseOrder) ? phaseOrder : [phaseOrder]) : undefined, // NEW: Include phase_order for hybrid
     classification_questions: classification_questions.length > 0 ? classification_questions : undefined, // NEW: Include classification questions if any
     ...(normalizedType === 'layer' && layerBackground && (layerBackground.secureUrl || layerBackground.previewUrl) ? { background_image_url: layerBackground.secureUrl || layerBackground.previewUrl } : {}),
   }
@@ -671,6 +684,7 @@ export interface TaskGenerationCategoryPayload {
   category_id: string
   name: string
   order: number
+  phase_type?: "grid" | "text" // NEW: phase type for hybrid studies
 }
 
 export interface TaskGenerationElementPayload {
@@ -727,10 +741,16 @@ export interface TaskGenerationPayload {
 export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayload {
   const s2 = get("cs_step2", { type: "grid" }) as any
   const s6 = get("cs_step6", { respondents: 0, countries: [], genderMale: 0, genderFemale: 0, ageSelections: {} }) as any
-  const grid = get<any[]>("cs_step5_grid", [])
-  const text = get<any[]>("cs_step5_text", [])
+
+  // Load appropriate Step 5 data based on study type
+  const studyType = String(s2.type || "grid").toLowerCase()
+  const isHybrid = studyType === 'hybrid'
+
+  const grid = get<any[]>(isHybrid ? "cs_step5_hybrid_grid" : "cs_step5_grid", [])
+  const text = get<any[]>(isHybrid ? "cs_step5_hybrid_text" : "cs_step5_text", [])
   const layer = get<any[]>("cs_step5_layer", [])
   const layerBackground = get<any | null>("cs_step5_layer_background", null)
+  const phaseOrder = get<("grid" | "text" | "mix")[]>("cs_step5_hybrid_phase_order", ["grid", "text"])
   // Try to read existing study id from localStorage.
   // The app sometimes stores a plain string or a JSON string — handle both.
   let existingStudyId = get<string | null>("cs_study_id", null)
@@ -749,6 +769,40 @@ export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayl
   console.log('Task generation payload builder - Layer:', layer)
   console.log('Task generation payload builder - Existing Study ID:', existingStudyId)
   console.log('Task generation payload builder - Raw localStorage cs_study_id:', localStorage.getItem('cs_study_id'))
+
+  // Helper to ensure valid UUID format (8-4-4-4-12 hex chars)
+  const ensureUUID = (id: string | undefined | null): string => {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    if (id && uuidRegex.test(id)) return id
+
+    // If not a valid UUID, create a deterministic-ish one from the string
+    if (id && id.length >= 32 && !id.includes('-')) {
+      // Might be a non-hyphenated UUID (32 hex chars)
+      const hexOnly = id.toLowerCase().replace(/[^0-9a-f]/g, '0').padEnd(32, '0')
+      return `${hexOnly.slice(0, 8)}-${hexOnly.slice(8, 12)}-${hexOnly.slice(12, 16)}-${hexOnly.slice(16, 20)}-${hexOnly.slice(20, 32)}`
+    }
+
+    // Generate a proper random UUID v4
+    try {
+      if (typeof window !== 'undefined') {
+        if (window.crypto && (window.crypto as any).randomUUID) {
+          return (window.crypto as any).randomUUID()
+        }
+        if (window.crypto) {
+          // Fallback using getRandomValues if randomUUID is missing (older browsers)
+          return ([1e7] as any + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c: any) =>
+            (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+          )
+        }
+      }
+    } catch { }
+
+    // Manual UUID v4 placeholder (hex only)
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+      const r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8)
+      return v.toString(16)
+    })
+  }
 
   // Build audience segmentation
   const gender_distribution: Record<string, number> = {
@@ -772,82 +826,77 @@ export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayl
   let categories: TaskGenerationCategoryPayload[] = []
   let study_layers: any[] = []
 
-  if ((s2.type as StudyType) === "grid" || (s2.type as StudyType) === "text") {
-    // Grid/Text mode: check if using new category format or legacy format
-    const sourceData = (s2.type as StudyType) === "text" ? text : grid
-    const isTextMode = (s2.type as StudyType) === "text"
-    const isCategoryFormat = sourceData.length > 0 && sourceData[0].title && sourceData[0].elements
+  const stype = s2.type as StudyType
+  if (stype === "grid" || stype === "text" || stype === "hybrid") {
+    // Grid/Text/Hybrid mode: check if using new category format or legacy format
+    const isHybrid = stype === "hybrid"
 
-    if (isCategoryFormat) {
-      // New category format: build categories and elements with category_id
-      console.log(`=== ${isTextMode ? 'TEXT' : 'GRID'} CATEGORY FORMAT DEBUG ===`)
-      console.log(`${isTextMode ? 'Text' : 'Grid'} data:`, JSON.stringify(sourceData, null, 2))
+    const buildElementsForTaskGen = (sourceData: any[], typeSuffix: "grid" | "text") => {
+      const isTextMode = typeSuffix === "text"
+      const isCategoryFormat = sourceData.length > 0 && sourceData[0].title && sourceData[0].elements
 
-      categories = sourceData.map((category: any, catIdx: number) => {
-        const categoryId = String(category.id || `C${catIdx + 1}`).slice(0, 36)
-        console.log(`Category ${catIdx}:`, {
-          id: category.id,
-          title: category.title,
-          elements_count: category.elements?.length || 0,
-          category_id: categoryId
-        })
-        return {
-          category_id: categoryId,
-          name: String(category.title || `Category ${catIdx + 1}`),
-          order: catIdx,
-        }
-      })
+      let localCategories: TaskGenerationCategoryPayload[] = []
+      let localElements: TaskGenerationElementPayload[] = []
 
-      elements = sourceData
-        .flatMap((category: any, catIdx: number) => {
-          const categoryId = String(category.id || `C${catIdx + 1}`).slice(0, 36)
-          console.log(`Processing category ${catIdx} (${category.title}):`, {
+      if (isCategoryFormat) {
+        localCategories = sourceData.map((category: any, catIdx: number) => {
+          const categoryId = ensureUUID(category.id)
+          return {
             category_id: categoryId,
-            elements: category.elements?.length || 0
-          })
+            name: String(category.title || `Category ${catIdx + 1}`),
+            order: catIdx,
+            phase_type: typeSuffix, // Set phase type for hybrid/consistency
+          }
+        })
 
-          return (category.elements || [])
-            .filter((e: any) => isTextMode ? Boolean(e?.name && e.name.trim()) : Boolean(e?.secureUrl))
-            .map((e: any, elIdx: number) => {
-              console.log(`Element ${elIdx} in category ${catIdx}:`, {
-                element_id: e.id,
-                name: e.name,
-                category_id: categoryId,
-                type: isTextMode ? 'text' : 'image'
-              })
-              return {
-                element_id: String(e.id || `E${elIdx + 1}`).slice(0, 36),
+        localElements = sourceData
+          .flatMap((category: any, catIdx: number) => {
+            const categoryId = ensureUUID(category.id)
+            return (category.elements || [])
+              .filter((e: any) => isTextMode ? Boolean(e?.name && e.name.trim()) : Boolean(e?.secureUrl))
+              .map((e: any, elIdx: number) => ({
+                element_id: ensureUUID(e.id),
                 name: String(e.name || `Element ${elIdx + 1}`),
                 description: String(e.description || ""),
                 element_type: isTextMode ? "text" : "image",
                 content: isTextMode ? String(e.name || "") : String(e.secureUrl),
                 alt_text: String(e.name || `Element ${elIdx + 1}`),
                 category_id: categoryId,
-              }
-            })
-        })
-
-      console.log(`=== END ${isTextMode ? 'TEXT' : 'GRID'} CATEGORY FORMAT DEBUG ===`)
-    } else {
-      // Legacy format: create a default category and use elements array directly
-      const defaultCategoryId = "default-category"
-      categories = [{
-        category_id: defaultCategoryId,
-        name: "Default Category",
-        order: 0,
-      }]
-
-      elements = sourceData
-        .filter((e) => isTextMode ? Boolean(e?.name && e.name.trim()) : Boolean(e?.secureUrl))
-        .map((e, idx) => ({
-          element_id: String(e.id || `E${idx + 1}`).slice(0, 36),
-          name: String(e.name || `Element ${idx + 1}`),
-          description: String(e.description || ""),
-          element_type: isTextMode ? "text" : "image",
-          content: isTextMode ? String(e.name || "") : String(e.secureUrl),
-          alt_text: String(e.name || `Element ${idx + 1}`),
+              }))
+          })
+      } else {
+        const defaultCategoryId = ensureUUID(null) // Generate a valid UUID
+        localCategories = [{
           category_id: defaultCategoryId,
-        }))
+          name: "Default Category",
+          order: 0,
+          phase_type: typeSuffix, // Set phase type for hybrid/consistency
+        }]
+        localElements = sourceData
+          .filter((e) => isTextMode ? Boolean(e?.name && e.name.trim()) : Boolean(e?.secureUrl))
+          .map((e, idx) => ({
+            element_id: ensureUUID(e.id),
+            name: String(e.name || `Element ${idx + 1}`),
+            description: String(e.description || ""),
+            element_type: isTextMode ? "text" : "image",
+            content: isTextMode ? String(e.name || "") : String(e.secureUrl),
+            alt_text: String(e.name || `Element ${idx + 1}`),
+            category_id: defaultCategoryId,
+          }))
+      }
+      return { categories: localCategories, elements: localElements }
+    }
+
+    if (isHybrid) {
+      const gridResult = buildElementsForTaskGen(grid, "grid")
+      const textResult = buildElementsForTaskGen(text, "text")
+      categories = [...gridResult.categories, ...textResult.categories]
+      elements = [...gridResult.elements, ...textResult.elements]
+    } else {
+      const sourceData = stype === "text" ? text : grid
+      const result = buildElementsForTaskGen(sourceData, stype as "grid" | "text")
+      categories = result.categories
+      elements = result.elements
     }
   } else {
     // Build study_layers
@@ -1015,7 +1064,8 @@ export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayl
     language,
     main_question: s2.mainQuestion || "",
     orientation_text: s2.orientationText || "",
-    study_type: ((s2.type as StudyType) === 'layer' ? 'layer' : (s2.type as StudyType) === 'text' ? 'text' : 'grid') as StudyType,
+    study_type: ((s2.type as StudyType) === 'layer' ? 'layer' : (s2.type as StudyType) === 'text' ? 'text' : (s2.type as StudyType) === 'hybrid' ? 'hybrid' : 'grid') as StudyType,
+    phase_order: (s2.type as StudyType) === 'hybrid' ? phaseOrder : undefined,
     rating_scale: {
       min_value: Number(s3.minValue ?? 1),
       max_value: Number(s3.maxValue ?? 5),
@@ -1034,6 +1084,7 @@ export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayl
     ...(elements.length > 0 && { elements }),
     ...(study_layers.length > 0 && { study_layers }),
     ...(classification_questions.length > 0 && { classification_questions }),
+    ...((s2.type === 'hybrid') && { phase_order: Array.isArray(phaseOrder) ? phaseOrder : [phaseOrder] }),
     ...(((layerBackground && (layerBackground.secureUrl || layerBackground.previewUrl))) && {
       background_image_url: String(layerBackground.secureUrl || layerBackground.previewUrl)
     }),
@@ -1103,14 +1154,15 @@ export async function generateTasks(payload: TaskGenerationPayload): Promise<any
 
 // Regenerate tasks for a specific study (after creation)
 export async function regenerateTasksForStudy(studyId: string): Promise<any> {
+  const cleanId = normalizeStudyId(studyId)
   console.log('=== HTTP REQUEST TO /studies/{id}/regenerate-tasks ===')
-  console.log('URL:', `${API_BASE_URL}/studies/${studyId}/regenerate-tasks`)
+  console.log('URL:', `${API_BASE_URL}/studies/${cleanId}/regenerate-tasks`)
 
   // Build the same payload as generate tasks
   const taskGenerationPayload = buildTaskGenerationPayloadFromLocalStorage()
   console.log('Regenerate tasks payload:', JSON.stringify(taskGenerationPayload, null, 2))
 
-  const res = await fetchWithAuth(`${API_BASE_URL}/studies/${studyId}/regenerate-tasks`, {
+  const res = await fetchWithAuth(`${API_BASE_URL}/studies/${cleanId}/regenerate-tasks`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(taskGenerationPayload),
@@ -1393,6 +1445,7 @@ export interface StudyDetails {
   background_image_url?: string | null
   aspect_ratio?: string
   last_step?: number // Added for resume functionality
+  phase_order?: ("grid" | "text" | "mix")[] // NEW: Phase order for hybrid studies
   rating_scale: {
     min_value: number
     max_value: number
@@ -1469,10 +1522,11 @@ export type UpdateStudyPutPayload = Partial<{
 
 // Fetch study details by ID
 export async function getStudyDetails(studyId: string): Promise<StudyDetails> {
+  const cleanId = normalizeStudyId(studyId)
   // console.log('=== HTTP REQUEST TO /studies/{id} ===')
-  // console.log('URL:', `${API_BASE_URL}/studies/${studyId}`)
+  // console.log('URL:', `${API_BASE_URL}/studies/${cleanId}`)
 
-  const res = await fetchWithAuth(`${API_BASE_URL}/studies/${studyId}`, {
+  const res = await fetchWithAuth(`${API_BASE_URL}/studies/${cleanId}`, {
     method: "GET",
     headers: { "Content-Type": "application/json" },
   })
@@ -1493,7 +1547,8 @@ export async function getStudyDetails(studyId: string): Promise<StudyDetails> {
 
 // Get study preview for continue editing
 export async function getStudyPreview(studyId: string): Promise<StudyDetails> {
-  const res = await fetchWithAuth(`${API_BASE_URL}/studies/${studyId}/preview`, {
+  const cleanId = normalizeStudyId(studyId)
+  const res = await fetchWithAuth(`${API_BASE_URL}/studies/${cleanId}/preview`, {
     method: "GET",
     headers: { "Content-Type": "application/json" },
   })
@@ -1512,13 +1567,14 @@ export async function getStudyPreview(studyId: string): Promise<StudyDetails> {
 
 // Update study status (pause/activate/complete)
 export async function updateStudyStatus(studyId: string, status: "active" | "paused" | "completed" | "draft"): Promise<StudyDetails> {
+  const cleanId = normalizeStudyId(studyId)
   console.log('=== HTTP REQUEST TO /studies/{id} (PATCH) ===')
-  console.log('URL:', `${API_BASE_URL}/studies/${studyId}`)
+  console.log('URL:', `${API_BASE_URL}/studies/${cleanId}`)
   console.log('Status update:', status)
 
   const payload: UpdateStudyStatusPayload = { status }
 
-  const res = await fetchWithAuth(`${API_BASE_URL}/studies/${studyId}`, {
+  const res = await fetchWithAuth(`${API_BASE_URL}/studies/${cleanId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -1540,6 +1596,7 @@ export async function updateStudyStatus(studyId: string, status: "active" | "pau
 
 // PUT update study (e.g., activate via status change)
 export async function putUpdateStudy(studyId: string, payload: UpdateStudyPutPayload, last_step: number): Promise<StudyDetails> {
+  const cleanId = normalizeStudyId(studyId)
   // Prepare a safe payload: some backend validations reject fields depending on study type
   // e.g., `study_layers` should only be sent for `layer` studies. Read local step2 to decide.
   let safePayload: any = payload || {}
@@ -1579,10 +1636,10 @@ export async function putUpdateStudy(studyId: string, payload: UpdateStudyPutPay
     safePayload.last_step = last_step
   }
 
-  console.log('[API] PUT study update - Study ID:', studyId)
+  console.log('[API] PUT study update - Study ID:', cleanId)
   console.log('[API] PUT study update - Final payload:', JSON.stringify(safePayload, null, 2))
 
-  const res = await fetchWithAuth(`${API_BASE_URL}/studies/${studyId}`, {
+  const res = await fetchWithAuth(`${API_BASE_URL}/studies/${cleanId}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(safePayload),
@@ -1633,7 +1690,8 @@ export interface StudyMember {
 }
 
 export async function getStudyMembers(studyId: string): Promise<StudyMember[]> {
-  const res = await fetchWithAuth(`${API_BASE_URL}/studies/${studyId}/members`, {
+  const cleanId = normalizeStudyId(studyId)
+  const res = await fetchWithAuth(`${API_BASE_URL}/studies/${cleanId}/members`, {
     method: "GET",
     headers: { "Content-Type": "application/json" },
   })
@@ -1646,7 +1704,8 @@ export async function getStudyMembers(studyId: string): Promise<StudyMember[]> {
 }
 
 export async function inviteStudyMember(studyId: string, email: string, role: string): Promise<any> {
-  const res = await fetchWithAuth(`${API_BASE_URL}/studies/${studyId}/members/invite`, {
+  const cleanId = normalizeStudyId(studyId)
+  const res = await fetchWithAuth(`${API_BASE_URL}/studies/${cleanId}/members/invite`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, role }),
@@ -1661,7 +1720,8 @@ export async function inviteStudyMember(studyId: string, email: string, role: st
 }
 
 export async function updateStudyMemberRole(studyId: string, memberId: string, role: string): Promise<any> {
-  const res = await fetchWithAuth(`${API_BASE_URL}/studies/${studyId}/members/${memberId}`, {
+  const cleanId = normalizeStudyId(studyId)
+  const res = await fetchWithAuth(`${API_BASE_URL}/studies/${cleanId}/members/${memberId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ role }),
@@ -1677,7 +1737,8 @@ export async function updateStudyMemberRole(studyId: string, memberId: string, r
 }
 
 export async function removeStudyMember(studyId: string, memberId: string): Promise<any> {
-  const res = await fetchWithAuth(`${API_BASE_URL}/studies/${studyId}/members/${memberId}`, {
+  const cleanId = normalizeStudyId(studyId)
+  const res = await fetchWithAuth(`${API_BASE_URL}/studies/${cleanId}/members/${memberId}`, {
     method: "DELETE",
     headers: { "Content-Type": "application/json" },
   })
@@ -1692,10 +1753,11 @@ export async function removeStudyMember(studyId: string, memberId: string): Prom
 }
 
 export async function getStudyDetailsWithoutAuth(studyId: string): Promise<StudyDetails> {
+  const cleanId = normalizeStudyId(studyId)
   // console.log('=== HTTP REQUEST TO /studies/blic/{id} ===')
-  // console.log('URL:', `${API_BASE_URL}/studies/public/${studyId}`)
+  // console.log('URL:', `${API_BASE_URL}/studies/public/${cleanId}`)
 
-  const res = await fetch(`${API_BASE_URL}/studies/public/${studyId}`, {
+  const res = await fetch(`${API_BASE_URL}/studies/public/${cleanId}`, {
     method: "GET",
     headers: { "Content-Type": "application/json" },
   })
@@ -1716,10 +1778,11 @@ export async function getStudyDetailsWithoutAuth(studyId: string): Promise<Study
 
 // Get study details for start study flow (uses new endpoint)
 export async function getStudyDetailsForStart(studyId: string): Promise<StudyDetails> {
+  const cleanId = normalizeStudyId(studyId)
   // console.log('=== HTTP REQUEST TO /studies/public/{id}/details ===')
-  // console.log('URL:', `${API_BASE_URL}/studies/public/${studyId}/details`)
+  // console.log('URL:', `${API_BASE_URL}/studies/public/${cleanId}/details`)
 
-  const res = await fetch(`${API_BASE_URL}/studies/public/${studyId}/details`, {
+  const res = await fetch(`${API_BASE_URL}/studies/public/${cleanId}/details`, {
     method: "GET",
     headers: { "Content-Type": "application/json" },
   })
@@ -1740,7 +1803,8 @@ export async function getStudyDetailsForStart(studyId: string): Promise<StudyDet
 
 // Fetch private study details by ID (requires authentication and ownership)
 export async function getPrivateStudyDetails(studyId: string): Promise<StudyDetails> {
-  const res = await fetchWithAuth(`${API_BASE_URL}/studies/private/${studyId}`, {
+  const cleanId = normalizeStudyId(studyId)
+  const res = await fetchWithAuth(`${API_BASE_URL}/studies/private/${cleanId}`, {
     method: "GET",
     headers: { "Content-Type": "application/json" },
   })
@@ -1770,7 +1834,8 @@ export async function getPublicShareDetails(studyId: string): Promise<{ id: stri
 
 // Check if the logged-in user is the owner of a study and if study is active
 export async function checkStudyOwnership(studyId: string): Promise<{ is_owner: boolean; is_active: boolean }> {
-  const res = await fetchWithAuth(`${API_BASE_URL}/studies/${studyId}/is-owner`, {
+  const cleanId = normalizeStudyId(studyId)
+  const res = await fetchWithAuth(`${API_BASE_URL}/studies/${cleanId}/is-owner`, {
     method: "GET",
     headers: { "Content-Type": "application/json" },
   })
@@ -1844,8 +1909,9 @@ export async function getStudies(page: number = 1, per_page: number = 1000): Pro
 }
 
 export async function getStudyBasicDetails(studyId: string): Promise<any> {
+  const cleanId = normalizeStudyId(studyId)
   try {
-    const response = await fetch(`${API_BASE_URL}/studies/${studyId}/basic`, {
+    const response = await fetch(`${API_BASE_URL}/studies/${cleanId}/basic`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -1865,13 +1931,14 @@ export async function getStudyBasicDetails(studyId: string): Promise<any> {
 
 // Update Study - Step 2
 export interface UpdateStudyPayload {
-  type: "grid" | "layer" | "text"
+  type: "grid" | "layer" | "text" | "hybrid"
   last_step?: number
   main_question: string
   orientation_text: string
 }
 
 export async function updateStudy(studyId: string, payload: UpdateStudyPayload): Promise<any> {
+  const cleanId = normalizeStudyId(studyId)
   // const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null
   // if (!token) throw new Error("Authentication token not found")
 
@@ -1884,7 +1951,7 @@ export async function updateStudy(studyId: string, payload: UpdateStudyPayload):
 
   console.log('[API] updateStudy - Sending payload:', JSON.stringify(backendPayload, null, 2))
 
-  const res = await fetchWithAuth(`${API_BASE_URL}/studies/${studyId}`, {
+  const res = await fetchWithAuth(`${API_BASE_URL}/studies/${cleanId}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",

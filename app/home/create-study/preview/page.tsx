@@ -171,7 +171,7 @@ export default function ParticipateIntroPage() {
   const studyTitle = step1?.title || "Study Title"
   const estimatedTime = "2-5 minutes"
   const orientationText = step2?.orientationText || "Welcome to the study!"
-  const studyType = step2?.type === "layer" ? "Layer Study" : step2?.type === "text" ? "Text Study" : "Grid Study"
+  const studyType = step2?.type === "layer" ? "Layer Study" : step2?.type === "text" ? "Text Study" : step2?.type === "hybrid" ? "Hybrid Study" : "Grid Study"
 
   // Calculate total number of tasks
   let totalTasks = 0

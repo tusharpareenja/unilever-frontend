@@ -127,7 +127,7 @@ export default function ParticipateIntroPage() {
   // Use real data from API or fallback values
   const studyTitle = studyDetails?.title || "Study Title"
   const estimatedTime = "2-5 minutes" // Keep as requested
-  const studyType = studyDetails?.study_type === "grid" ? "Grid Study" : studyDetails?.study_type === "text" ? "Text Study" : "Layer Study"
+  const studyType = studyDetails?.study_type === "grid" ? "Grid Study" : studyDetails?.study_type === "hybrid" ? "Hybrid Study" : studyDetails?.study_type === "text" ? "Text Study" : "Layer Study"
   const orientationText = studyDetails?.orientation_text || "Welcome to the study!"
   const totalVignettes = studyDetails?.tasks_per_respondent || 3
 

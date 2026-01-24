@@ -188,7 +188,7 @@ export default function StudyResponsesPage() {
                   <Link href={`/home/study/${studyId}`} className="text-blue-200"><span className="text-blue-200">Studies</span></Link>
                   <span className="mx-2">/</span>
                   <span className="text-white">
-                    {study?.study_type === "grid" ? "Grid Study" : study?.study_type === "text" ? "Text Study" : study?.study_type === "layer" ? "Layer Study" : "Loading..."}
+                    {study?.study_type === "grid" ? "Grid Study" : study?.study_type === "hybrid" ? "Hybrid Study" : study?.study_type === "text" ? "Text Study" : study?.study_type === "layer" ? "Layer Study" : "Loading..."}
                   </span>
                 </div>
                 <h1 className="text-2xl font-bold">Study Responses</h1>

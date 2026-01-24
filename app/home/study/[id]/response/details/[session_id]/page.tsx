@@ -114,6 +114,7 @@ export default function ResponseDetailsPage() {
                   <StatRow label="TOTAL DURATION" value={fmtDur(data.total_study_duration)} />
                   <StatRow label="START TIME" value={fmtDate(data.session_start_time)} />
                   <StatRow label="END TIME" value={fmtDate(data.session_end_time)} />
+                  <StatRow label="STUDY TYPE" value={(data as any).study_type || (tasks.length > 0 && tasks.every(t => t.task_type === tasks[0].task_type) ? (tasks[0].task_type === 'grid' ? 'Grid' : tasks[0].task_type === 'text' ? 'Texts' : 'Layer') : 'Hybrid')} />
                 </div>
               </div>
 
@@ -147,12 +148,18 @@ export default function ResponseDetailsPage() {
                                 <div className="text-xs text-gray-500">RATING :</div>
                                 <div className="text-base font-semibold">{t.rating_given ?? '-'}</div>
                               </div>
+                              <div className="mt-2 pt-2 border-t border-gray-100">
+                                <div className="text-xs text-gray-500 uppercase">TASK TYPE :</div>
+                                <div className="text-sm font-medium text-gray-700 capitalize">
+                                  {t.task_type === 'grid' ? 'Grid' : t.task_type === 'text' ? 'Texts' : t.task_type === 'layer' ? 'Layer' : (t as any).phase_type || 'Grid'}
+                                </div>
+                              </div>
                             </div>
                           </div>
 
                           {/* Right: images/elements */}
-                          <div className={t.task_type === 'layer' || t.task_type === 'text' ? "flex justify-center w-full" : "grid grid-cols-2 gap-4 items-center"}>
-                            {t.task_type === 'layer' && (t.elements_shown_content || t.elements_shown) && (
+                          <div className={(t.task_type || (t as any).phase_type) === 'layer' || (t.task_type || (t as any).phase_type) === 'text' ? "flex justify-center w-full" : "grid grid-cols-2 gap-4 items-center"}>
+                            {((t.task_type || (t as any).phase_type) === 'layer') && (t.elements_shown_content || t.elements_shown) && (
                               (() => {
                                 // Process layer elements from elements_shown_content
                                 const layerElements: Array<{ url: string, z: number, alt: string }> = []
@@ -218,7 +225,7 @@ export default function ResponseDetailsPage() {
                                 )
                               })()
                             )}
-                            {t.task_type === 'text' && (
+                            {((t.task_type || (t as any).phase_type) === 'text') && (
                               (() => {
                                 // Process text elements from elements_shown_content
                                 const textElements: Array<{ text: string, name: string }> = []
@@ -282,7 +289,7 @@ export default function ResponseDetailsPage() {
                                 )
                               })()
                             )}
-                            {t.task_type !== 'layer' && t.task_type !== 'text' && (t.task_type === 'grid' || (!!t.elements_shown_in_task || !!t.elements_shown || !!t.elements_shown_content)) && (
+                            {((t.task_type || (t as any).phase_type) !== 'layer' && (t.task_type || (t as any).phase_type) !== 'text') && (
                               (() => {
                                 // Build list of URLs for grid tasks
                                 const list: Array<{ url: string; name?: string; alt_text?: string }> = []

@@ -4,7 +4,8 @@
 import { Fragment, useEffect, useRef, useState, forwardRef } from "react"
 import { Rnd } from "react-rnd"
 import { Button } from "@/components/ui/button"
-import { uploadImages, putUpdateStudyAsync } from "@/lib/api/StudyAPI"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { uploadImages, putUpdateStudyAsync, buildStudyPayloadFromLocalStorage } from "@/lib/api/StudyAPI"
 import { renderLayersToCanvas } from "@/lib/canvas-export"
 
 interface ElementItem {
@@ -118,7 +119,7 @@ interface CategoryItem {
 interface Step5StudyStructureProps {
   onNext: () => void
   onBack: () => void
-  mode?: "grid" | "layer" | "text"
+  mode?: "grid" | "layer" | "text" | "hybrid"
   onDataChange?: () => void
   isReadOnly?: boolean
 }
@@ -156,6 +157,44 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
     return []
   })
 
+  // NEW: States for Hybrid mode phases
+  const [hybridGridCategories, setHybridGridCategories] = useState<CategoryItem[]>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const raw = localStorage.getItem(`cs_step5_hybrid_grid`)
+        if (raw) return JSON.parse(raw)
+      }
+    } catch { }
+    return []
+  })
+
+  const [hybridTextCategories, setHybridTextCategories] = useState<CategoryItem[]>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const raw = localStorage.getItem(`cs_step5_hybrid_text`)
+        if (raw) return JSON.parse(raw)
+      }
+    } catch { }
+    return []
+  })
+
+  const [phaseOrder, setPhaseOrder] = useState<("grid" | "text" | "mix")[] | "mix">(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const raw = localStorage.getItem(`cs_step5_hybrid_phase_order`)
+        if (raw) {
+          const parsed = JSON.parse(raw)
+          if (Array.isArray(parsed) && parsed.length === 1 && parsed[0] === 'mix') return 'mix'
+          return parsed
+        }
+      }
+    } catch { }
+    return ["grid", "text"]
+  })
+
+  const [collapsedPhases, setCollapsedPhases] = useState<Set<number>>(new Set([2])) // Collapse phase 2 by default
+  const [isSwappingPhases, setIsSwappingPhases] = useState(false)
+
   // Re-hydrate when mode changes
   useEffect(() => {
     try {
@@ -183,6 +222,18 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
       hydratedModeRef.current = mode
     }
   }, [mode])
+
+  // NEW: Persist hybrid states
+  useEffect(() => {
+    if (mode !== 'hybrid') return
+    if (typeof window === 'undefined') return
+    localStorage.setItem(`cs_step5_hybrid_grid`, JSON.stringify(hybridGridCategories))
+    localStorage.setItem(`cs_step5_hybrid_text`, JSON.stringify(hybridTextCategories))
+    localStorage.setItem(`cs_step5_hybrid_phase_order`, JSON.stringify(phaseOrder))
+    onDataChange?.()
+    // Dispatch event to refresh stepper
+    window.dispatchEvent(new Event('stepDataChanged'))
+  }, [hybridGridCategories, hybridTextCategories, phaseOrder, mode, onDataChange])
 
   // Legacy support for old format
   const [elements, setElements] = useState<ElementItem[]>(() => {
@@ -227,8 +278,43 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
     })
   }
 
+  // Refactored handlers to be phase-aware
+  const getPhaseData = (p?: "grid" | "text") => {
+    if (mode === 'hybrid') {
+      return p === 'grid'
+        ? { items: hybridGridCategories, setter: setHybridGridCategories }
+        : { items: hybridTextCategories, setter: setHybridTextCategories }
+    }
+    return { items: categories, setter: setCategories }
+  }
+
   // Validation functions
   const areCategoriesValid = () => {
+    if (mode === 'hybrid') {
+      // Grid phase: must have at least 3 categories, each with at least 3 elements
+      const gridHasEnoughCategories = hybridGridCategories.length >= CATEGORY_MIN
+      const gridCategoriesValid = hybridGridCategories.every(cat =>
+        cat.title &&
+        cat.title.trim().length > 0 &&
+        cat.elements &&
+        cat.elements.length >= ELEMENT_MIN &&
+        cat.elements.every(e => e.secureUrl || e.previewUrl)
+      )
+      const isGridValid = gridHasEnoughCategories && gridCategoriesValid
+
+      // Text phase: must have at least 3 categories, each with at least 3 statements
+      const textHasEnoughCategories = hybridTextCategories.length >= CATEGORY_MIN
+      const textCategoriesValid = hybridTextCategories.every(cat =>
+        cat.title &&
+        cat.title.trim().length > 0 &&
+        cat.elements &&
+        cat.elements.length >= ELEMENT_MIN &&
+        cat.elements.every(e => e.name && e.name.trim().length > 0)
+      )
+      const isTextValid = textHasEnoughCategories && textCategoriesValid
+
+      return isGridValid && isTextValid
+    }
     if (categories.length < CATEGORY_MIN) return false
 
     const allBasicValid = categories.every(category =>
@@ -250,6 +336,15 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
   }
 
   const getNextButtonText = () => {
+    if (mode === 'hybrid') {
+      const gridCount = hybridGridCategories.length
+      const textCount = hybridTextCategories.length
+      if (gridCount < CATEGORY_MIN || textCount < CATEGORY_MIN) return `Need ${CATEGORY_MIN}+ categories per phase`
+      const isGridValid = hybridGridCategories.every(cat => cat.elements.length >= ELEMENT_MIN)
+      const isTextValid = hybridTextCategories.every(cat => cat.elements.length >= ELEMENT_MIN)
+      if (!isGridValid || !isTextValid) return `Each category needs ${ELEMENT_MIN}+ elements`
+      return "Save & Next"
+    }
     if (categories.length < CATEGORY_MIN) {
       return `Add at least ${CATEGORY_MIN} categories`
     }
@@ -382,29 +477,39 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
 
   // persist categories
   useEffect(() => {
-    if (mode !== 'grid' && mode !== 'text') return
+    if (mode === 'layer') return
     if (typeof window === 'undefined') return
 
     // CRITICAL: Do not save if we haven't finished loading data for the current mode yet.
     // This prevents overwriting the new mode's storage with the old mode's state during transitions.
     if (hydratedModeRef.current !== mode) return
 
-    const minimal = categories.map(c => ({
-      id: c.id,
-      title: c.title,
-      description: c.description,
-      elements: c.elements.map(e => ({
-        id: e.id,
-        name: e.name,
-        description: e.description,
-        previewUrl: e.previewUrl,
-        secureUrl: e.secureUrl
+    if (mode === 'hybrid') {
+      localStorage.setItem('cs_step5_hybrid_grid', JSON.stringify(hybridGridCategories))
+      localStorage.setItem('cs_step5_hybrid_text', JSON.stringify(hybridTextCategories))
+      localStorage.setItem('cs_step5_hybrid_phase_order', JSON.stringify(phaseOrder))
+    } else {
+      const minimal = categories.map(c => ({
+        id: c.id,
+        title: c.title,
+        description: c.description,
+        elements: c.elements.map(e => ({
+          id: e.id,
+          name: e.name,
+          description: e.description,
+          previewUrl: e.previewUrl,
+          secureUrl: e.secureUrl
+        }))
       }))
-    }))
+      localStorage.setItem(`cs_step5_${mode}`, JSON.stringify(minimal))
+    }
 
-    localStorage.setItem(`cs_step5_${mode}`, JSON.stringify(minimal))
     onDataChange?.()
-  }, [categories, mode, onDataChange])
+    // Dispatch event to refresh stepper (skip hybrid as it has its own handler)
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('stepDataChanged'))
+    }
+  }, [categories, hybridGridCategories, hybridTextCategories, phaseOrder, mode, onDataChange])
 
   // Ensure all grid elements have secureUrl (upload pending ones)
   // const ensureGridUploads = async () => {
@@ -427,10 +532,10 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
   // }
 
   // Category management functions
-  const handleCategoryFiles = async (categoryId: string, files: FileList) => {
+  const handleCategoryFiles = async (categoryId: string, files: FileList, p?: "grid" | "text") => {
+    const { items: currentCategories, setter: setCurrentCategories } = getPhaseData(p)
 
-
-    const category = categories.find(c => c.id === categoryId)
+    const category = currentCategories.find(c => c.id === categoryId)
     if (category && category.elements.length >= ELEMENT_MAX) return
 
     let list = Array.from(files)
@@ -454,10 +559,11 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
 
 
 
-      setCategories(prev => prev.map(c => {
+      setCurrentCategories(prev => prev.map(c => {
         if (c.id === categoryId) {
           const updatedElements = [...c.elements, newElement]
-          if (mode !== 'text') {
+          const isText = mode === 'text' || (mode === 'hybrid' && p === 'text')
+          if (!isText) {
             updatedElements.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
           }
           return { ...c, elements: updatedElements }
@@ -470,7 +576,7 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
     if (list.length > 1) {
       try {
         const results = await uploadImages(list)
-        setCategories(prev => prev.map(c =>
+        setCurrentCategories(prev => prev.map(c =>
           c.id === categoryId
             ? {
               ...c,
@@ -480,7 +586,8 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
                   if (idx !== -1) return { ...e, secureUrl: results[idx]?.secure_url || e.secureUrl }
                   return e
                 })
-                return mode === 'text' ? mapped : mapped.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+                const isText = mode === 'text' || (mode === 'hybrid' && p === 'text')
+                return isText ? mapped : mapped.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
               })()
             }
             : c
@@ -500,7 +607,7 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
       if (pending.length === 0) return
       try {
         const results = await uploadImages(pending.map(p => p.file))
-        setCategories(prev => prev.map(c =>
+        setCurrentCategories(prev => prev.map(c =>
           c.id === categoryId
             ? {
               ...c,
@@ -510,7 +617,8 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
                   if (idx !== -1) return { ...e, secureUrl: results[idx]?.secure_url || e.secureUrl }
                   return e
                 })
-                return mode === 'text' ? mapped : mapped.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+                const isText = mode === 'text' || (mode === 'hybrid' && p === 'text')
+                return isText ? mapped : mapped.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
               })()
             }
             : c
@@ -521,29 +629,33 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
     }, 1000)
   }
 
-  const updateCategoryElement = (categoryId: string, elementId: string, patch: Partial<ElementItem>) => {
-    setCategories(prev => prev.map(c => {
+  const updateCategoryElement = (categoryId: string, elementId: string, patch: Partial<ElementItem>, p?: "grid" | "text") => {
+    const { setter: setCurrentCategories } = getPhaseData(p)
+    setCurrentCategories(prev => prev.map(c => {
       if (c.id === categoryId) {
         const updated = c.elements.map(e => e.id === elementId ? { ...e, ...patch } : e)
+        const isText = mode === 'text' || (mode === 'hybrid' && p === 'text')
         return {
           ...c,
-          elements: mode === 'text' ? updated : updated.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+          elements: isText ? updated : updated.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
         }
       }
       return c
     }))
   }
 
-  const removeCategoryElement = (categoryId: string, elementId: string) => {
-    setCategories(prev => prev.map(c =>
+  const removeCategoryElement = (categoryId: string, elementId: string, p?: "grid" | "text") => {
+    const { setter: setCurrentCategories } = getPhaseData(p)
+    setCurrentCategories(prev => prev.map(c =>
       c.id === categoryId
         ? { ...c, elements: c.elements.filter(e => e.id !== elementId) }
         : c
     ))
   }
 
-  const addTextStatement = (categoryId: string) => {
-    const category = categories.find(c => c.id === categoryId)
+  const addTextStatement = (categoryId: string, p?: "grid" | "text") => {
+    const { items: currentCategories, setter: setCurrentCategories } = getPhaseData(p)
+    const category = currentCategories.find(c => c.id === categoryId)
     if (category && category.elements.length >= ELEMENT_MAX) return
 
     const newElement: ElementItem = {
@@ -552,7 +664,7 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
       description: "",
       previewUrl: "" // Not used for text
     }
-    setCategories(prev => prev.map(c =>
+    setCurrentCategories(prev => prev.map(c =>
       c.id === categoryId
         ? { ...c, elements: [...c.elements, newElement] }
         : c
@@ -568,6 +680,34 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
 
     setNextLoading(true)
     try {
+      if (mode === 'hybrid') {
+        const updatedGrid = await ensureCategoryUploadsGeneric(hybridGridCategories)
+        const updatedText = await ensureCategoryUploadsGeneric(hybridTextCategories)
+        setHybridGridCategories(updatedGrid)
+        setHybridTextCategories(updatedText)
+        localStorage.setItem('cs_step5_hybrid_grid', JSON.stringify(updatedGrid))
+        localStorage.setItem('cs_step5_hybrid_text', JSON.stringify(updatedText))
+        localStorage.setItem('cs_step5_hybrid_phase_order', JSON.stringify(phaseOrder))
+
+        // Sync with backend for hybrid using buildStudyPayloadFromLocalStorage
+        const rawStudyId = localStorage.getItem('cs_study_id')
+        if (rawStudyId) {
+          const studyId = typeof rawStudyId === 'string' && rawStudyId.startsWith('"') ? JSON.parse(rawStudyId) : rawStudyId
+          const payload = buildStudyPayloadFromLocalStorage()
+
+          // NEW: Don't send number_of_respondents in Step 5 as per user request
+          if (payload.audience_segmentation) {
+            delete payload.audience_segmentation.number_of_respondents
+          }
+
+          console.log('[Step5] Hybrid payload:', payload)
+          await putUpdateStudyAsync(studyId, payload, 5)
+        }
+        setNextLoading(false)
+        onNext()
+        return
+      }
+
       // Ensure all category uploads (including preview-only entries) complete
       let uploadedCategories = categories
       if (mode === 'grid') {
@@ -674,6 +814,63 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
   //   }
   // }
 
+  // Generic version of the upload helper that works on any set of categories
+  const ensureCategoryUploadsGeneric = async (targetCategories: CategoryItem[]): Promise<CategoryItem[]> => {
+    const pendingEntries: Array<{ categoryId: string; elementId: string; file?: File; previewUrl?: string }> = []
+    targetCategories.forEach(c =>
+      c.elements.forEach(e => {
+        if (!e.secureUrl) {
+          if (e.file) pendingEntries.push({ categoryId: c.id, elementId: e.id, file: e.file })
+          else if (e.previewUrl) pendingEntries.push({ categoryId: c.id, elementId: e.id, previewUrl: e.previewUrl })
+        }
+      })
+    )
+
+    if (pendingEntries.length === 0) return targetCategories
+
+    const filesToUpload: File[] = []
+    const mapIndex: Array<{ categoryId: string; elementId: string }> = []
+
+    for (const entry of pendingEntries) {
+      if (entry.file) {
+        filesToUpload.push(entry.file)
+        mapIndex.push({ categoryId: entry.categoryId, elementId: entry.elementId })
+      } else if (entry.previewUrl) {
+        try {
+          const res = await fetch(entry.previewUrl)
+          if (!res.ok) throw new Error('Failed to fetch preview URL')
+          const blob = await res.blob()
+          const ext = (entry.previewUrl.split('.').pop() || 'png').split('?')[0]
+          const filename = `${entry.elementId || 'elem'}.${ext}`
+          const file = new File([blob], filename, { type: blob.type || 'image/png' })
+          filesToUpload.push(file)
+          mapIndex.push({ categoryId: entry.categoryId, elementId: entry.elementId })
+        } catch (err) {
+          console.error(`Failed to fetch file for element ${entry.elementId}:`, err)
+        }
+      }
+    }
+
+    if (filesToUpload.length === 0) return targetCategories
+
+    try {
+      const results = await uploadImages(filesToUpload)
+      return targetCategories.map(category => {
+        const updatedElements = category.elements.map(element => {
+          const matchIdx = mapIndex.findIndex(m => m.categoryId === category.id && m.elementId === element.id)
+          if (matchIdx !== -1 && results[matchIdx]) {
+            return { ...element, secureUrl: results[matchIdx].secure_url }
+          }
+          return element
+        })
+        return { ...category, elements: updatedElements }
+      })
+    } catch (e) {
+      console.error('ensureCategoryUploadsGeneric error', e)
+      return targetCategories
+    }
+  }
+
   // Enhanced: upload category images even when only previewUrl exists (no File)
   // Returns the updated categories with secureUrls set
   const ensureCategoryUploadsEnhanced = async (): Promise<CategoryItem[]> => {
@@ -748,48 +945,45 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
     )
   }
 
-  return (
-    <div>
-      <div>
-        <h3 className="text-lg font-semibold text-gray-800">Study Categories</h3>
-        <p className="text-sm text-gray-600">
-          {mode === 'text'
-            ? "Organize your study statements into categories. Each category can contain multiple statements."
-            : "Organize your study elements into categories. Each category can contain multiple elements."
-          }
-        </p>
-      </div>
+  const renderPhaseContent = (p?: "grid" | "text") => {
+    const { items: currentCategories, setter: setCurrentCategories } = getPhaseData(p)
+    const currentMode = mode === 'hybrid' ? p : mode
 
+    const handleAddCategory = () => {
+      if (currentCategories.length >= CATEGORY_MAX) return
+      const newCategory: CategoryItem = {
+        id: crypto.randomUUID(),
+        title: `Category ${currentCategories.length + 1}`,
+        description: "",
+        elements: []
+      }
+      setCurrentCategories(prev => [...prev, newCategory])
+      setCollapsedCategories(prev => {
+        const next = new Set(prev)
+        currentCategories.forEach(c => next.add(c.id))
+        return next
+      })
+    }
+
+    return (
       <div className="mt-6">
         <div className="flex items-center justify-between mb-4">
           <div className="text-sm font-semibold text-gray-800">Category Management</div>
           <Button
             className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] cursor-pointer"
-            onClick={() => {
-              if (categories.length >= CATEGORY_MAX) return
-              const newCategory: CategoryItem = {
-                id: crypto.randomUUID(),
-                title: `Category ${categories.length + 1}`,
-                description: "",
-                elements: []
-              }
-              setCategories(prev => [...prev, newCategory])
-
-              // Auto-collapse all other categories when adding a new one
-              setCollapsedCategories(new Set(categories.map(c => c.id)))
-            }}
-            disabled={categories.length >= CATEGORY_MAX || isReadOnly}
+            onClick={handleAddCategory}
+            disabled={currentCategories.length >= CATEGORY_MAX || isReadOnly}
           >
             + Add Category
           </Button>
         </div>
 
-        <div className="text-xs text-gray-600 mb-4">Min {CATEGORY_MIN}, Max {CATEGORY_MAX}. Current: {categories.length}</div>
+        <div className="text-xs text-gray-600 mb-4">Min {CATEGORY_MIN}, Max {CATEGORY_MAX}. Current: {currentCategories.length}</div>
 
         <div className={isReadOnly ? "opacity-70 pointer-events-none" : ""}>
-          {categories.length > 0 && (
+          {currentCategories.length > 0 && (
             <div className="space-y-4">
-              {categories.map((category, catIdx) => (
+              {currentCategories.map((category, catIdx) => (
                 <div key={category.id} className="border rounded-xl overflow-hidden">
                   <div className="flex items-center justify-between bg-slate-50 px-4 py-2 text-sm text-gray-700">
                     <div className="flex items-center gap-2">
@@ -813,7 +1007,7 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
                         </div>
                       </button>
                     </div>
-                    <Button variant="outline" onClick={() => setCategories(prev => prev.filter(c => c.id !== category.id))} className="px-3 py-1 cursor-pointer">Remove</Button>
+                    <Button variant="outline" onClick={() => setCurrentCategories(prev => prev.filter(c => c.id !== category.id))} className="px-3 py-1 cursor-pointer">Remove</Button>
                   </div>
                   {!collapsedCategories.has(category.id) && (
                     <div className="p-4 space-y-4">
@@ -822,11 +1016,8 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
                           <label className="block text-sm font-semibold text-gray-800 mb-2">Category Title <span className="text-red-500">*</span></label>
                           <input
                             value={category.title}
-                            onChange={(e) => setCategories(prev => prev.map(c => c.id === category.id ? { ...c, title: e.target.value } : c))}
-                            className={`w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] ${!category.title || category.title.trim().length === 0
-                              ? 'border-red-300 bg-red-50'
-                              : 'border-gray-200'
-                              }`}
+                            onChange={(e) => setCurrentCategories(prev => prev.map(c => c.id === category.id ? { ...c, title: e.target.value } : c))}
+                            className={`w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] ${!category.title || category.title.trim().length === 0 ? 'border-red-300 bg-red-50' : 'border-gray-200'}`}
                             placeholder="Enter category title"
                           />
                         </div>
@@ -834,7 +1025,7 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
                           <label className="block text-sm font-semibold text-gray-800 mb-2">Description (Optional)</label>
                           <input
                             value={category.description || ""}
-                            onChange={(e) => setCategories(prev => prev.map(c => c.id === category.id ? { ...c, description: e.target.value } : c))}
+                            onChange={(e) => setCurrentCategories(prev => prev.map(c => c.id === category.id ? { ...c, description: e.target.value } : c))}
                             className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)]"
                             placeholder="Enter category description"
                           />
@@ -843,58 +1034,39 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
 
                       <div>
                         <div className="flex items-center justify-between mb-2">
-                          <div className="text-sm font-semibold text-gray-800">{mode === 'text' ? 'Statements' : 'Elements'} ({category.elements.length})</div>
+                          <div className="flex items-center gap-3">
+                            <div className="text-sm font-semibold text-gray-800">{currentMode === 'text' ? 'Statements' : 'Elements'} ({category.elements.length})</div>
+
+                          </div>
                           <div className="text-[10px] text-gray-500">Min {ELEMENT_MIN}, Max {ELEMENT_MAX}</div>
                         </div>
 
                         {category.elements.length > 0 ? (
-                          mode === 'text' ? (
+                          currentMode === 'text' ? (
                             <div className="space-y-3">
                               {category.elements.map((element, _elIdx) => (
                                 <div key={element.id} className="flex items-center gap-3">
                                   <textarea
                                     value={element.name}
-                                    onChange={(e) => updateCategoryElement(category.id, element.id, { name: e.target.value.slice(0, 150) })}
-                                    onInput={(e) => {
-                                      const target = e.target as HTMLTextAreaElement;
-                                      target.style.height = 'auto';
-                                      target.style.height = target.scrollHeight + 'px';
-                                    }}
+                                    onChange={(e) => updateCategoryElement(category.id, element.id, { name: e.target.value.slice(0, 150) }, p)}
                                     rows={1}
-                                    className={`flex-1 rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] resize-none overflow-hidden min-h-[40px] ${!element.name || element.name.trim().length === 0 ? 'border-red-300 bg-red-50' : 'border-gray-200'
-                                      }`}
+                                    className={`flex-1 rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(38,116,186,0.3)] resize-none overflow-hidden min-h-[40px] ${!element.name || element.name.trim().length === 0 ? 'border-red-300 bg-red-50' : 'border-gray-200'}`}
                                     placeholder="Enter statement... (max 150 chars)"
-                                    style={{ height: 'auto' }}
                                     maxLength={150}
                                   />
-                                  <Button
-                                    variant="outline"
-                                    onClick={() => removeCategoryElement(category.id, element.id)}
-                                    className="w-auto cursor-pointer"
-                                  >
-                                    Remove
-                                  </Button>
+                                  <Button variant="outline" onClick={() => removeCategoryElement(category.id, element.id, p)} className="w-auto cursor-pointer">Remove</Button>
                                 </div>
                               ))}
-                              {/* Add more statements button */}
                               <div className="pt-2">
-                                <Button
-                                  variant="outline"
-                                  className="rounded-full w-full border-dashed border-2"
-                                  onClick={() => addTextStatement(category.id)}
-                                >
-                                  + Add Statement
-                                </Button>
+                                <Button variant="outline" className="rounded-full w-full border-dashed border-2" onClick={() => addTextStatement(category.id, p)}>+ Add Statement</Button>
                               </div>
                             </div>
                           ) : (
-                            // Grid (Image) Mode
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                               {category.elements.map((element, _elIdx) => (
                                 <div key={element.id} className="border rounded-lg p-3">
                                   <div className="aspect-square bg-gray-100 flex items-center justify-center mb-2 rounded-lg">
                                     {(element.secureUrl || element.previewUrl) ? (
-                                      /* eslint-disable-next-line @next/next/no-img-element */
                                       <img src={element.secureUrl || element.previewUrl} alt={element.name} className="max-w-full max-h-full object-contain" />
                                     ) : (
                                       <div className="text-gray-400 text-xs">No Image</div>
@@ -902,100 +1074,42 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
                                   </div>
                                   <input
                                     value={element.name}
-                                    onChange={(e) => updateCategoryElement(category.id, element.id, { name: e.target.value })}
+                                    onChange={(e) => updateCategoryElement(category.id, element.id, { name: e.target.value }, p)}
                                     className="w-full text-xs px-2 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-[rgba(38,116,186,0.3)]"
                                     placeholder="Element name"
                                   />
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => removeCategoryElement(category.id, element.id)}
-                                    className="w-full mt-1 text-xs cursor-pointer"
-                                  >
-                                    Remove
-                                  </Button>
+                                  <Button variant="outline" size="sm" onClick={() => removeCategoryElement(category.id, element.id, p)} className="w-full mt-1 text-xs cursor-pointer">Remove</Button>
                                 </div>
                               ))}
-                              {/* Add more elements button */}
                               <div
                                 className="border-2 border-dashed border-gray-300 rounded-lg p-3 cursor-pointer hover:bg-gray-50 transition-colors flex flex-col items-center justify-center min-h-[120px]"
-                                onDrop={(e) => {
-                                  e.preventDefault()
-                                  handleCategoryFiles(category.id, e.dataTransfer.files)
-                                }}
-                                onDragOver={(e) => {
-                                  e.preventDefault()
-                                  e.dataTransfer.dropEffect = 'copy'
-                                }}
-                                onDragEnter={(e) => {
-                                  e.preventDefault()
-                                  e.currentTarget.classList.add('bg-blue-50', 'border-blue-300')
-                                }}
-                                onDragLeave={(e) => {
-                                  e.preventDefault()
-                                  e.currentTarget.classList.remove('bg-blue-50', 'border-blue-300')
-                                }}
                                 onClick={() => {
-                                  const input = document.createElement('input')
-                                  input.type = 'file'
-                                  input.accept = 'image/*'
-                                  input.multiple = true
-                                  input.onchange = (e) => {
-                                    const files = (e.target as HTMLInputElement).files
-                                    if (files) handleCategoryFiles(category.id, files)
-                                  }
+                                  const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*'; input.multiple = true;
+                                  input.onchange = (e) => { const files = (e.target as HTMLInputElement).files; if (files) handleCategoryFiles(category.id, files, p) };
                                   input.click()
                                 }}
                               >
                                 <div className="text-gray-400 text-2xl mb-1">+</div>
-                                <div className="text-xs text-gray-500 text-center">Click anywhere to add more</div>
+                                <div className="text-xs text-gray-500 text-center">Click to add more</div>
                               </div>
                             </div>
                           )
                         ) : (
-                          mode === 'text' ? (
+                          currentMode === 'text' ? (
                             <div className="text-center py-4">
-                              <Button
-                                variant="outline"
-                                className="rounded-full border-dashed border-2 px-8"
-                                onClick={() => addTextStatement(category.id)}
-                              >
-                                + Add Statement
-                              </Button>
+                              <Button variant="outline" className="rounded-full border-dashed border-2 px-8" onClick={() => addTextStatement(category.id, p)}>+ Add Statement</Button>
                             </div>
                           ) : (
                             <div
                               className="border-2 border-dashed rounded-lg p-6 text-center text-gray-500 cursor-pointer hover:bg-gray-50 transition-colors"
-                              onDrop={(e) => {
-                                e.preventDefault()
-                                handleCategoryFiles(category.id, e.dataTransfer.files)
-                              }}
-                              onDragOver={(e) => {
-                                e.preventDefault()
-                                e.dataTransfer.dropEffect = 'copy'
-                              }}
-                              onDragEnter={(e) => {
-                                e.preventDefault()
-                                e.currentTarget.classList.add('bg-blue-50', 'border-blue-300')
-                              }}
-                              onDragLeave={(e) => {
-                                e.preventDefault()
-                                e.currentTarget.classList.remove('bg-blue-50', 'border-blue-300')
-                              }}
                               onClick={() => {
-                                const input = document.createElement('input')
-                                input.type = 'file'
-                                input.accept = 'image/*'
-                                input.multiple = true
-                                input.onchange = (e) => {
-                                  const files = (e.target as HTMLInputElement).files
-                                  if (files) handleCategoryFiles(category.id, files)
-                                }
+                                const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*'; input.multiple = true;
+                                input.onchange = (e) => { const files = (e.target as HTMLInputElement).files; if (files) handleCategoryFiles(category.id, files, p) };
                                 input.click()
                               }}
                             >
                               <div className="text-sm">No elements added yet</div>
-                              <div className="text-xs">Click anywhere to upload images or drag & drop</div>
+                              <div className="text-xs">Click anywhere to upload images</div>
                             </div>
                           )
                         )}
@@ -1004,30 +1118,21 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
                   )}
                 </div>
               ))}
-              {/* Centered Add Category at bottom */}
-              <div className="flex items-center justify-center pt-2">
-                <Button
-                  className="rounded-full px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] cursor-pointer"
-                  onClick={() => {
-                    if (categories.length >= CATEGORY_MAX) return
-                    const newCategory: CategoryItem = {
-                      id: crypto.randomUUID(),
-                      title: `Category ${categories.length + 1}`,
-                      description: "",
-                      elements: []
-                    }
-                    setCategories(prev => [...prev, newCategory])
-                    setCollapsedCategories(new Set(categories.map(c => c.id)))
-                  }}
-                  disabled={categories.length >= CATEGORY_MAX}
-                >
-                  + Add Category
-                </Button>
-              </div>
             </div>
           )}
 
-          {categories.length === 0 && (
+          {currentCategories.length > 0 && !isReadOnly && (
+            <div className={`mt-6 flex ${mode === 'hybrid' ? 'justify-end' : 'justify-center'}`}>
+              <Button
+                className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] cursor-pointer"
+                onClick={handleAddCategory}
+                disabled={currentCategories.length >= CATEGORY_MAX}
+              >
+                + Add Category
+              </Button>
+            </div>
+          )}
+          {currentCategories.length === 0 && (
             <div className="text-center py-8 text-gray-500">
               <div className="text-sm">No categories added yet</div>
               <div className="text-xs">Click "Add Category" to begin</div>
@@ -1035,18 +1140,133 @@ export function Step5StudyStructure({ onNext, onBack, mode = "grid", onDataChang
           )}
         </div>
       </div>
+    )
+  }
+
+  return (
+    <div className="max-w-5xl mx-auto px-4 py-8">
+      <div className={mode === 'hybrid' ? "-mt-7" : ""}>
+        <h3 className="text-lg font-semibold text-gray-800">Study Structure</h3>
+        <p className="text-sm text-gray-600">
+          {mode === 'hybrid'
+            ? "Configure both phases of your study. Each phase needs at least 3 categories."
+            : mode === 'text'
+              ? "Organize your study statements into categories."
+              : "Organize your study elements into categories."}
+        </p>
+      </div>
+
+      {mode === 'hybrid' ? (
+        <div className="space-y-6 mt-4">
+          <div className="flex justify-end items-center gap-3">
+            <span className="text-sm font-medium text-gray-600">Phase Order:</span>
+            <Select
+              value={Array.isArray(phaseOrder) ? phaseOrder.join('-') : 'mix'}
+              onValueChange={(val) => {
+                if (val === 'mix') {
+                  setPhaseOrder('mix')
+                } else if (val === 'grid-text') {
+                  setPhaseOrder(['grid', 'text'])
+                } else if (val === 'text-grid') {
+                  setPhaseOrder(['text', 'grid'])
+                }
+                setCollapsedPhases(new Set([1, 2])) // Collapse all to highlight change
+                setTimeout(() => setCollapsedPhases(new Set([1])), 500) // Re-expand first one
+              }}
+            >
+              <SelectTrigger className="w-[280px] bg-white border-[rgba(38,116,186,0.3)] text-[rgba(38,116,186,1)]">
+                <SelectValue placeholder="Select phase order" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="grid-text">Phase 1 Grid, Phase 2 Text</SelectItem>
+                <SelectItem value="text-grid">Phase 1 Text, Phase 2 Grid</SelectItem>
+                <SelectItem value="mix">Mix</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {(() => {
+            const displayPhases = (phaseOrder === 'mix' || (Array.isArray(phaseOrder) && phaseOrder[0] === 'mix'))
+              ? (['grid', 'text'] as ("grid" | "text")[])
+              : (phaseOrder as ("grid" | "text")[])
+            return displayPhases.map((phaseType, idx) => {
+              const phaseNum = idx + 1
+              const isExpanded = !collapsedPhases.has(phaseNum)
+              return (
+                <div
+                  key={phaseType}
+                  className={`border rounded-xl shadow-sm bg-white overflow-hidden ${isSwappingPhases ? "hybrid-phase-swap" : ""}`}
+                >
+                  <button
+                    onClick={() => setCollapsedPhases(prev => {
+                      const next = new Set(prev)
+                      if (next.has(phaseNum)) next.delete(phaseNum)
+                      else next.add(phaseNum)
+                      return next
+                    })}
+                    className="w-full px-6 py-4 flex items-center justify-between bg-slate-50 hover:bg-slate-100 transition-colors"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-8 h-8 rounded-full bg-[rgba(38,116,186,1)] text-white flex items-center justify-center font-bold text-sm">
+                        {phaseNum}
+                      </div>
+                      <div className="text-left">
+                        <div className="font-semibold text-gray-900 capitalize">
+                          {(phaseOrder === 'mix' || (Array.isArray(phaseOrder) && phaseOrder[0] === 'mix')) ? (idx === 0 ? 'Phase 1: Grid Phase' : 'Phase 2: Text Phase') : `Phase ${phaseNum}: ${phaseType} Phase`}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {phaseType === 'grid' ? 'Image-based selection' : 'Text-based selection'}
+                        </div>
+                      </div>
+                    </div>
+                    <div className={`transform transition-transform ${isExpanded ? 'rotate-180' : 'rotate-0'}`}>
+                      <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </button>
+                  {isExpanded && (
+                    <div className="px-6 pb-6 border-t">
+                      {renderPhaseContent(phaseType)}
+                    </div>
+                  )}
+                </div>
+              )
+            })
+          })()}
+        </div>
+      ) : (
+        renderPhaseContent()
+      )}
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mt-10">
         <Button variant="outline" className="rounded-full px-6 w-full sm:w-auto cursor-pointer" onClick={onBack}>Back</Button>
         <Button
           className="rounded-full px-6 bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] w-full sm:w-auto cursor-pointer"
           onClick={handleNext}
-          disabled={nextLoading || categories.length < CATEGORY_MIN || !areCategoriesValid()}
+          disabled={nextLoading || !areCategoriesValid()}
         >
           {nextLoading ? 'Uploading...' : getNextButtonText()}
         </Button>
       </div>
-    </div >
+
+      {mode === 'hybrid' && (
+        <style jsx>{`
+          @keyframes hybridPhaseSwap {
+            0% {
+              transform: translateY(6px);
+              opacity: 0.75;
+            }
+            100% {
+              transform: translateY(0px);
+              opacity: 1;
+            }
+          }
+          .hybrid-phase-swap {
+            animation: hybridPhaseSwap 320ms ease;
+          }
+        `}</style>
+      )}
+    </div>
   )
 }
 
@@ -3276,6 +3496,10 @@ function LayerMode({ onNext, onBack, onDataChange, isReadOnly = false }: LayerMo
       localStorage.removeItem('cs_step5_layer_background')
     }
     onDataChange?.()
+    // Dispatch event to refresh stepper
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('stepDataChanged'))
+    }
   }, [layers, background, onDataChange]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Persist preview aspect to local storage when it changes
