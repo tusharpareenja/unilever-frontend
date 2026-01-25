@@ -320,6 +320,29 @@ export async function getStudyTasks(sessionId: string): Promise<any> {
 	return data
 }
 
+/**
+ * Submit Product ID for a session
+ * @param sessionId - The session ID
+ * @param productId - The Product ID entered by the user
+ * @returns Promise with submission result
+ */
+export async function submitProductId(sessionId: string, productId: string): Promise<any> {
+	const response = await fetch(`${API_BASE_URL}/responses/session/${sessionId}/product-id`, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+		},
+		body: JSON.stringify({ product_id: productId }),
+	})
+
+	if (!response.ok) {
+		const errorData = await response.json().catch(() => ({}))
+		throw new Error(`Failed to submit Product ID: ${response.status} ${JSON.stringify(errorData)}`)
+	}
+
+	return response.json().catch(() => ({}))
+}
+
 // Analytics response interface
 export interface StudyAnalytics {
 	total_responses: number
@@ -420,6 +443,7 @@ export interface StudyResponseItem {
 	personal_info?: {
 		gender?: string
 		date_of_birth?: string
+		age?: number
 	}
 	is_completed: boolean
 	is_abandoned: boolean
@@ -493,7 +517,7 @@ export interface ResponseSessionDetails {
 	session_end_time?: string
 	is_completed: boolean
 	background_image_url?: string
-	personal_info?: { gender?: string; date_of_birth?: string }
+	personal_info?: { gender?: string; date_of_birth?: string; age?: number }
 	ip_address?: string
 	user_agent?: string
 	browser_info?: any

@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
+import { checkIsSpecialCreator } from "@/lib/config/specialCreators"
 
 export default function ParticipateIntroPage() {
   const router = useRouter()
@@ -165,6 +166,11 @@ export default function ParticipateIntroPage() {
   // Derive UI strings from steps
   const step1 = (() => { try { return JSON.parse(localStorage.getItem('cs_step1') || '{}') } catch { return {} } })()
   const step2 = (() => { try { return JSON.parse(localStorage.getItem('cs_step2') || '{}') } catch { return {} } })()
+  // Check creator email from step 1 or other source
+  const user = (() => { try { return JSON.parse(localStorage.getItem('user') || '{}') } catch { return {} } })()
+  const userEmail = user?.email || ""
+  const isAdmin = checkIsSpecialCreator(userEmail)
+
   const step6 = (() => { try { return JSON.parse(localStorage.getItem('cs_step6') || '{}') } catch { return {} } })()
   const step7matrix = (() => { try { return JSON.parse(localStorage.getItem('cs_step7_matrix') || '{}') } catch { return {} } })()
 
@@ -309,7 +315,8 @@ export default function ParticipateIntroPage() {
     }
 
     // Preview mode: do not store anything and just navigate within preview flow
-    router.push(startHref)
+    const targetHref = isAdmin ? '/home/create-study/preview/product-id' : startHref
+    router.push(targetHref)
   }
 
   if (isLoading) {

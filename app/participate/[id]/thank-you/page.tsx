@@ -36,6 +36,7 @@ export default function ThankYouPage() {
         responseId: Math.random().toString(36).substring(2, 8).toUpperCase()
       }
       localStorage.setItem('completed_studies', JSON.stringify(completedStudies))
+      localStorage.removeItem('current_study_creator_email')
     } catch (error) {
       console.error('Error marking study as completed:', error)
     }

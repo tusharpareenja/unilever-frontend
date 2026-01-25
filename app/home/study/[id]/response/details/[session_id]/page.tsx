@@ -409,16 +409,17 @@ export default function ResponseDetailsPage() {
                 </div>
                 <div className="p-5 text-sm">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
                     <div>
-                      <div className="text-gray-600">AGE</div>
-                      <div className="font-medium">{data.personal_info?.date_of_birth ? `${Math.max(0, new Date().getFullYear() - new Date(data.personal_info.date_of_birth).getFullYear())}` : '-'}</div>
+                      <div className="text-gray-600 uppercase tracking-wide">AGE</div>
+                      <div className="font-medium">
+                        {data.personal_info?.age ||
+                          (data.personal_info?.date_of_birth ? calculateAge(data.personal_info.date_of_birth) : '-')}
+                      </div>
                     </div>
+
                     <div>
-                      <div className="text-gray-600">DATE OF BIRTH</div>
-                      <div className="font-medium">{data.personal_info?.date_of_birth ?? '-'}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-600">GENDER</div>
+                      <div className="text-gray-600 uppercase tracking-wide">GENDER</div>
                       <div className="font-medium uppercase">{data.personal_info?.gender ?? '-'}</div>
                     </div>
                   </div>

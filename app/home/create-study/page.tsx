@@ -169,8 +169,14 @@ const loadDraftStudyData = async (studyId: string, shouldUpdateStep: boolean = t
           }))
       }))
       localStorage.setItem('cs_step4', JSON.stringify(transformedQuestions))
+      if (typeof studyDetails.toggle_shuffle === 'boolean') {
+        localStorage.setItem('cs_step4_shuffle', String(studyDetails.toggle_shuffle))
+      } else {
+        localStorage.setItem('cs_step4_shuffle', 'false')
+      }
     } else {
       localStorage.setItem('cs_step4', JSON.stringify([]))
+      localStorage.setItem('cs_step4_shuffle', 'false')
     }
 
     // Populate Step 5 - Study Structure (Grid, Layer, Text, or Hybrid)
@@ -714,6 +720,7 @@ export default function CreateStudyPage() {
             'cs_step2',
             'cs_step3',
             'cs_step4',
+            'cs_step4_shuffle',
             'cs_step5_grid',
             'cs_step5_text',
             'cs_step5_hybrid',
@@ -787,6 +794,7 @@ export default function CreateStudyPage() {
               'cs_step2',
               'cs_step3',
               'cs_step4',
+              'cs_step4_shuffle',
               'cs_step5_grid',
               'cs_step5_text',
               'cs_step5_hybrid',

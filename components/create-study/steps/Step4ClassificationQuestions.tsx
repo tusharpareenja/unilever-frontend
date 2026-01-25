@@ -47,6 +47,12 @@ export function Step4ClassificationQuestions({ onNext, onBack, onDataChange, isR
 		return [{ id: crypto.randomUUID(), title: "", required: true, options: [{ id: crypto.randomUUID(), text: "" }, { id: crypto.randomUUID(), text: "" }], isOpen: true }]
 	})
 
+	const [toggleShuffle, setToggleShuffle] = useState<boolean>(() => {
+		try {
+			return localStorage.getItem('cs_step4_shuffle') === 'true'
+		} catch { return false }
+	})
+
 	const [dragIndex, setDragIndex] = useState<number | null>(null)
 	const [overIndex, setOverIndex] = useState<number | null>(null)
 
@@ -57,8 +63,9 @@ export function Step4ClassificationQuestions({ onNext, onBack, onDataChange, isR
 	useEffect(() => {
 		if (typeof window === 'undefined') return
 		localStorage.setItem('cs_step4', JSON.stringify(questions))
+		localStorage.setItem('cs_step4_shuffle', String(toggleShuffle))
 		onDataChange?.()
-	}, [questions, onDataChange])
+	}, [questions, toggleShuffle, onDataChange])
 
 	const addQuestion = () => {
 		setQuestions((prev) => [
@@ -139,13 +146,28 @@ export function Step4ClassificationQuestions({ onNext, onBack, onDataChange, isR
 					<p className="text-sm text-gray-600">Add demographic and classification questions to segment your respondents. These questions will be asked before the main study tasks.</p>
 					<p className="text-sm text-gray-600 mt-1">Age and Gender will be asked by default (no need to put them here).</p>
 				</div>
-				<Button
-					className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)]"
-					onClick={addQuestion}
-					disabled={isReadOnly}
-				>
-					+ Add Question
-				</Button>
+				<div className="flex flex-col gap-2">
+					<div className="flex items-center gap-1 mb-2 px-4 py-2 rounded-full w-fit">
+						<input
+							type="checkbox"
+							id="toggle-shuffle"
+							checked={toggleShuffle}
+							onChange={(e) => setToggleShuffle(e.target.checked)}
+							disabled={isReadOnly}
+							className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+						/>
+						<label htmlFor="toggle-shuffle" className="text-sm font-bold text-blue-800 cursor-pointer select-none">
+							Toggle Shuffle
+						</label>
+					</div>
+					<Button
+						className="bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)]"
+						onClick={addQuestion}
+						disabled={isReadOnly}
+					>
+						+ Add Question
+					</Button>
+				</div>
 			</div>
 
 			<div className={`space-y-4 ${isReadOnly ? "opacity-70 pointer-events-none" : ""}`}>
@@ -361,6 +383,7 @@ export function Step4ClassificationQuestions({ onNext, onBack, onDataChange, isR
 									last_step: 4,
 									study_type: studyType,
 									classification_questions: classification_questions.length > 0 ? classification_questions : undefined,
+									toggle_shuffle: toggleShuffle
 								}
 
 								// Fire background PUT update that includes classification_questions

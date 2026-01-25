@@ -98,6 +98,7 @@ export interface CreateStudyPayload {
   classification_questions?: ClassificationQuestionPayload[] // NEW: Optional classification questions
   background_image_url?: string // NEW: Optional background image for layer studies
   phase_order?: ("grid" | "text" | "mix")[] // NEW: Phase order for hybrid studies
+  toggle_shuffle?: boolean // NEW: Shuffle classification questions
 }
 
 export interface UploadImageResult {
@@ -1497,6 +1498,7 @@ export interface StudyDetails {
   jobId?: string
   progress?: number
   startTime?: number
+  toggle_shuffle?: boolean
 }
 
 export interface UpdateStudyStatusPayload {
@@ -1518,6 +1520,7 @@ export type UpdateStudyPutPayload = Partial<{
   study_layers: StudyLayerPayload[]
   classification_questions: ClassificationQuestionPayload[] // NEW: Include classification questions in updates
   status: "draft" | "active" | "paused" | "completed"
+  toggle_shuffle?: boolean
 }>
 
 // Fetch study details by ID

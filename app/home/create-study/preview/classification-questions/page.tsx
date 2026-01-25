@@ -21,15 +21,22 @@ export default function PreviewClassificationQuestions() {
       try {
         const raw = localStorage.getItem('cs_step4')
         const arr = raw ? JSON.parse(raw) : []
-        const mapped: ClassificationQuestion[] = Array.isArray(arr) 
-          ? arr.map((q: any) => ({ 
-              id: q.id, 
-              text: q.title || q.text, 
-              required: q.required !== false, 
-              options: (q.options||[]).map((o:any)=>({id:o.id,text:o.text})), 
-              selected: null 
-            })) 
+        let mapped: ClassificationQuestion[] = Array.isArray(arr)
+          ? arr.map((q: any) => ({
+            id: q.id,
+            text: q.title || q.text,
+            required: q.required !== false,
+            options: (q.options || []).map((o: any) => ({ id: o.id, text: o.text })),
+            selected: null
+          }))
           : []
+
+        // Shuffle if enabled in localStorage
+        const shouldShuffle = localStorage.getItem('cs_step4_shuffle') === 'true'
+        if (shouldShuffle) {
+          mapped = [...mapped].sort(() => Math.random() - 0.5)
+        }
+
         setQuestions(mapped)
       } catch (error) {
         setQuestions([])
@@ -144,11 +151,10 @@ function Toggle({
   return (
     <button
       onClick={() => onSelect(value)}
-      className={`w-full min-h-11 py-2.5 px-3 rounded-md border text-sm transition-colors whitespace-normal break-words text-center ${
-        active
+      className={`w-full min-h-11 py-2.5 px-3 rounded-md border text-sm transition-colors whitespace-normal break-words text-center ${active
           ? "bg-[rgba(38,116,186,1)] text-white border-[rgba(38,116,186,1)]"
           : "bg-white text-gray-700 border-gray-200 hover:border-gray-300"
-      }`}
+        }`}
     >
       {label}
     </button>
