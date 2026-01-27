@@ -1735,7 +1735,7 @@ export function Step7TaskGeneration({ onNext, onBack, active = false, onDataChan
 
         <div className="rounded-lg border bg-white p-4">
           <div className="text-sm font-semibold mb-2">
-            {studyType === 'layer' ? 'Layer Study Algorithm Details' : studyType === 'text' ? 'Text Study Algorithm Details' : 'Grid Study Algorithm Details'}
+            {studyType === 'layer' ? 'Layer Study Algorithm Details' : studyType === 'text' ? 'Text Study Algorithm Details' : studyType === 'hybrid' ? 'Hybrid Study Algorithm Details' : 'Grid Study Algorithm Details'}
           </div>
           <ul className="text-xs text-gray-600 list-disc pl-5 space-y-1">
             {studyType === 'layer' ? (

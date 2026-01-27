@@ -12,6 +12,7 @@ export default function ParticipateIntroPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [isStarting, setIsStarting] = useState(false)
+  const [isSubmittingBack, setIsSubmittingBack] = useState(false)
   const [studyDetails, setStudyDetails] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [statusError, setStatusError] = useState<string | null>(null)
@@ -443,9 +444,7 @@ export default function ParticipateIntroPage() {
         }
       })()
     } catch (error) {
-
       alert('Failed to start the study. Please try again in a moment.')
-    } finally {
       setIsStarting(false)
     }
   }
@@ -478,10 +477,21 @@ export default function ParticipateIntroPage() {
             <p className="text-lg text-gray-600 mb-6">{statusError}</p>
             <div className="mt-6">
               <button
-                onClick={() => window.history.back()}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                onClick={() => {
+                  setIsSubmittingBack(true)
+                  window.history.back()
+                }}
+                disabled={isSubmittingBack}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 flex items-center justify-center"
               >
-                Go Back
+                {isSubmittingBack ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
+                    Going Back...
+                  </>
+                ) : (
+                  'Go Back'
+                )}
               </button>
             </div>
           </div>

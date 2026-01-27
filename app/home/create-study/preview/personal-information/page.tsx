@@ -88,7 +88,6 @@ export default function PreviewPersonalInformation() {
     // Simulate API call delay for preview
     setTimeout(() => {
       router.push('/home/create-study/preview/classification-questions')
-      setIsSubmitting(false)
     }, 500)
   }
 
@@ -228,6 +227,7 @@ function PanelistSelection({
   const [searchQuery, setSearchQuery] = useState("")
   const [isSearching, setIsSearching] = useState(false)
   const [selectedPanelist, setSelectedPanelist] = useState<Panelist | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Inline Add form state
   const [showAddForm, setShowAddForm] = useState(false)
@@ -284,14 +284,14 @@ function PanelistSelection({
     if (!manualId || !newAge) return
 
     // Validate ID length
-    if (manualId.length !== 8) {
-      setIdError("Panelist ID must be exactly 8 characters.")
+    if (manualId.length > 50) {
+      setIdError("Panelist ID must be at most 50 characters.")
       return
     }
 
     // Validate alphanumeric
-    if (!/^[a-zA-Z0-9]+$/.test(manualId)) {
-      setIdError("Panelist ID must be alphanumeric.")
+    if (!/^[a-zA-Z0-9]{1,50}$/.test(manualId)) {
+      setIdError("Panelist ID must contain only letters and numbers (1–50 characters).")
       return
     }
 
@@ -395,12 +395,12 @@ function PanelistSelection({
                     <div className="space-y-5">
                       <div className="space-y-4">
                         <div className="space-y-1">
-                          <label className="text-xs font-bold text-gray-500 uppercase ml-1 block">Panelist ID (8 Alphanumeric)</label>
+                          <label className="text-xs font-bold text-gray-500 uppercase ml-1 block">Panelist ID (Max 50 characters)</label>
                           <input
                             type="text"
                             value={manualId}
                             onChange={(e) => {
-                              const val = e.target.value.toUpperCase().slice(0, 8);
+                              const val = e.target.value.toUpperCase().slice(0, 50);
                               setManualId(val);
                               if (idError) setIdError("");
                             }}
@@ -445,11 +445,16 @@ function PanelistSelection({
                       <div className="flex flex-col gap-2 pt-2">
                         <Button
                           onClick={handleAddPanelist}
-                          disabled={isAdding || !manualId || !newAge || manualId.length !== 8}
-                          className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-full py-6 h-auto text-sm font-bold shadow-xl shadow-blue-500/20 transition-all active:scale-95 disabled:opacity-50"
+                          disabled={isAdding || !manualId || !newAge || manualId.length > 50}
+                          className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-full py-6 h-auto text-sm font-bold shadow-xl shadow-blue-500/20 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center"
                           style={{ backgroundColor: primaryBlue }}
                         >
-                          {isAdding ? "Registering..." : "Add"}
+                          {isAdding ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                              Registering...
+                            </>
+                          ) : "Add"}
                         </Button>
                         <button onClick={resetForm} className="text-xs font-semibold text-gray-400 hover:text-gray-600 transition-colors py-2">
                           Cancel
@@ -466,15 +471,15 @@ function PanelistSelection({
                         New panelist registered. <br />Save this ID for reference:
                       </p>
 
-                      <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4 mb-8 flex items-center justify-between">
-                        <div className="text-left">
+                      <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4 mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div className="text-left w-full sm:w-auto">
                           <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Panelist ID</div>
-                          <div className="text-lg font-mono font-black text-blue-600 tracking-wider">{newPanelistId}</div>
+                          <div className="text-lg font-mono font-black text-blue-600 tracking-wider break-all">{newPanelistId}</div>
                         </div>
                         <Button
                           onClick={handleCopyId}
                           className={cn(
-                            "rounded-full px-4 h-9 text-xs font-bold transition-all",
+                            "rounded-full px-4 h-9 text-xs font-bold transition-all shrink-0",
                             copied ? "bg-green-500 text-white" : "bg-white text-gray-900 border border-gray-200 hover:border-blue-600 hover:text-blue-600"
                           )}
                         >
@@ -557,12 +562,22 @@ function PanelistSelection({
               )}
             </p>
             <Button
-              onClick={onComplete}
-              disabled={!selectedPanelist}
-              className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-10 h-11 text-sm font-bold transition-all disabled:bg-gray-200 disabled:text-gray-400 shadow-lg shadow-blue-500/10"
+              onClick={() => {
+                setIsSubmitting(true)
+                setTimeout(() => {
+                  onComplete()
+                }, 500)
+              }}
+              disabled={!selectedPanelist || isSubmitting}
+              className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-10 h-11 text-sm font-bold transition-all disabled:bg-gray-200 disabled:text-gray-400 shadow-lg shadow-blue-500/10 flex items-center justify-center"
               style={selectedPanelist ? { backgroundColor: primaryBlue } : {}}
             >
-              Continue Study Preview
+              {isSubmitting ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Continuing...
+                </>
+              ) : "Continue Study Preview"}
             </Button>
           </div>
         </div>

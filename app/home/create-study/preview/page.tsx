@@ -317,6 +317,7 @@ export default function ParticipateIntroPage() {
     // Preview mode: do not store anything and just navigate within preview flow
     const targetHref = isAdmin ? '/home/create-study/preview/product-id' : startHref
     router.push(targetHref)
+    // Removed setIsStarting(false) to maintain loading state during navigation
   }
 
   if (isLoading) {
