@@ -1,14 +1,8 @@
 "use client"
 
-<<<<<<< HEAD
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
-=======
 import { useParams, useRouter } from "next/navigation"
 import { useState, useRef, useEffect, useLayoutEffect } from "react"
->>>>>>> test
 import Image from "next/image"
-import { submitTaskSession, submitTasksBulk } from "@/lib/api/ResponseAPI"
 import { imageCacheManager } from "@/lib/utils/imageCacheManager"
 import { getRespondentStudyDetails, submitTasksBulk } from "@/lib/api/ResponseAPI"
 
@@ -29,7 +23,7 @@ type Task = {
   rightImageUrl?: string
   leftLabel?: string
   rightLabel?: string
-  layeredImages?: Array<{ url: string; z: number }>
+  layeredImages?: Array<{ url: string; z: number; layer_name?: string | null; transform?: { x: number; y: number; width: number; height: number } }>
   gridUrls?: string[]
   compositeLayerUrl?: string
   _elements_shown?: Record<string, unknown>
@@ -38,10 +32,7 @@ type Task = {
 
 export default function TasksPage() {
   const params = useParams<{ id: string }>()
-<<<<<<< HEAD
-=======
   const studyIdFromParams = params.id
->>>>>>> test
   const router = useRouter()
 
   const [tasks, setTasks] = useState<Task[]>([])
@@ -76,7 +67,6 @@ export default function TasksPage() {
   const [bgFitDesktop, setBgFitDesktop] = useState({ left: 0, top: 0, width: 0, height: 0 })
   const bgReadyRefDesktop = useRef(false)
   const [isBgLandscape, setIsBgLandscape] = useState(false)
-  const [aspectRatio, setAspectRatio] = useState<string | null>(null)
 
   // Accumulate responses for bulk submission
   const pendingResponsesRef = useRef<any[]>([])
@@ -112,208 +102,6 @@ export default function TasksPage() {
   }, [])
 
   useEffect(() => {
-<<<<<<< HEAD
-    try {
-      const completedStudies = JSON.parse(localStorage.getItem("completed_studies") || "{}")
-      if (completedStudies[params.id]) {
-        router.push(`/participate/${params.id}/thank-you`)
-        return
-      }
-    } catch { }
-
-    const handlePopState = (event: PopStateEvent) => {
-      event.preventDefault()
-      router.push(`/participate/${params.id}/tasks`)
-    }
-
-    window.addEventListener("popstate", handlePopState)
-
-    try {
-      setIsFetching(true)
-      setFetchError(null)
-
-      const sessionRaw = typeof window !== "undefined" ? localStorage.getItem("study_session") : null
-      const detailsRaw = typeof window !== "undefined" ? localStorage.getItem("current_study_details") : null
-
-      if (!sessionRaw || !detailsRaw) {
-        throw new Error("Missing session or study details in localStorage")
-      }
-
-      const { respondentId } = JSON.parse(sessionRaw || "{}")
-      const study = JSON.parse(detailsRaw || "{}")
-
-      const studyInfo = study?.study_info || study
-      const assignedTasks = study?.assigned_tasks || []
-
-      try {
-        const bg =
-          studyInfo?.metadata?.background_image_url ||
-          study?.metadata?.background_image_url ||
-          studyInfo?.background_image_url
-        if (typeof bg === "string" && bg) {
-          setBackgroundUrl(String(bg))
-        } else {
-          setBackgroundUrl(null)
-        }
-      } catch {
-        setBackgroundUrl(null)
-      }
-
-      const detectedStudyType = studyInfo?.study_type || study?.study_type
-
-      setStudyType(detectedStudyType)
-      setMainQuestion(String(studyInfo?.main_question || study?.main_question || ""))
-
-      // Extract aspect ratio from metadata
-      try {
-        const aspectRatioValue =
-          studyInfo?.metadata?.aspect_ratio ||
-          study?.metadata?.aspect_ratio ||
-          studyInfo?.aspect_ratio ||
-          study?.aspect_ratio
-        if (typeof aspectRatioValue === "string" && aspectRatioValue) {
-          setAspectRatio(aspectRatioValue)
-        } else {
-          setAspectRatio(null)
-        }
-      } catch {
-        setAspectRatio(null)
-      }
-
-      if (studyInfo?.rating_scale || study?.rating_scale) {
-        const rs = studyInfo?.rating_scale || study?.rating_scale || {}
-        const left = rs.min_label ? `${rs.min_label}` : ""
-        const right = rs.max_label ? `${rs.max_label}` : ""
-        const middle = rs.middle_label ? `${rs.middle_label}` : ""
-        setScaleLabels({ left, right, middle })
-      } else {
-        setScaleLabels({ left: "", right: "", middle: "" })
-      }
-
-      let userTasks: any[] = []
-      if (Array.isArray(assignedTasks) && assignedTasks.length > 0) {
-        userTasks = assignedTasks
-      } else {
-        const tasksObj = study?.tasks || study?.data?.tasks || study?.task_map || study?.task || {}
-        const respondentKey = String(respondentId ?? 0)
-        let respondentTasks: any[] = tasksObj?.[respondentKey] || tasksObj?.[Number(respondentKey)] || []
-        if (!Array.isArray(respondentTasks) || respondentTasks.length === 0) {
-          if (Array.isArray(tasksObj)) {
-            respondentTasks = tasksObj
-          } else if (tasksObj && typeof tasksObj === "object") {
-            for (const [k, v] of Object.entries(tasksObj)) {
-              if (Array.isArray(v) && v.length) {
-                respondentTasks = v as any[]
-                break
-              }
-            }
-          }
-        }
-        userTasks = respondentTasks
-      }
-
-      const parsed: Task[] = (Array.isArray(userTasks) ? userTasks : []).map((t: any) => {
-        if ((studyInfo?.study_type as string) === "layer") {
-          const shown = t?.elements_shown || {}
-          const content = t?.elements_shown_content || {}
-
-          const layers = Object.keys(shown)
-            .filter((k) => {
-              const isShown = Number(shown[k]) === 1
-              const hasContent = content?.[k] && content[k] !== null
-              // Check if we have either URL (original format) or transform (compacted format)
-              const hasData = hasContent && (content[k].url || content[k].transform)
-
-              return isShown && hasContent && hasData
-            })
-            .map((k) => {
-              const layerData = content[k]
-              // Handle both formats: original (has url) and compacted (has transform)
-              const url = layerData.url || ''
-              const transform = layerData.transform || { x: 0, y: 0, width: 100, height: 100 }
-
-              return {
-                url: String(url),
-                z: Number(layerData.z_index ?? 0),
-                layer_name: layerData.layer_name || null,
-                transform: transform,
-              }
-            })
-            .sort((a, b) => a.z - b.z)
-
-          const taskResult = {
-            id: String(t?.task_id ?? t?.task_index ?? Math.random()),
-            layeredImages: layers,
-            _elements_shown: shown,
-            _elements_shown_content: content,
-          }
-
-          return taskResult
-        } else {
-          const es = t?.elements_shown || {}
-          const content = t?.elements_shown_content || {}
-          const activeKeys = Object.keys(es).filter((k) => Number(es[k]) === 1)
-
-          const getUrlForKey = (k: string): string | undefined => {
-            const elementContent = (content as any)[k]
-            if (elementContent && typeof elementContent === "object" && elementContent.content) {
-              return elementContent.content
-            }
-
-            const directUrl = (es as any)[`${k}_content`]
-            if (typeof directUrl === "string" && directUrl) return directUrl
-
-            const c1: any = (content as any)[k]
-            if (c1 && typeof c1 === "object" && typeof c1.url === "string") return c1.url
-
-            const c2: any = (content as any)[`${k}_content`]
-            if (c2 && typeof c2 === "object" && typeof c2.url === "string") return c2.url
-            if (typeof c2 === "string") return c2
-
-            const s2: any = (content as any)[k]
-            if (typeof s2 === "string") return s2
-
-            return undefined
-          }
-
-          const list: string[] = []
-          activeKeys.forEach((k) => {
-            const url = getUrlForKey(k)
-            if (typeof url === "string" && url) list.push(url)
-          })
-
-          if (list.length === 0 && content && typeof content === "object") {
-            Object.values(content).forEach((v: any) => {
-              if (v && typeof v === "object" && typeof v.url === "string") list.push(v.url)
-              if (v && typeof v === "object" && v.content) list.push(v.content)
-              if (typeof v === "string") list.push(v)
-            })
-          }
-
-          try {
-            if (list.length < 4 && es && typeof es === "object") {
-              const seen = new Set(list)
-              Object.entries(es as Record<string, any>).forEach(([key, val]) => {
-                if (list.length >= 4) return
-                if (typeof val === "string" && key.endsWith("_content") && val.startsWith("http") && !seen.has(val)) {
-                  list.push(val)
-                  seen.add(val)
-                }
-              })
-            }
-          } catch { }
-
-          return {
-            id: String(t?.task_id ?? t?.task_index ?? Math.random()),
-            leftImageUrl: list[0],
-            rightImageUrl: list[1],
-            leftLabel: "",
-            rightLabel: "",
-            gridUrls: list,
-            _elements_shown: es,
-            _elements_shown_content: content,
-          }
-=======
     const loadData = async () => {
       try {
         setIsFetching(true)
@@ -374,25 +162,12 @@ export default function TasksPage() {
           } else {
             respondentTasks = assigned
           }
->>>>>>> test
         }
 
         const parsed: Task[] = (respondentTasks || []).map((t: any) => {
           const es = t?.elements_shown || {}
           const content = t?.elements_shown_content || {}
 
-<<<<<<< HEAD
-      const cacheStats = imageCacheManager.getCacheStats()
-    } catch (err: unknown) {
-      setFetchError((err as Error)?.message || "Failed to load tasks")
-    } finally {
-      setIsFetching(false)
-    }
-
-    return () => {
-      window.removeEventListener("popstate", handlePopState)
-    }
-=======
           // Determine specific task type (crucial for hybrid)
           let activeType: any = normalizedType
           if (normalizedType === 'hybrid' || (t?.phase_type)) {
@@ -457,11 +232,9 @@ export default function TasksPage() {
       }
     }
     loadData()
->>>>>>> test
   }, [])
 
   const [currentTaskIndex, setCurrentTaskIndex] = useState(0)
-  const [responseTimesSec, setResponseTimesSec] = useState<number[]>([])
   const taskStartRef = useRef<number>(Date.now())
   const [lastSelected, setLastSelected] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -474,7 +247,7 @@ export default function TasksPage() {
   }, [])
 
   useEffect(() => {
-    if (!Array.isArray(tasks) || tasks.length === 0 || studyType === "text") return
+    if (!Array.isArray(tasks) || tasks.length === 0) return
     try {
       const allLayerUrls: string[] = Array.from(
         new Set(
@@ -489,7 +262,7 @@ export default function TasksPage() {
         imageCacheManager.prewarmUrls(allWithBg, "high")
       }
     } catch { }
-  }, [totalTasks, backgroundUrl, studyType])
+  }, [totalTasks, backgroundUrl])
 
   useEffect(() => {
     if (tasks.length === 0) return
@@ -515,9 +288,7 @@ export default function TasksPage() {
         urls.push(backgroundUrl)
       }
 
-      if (urls.length > 0 && studyType !== "text") {
-        await imageCacheManager.prewarmUrls(urls, "critical")
-      }
+      await imageCacheManager.prewarmUrls(urls, "critical")
     }
 
     preloadCurrentTask()
@@ -689,170 +460,13 @@ export default function TasksPage() {
     clickCountsRef.current = {}
   }, [currentTaskIndex])
 
-<<<<<<< HEAD
-  const enqueueTask = (rating: number) => {
-    try {
-      const sessionRaw = localStorage.getItem("study_session")
-      if (!sessionRaw) return
-      const { sessionId } = JSON.parse(sessionRaw)
-      if (!sessionId) return
-
-      const task = tasks[currentTaskIndex]
-      const elapsedMs = Date.now() - taskStartRef.current
-      const seconds = Number((elapsedMs / 1000).toFixed(3))
-
-      const interactions = [1, 2, 3, 4, 5].map((n) => ({
-        element_id: `R${n}`,
-        view_time_seconds: seconds,
-        hover_count: hoverCountsRef.current[n] || 0,
-        click_count: clickCountsRef.current[n] || 0,
-        first_view_time: firstViewTimeRef.current || new Date().toISOString(),
-        last_view_time: new Date().toISOString(),
-      }))
-
-      let payloadShownContent: Record<string, string> | undefined = undefined
-      try {
-        const es: any = task?._elements_shown || {}
-        const content: any = task?._elements_shown_content || {}
-        const result: Record<string, string> = {}
-        if (es && typeof es === "object") {
-          Object.keys(es).forEach((k) => {
-            const s1 = (es as any)[`${k}_content`]
-            if (typeof s1 === "string" && s1.startsWith("http")) {
-              result[k] = s1
-            }
-          })
-        }
-        if (content && typeof content === "object") {
-          Object.keys(content).forEach((k) => {
-            const cv = (content as any)[k]
-            if (typeof cv === "string" && cv.startsWith("http")) {
-              result[k] = cv
-            } else if (cv && typeof cv === "object" && typeof cv.url === "string") {
-              result[k] = cv.url
-            }
-          })
-        }
-        if (Object.keys(result).length > 0) payloadShownContent = result
-      } catch { }
-
-      const item = {
-        task_id: task?.id || String(currentTaskIndex),
-        rating_given: rating,
-        task_duration_seconds: seconds,
-        element_interactions: interactions,
-        elements_shown_in_task: task?._elements_shown,
-        elements_shown_content: payloadShownContent,
-        _idemp: `${sessionId}:${task?.id || String(currentTaskIndex)}`,
-      }
-      const qRaw = localStorage.getItem("task_submit_queue")
-      const q: any[] = qRaw ? JSON.parse(qRaw) : []
-      q.push(item)
-      localStorage.setItem("task_submit_queue", JSON.stringify(q))
-
-      // Progressive flush: send every 15 tasks
-      if (q.length >= 15) {
-        flushQueueInBackground(sessionId)
-      }
-    } catch (e) {
-      console.error("Failed to enqueue task:", e)
-    }
-  }
-
-  // Helper: flush queue in background without blocking UI
-  const flushQueueInBackground = (sessionId: string) => {
-    try {
-      const qRaw = localStorage.getItem("task_submit_queue")
-      const q: any[] = qRaw ? JSON.parse(qRaw) : []
-      if (!Array.isArray(q) || q.length === 0) return
-
-      // Take items to send
-      const tasksToSend = q.map((it) => ({
-        task_id: it.task_id,
-        rating_given: it.rating_given,
-        task_duration_seconds: it.task_duration_seconds,
-        element_interactions: Array.isArray(it.element_interactions)
-          ? it.element_interactions.slice(0, 10)
-          : [],
-        elements_shown_in_task: it.elements_shown_in_task || undefined,
-        elements_shown_content: it.elements_shown_content || undefined,
-      }))
-
-      // Clear queue immediately (optimistic)
-      localStorage.removeItem("task_submit_queue")
-
-      // Send in background
-      submitTasksBulk(String(sessionId), tasksToSend)
-        .catch((e) => {
-          console.error("Background flush failed:", e)
-          // Re-queue failed items for ThankYouPage retry
-          try {
-            const existingRaw = localStorage.getItem("task_submit_queue")
-            const existing: any[] = existingRaw ? JSON.parse(existingRaw) : []
-            localStorage.setItem("task_submit_queue", JSON.stringify([...existing, ...q]))
-          } catch { }
-        })
-    } catch { }
-  }
-
-  const submitSessionInBackground = async () => {
-    try {
-      const sessionRaw = localStorage.getItem("study_session")
-      if (!sessionRaw) return
-      const { sessionId } = JSON.parse(sessionRaw)
-      if (!sessionId) return
-
-      const metrics = JSON.parse(localStorage.getItem("session_metrics") || "{}")
-      const timesMap = JSON.parse(localStorage.getItem("study_response_times") || "{}") as Record<string, number>
-      const individual = Object.keys(timesMap)
-        .sort((a, b) => Number(a.replace(/\D/g, "")) - Number(b.replace(/\D/g, "")))
-        .map((k) => Number(timesMap[k] || 0))
-
-      const payload = {
-        session_id: String(sessionId),
-        task_id: tasks?.[tasks.length - 1]?.id || String(tasks.length - 1),
-        classification_page_time: Number(metrics.classification_page_time || 0),
-        orientation_page_time: Number(metrics.orientation_page_time || 0),
-        individual_task_page_times: individual,
-        page_transitions: [],
-        is_completed: true,
-        abandonment_timestamp: null,
-        abandonment_reason: null,
-        recovery_attempts: 0,
-        browser_performance: {},
-        page_load_times: [],
-        device_info: {},
-        screen_resolution: typeof window !== "undefined" ? `${window.screen.width}x${window.screen.height}` : "",
-      }
-
-      submitTaskSession(payload).catch((e) => console.error("submitTaskSession error:", e))
-    } catch (e) {
-      console.error("Failed to submit task session:", e)
-    }
-  }
-
-  const handleSelect = (value: number) => {
-=======
   const handleSelect = async (value: number) => {
->>>>>>> test
     clickCountsRef.current[value] = (clickCountsRef.current[value] || 0) + 1
 
     const elapsedMs = Date.now() - taskStartRef.current
     const seconds = Number((elapsedMs / 1000).toFixed(3))
-    setResponseTimesSec((prev) => {
-      const next = [...prev]
-      next[currentTaskIndex] = seconds
-      return next
-    })
     setLastSelected(value)
-
-    const updatedTimes = [...responseTimesSec]
-    updatedTimes[currentTaskIndex] = seconds
-    const localStorageData: Record<string, number> = {}
-    updatedTimes.forEach((time, index) => {
-      localStorageData[`task${index + 1}`] = time
-    })
-    localStorage.setItem("study_response_times", JSON.stringify(localStorageData))
+    lastViewTimeRef.current = new Date().toISOString()
 
     // 1. Calculate payload for this task
     const currentTask = tasks[currentTaskIndex]
@@ -907,35 +521,10 @@ export default function TasksPage() {
     if (!isLastTask) {
       setTimeout(() => setCurrentTaskIndex((i) => i + 1), 80)
     } else {
-      // Final task: show brief loading, fire completion, flush remaining, then navigate
       setIsLoading(true)
-<<<<<<< HEAD
-
-      // Fire completion signal immediately
-      submitSessionInBackground()
-
-      // Flush any remaining tasks in the queue
-      const doFinalFlush = () => {
-        try {
-          const sessionRaw = localStorage.getItem("study_session")
-          const { sessionId } = sessionRaw ? JSON.parse(sessionRaw) : { sessionId: null }
-          if (sessionId) {
-            flushQueueInBackground(sessionId)
-          }
-        } catch { }
-      }
-
-      doFinalFlush()
-
-      // Navigate after 1 second (brief loading screen)
-      setTimeout(() => {
-        router.push(`/participate/${params.id}/thank-you`)
-      }, 1000)
-=======
       setTimeout(() => {
         router.push(`/participate/${studyIdFromParams}/thank-you`)
       }, 600)
->>>>>>> test
     }
   }
 
@@ -1228,7 +817,6 @@ export default function TasksPage() {
                       )}
                     </div>
 
-                    {/* End labels */}
                     {studyType === "grid" && (
                       <div className={`grid grid-cols-2 gap-4 text-xs sm:text-sm font-semibold text-gray-800 mb-2 flex-shrink-0 ${isBgLandscape ? 'px-6 sm:px-2' : 'px-2'}`}>
                         <div className="text-center text-balance">{task?.leftLabel ?? ""}</div>
@@ -1288,8 +876,9 @@ export default function TasksPage() {
                           })}
                         </div>
                       </div>
-                    </div>
 
+
+                    </div>
                   </>
                 )}
               </div>
@@ -1640,6 +1229,6 @@ export default function TasksPage() {
           </>
         )}
       </div>
-    </div>
+    </div >
   )
 }
