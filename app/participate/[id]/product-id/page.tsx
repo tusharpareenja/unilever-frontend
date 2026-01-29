@@ -50,7 +50,6 @@ export default function ProductIdPage() {
         } catch (error) {
             console.error("Failed to submit product ID:", error)
             alert("Failed to save Product ID. Please try again or clear it to skip.")
-        } finally {
             setIsSubmitting(false)
         }
     }
@@ -90,13 +89,16 @@ export default function ProductIdPage() {
                     <button
                         onClick={handlePrimaryAction}
                         disabled={isSubmitting}
-                        className="w-full flex justify-center py-2 px-4 text-sm font-medium rounded-md text-white bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[rgba(38,116,186,1)] disabled:bg-gray-400"
+                        className="w-full flex justify-center items-center py-2 px-4 text-sm font-medium rounded-md text-white bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[rgba(38,116,186,1)] disabled:bg-gray-400"
                     >
-                        {isSubmitting
-                            ? "Submitting..."
-                            : isProductEntered
-                                ? "Next"
-                                : "Skip"}
+                        {isSubmitting ? (
+                            <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                Submitting...
+                            </>
+                        ) : isProductEntered
+                            ? "Next"
+                            : "Skip"}
                     </button>
                 </div>
             </div>

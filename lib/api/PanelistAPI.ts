@@ -2,7 +2,6 @@ import { API_BASE_URL } from './LoginApi'
 
 export interface Panelist {
     id: string
-    name: string
     age: number
     gender: string
     creator_email: string
@@ -10,7 +9,7 @@ export interface Panelist {
 }
 
 export interface PanelistPayload {
-    name: string
+    id: string
     age: number
     gender: string
     creator_email: string
