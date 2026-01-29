@@ -1,7 +1,8 @@
 
 export const SPECIAL_CREATOR_EMAILS = [
     'tusharpareenja@gmail.com',
-    'dlovej009@gmail.com'
+    'dlovej009@gmail.com',
+    "j.b.fitterman@gmail.com",
 ]
 
 /**
