@@ -119,6 +119,42 @@ function isStepCompleted(stepId: number): boolean {
               category.elements.length >= 3 &&
               category.elements.every((element: any) => element.name && element.name.trim().length > 0)
             )
+        } else if (step2.type === 'hybrid') {
+          const hybridGridData = localStorage.getItem('cs_step5_hybrid_grid')
+          const hybridTextData = localStorage.getItem('cs_step5_hybrid_text')
+
+          if (!hybridGridData || !hybridTextData) return false
+
+          try {
+            const grid = JSON.parse(hybridGridData)
+            const text = JSON.parse(hybridTextData)
+
+            const isGridValid = Array.isArray(grid) &&
+              grid.length >= 3 &&
+              grid.every((category: any) =>
+                category.title &&
+                category.title.trim().length > 0 &&
+                category.elements &&
+                Array.isArray(category.elements) &&
+                category.elements.length >= 3 &&
+                category.elements.every((element: any) => element.secureUrl || element.previewUrl)
+              )
+
+            const isTextValid = Array.isArray(text) &&
+              text.length >= 3 &&
+              text.every((category: any) =>
+                category.title &&
+                category.title.trim().length > 0 &&
+                category.elements &&
+                Array.isArray(category.elements) &&
+                category.elements.length >= 3 &&
+                category.elements.every((element: any) => element.name && element.name.trim().length > 0)
+              )
+
+            return isGridValid && isTextValid
+          } catch {
+            return false
+          }
         } else {
           if (!layerData) return false
           const layer = JSON.parse(layerData)

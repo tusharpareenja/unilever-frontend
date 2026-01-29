@@ -17,6 +17,7 @@ const getCachedUrl = (url: string | undefined): string => {
 
 type Task = {
   id: string
+  type?: "grid" | "layer" | "text"
   leftImageUrl?: string
   rightImageUrl?: string
   leftLabel?: string
@@ -40,7 +41,7 @@ export default function TasksPage() {
     right: "",
     middle: "",
   })
-  const [studyType, setStudyType] = useState<"grid" | "layer" | "text" | undefined>(undefined)
+  const [studyType, setStudyType] = useState<"grid" | "layer" | "text" | "hybrid" | undefined>(undefined)
   const [mainQuestion, setMainQuestion] = useState<string>("")
   const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null)
 
@@ -116,13 +117,15 @@ export default function TasksPage() {
       const typeNorm = (matrix?.metadata?.study_type || s2?.study_type || s2?.metadata?.study_type || s2?.type || "")
         .toString()
         .toLowerCase()
-      const normalizedType: "grid" | "layer" | "text" | undefined = typeNorm.includes("layer")
+      const normalizedType: "grid" | "layer" | "text" | "hybrid" | undefined = typeNorm.includes("layer")
         ? "layer"
         : typeNorm.includes("text")
           ? "text"
-          : typeNorm.includes("grid")
-            ? "grid"
-            : undefined
+          : typeNorm.includes("hybrid")
+            ? "hybrid"
+            : typeNorm.includes("grid")
+              ? "grid"
+              : undefined
       setStudyType(normalizedType)
 
       setMainQuestion(String(s2?.mainQuestion || s2?.main_question || s2?.question || ""))
@@ -195,13 +198,13 @@ export default function TasksPage() {
       }
 
       const parsed: Task[] = (Array.isArray(respondentTasks) ? respondentTasks : []).map((t: any) => {
-        if (normalizedType === "layer") {
-          const shown = t?.elements_shown || {}
-          const content = t?.elements_shown_content || {}
+        const es = t?.elements_shown || {}
+        const content = t?.elements_shown_content || {}
 
-          const layers = Object.keys(shown)
+        if (normalizedType === "layer") {
+          const layers = Object.keys(es)
             .filter((k) => {
-              const isShown = Number(shown[k]) === 1
+              const isShown = Number(es[k]) === 1
               const hasContent = content?.[k] && content[k] !== null
               const hasData = hasContent && (content[k].url || content[k].transform || content[k].previewUrl || content[k].secureUrl)
               return isShown && hasContent && hasData
@@ -234,17 +237,22 @@ export default function TasksPage() {
 
           return {
             id: String(t?.task_id ?? t?.task_index ?? Math.random()),
+            type: "layer",
             layeredImages: layers,
-            _elements_shown: shown,
+            _elements_shown: es,
             _elements_shown_content: content,
           }
         }
 
-        const es = t?.elements_shown || {}
-        const content = t?.elements_shown_content || {}
         const activeKeys = Object.keys(es).filter((k) => Number(es[k]) === 1)
 
-        const getUrlForKey = (k: string): string | undefined => {
+        // Determine if this is a text task (for hybrid or text studies)
+        const isTextTask = activeKeys.some(k => {
+          const elementContent = (content as any)[k]
+          return elementContent?.element_type === 'text'
+        }) || normalizedType === 'text'
+
+        const getUrlOrContentForKey = (k: string): string | undefined => {
           const elementContent = (content as any)[k]
           if (elementContent && typeof elementContent === "object" && elementContent.content) {
             return elementContent.content
@@ -268,8 +276,8 @@ export default function TasksPage() {
 
         const list: string[] = []
         activeKeys.forEach((k) => {
-          const url = getUrlForKey(k)
-          if (typeof url === "string" && url) list.push(url)
+          const val = getUrlOrContentForKey(k)
+          if (typeof val === "string" && val) list.push(val)
         })
 
         if (list.length === 0 && content && typeof content === "object") {
@@ -280,23 +288,27 @@ export default function TasksPage() {
           })
         }
 
-        try {
-          if (list.length < 4 && es && typeof es === "object") {
-            const seen = new Set(list)
-            Object.entries(es as Record<string, any>).forEach(([key, val]) => {
-              if (list.length >= 4) return
-              if (typeof val === "string" && key.endsWith("_content") && val.startsWith("http") && !seen.has(val)) {
-                list.push(val)
-                seen.add(val)
-              }
-            })
-          }
-        } catch { }
+        // Only search for extra images if not a text task
+        if (!isTextTask) {
+          try {
+            if (list.length < 4 && es && typeof es === "object") {
+              const seen = new Set(list)
+              Object.entries(es as Record<string, any>).forEach(([key, val]) => {
+                if (list.length >= 4) return
+                if (typeof val === "string" && key.endsWith("_content") && val.startsWith("http") && !seen.has(val)) {
+                  list.push(val)
+                  seen.add(val)
+                }
+              })
+            }
+          } catch { }
+        }
 
         return {
           id: String(t?.task_id ?? t?.task_index ?? Math.random()),
-          leftImageUrl: list[0],
-          rightImageUrl: list[1],
+          type: isTextTask ? "text" : "grid",
+          leftImageUrl: isTextTask ? undefined : list[0],
+          rightImageUrl: isTextTask ? undefined : list[1],
           leftLabel: "",
           rightLabel: "",
           gridUrls: list,
@@ -629,8 +641,8 @@ export default function TasksPage() {
                   </div>
                 ) : (
                   <>
-                    <div className={`flex-1 flex items-center justify-center min-h-0 overflow-hidden ${studyType === 'layer' && isBgLandscape ? 'px-0' : 'px-2'}`}>
-                      {studyType === "layer" ? (
+                    <div className={`flex-1 flex items-center justify-center min-h-0 overflow-hidden ${(task?.type === 'layer') && isBgLandscape ? 'px-0' : 'px-2'}`}>
+                      {task?.type === "layer" ? (
                         <div className="relative w-full h-full flex items-center justify-center">
                           <div ref={previewContainerRef} className={`relative w-full aspect-square ${isBgLandscape ? '' : 'max-w-xs sm:max-w-sm md:max-w-md'}`} style={{ minHeight: 240 }}>
                             {backgroundUrl && (
@@ -734,7 +746,7 @@ export default function TasksPage() {
                             })}
                           </div>
                         </div>
-                      ) : studyType === "text" ? (
+                      ) : task?.type === "text" ? (
                         <div className="w-full h-full flex flex-col items-center justify-center overflow-hidden relative gap-2 sm:gap-4 p-4">
                           {task?.gridUrls?.map((statement, idx) => (
                             <div
@@ -940,7 +952,7 @@ export default function TasksPage() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {studyType === "layer" ? (
+                    {task?.type === "layer" ? (
                       <div className="flex justify-center">
                         <div ref={previewContainerRefDesktop} className="relative w-full max-w-lg aspect-square overflow-hidden">
                           <div className="relative w-full h-full">
@@ -1042,7 +1054,7 @@ export default function TasksPage() {
                           </div>
                         </div>
                       </div>
-                    ) : studyType === "text" ? (
+                    ) : task?.type === "text" ? (
                       <div className="w-full h-full flex flex-col items-center justify-center overflow-hidden relative gap-4 p-6 min-h-[400px]">
                         {task?.gridUrls?.map((statement, idx) => (
                           <div

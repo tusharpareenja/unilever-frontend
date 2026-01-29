@@ -29,10 +29,12 @@ export function Step8LaunchPreview({ onBack, onDataChange, isReadOnly = false, u
 
   const step1 = get('cs_step1', { title: '', description: '', language: '' })
   const step2 = get('cs_step2', { type: 'grid', mainQuestion: '', orientationText: '' })
+  const isHybrid = step2.type === 'hybrid'
+  const phaseOrder = get<("grid" | "text" | "mix")[] | "mix">('cs_step5_hybrid_phase_order', ["grid", "text"])
   const step3 = get('cs_step3', { minValue: 1, maxValue: 5, minLabel: '', maxLabel: '', middleLabel: '' })
   const step4 = get('cs_step4', [])
-  const gridData = get<any>('cs_step5_grid', [])
-  const textData = get<any>('cs_step5_text', [])
+  const gridData = get<any>(isHybrid ? 'cs_step5_hybrid_grid' : 'cs_step5_grid', [])
+  const textData = get<any>(isHybrid ? 'cs_step5_hybrid_text' : 'cs_step5_text', [])
   const layerData = get<any>('cs_step5_layer', [])
   const step6 = get('cs_step6', { respondents: 0, countries: [], genderMale: 0, genderFemale: 0, ageSelections: {} })
 
@@ -263,7 +265,8 @@ export function Step8LaunchPreview({ onBack, onDataChange, isReadOnly = false, u
         // Clear all step data from localStorage (including cached step7 matrix)
         clearStoredStudyId()
         const keysToRemove = [
-          'cs_step1', 'cs_step2', 'cs_step3', 'cs_step4', 'cs_step5_grid', 'cs_step5_layer', 'cs_step5_layer_background',
+          'cs_step1', 'cs_step2', 'cs_step3', 'cs_step4', 'cs_step5_grid', 'cs_step5_text', 'cs_step5_hybrid', 'cs_step5_layer', 'cs_step5_layer_background',
+          'cs_step5_hybrid_grid', 'cs_step5_hybrid_text', 'cs_step5_hybrid_phase_order',
           'cs_step6', 'cs_step7', 'cs_step7_tasks', 'cs_step7_matrix', 'cs_step7_meta', 'cs_step7_signature',
           'cs_step8', 'cs_current_step', 'cs_backup_steps', 'cs_study_id', 'cs_flash_message'
         ]
@@ -399,7 +402,9 @@ export function Step8LaunchPreview({ onBack, onDataChange, isReadOnly = false, u
         )}
 
         <section className="rounded-lg border bg-white p-4">
-          <div className="text-sm font-semibold mb-2">{hasText ? 'Study Statements' : 'Study Elements'}</div>
+          <div className="text-sm font-semibold mb-2">
+            {step2.type === 'hybrid' ? 'Study Components (Hybrid)' : (hasText ? 'Study Statements' : 'Study Elements')}
+          </div>
           {hasLayer ? (
             <div className="space-y-4">
               <div className="text-sm text-gray-600 mb-3">Layers Configuration ({layer.length} layers)</div>
@@ -460,60 +465,153 @@ export function Step8LaunchPreview({ onBack, onDataChange, isReadOnly = false, u
               ))}
             </div>
           ) : (
-            <div className="space-y-4">
-              {/* Check if using new category format or legacy format */}
-              {grid.length > 0 && grid[0].title && grid[0].elements ? (
-                <>
-                  <div className="text-sm text-gray-600 mb-3">Categories Configuration ({grid.length} categories)</div>
-                  {grid.map((category: any, catIdx: number) => (
-                    <div key={category.id || catIdx} className="border rounded-lg bg-gray-50 p-4">
-                      <div className="text-sm font-medium mb-3">
-                        {category.title}
-                        {category.description && (
-                          <span className="text-gray-500 ml-2">- {category.description}</span>
-                        )}
-                      </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        {category.elements?.map((element: any, elIdx: number) => (
-                          <div key={element.id || elIdx} className="aspect-square bg-gray-100 flex items-center justify-center p-2 rounded-md border">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={element.secureUrl || element.previewUrl}
-                              alt={element.name}
-                              className="max-w-full max-h-full object-contain"
-                              onError={(e) => {
-                                console.error('Failed to load image:', element)
-                                e.currentTarget.style.display = 'none'
-                              }}
-                            />
+            <div className="space-y-6">
+              {isHybrid ? (
+                (() => {
+                  const isMix = phaseOrder === 'mix' || (Array.isArray(phaseOrder) && phaseOrder[0] === 'mix')
+                  const displayPhases = isMix ? ['grid', 'text'] : (phaseOrder as ("grid" | "text")[])
+
+                  return (
+                    <div className="space-y-6">
+                      {/* {isMix && (
+                        <div className="text-sm font-semibold text-blue-600 mb-2">Mixed Phase Configuration (Randomized)</div>
+                      )} */}
+                      {displayPhases.map((phase, index) => (
+                        <div key={phase} className={(index > 0 && !isMix) ? "pt-4 border-t border-dashed space-y-4" : "space-y-4"}>
+                          <div className="text-xs font-bold text-gray-400 uppercase tracking-tighter">
+                            {isMix ? (phase === 'grid' ? 'Grid Components' : 'Text Components') : `Phase ${index + 1}: ${phase === 'grid' ? 'Grid' : 'Texts'}`}
                           </div>
-                        )) || <div className="text-sm text-gray-500">No elements in this category</div>}
-                      </div>
-                      <div className="text-xs text-gray-500 mt-2">
-                        {category.elements?.length || 0} elements
-                      </div>
+                          {phase === 'grid' ? (
+                            <>
+                              {grid.length > 0 && grid[0].title && grid[0].elements ? (
+                                <>
+                                  <div className="text-sm text-gray-600 mb-2">Categories Configuration ({grid.length} categories)</div>
+                                  {grid.map((category: any, catIdx: number) => (
+                                    <div key={category.id || catIdx} className="border rounded-lg bg-gray-50 p-4">
+                                      <div className="text-sm font-medium mb-3">
+                                        {category.title}
+                                        {category.description && (
+                                          <span className="text-gray-500 ml-2">- {category.description}</span>
+                                        )}
+                                      </div>
+                                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                        {category.elements?.map((element: any, elIdx: number) => (
+                                          <div key={element.id || elIdx} className="aspect-square bg-white flex items-center justify-center p-2 rounded-md border shadow-sm">
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img
+                                              src={element.secureUrl || element.previewUrl}
+                                              alt={element.name}
+                                              className="max-w-full max-h-full object-contain"
+                                            />
+                                          </div>
+                                        )) || <div className="text-sm text-gray-500">No elements</div>}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </>
+                              ) : (
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                  {grid.map((e: any, idx: number) => (
+                                    <div key={e.id || idx} className="aspect-square bg-white flex items-center justify-center p-2 rounded-md border shadow-sm">
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img
+                                        src={e.secureUrl || e.previewUrl}
+                                        alt={e.name}
+                                        className="max-w-full max-h-full object-contain"
+                                      />
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              <div className="text-sm text-gray-600 mb-2">Statements Configuration ({text.length} categories)</div>
+                              {text.map((category: any, catIdx: number) => (
+                                <div key={category.id || catIdx} className="border rounded-lg bg-gray-50 p-4">
+                                  <div className="text-sm font-medium mb-3">{category.title}</div>
+                                  <div className="space-y-2">
+                                    {category.elements?.map((element: any, elIdx: number) => (
+                                      <div key={element.id || elIdx} className="px-3 py-2 bg-white border rounded text-xs text-gray-700 shadow-sm">
+                                        {element.name}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </>
+                  )
+                })()
               ) : (
                 <>
-                  <div className="text-sm text-gray-600 mb-3">Elements Configuration ({grid.length} elements)</div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {grid.map((e: any, idx: number) => (
-                      <div key={e.id || idx} className="aspect-square bg-gray-100 flex items-center justify-center p-2 rounded-md border">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={e.secureUrl || e.previewUrl}
-                          alt={e.name}
-                          className="max-w-full max-h-full object-contain"
-                          onError={(e) => {
-                            console.error('Failed to load image:', e)
-                            e.currentTarget.style.display = 'none'
-                          }}
-                        />
-                      </div>
-                    ))}
-                  </div>
+                  {/* Show Grid/Image components if applicable (grid only) */}
+                  {step2.type === 'grid' && (
+                    <div className="space-y-4">
+                      {grid.length > 0 && grid[0].title && grid[0].elements ? (
+                        <>
+                          <div className="text-sm text-gray-600 mb-2">Categories Configuration ({grid.length} categories)</div>
+                          {grid.map((category: any, catIdx: number) => (
+                            <div key={category.id || catIdx} className="border rounded-lg bg-gray-50 p-4">
+                              <div className="text-sm font-medium mb-3">
+                                {category.title}
+                                {category.description && (
+                                  <span className="text-gray-500 ml-2">- {category.description}</span>
+                                )}
+                              </div>
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                {category.elements?.map((element: any, elIdx: number) => (
+                                  <div key={element.id || elIdx} className="aspect-square bg-white flex items-center justify-center p-2 rounded-md border shadow-sm">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                      src={element.secureUrl || element.previewUrl}
+                                      alt={element.name}
+                                      className="max-w-full max-h-full object-contain"
+                                    />
+                                  </div>
+                                )) || <div className="text-sm text-gray-500">No elements</div>}
+                              </div>
+                            </div>
+                          ))}
+                        </>
+                      ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                          {grid.map((e: any, idx: number) => (
+                            <div key={e.id || idx} className="aspect-square bg-white flex items-center justify-center p-2 rounded-md border shadow-sm">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={e.secureUrl || e.previewUrl}
+                                alt={e.name}
+                                className="max-w-full max-h-full object-contain"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Show Text/Statement components if applicable (text only) */}
+                  {step2.type === 'text' && (
+                    <div className="space-y-4">
+                      <div className="text-sm text-gray-600 mb-2">Statements Configuration ({text.length} categories)</div>
+                      {text.map((category: any, catIdx: number) => (
+                        <div key={category.id || catIdx} className="border rounded-lg bg-gray-50 p-4">
+                          <div className="text-sm font-medium mb-3">{category.title}</div>
+                          <div className="space-y-2">
+                            {category.elements?.map((element: any, elIdx: number) => (
+                              <div key={element.id || elIdx} className="px-3 py-2 bg-white border rounded text-xs text-gray-700 shadow-sm">
+                                {element.name}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </>
               )}
             </div>

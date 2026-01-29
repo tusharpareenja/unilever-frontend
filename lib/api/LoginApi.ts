@@ -89,6 +89,7 @@ export async function login(payload: LoginPayload): Promise<LoginResponse> {
 		throw new ApiError("Email is required", 400);
 	}
 	try {
+		console.log("API_BASE_URL:", API_BASE_URL);
 		const res = await fetch(`${API_BASE_URL}/auth/login`, {
 			method: "POST",
 			headers: {

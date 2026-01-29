@@ -364,7 +364,7 @@ export default function StudyManagementPage() {
               <span className="mx-2">/</span>
               <Link href="/home" className="text-blue-200"><span className="text-blue-200">Studies</span></Link>
               <span className="mx-2">/</span>
-              <span className="text-white">{study.study_type === "grid" ? "Grid Study" : study.study_type === "text" ? "Text Study" : "Layer Study"}</span>
+              <span className="text-white">{study.study_type === "grid" ? "Grid Study" : study.study_type === "hybrid" ? "Hybrid Study" : study.study_type === "text" ? "Text Study" : "Layer Study"}</span>
             </nav>
 
             {/* Title and Actions */}
@@ -470,7 +470,7 @@ export default function StudyManagementPage() {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-gray-700">Type :</span>
-                <span className="text-gray-700">{study.study_type === 'layer' ? 'Layer - Based' : study.study_type === 'text' ? 'Text - Based' : 'Grid - Based'}</span>
+                <span className="text-gray-700">{study.study_type === 'layer' ? 'Layer - Based' : study.study_type === 'hybrid' ? 'Hybrid - Based' : study.study_type === 'text' ? 'Text - Based' : 'Grid - Based'}</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-gray-700">Created :</span>

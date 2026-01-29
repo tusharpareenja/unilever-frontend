@@ -188,7 +188,7 @@ export default function StudyResponsesPage() {
                   <Link href={`/home/study/${studyId}`} className="text-blue-200"><span className="text-blue-200">Studies</span></Link>
                   <span className="mx-2">/</span>
                   <span className="text-white">
-                    {study?.study_type === "grid" ? "Grid Study" : study?.study_type === "text" ? "Text Study" : study?.study_type === "layer" ? "Layer Study" : "Loading..."}
+                    {study?.study_type === "grid" ? "Grid Study" : study?.study_type === "hybrid" ? "Hybrid Study" : study?.study_type === "text" ? "Text Study" : study?.study_type === "layer" ? "Layer Study" : "Loading..."}
                   </span>
                 </div>
                 <h1 className="text-2xl font-bold">Study Responses</h1>
@@ -277,12 +277,17 @@ export default function StudyResponsesPage() {
                           <div className="text-gray-900">{r.respondent_id}</div>
                           <div className="text-xs text-gray-500">
                             {(() => {
-                              const age = calculateAge(r.personal_info?.date_of_birth)
+                              const age = r.personal_info?.age || calculateAge(r.personal_info?.date_of_birth)
                               const gender = r.personal_info?.gender
-                              if (age && gender) {
-                                return `${age}Y, ${gender.charAt(0).toUpperCase() + gender.slice(1)}`
+
+                              let info = ""
+                              if (age) info += `${age}Y`
+                              if (gender) {
+                                const genStr = gender.charAt(0).toUpperCase() + gender.slice(1)
+                                info += info ? `, ${genStr}` : genStr
                               }
-                              return (gender || '-').replace(/^./, c => c.toUpperCase())
+
+                              return info || "-"
                             })()}
                           </div>
                         </td>

@@ -1,10 +1,16 @@
 "use client"
 
+<<<<<<< HEAD
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
+=======
+import { useParams, useRouter } from "next/navigation"
+import { useState, useRef, useEffect, useLayoutEffect } from "react"
+>>>>>>> test
 import Image from "next/image"
 import { submitTaskSession, submitTasksBulk } from "@/lib/api/ResponseAPI"
 import { imageCacheManager } from "@/lib/utils/imageCacheManager"
+import { getRespondentStudyDetails, submitTasksBulk } from "@/lib/api/ResponseAPI"
 
 // Helper function to get cached URLs for display
 const getCachedUrl = (url: string | undefined): string => {
@@ -18,6 +24,7 @@ const getCachedUrl = (url: string | undefined): string => {
 
 type Task = {
   id: string
+  type?: "grid" | "layer" | "text"
   leftImageUrl?: string
   rightImageUrl?: string
   leftLabel?: string
@@ -31,6 +38,10 @@ type Task = {
 
 export default function TasksPage() {
   const params = useParams<{ id: string }>()
+<<<<<<< HEAD
+=======
+  const studyIdFromParams = params.id
+>>>>>>> test
   const router = useRouter()
 
   const [tasks, setTasks] = useState<Task[]>([])
@@ -42,7 +53,7 @@ export default function TasksPage() {
     right: "",
     middle: "",
   })
-  const [studyType, setStudyType] = useState<"grid" | "layer" | "text" | undefined>(undefined)
+  const [studyType, setStudyType] = useState<"grid" | "layer" | "text" | "hybrid" | undefined>(undefined)
   const [mainQuestion, setMainQuestion] = useState<string>("")
   const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null)
 
@@ -66,6 +77,9 @@ export default function TasksPage() {
   const bgReadyRefDesktop = useRef(false)
   const [isBgLandscape, setIsBgLandscape] = useState(false)
   const [aspectRatio, setAspectRatio] = useState<string | null>(null)
+
+  // Accumulate responses for bulk submission
+  const pendingResponsesRef = useRef<any[]>([])
 
   useEffect(() => {
     firstViewTimeRef.current = new Date().toISOString()
@@ -98,6 +112,7 @@ export default function TasksPage() {
   }, [])
 
   useEffect(() => {
+<<<<<<< HEAD
     try {
       const completedStudies = JSON.parse(localStorage.getItem("completed_studies") || "{}")
       if (completedStudies[params.id]) {
@@ -298,11 +313,75 @@ export default function TasksPage() {
             _elements_shown: es,
             _elements_shown_content: content,
           }
+=======
+    const loadData = async () => {
+      try {
+        setIsFetching(true)
+        setFetchError(null)
+
+        // 1. Try to read from localStorage (hydrated by ParticipateIntroPage)
+        const sessionRaw = localStorage.getItem('study_session')
+        const detailsRaw = localStorage.getItem('current_study_details')
+
+        if (!sessionRaw || !detailsRaw) {
+          // If missing, try API fallback
+          if (!studyIdFromParams) throw new Error("No study session found")
+
+          console.log("[Participate] Missing local data, fetching from API...")
+          // We need a respondent ID - if it's really missing we might have to redirect back to intro
+          // But usually study_session should exist if they passed the intro
+          const session = sessionRaw ? JSON.parse(sessionRaw) : null
+          const rId = session?.respondentId
+
+          if (!rId) {
+            console.error("[Participate] No respondent ID found, redirecting to intro")
+            router.push(`/participate/${studyIdFromParams}`)
+            return
+          }
+
+          const respondentDetails = await getRespondentStudyDetails(String(rId), studyIdFromParams)
+          localStorage.setItem('current_study_details', JSON.stringify(respondentDetails))
+          // Re-run this effect
+          loadData()
+          return
         }
-      })
 
-      setTasks(parsed)
+        const session = JSON.parse(sessionRaw)
+        const details = JSON.parse(detailsRaw)
 
+        const info = details.study_info || {}
+        const normalizedType: any = String(info.study_type || "").toLowerCase()
+        setStudyType(normalizedType)
+        setMainQuestion(info.main_question || "")
+
+        const rs = info.rating_scale || {}
+        setScaleLabels({
+          left: String(rs.min_label || ""),
+          right: String(rs.max_label || ""),
+          middle: String(rs.middle_label || "")
+        })
+
+        const metadata = info.metadata || {}
+        setBackgroundUrl(metadata.background_image_url || null)
+
+        // respondentTasks can be bucketed (for hybrid) or flat
+        let respondentTasks: any[] = []
+        const assigned = details.assigned_tasks
+        if (Array.isArray(assigned)) {
+          if (assigned.length > 0 && Array.isArray(assigned[0])) {
+            // Bucketed structure (Hybrid)
+            respondentTasks = assigned.flat()
+          } else {
+            respondentTasks = assigned
+          }
+>>>>>>> test
+        }
+
+        const parsed: Task[] = (respondentTasks || []).map((t: any) => {
+          const es = t?.elements_shown || {}
+          const content = t?.elements_shown_content || {}
+
+<<<<<<< HEAD
       const cacheStats = imageCacheManager.getCacheStats()
     } catch (err: unknown) {
       setFetchError((err as Error)?.message || "Failed to load tasks")
@@ -313,6 +392,72 @@ export default function TasksPage() {
     return () => {
       window.removeEventListener("popstate", handlePopState)
     }
+=======
+          // Determine specific task type (crucial for hybrid)
+          let activeType: any = normalizedType
+          if (normalizedType === 'hybrid' || (t?.phase_type)) {
+            const hasText = Object.values(content).some((v: any) => (v?.element_type === 'text'))
+            activeType = t.phase_type || (hasText ? 'text' : 'grid')
+          }
+
+          if (activeType === "layer") {
+            const layers = Object.keys(es)
+              .filter((k) => Number(es[k]) === 1)
+              .map((k) => {
+                const layerData = content[k] || {}
+                const tf = layerData.transform || { x: 0, y: 0, width: 100, height: 100 }
+                return {
+                  url: String(layerData.url || ""),
+                  z: Number(layerData.z_index || 0),
+                  layer_name: String(layerData.layer_name || ""),
+                  transform: {
+                    x: Number(tf.x) || 0,
+                    y: Number(tf.y) || 0,
+                    width: Number(tf.width) || 100,
+                    height: Number(tf.height) || 100,
+                  }
+                }
+              })
+              .sort((a, b) => a.z - b.z)
+              .filter(l => l.url)
+
+            return {
+              id: String(t.task_id || t.task_index || Math.random()),
+              type: "layer",
+              layeredImages: layers,
+              _elements_shown: es,
+              _elements_shown_content: content
+            }
+          }
+
+          const activeKeys = Object.keys(es).filter(k => Number(es[k]) === 1)
+          const list: string[] = []
+          activeKeys.forEach(k => {
+            const val = content[k]?.url || content[k]?.content || (typeof content[k] === 'string' ? content[k] : undefined)
+            if (val) list.push(val)
+          })
+
+          return {
+            id: String(t.task_id || t.task_index || Math.random()),
+            type: activeType === "text" ? "text" : "grid",
+            leftImageUrl: activeType === "text" ? undefined : list[0],
+            rightImageUrl: activeType === "text" ? undefined : list[1],
+            gridUrls: list,
+            _elements_shown: es,
+            _elements_shown_content: content
+          }
+        })
+
+        setTasks(parsed)
+      } catch (err: any) {
+        console.error("Failed to load live participation tasks:", err)
+        setFetchError(err.message || "Failed to load tasks")
+      } finally {
+        setIsFetching(false)
+      }
+    }
+    loadData()
+>>>>>>> test
   }, [])
 
   const [currentTaskIndex, setCurrentTaskIndex] = useState(0)
@@ -544,6 +689,7 @@ export default function TasksPage() {
     clickCountsRef.current = {}
   }, [currentTaskIndex])
 
+<<<<<<< HEAD
   const enqueueTask = (rating: number) => {
     try {
       const sessionRaw = localStorage.getItem("study_session")
@@ -686,6 +832,9 @@ export default function TasksPage() {
   }
 
   const handleSelect = (value: number) => {
+=======
+  const handleSelect = async (value: number) => {
+>>>>>>> test
     clickCountsRef.current[value] = (clickCountsRef.current[value] || 0) + 1
 
     const elapsedMs = Date.now() - taskStartRef.current
@@ -705,13 +854,62 @@ export default function TasksPage() {
     })
     localStorage.setItem("study_response_times", JSON.stringify(localStorageData))
 
-    enqueueTask(value)
+    // 1. Calculate payload for this task
+    const currentTask = tasks[currentTaskIndex]
+    if (currentTask) {
+      const interactionStats = Object.keys(hoverCountsRef.current).map(key => {
+        const val = Number(key)
+        return {
+          element_id: String(val),
+          view_time_seconds: 0,
+          hover_count: hoverCountsRef.current[val] || 0,
+          click_count: clickCountsRef.current[val] || 0,
+          first_view_time: firstViewTimeRef.current || new Date().toISOString(),
+          last_view_time: lastViewTimeRef.current || new Date().toISOString(),
+        }
+      })
 
-    if (currentTaskIndex < totalTasks - 1) {
+      const payload = {
+        task_id: currentTask.id,
+        rating_given: value,
+        task_duration_seconds: seconds,
+        element_interactions: interactionStats,
+        elements_shown_in_task: currentTask._elements_shown,
+        elements_shown_content: currentTask._elements_shown_content
+      }
+
+      pendingResponsesRef.current.push(payload)
+    }
+
+    const isLastTask = currentTaskIndex === totalTasks - 1
+    const shouldSendBulk = pendingResponsesRef.current.length >= 15 || isLastTask
+
+    if (shouldSendBulk) {
+      try {
+        const sessionRaw = localStorage.getItem('study_session')
+        if (sessionRaw) {
+          const { sessionId } = JSON.parse(sessionRaw)
+          if (sessionId) {
+            const chunkToSend = [...pendingResponsesRef.current]
+            pendingResponsesRef.current = [] // Clear pending
+            submitTasksBulk(sessionId, chunkToSend).catch(err => {
+              console.error("Failed to submit bulk tasks:", err)
+              // Optionally: restore to pending if failed? 
+              // But submitTasksBulk already handles internal errors.
+            })
+          }
+        }
+      } catch (e) {
+        console.error("Error in bulk submission:", e)
+      }
+    }
+
+    if (!isLastTask) {
       setTimeout(() => setCurrentTaskIndex((i) => i + 1), 80)
     } else {
       // Final task: show brief loading, fire completion, flush remaining, then navigate
       setIsLoading(true)
+<<<<<<< HEAD
 
       // Fire completion signal immediately
       submitSessionInBackground()
@@ -733,6 +931,11 @@ export default function TasksPage() {
       setTimeout(() => {
         router.push(`/participate/${params.id}/thank-you`)
       }, 1000)
+=======
+      setTimeout(() => {
+        router.push(`/participate/${studyIdFromParams}/thank-you`)
+      }, 600)
+>>>>>>> test
     }
   }
 
@@ -801,8 +1004,8 @@ export default function TasksPage() {
                   </div>
                 ) : (
                   <>
-                    <div className={`flex-1 flex items-center justify-center min-h-0 overflow-hidden ${studyType === 'layer' && isBgLandscape ? 'px-0' : 'px-2'}`}>
-                      {studyType === "layer" ? (
+                    <div className={`flex-1 flex items-center justify-center min-h-0 overflow-hidden ${(task?.type === 'layer') && isBgLandscape ? 'px-0' : 'px-2'}`}>
+                      {task?.type === "layer" ? (
                         <div className="relative w-full h-full flex items-center justify-center">
                           <div ref={previewContainerRef} className={`relative w-full aspect-square ${isBgLandscape ? '' : 'max-w-xs sm:max-w-sm md:max-w-md'}`} style={{ minHeight: 240 }}>
                             {backgroundUrl && (
@@ -906,7 +1109,7 @@ export default function TasksPage() {
                             })}
                           </div>
                         </div>
-                      ) : studyType === "text" ? (
+                      ) : task?.type === "text" ? (
                         <div className="w-full h-full flex flex-col items-center justify-center overflow-hidden relative gap-2 sm:gap-4 p-4">
                           {task?.gridUrls?.map((statement, idx) => (
                             <div
@@ -1112,7 +1315,7 @@ export default function TasksPage() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {studyType === "layer" ? (
+                    {task?.type === "layer" ? (
                       <div className="flex justify-center">
                         <div ref={previewContainerRefDesktop} className="relative w-full max-w-lg aspect-square overflow-hidden">
                           <div className="relative w-full h-full">
@@ -1214,7 +1417,7 @@ export default function TasksPage() {
                           </div>
                         </div>
                       </div>
-                    ) : studyType === "text" ? (
+                    ) : task?.type === "text" ? (
                       <div className="w-full h-full flex flex-col items-center justify-center overflow-hidden relative gap-4 p-6 min-h-[400px]">
                         {task?.gridUrls?.map((statement, idx) => (
                           <div

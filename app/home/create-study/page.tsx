@@ -13,7 +13,7 @@ import { Step5StudyStructure } from "@/components/create-study/steps/Step5StudyS
 import { Step6AudienceSegmentation } from "@/components/create-study/steps/Step6AudienceSegmentation"
 import { Step7TaskGeneration } from "@/components/create-study/steps/Step7TaskGeneration"
 import { Step8LaunchPreview } from "@/components/create-study/steps/Step8LaunchPreview"
-import { getStudyPreview } from "@/lib/api/StudyAPI"
+import { getStudyPreview, StudyType } from "@/lib/api/StudyAPI"
 
 // Type definitions for backend responses
 interface ClassificationQuestion {
@@ -49,6 +49,7 @@ interface GridElement {
   categoryId?: string | number
   category?: string | number
   category_name?: string
+  element_type?: 'image' | 'text'
 }
 
 interface GridCategory {
@@ -168,30 +169,44 @@ const loadDraftStudyData = async (studyId: string, shouldUpdateStep: boolean = t
           }))
       }))
       localStorage.setItem('cs_step4', JSON.stringify(transformedQuestions))
+      if (typeof studyDetails.toggle_shuffle === 'boolean') {
+        localStorage.setItem('cs_step4_shuffle', String(studyDetails.toggle_shuffle))
+      } else {
+        localStorage.setItem('cs_step4_shuffle', 'false')
+      }
     } else {
       localStorage.setItem('cs_step4', JSON.stringify([]))
+      localStorage.setItem('cs_step4_shuffle', 'false')
     }
 
-    // Populate Step 5 - Study Structure (Grid, Layer, or Text)
-    if (studyDetails.study_type === 'grid' || studyDetails.study_type === 'text') {
-      const storageKey = studyDetails.study_type === 'text' ? 'cs_step5_text' : 'cs_step5_grid'
+    // Populate Step 5 - Study Structure (Grid, Layer, Text, or Hybrid)
+    if (studyDetails.study_type === 'grid' || studyDetails.study_type === 'text' || studyDetails.study_type === 'hybrid') {
+      const isHybrid = studyDetails.study_type === 'hybrid'
+      const storageKey = studyDetails.study_type === 'text' ? 'cs_step5_text' : (isHybrid ? 'cs_step5_hybrid' : 'cs_step5_grid')
       try {
         // If backend provided categories, map them to the frontend category+elements shape
         if (studyDetails.categories && Array.isArray(studyDetails.categories)) {
           const globalElements = Array.isArray(studyDetails.elements) ? studyDetails.elements : []
 
           const convertElement = (el: GridElement, idx: number) => {
-            // Canonicalize URL: prefer secureUrl, then image_url, then previewUrl, then any other data field
-            const url = el.secureUrl || el.image_url || el.previewUrl || el.url || el.data || el.content || el.textContent || ''
-            const isText = Boolean((el.textContent || el.content) && !url)
+            // Check all candidates for a potential URL
+            const urlCandidate = el.secureUrl || el.image_url || el.previewUrl || el.url || el.data || el.content || el.textContent || ''
+            const looksLikeUrl = typeof urlCandidate === 'string' && urlCandidate.trim().startsWith('http')
+
+            // Use backend provided element_type if available (preferred), otherwise guess based on content
+            const type = el.element_type || (looksLikeUrl ? 'image' : 'text')
+
+            // Canonicalize URL: for images, use the candidate. For text, url is empty.
+            const url = type === 'image' ? urlCandidate : ''
+            const textContent = el.textContent || el.content || el.name || el.title || (type === 'text' ? urlCandidate : '')
+
             return {
               id: el.id || `element-${idx}`,
-              name: el.name || el.title || el.textContent || '',
-              // Save the same URL into both previewUrl and secureUrl so downstream builders see a value
-              previewUrl: url || '',
-              secureUrl: url || '',
-              sourceType: isText ? 'text' : 'upload',
-              textContent: el.textContent || el.content || el.name || '',
+              name: el.name || el.title || (type === 'text' ? textContent : ''),
+              previewUrl: url,
+              secureUrl: url,
+              sourceType: type === 'text' ? 'text' : 'upload',
+              textContent: textContent,
             }
           }
 
@@ -246,6 +261,34 @@ const loadDraftStudyData = async (studyId: string, shouldUpdateStep: boolean = t
           }
 
           localStorage.setItem(storageKey, JSON.stringify(transformedCategories))
+
+          // Special handling for hybrid: split into grid and text keys
+          if (isHybrid) {
+            const gridCats = transformedCategories
+              .map(c => ({
+                ...c,
+                elements: c.elements.filter(e => e.sourceType === 'upload')
+              }))
+              .filter(c => {
+                const backendCat = (studyDetails.categories as any[])?.find(bc => bc.id === c.id)
+                return backendCat?.phase_type === 'grid' || c.elements.length > 0
+              })
+
+            const textCats = transformedCategories
+              .map(c => ({
+                ...c,
+                elements: c.elements.filter(e => e.sourceType === 'text')
+              }))
+              .filter(c => {
+                const backendCat = (studyDetails.categories as any[])?.find(bc => bc.id === c.id)
+                return backendCat?.phase_type === 'text' || c.elements.length > 0
+              })
+            localStorage.setItem('cs_step5_hybrid_grid', JSON.stringify(gridCats))
+            localStorage.setItem('cs_step5_hybrid_text', JSON.stringify(textCats))
+            if (studyDetails.phase_order) {
+              localStorage.setItem('cs_step5_hybrid_phase_order', JSON.stringify(studyDetails.phase_order))
+            }
+          }
         } else if (studyDetails.elements && Array.isArray(studyDetails.elements)) {
           // No categories provided: wrap all elements into a single default category
           const elements = studyDetails.elements.map((el: GridElement, idx: number) => {
@@ -539,6 +582,26 @@ const loadDraftStudyData = async (studyId: string, shouldUpdateStep: boolean = t
               let text: any
               try { text = JSON.parse(textData) } catch { return false }
               return Array.isArray(text) && text.length >= 3 && text.every((category: any) => category.title && category.title.trim().length > 0 && category.elements && Array.isArray(category.elements) && category.elements.length >= 3 && category.elements.every((element: any) => element.name && element.name.trim().length > 0))
+            } else if (step2.type === 'hybrid') {
+              const hGridData = localStorage.getItem('cs_step5_hybrid_grid')
+              const hTextData = localStorage.getItem('cs_step5_hybrid_text')
+              if (!hGridData || !hTextData) return false
+              let hGrid: any, hText: any
+              try {
+                hGrid = JSON.parse(hGridData)
+                hText = JSON.parse(hTextData)
+              } catch { return false }
+
+              const validatePhase = (cats: any[], isText: boolean) => {
+                return Array.isArray(cats) && cats.length >= 3 && cats.every((category: any) =>
+                  category.title && category.title.trim().length > 0 &&
+                  category.elements && Array.isArray(category.elements) && category.elements.length >= 3 &&
+                  category.elements.every((element: any) =>
+                    isText ? (element.name && element.name.trim().length > 0) : Boolean(element.secureUrl || element.previewUrl || element.textContent)
+                  )
+                )
+              }
+              return validatePhase(hGrid, false) && validatePhase(hText, true)
             } else {
               if (!layerData) return false
               const layer = JSON.parse(layerData)
@@ -606,7 +669,7 @@ const loadDraftStudyData = async (studyId: string, shouldUpdateStep: boolean = t
 
 export default function CreateStudyPage() {
   const [currentStep, setCurrentStep] = useState(1)
-  const [studyType, setStudyType] = useState<"grid" | "layer" | "text">("grid")
+  const [studyType, setStudyType] = useState<StudyType>("grid")
   const [isLoadingDraft, setIsLoadingDraft] = useState(false)
   const [draftLoadError, setDraftLoadError] = useState<string | null>(null)
   const [userRole, setUserRole] = useState<string>(() => {
@@ -657,8 +720,13 @@ export default function CreateStudyPage() {
             'cs_step2',
             'cs_step3',
             'cs_step4',
+            'cs_step4_shuffle',
             'cs_step5_grid',
             'cs_step5_text',
+            'cs_step5_hybrid',
+            'cs_step5_hybrid_grid',
+            'cs_step5_hybrid_text',
+            'cs_step5_hybrid_phase_order',
             'cs_step5_layer',
             'cs_step5_layer_background',
             'cs_step5_layer_preview_aspect',
@@ -726,8 +794,13 @@ export default function CreateStudyPage() {
               'cs_step2',
               'cs_step3',
               'cs_step4',
+              'cs_step4_shuffle',
               'cs_step5_grid',
               'cs_step5_text',
+              'cs_step5_hybrid',
+              'cs_step5_hybrid_grid',
+              'cs_step5_hybrid_text',
+              'cs_step5_hybrid_phase_order',
               'cs_step5_layer',
               'cs_step5_layer_background',
               'cs_step5_layer_preview_aspect',
@@ -820,7 +893,7 @@ export default function CreateStudyPage() {
           const s2 = localStorage.getItem('cs_step2')
           if (s2) {
             const v = JSON.parse(s2)
-            if (v?.type === 'layer' || v?.type === 'grid' || v?.type === 'text') setStudyType(v.type)
+            if (v?.type === 'layer' || v?.type === 'grid' || v?.type === 'text' || v?.type === 'hybrid') setStudyType(v.type)
           }
 
           // Hydrate current step

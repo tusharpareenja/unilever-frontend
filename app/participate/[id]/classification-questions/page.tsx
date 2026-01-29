@@ -38,7 +38,7 @@ export default function ClassificationQuestionsPage() {
         router.push(`/participate/${params.id}/thank-you`)
         return
       }
-    } catch {}
+    } catch { }
 
     // Prevent back navigation to previous pages
     const handlePopState = (event: PopStateEvent) => {
@@ -55,13 +55,21 @@ export default function ClassificationQuestionsPage() {
         if (studyDetails) {
           const study = JSON.parse(studyDetails)
           if (study.classification_questions && Array.isArray(study.classification_questions)) {
-            const formattedQuestions: ClassificationQuestion[] = study.classification_questions.map((q: any) => ({
+            let formattedQuestions: ClassificationQuestion[] = study.classification_questions.map((q: any) => ({
               id: q.question_id || q.id,
               text: q.question_text || q.text,
               options: q.answer_options?.map((opt: any) => ({ id: opt.id, text: opt.text })) || [],
               selected: null,
               required: q.is_required === "Y" || q.is_required === true || q.is_required === "true"
             }))
+
+            // Shuffle if enabled
+            const studyInfo = study.study_info || study
+            const shouldShuffle = studyInfo.toggle_shuffle === true || studyInfo.toggle_shuffle === "true"
+            if (shouldShuffle) {
+              formattedQuestions = [...formattedQuestions].sort(() => Math.random() - 0.5)
+            }
+
             setQuestions(formattedQuestions)
             const timers: Record<string, number> = {}
             formattedQuestions.forEach(q => { timers[q.id] = Date.now() })
@@ -73,7 +81,7 @@ export default function ClassificationQuestionsPage() {
           setQuestions([])
         }
       } catch (error) {
-        
+
         setQuestions([])
       } finally {
         setIsLoading(false)
@@ -143,10 +151,10 @@ export default function ClassificationQuestionsPage() {
 
         // Extract background image URL for layer studies
         const backgroundUrl = studyInfo?.metadata?.background_image_url || study?.metadata?.background_image_url || studyInfo?.background_image_url
-        
+
         // Use smart preloading with cache management
         await startSmartPreload(userTasks)
-        
+
         // Preload background image for layer studies
         if (backgroundUrl && typeof backgroundUrl === 'string') {
           try {
@@ -188,10 +196,10 @@ export default function ClassificationQuestionsPage() {
         ]
       }
 
-      submitClassificationAnswers(String(sessionId), payload).catch(() => {})
+      submitClassificationAnswers(String(sessionId), payload).catch(() => { })
 
       questionStartRef.current[questionId] = Date.now()
-    } catch (e) {}
+    } catch (e) { }
   }
 
   const handleOptionSelect = (questionId: string, optionId: string) => {
@@ -206,7 +214,7 @@ export default function ClassificationQuestionsPage() {
       const metrics = JSON.parse(localStorage.getItem('session_metrics') || '{}')
       metrics.classification_page_time = elapsed
       localStorage.setItem('session_metrics', JSON.stringify(metrics))
-    } catch {}
+    } catch { }
 
     const answers: Record<string, string> = {}
     questions.forEach(q => { if (q.selected) answers[q.id] = q.selected })
@@ -253,7 +261,7 @@ export default function ClassificationQuestionsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-     
+
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-12 pb-16">
         <h1 className="text-3xl sm:text-4xl font-extrabold text-center text-gray-900">Classification Questions</h1>
         <p className="mt-2 text-center text-sm text-gray-600">
@@ -316,11 +324,10 @@ function Toggle({
   return (
     <button
       onClick={() => onSelect(value)}
-      className={`w-full min-h-11 py-2.5 px-3 rounded-md border text-sm transition-colors whitespace-normal break-words text-center ${
-        active
+      className={`w-full min-h-11 py-2.5 px-3 rounded-md border text-sm transition-colors whitespace-normal break-words text-center ${active
           ? "bg-[rgba(38,116,186,1)] text-white border-[rgba(38,116,186,1)]"
           : "bg-white text-gray-700 border-gray-200 hover:border-gray-300"
-      }`}
+        }`}
     >
       {label}
     </button>
