@@ -6,15 +6,18 @@ import { useState } from "react"
 export default function PreviewProductIdPage() {
     const router = useRouter()
     const [productId, setProductId] = useState("")
+    const [isSubmitting, setIsSubmitting] = useState(false)
 
     const isProductEntered = productId.trim().length > 0
 
     const handlePrimaryAction = () => {
         const nextPath = '/home/create-study/preview/personal-information'
-
+        setIsSubmitting(true)
         // In preview, we don't actually submit to the backend session
         // Just navigate to the next step
-        router.push(nextPath)
+        setTimeout(() => {
+            router.push(nextPath)
+        }, 500)
     }
 
     return (
@@ -51,9 +54,15 @@ export default function PreviewProductIdPage() {
 
                     <button
                         onClick={handlePrimaryAction}
-                        className="w-full flex justify-center py-2 px-4 text-sm font-medium rounded-md text-white bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[rgba(38,116,186,1)] disabled:bg-gray-400"
+                        disabled={isSubmitting}
+                        className="w-full flex justify-center items-center py-2 px-4 text-sm font-medium rounded-md text-white bg-[rgba(38,116,186,1)] hover:bg-[rgba(38,116,186,0.9)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[rgba(38,116,186,1)] disabled:bg-gray-400"
                     >
-                        {isProductEntered ? "Next" : "Skip"}
+                        {isSubmitting ? (
+                            <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                Continuing...
+                            </>
+                        ) : isProductEntered ? "Next" : "Skip"}
                     </button>
                 </div>
             </div>

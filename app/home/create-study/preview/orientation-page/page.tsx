@@ -33,15 +33,11 @@ export default function OrientationPage() {
     if (!isChecked) return
 
     setIsSubmitting(true)
-    
-    try {
-      // Navigate to tasks page (preview mode)
+
+    // Navigate to tasks page (preview mode)
+    setTimeout(() => {
       router.push(`/home/create-study/preview/tasks`)
-    } catch (error) {
-      console.error('Error starting survey:', error)
-    } finally {
-      setIsSubmitting(false)
-    }
+    }, 500)
   }
 
   useEffect(() => {
@@ -74,7 +70,7 @@ export default function OrientationPage() {
           <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">Study Orientation</h1>
           <p className="text-gray-600 text-lg">Please read the instructions carefully before proceeding</p>
         </div>
-        
+
         {/* Main Content Card */}
         <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
           {/* Study Instructions Section */}

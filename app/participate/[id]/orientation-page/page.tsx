@@ -21,7 +21,7 @@ export default function OrientationPage() {
         router.push(`/participate/${params.id}/thank-you`)
         return
       }
-    } catch {}
+    } catch { }
 
     // Load orientation text from localStorage
     try {
@@ -55,7 +55,7 @@ export default function OrientationPage() {
     if (!isChecked) return
 
     setIsSubmitting(true)
-    
+
     try {
       // Track orientation page time
       const elapsed = Math.round((Date.now() - orientationStartRef.current) / 1000)
@@ -67,7 +67,6 @@ export default function OrientationPage() {
       router.push(`/participate/${params?.id}/tasks`)
     } catch (error) {
       console.error('Error starting survey:', error)
-    } finally {
       setIsSubmitting(false)
     }
   }
@@ -102,7 +101,7 @@ export default function OrientationPage() {
           <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">Study Orientation</h1>
           <p className="text-gray-600 text-lg">Please read the instructions carefully before proceeding</p>
         </div>
-        
+
         {/* Main Content Card */}
         <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
           {/* Study Instructions Section */}

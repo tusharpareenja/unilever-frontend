@@ -616,7 +616,7 @@ export default function TasksPage() {
                     style={{ width: `${progressPct}%` }}
                   ></div>
                 </div>
-                <div className="text-sm sm:text-base font-medium text-gray-800 leading-tight break-words hyphens-auto">
+                <div className="text-base font-medium text-gray-800 leading-tight break-words hyphens-auto">
                   {mainQuestion || `Question ${Math.min(currentTaskIndex + 1, totalTasks)}`}
                 </div>
               </div>
@@ -754,7 +754,7 @@ export default function TasksPage() {
                               className="w-full flex-1 flex items-center justify-center text-center p-4 rounded-lg shadow-sm"
                               style={{
                                 minHeight: '60px',
-                                fontSize: 'clamp(14px, 2vw, 18px)',
+                                fontSize: 'clamp(16px, 2vw, 18px)',
                                 overflowWrap: 'break-word',
                                 wordBreak: 'break-word'
                               }}
@@ -872,7 +872,7 @@ export default function TasksPage() {
                       </div>
                     )}
 
-                    <div className={`flex flex-col items-start mb-6 gap-2 ${isBgLandscape ? 'px-8 sm:px-4' : 'px-4'}`}>
+                    <div className={`flex flex-col items-start mb-6 gap-3 ${isBgLandscape ? 'px-8 sm:px-4' : 'px-4'}`}>
                       <div className="flex items-center gap-[9px]">
                         <div className="h-6 w-6 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs font-semibold text-gray-700 flex-shrink-0">
                           1
@@ -935,7 +935,7 @@ export default function TasksPage() {
             {/* Desktop Layout */}
             <div className="hidden lg:block">
               <div className="flex items-start justify-between text-sm text-gray-600 mb-4 gap-4">
-                <div className="text-lg font-semibold text-gray-800 flex-1 leading-tight break-words hyphens-auto max-w-[calc(100%-5rem)]">
+                <div className="text-xl font-semibold text-gray-800 flex-1 leading-tight break-words hyphens-auto max-w-[calc(100%-5rem)]">
                   {mainQuestion || `Question ${Math.min(currentTaskIndex + 1, totalTasks)}`}
                 </div>
               </div>
@@ -1208,7 +1208,7 @@ export default function TasksPage() {
                       <div className="text-center text-balance">{task?.rightLabel ?? ""}</div>
                     </div>
 
-                    <div className="flex flex-col items-center justify-center gap-2 px-2">
+                    <div className="flex flex-col items-center justify-center gap-2 mt-[1px] px-2">
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <div className="h-8 w-8 lg:h-9 lg:w-9 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs lg:text-sm font-semibold text-gray-700 flex-shrink-0">
                           1
