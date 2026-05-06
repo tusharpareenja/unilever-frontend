@@ -1,0 +1,3907 @@
+{
+    "Front Page": {
+        "Title": "NO bg",
+        "Background": null,
+        "Language": "en",
+        "Launched At": "2026-05-05T18:29:38.213515+00:00",
+        "Aspect Ratio": "9:16"
+    },
+    "Information Block": {
+        "Study Title": "NO bg",
+        "Study Type": "layer",
+        "Study Background": null,
+        "Aspect Ratio": "9:16",
+        "Categories": [
+            {
+                "name": "Layer 1",
+                "elements": [
+                    {
+                        "name": "Cap-option2-opaque",
+                        "content": "https://tikuntechwebimages.blob.core.windows.net/mindsurvey/studies/c01a017173fd46ecbb13e73b18ec8be3_Cap-option2-opaque.png",
+                        "z_index": 0,
+                        "transform": {
+                            "x": 0.0,
+                            "y": 0.0,
+                            "width": 100.0,
+                            "height": 100.0
+                        },
+                        "layer_name": "Layer 1",
+                        "layer_order": 0,
+                        "image_order": 0,
+                        "alt_text": "Cap-option2-opaque"
+                    },
+                    {
+                        "name": "Cap-option1-opaque",
+                        "content": "https://tikuntechwebimages.blob.core.windows.net/mindsurvey/studies/ddac1bd8a1b846d9b0c09ea700249706_Cap-option1-opaque.png",
+                        "z_index": 0,
+                        "transform": {
+                            "x": 0.0,
+                            "y": 0.0,
+                            "width": 100.0,
+                            "height": 100.0
+                        },
+                        "layer_name": "Layer 1",
+                        "layer_order": 0,
+                        "image_order": 1,
+                        "alt_text": "Cap-option1-opaque"
+                    },
+                    {
+                        "name": "Cap-option2-trans",
+                        "content": "https://tikuntechwebimages.blob.core.windows.net/mindsurvey/studies/60efc536e1934391bc2d21dafcd35aa8_Cap-option2-trans.png",
+                        "z_index": 0,
+                        "transform": {
+                            "x": 0.0,
+                            "y": 0.0,
+                            "width": 100.0,
+                            "height": 100.0
+                        },
+                        "layer_name": "Layer 1",
+                        "layer_order": 0,
+                        "image_order": 2,
+                        "alt_text": "Cap-option2-trans"
+                    }
+                ],
+                "z_index": 0,
+                "transform": {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "width": 100.0,
+                    "height": 100.0
+                },
+                "order": 0
+            },
+            {
+                "name": "Layer 2",
+                "elements": [
+                    {
+                        "name": "green-image",
+                        "content": "https://tikuntechwebimages.blob.core.windows.net/mindsurvey/studies/0ca0317f973044f3936a8f9b3946928e_green-image.png",
+                        "z_index": 1,
+                        "transform": {
+                            "x": 0.0,
+                            "y": 0.0,
+                            "width": 100.0,
+                            "height": 100.0
+                        },
+                        "layer_name": "Layer 2",
+                        "layer_order": 1,
+                        "image_order": 0,
+                        "alt_text": "green-image"
+                    },
+                    {
+                        "name": "green-stripe",
+                        "content": "https://tikuntechwebimages.blob.core.windows.net/mindsurvey/studies/9b812e08fab54353a07c8b349a29ba2a_green-stripe.png",
+                        "z_index": 1,
+                        "transform": {
+                            "x": 0.0,
+                            "y": 0.0,
+                            "width": 100.0,
+                            "height": 100.0
+                        },
+                        "layer_name": "Layer 2",
+                        "layer_order": 1,
+                        "image_order": 1,
+                        "alt_text": "green-stripe"
+                    },
+                    {
+                        "name": "newformula",
+                        "content": "https://tikuntechwebimages.blob.core.windows.net/mindsurvey/studies/3ea22c54cbd641438758560a2b83e93d_newformula.png",
+                        "z_index": 1,
+                        "transform": {
+                            "x": 0.0,
+                            "y": 0.0,
+                            "width": 100.0,
+                            "height": 100.0
+                        },
+                        "layer_name": "Layer 2",
+                        "layer_order": 1,
+                        "image_order": 2,
+                        "alt_text": "newformula"
+                    }
+                ],
+                "z_index": 1,
+                "transform": {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "width": 100.0,
+                    "height": 100.0
+                },
+                "order": 1
+            },
+            {
+                "name": "Layer 3",
+                "elements": [
+                    {
+                        "name": "citrus",
+                        "content": "https://tikuntechwebimages.blob.core.windows.net/mindsurvey/studies/03319caaf13e4b52819692494a6e4e52_citrus.png",
+                        "z_index": 2,
+                        "transform": {
+                            "x": 0.0,
+                            "y": 0.0,
+                            "width": 100.0,
+                            "height": 100.0
+                        },
+                        "layer_name": "Layer 3",
+                        "layer_order": 2,
+                        "image_order": 0,
+                        "alt_text": "citrus"
+                    },
+                    {
+                        "name": "fresh",
+                        "content": "https://tikuntechwebimages.blob.core.windows.net/mindsurvey/studies/e760a1c82526461ca6bd03d6ee48a20e_fresh.png",
+                        "z_index": 2,
+                        "transform": {
+                            "x": 0.0,
+                            "y": 0.0,
+                            "width": 100.0,
+                            "height": 100.0
+                        },
+                        "layer_name": "Layer 3",
+                        "layer_order": 2,
+                        "image_order": 1,
+                        "alt_text": "fresh"
+                    },
+                    {
+                        "name": "freshsss",
+                        "content": "https://tikuntechwebimages.blob.core.windows.net/mindsurvey/studies/7fa64d9eada344369643b8abff52b42c_fresh.png",
+                        "z_index": 2,
+                        "transform": {
+                            "x": 0.0,
+                            "y": 0.0,
+                            "width": 100.0,
+                            "height": 100.0
+                        },
+                        "layer_name": "Layer 3",
+                        "layer_order": 2,
+                        "image_order": 2,
+                        "alt_text": "freshsss"
+                    }
+                ],
+                "z_index": 2,
+                "transform": {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "width": 100.0,
+                    "height": 100.0
+                },
+                "order": 2
+            }
+        ]
+    },
+    "RawData": [
+        {
+            "Panelist": "session_32b721e204d74e2a",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "kjds",
+            "Task": 1,
+            "Layer-1-Cap-option2-opaque": 0,
+            "Layer-1-Cap-option1-opaque": 1,
+            "Layer-1-Cap-option2-trans": 0,
+            "Layer-2-green-image": 1,
+            "Layer-2-green-stripe": 0,
+            "Layer-2-newformula": 0,
+            "Layer-3-citrus": 1,
+            "Layer-3-fresh": 0,
+            "Layer-3-freshsss": 0,
+            "Rating": 4,
+            "ResponseTime": 16.441
+        },
+        {
+            "Panelist": "session_32b721e204d74e2a",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "kjds",
+            "Task": 2,
+            "Layer-1-Cap-option2-opaque": 0,
+            "Layer-1-Cap-option1-opaque": 0,
+            "Layer-1-Cap-option2-trans": 1,
+            "Layer-2-green-image": 0,
+            "Layer-2-green-stripe": 1,
+            "Layer-2-newformula": 0,
+            "Layer-3-citrus": 0,
+            "Layer-3-fresh": 0,
+            "Layer-3-freshsss": 1,
+            "Rating": 4,
+            "ResponseTime": 0.124
+        },
+        {
+            "Panelist": "session_32b721e204d74e2a",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "kjds",
+            "Task": 3,
+            "Layer-1-Cap-option2-opaque": 1,
+            "Layer-1-Cap-option1-opaque": 0,
+            "Layer-1-Cap-option2-trans": 0,
+            "Layer-2-green-image": 0,
+            "Layer-2-green-stripe": 0,
+            "Layer-2-newformula": 1,
+            "Layer-3-citrus": 0,
+            "Layer-3-fresh": 0,
+            "Layer-3-freshsss": 1,
+            "Rating": 4,
+            "ResponseTime": 0.115
+        },
+        {
+            "Panelist": "session_32b721e204d74e2a",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "kjds",
+            "Task": 4,
+            "Layer-1-Cap-option2-opaque": 0,
+            "Layer-1-Cap-option1-opaque": 0,
+            "Layer-1-Cap-option2-trans": 1,
+            "Layer-2-green-image": 0,
+            "Layer-2-green-stripe": 0,
+            "Layer-2-newformula": 1,
+            "Layer-3-citrus": 0,
+            "Layer-3-fresh": 1,
+            "Layer-3-freshsss": 0,
+            "Rating": 4,
+            "ResponseTime": 0.109
+        },
+        {
+            "Panelist": "session_32b721e204d74e2a",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "kjds",
+            "Task": 5,
+            "Layer-1-Cap-option2-opaque": 0,
+            "Layer-1-Cap-option1-opaque": 0,
+            "Layer-1-Cap-option2-trans": 1,
+            "Layer-2-green-image": 1,
+            "Layer-2-green-stripe": 0,
+            "Layer-2-newformula": 0,
+            "Layer-3-citrus": 1,
+            "Layer-3-fresh": 0,
+            "Layer-3-freshsss": 0,
+            "Rating": 4,
+            "ResponseTime": 0.135
+        },
+        {
+            "Panelist": "session_32b721e204d74e2a",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "kjds",
+            "Task": 6,
+            "Layer-1-Cap-option2-opaque": 0,
+            "Layer-1-Cap-option1-opaque": 0,
+            "Layer-1-Cap-option2-trans": 0,
+            "Layer-2-green-image": 0,
+            "Layer-2-green-stripe": 1,
+            "Layer-2-newformula": 0,
+            "Layer-3-citrus": 0,
+            "Layer-3-fresh": 1,
+            "Layer-3-freshsss": 0,
+            "Rating": 4,
+            "ResponseTime": 0.118
+        },
+        {
+            "Panelist": "session_32b721e204d74e2a",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "kjds",
+            "Task": 7,
+            "Layer-1-Cap-option2-opaque": 0,
+            "Layer-1-Cap-option1-opaque": 1,
+            "Layer-1-Cap-option2-trans": 0,
+            "Layer-2-green-image": 0,
+            "Layer-2-green-stripe": 0,
+            "Layer-2-newformula": 1,
+            "Layer-3-citrus": 0,
+            "Layer-3-fresh": 1,
+            "Layer-3-freshsss": 0,
+            "Rating": 4,
+            "ResponseTime": 0.114
+        },
+        {
+            "Panelist": "session_32b721e204d74e2a",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "kjds",
+            "Task": 8,
+            "Layer-1-Cap-option2-opaque": 0,
+            "Layer-1-Cap-option1-opaque": 0,
+            "Layer-1-Cap-option2-trans": 1,
+            "Layer-2-green-image": 0,
+            "Layer-2-green-stripe": 0,
+            "Layer-2-newformula": 0,
+            "Layer-3-citrus": 1,
+            "Layer-3-fresh": 0,
+            "Layer-3-freshsss": 0,
+            "Rating": 4,
+            "ResponseTime": 0.123
+        },
+        {
+            "Panelist": "session_32b721e204d74e2a",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "kjds",
+            "Task": 9,
+            "Layer-1-Cap-option2-opaque": 0,
+            "Layer-1-Cap-option1-opaque": 0,
+            "Layer-1-Cap-option2-trans": 0,
+            "Layer-2-green-image": 1,
+            "Layer-2-green-stripe": 0,
+            "Layer-2-newformula": 0,
+            "Layer-3-citrus": 0,
+            "Layer-3-fresh": 0,
+            "Layer-3-freshsss": 1,
+            "Rating": 4,
+            "ResponseTime": 0.112
+        },
+        {
+            "Panelist": "session_32b721e204d74e2a",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "kjds",
+            "Task": 10,
+            "Layer-1-Cap-option2-opaque": 0,
+            "Layer-1-Cap-option1-opaque": 1,
+            "Layer-1-Cap-option2-trans": 0,
+            "Layer-2-green-image": 0,
+            "Layer-2-green-stripe": 0,
+            "Layer-2-newformula": 1,
+            "Layer-3-citrus": 1,
+            "Layer-3-fresh": 0,
+            "Layer-3-freshsss": 0,
+            "Rating": 4,
+            "ResponseTime": 0.028
+        },
+        {
+            "Panelist": "session_32b721e204d74e2a",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "kjds",
+            "Task": 11,
+            "Layer-1-Cap-option2-opaque": 1,
+            "Layer-1-Cap-option1-opaque": 0,
+            "Layer-1-Cap-option2-trans": 0,
+            "Layer-2-green-image": 0,
+            "Layer-2-green-stripe": 1,
+            "Layer-2-newformula": 0,
+            "Layer-3-citrus": 0,
+            "Layer-3-fresh": 1,
+            "Layer-3-freshsss": 0,
+            "Rating": 4,
+            "ResponseTime": 0.113
+        },
+        {
+            "Panelist": "session_32b721e204d74e2a",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "kjds",
+            "Task": 12,
+            "Layer-1-Cap-option2-opaque": 1,
+            "Layer-1-Cap-option1-opaque": 0,
+            "Layer-1-Cap-option2-trans": 0,
+            "Layer-2-green-image": 0,
+            "Layer-2-green-stripe": 1,
+            "Layer-2-newformula": 0,
+            "Layer-3-citrus": 0,
+            "Layer-3-fresh": 0,
+            "Layer-3-freshsss": 0,
+            "Rating": 4,
+            "ResponseTime": 0.107
+        },
+        {
+            "Panelist": "session_32b721e204d74e2a",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "kjds",
+            "Task": 13,
+            "Layer-1-Cap-option2-opaque": 1,
+            "Layer-1-Cap-option1-opaque": 0,
+            "Layer-1-Cap-option2-trans": 0,
+            "Layer-2-green-image": 0,
+            "Layer-2-green-stripe": 0,
+            "Layer-2-newformula": 0,
+            "Layer-3-citrus": 0,
+            "Layer-3-fresh": 0,
+            "Layer-3-freshsss": 1,
+            "Rating": 4,
+            "ResponseTime": 0.107
+        },
+        {
+            "Panelist": "session_32b721e204d74e2a",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "kjds",
+            "Task": 14,
+            "Layer-1-Cap-option2-opaque": 0,
+            "Layer-1-Cap-option1-opaque": 1,
+            "Layer-1-Cap-option2-trans": 0,
+            "Layer-2-green-image": 1,
+            "Layer-2-green-stripe": 0,
+            "Layer-2-newformula": 0,
+            "Layer-3-citrus": 0,
+            "Layer-3-fresh": 0,
+            "Layer-3-freshsss": 0,
+            "Rating": 4,
+            "ResponseTime": 0.131
+        },
+        {
+            "Panelist": "session_f73b929f271b4715",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "jnj",
+            "Task": 1,
+            "Layer-1-Cap-option2-opaque": 0,
+            "Layer-1-Cap-option1-opaque": 0,
+            "Layer-1-Cap-option2-trans": 1,
+            "Layer-2-green-image": 1,
+            "Layer-2-green-stripe": 0,
+            "Layer-2-newformula": 0,
+            "Layer-3-citrus": 1,
+            "Layer-3-fresh": 0,
+            "Layer-3-freshsss": 0,
+            "Rating": 5,
+            "ResponseTime": 2.639
+        },
+        {
+            "Panelist": "session_f73b929f271b4715",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "jnj",
+            "Task": 2,
+            "Layer-1-Cap-option2-opaque": 0,
+            "Layer-1-Cap-option1-opaque": 1,
+            "Layer-1-Cap-option2-trans": 0,
+            "Layer-2-green-image": 0,
+            "Layer-2-green-stripe": 1,
+            "Layer-2-newformula": 0,
+            "Layer-3-citrus": 0,
+            "Layer-3-fresh": 0,
+            "Layer-3-freshsss": 1,
+            "Rating": 4,
+            "ResponseTime": 0.172
+        },
+        {
+            "Panelist": "session_f73b929f271b4715",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "jnj",
+            "Task": 3,
+            "Layer-1-Cap-option2-opaque": 1,
+            "Layer-1-Cap-option1-opaque": 0,
+            "Layer-1-Cap-option2-trans": 0,
+            "Layer-2-green-image": 0,
+            "Layer-2-green-stripe": 0,
+            "Layer-2-newformula": 0,
+            "Layer-3-citrus": 1,
+            "Layer-3-fresh": 0,
+            "Layer-3-freshsss": 0,
+            "Rating": 3,
+            "ResponseTime": 0.247
+        },
+        {
+            "Panelist": "session_f73b929f271b4715",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "jnj",
+            "Task": 4,
+            "Layer-1-Cap-option2-opaque": 1,
+            "Layer-1-Cap-option1-opaque": 0,
+            "Layer-1-Cap-option2-trans": 0,
+            "Layer-2-green-image": 0,
+            "Layer-2-green-stripe": 0,
+            "Layer-2-newformula": 1,
+            "Layer-3-citrus": 0,
+            "Layer-3-fresh": 1,
+            "Layer-3-freshsss": 0,
+            "Rating": 2,
+            "ResponseTime": 0.216
+        },
+        {
+            "Panelist": "session_f73b929f271b4715",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "jnj",
+            "Task": 5,
+            "Layer-1-Cap-option2-opaque": 0,
+            "Layer-1-Cap-option1-opaque": 0,
+            "Layer-1-Cap-option2-trans": 1,
+            "Layer-2-green-image": 0,
+            "Layer-2-green-stripe": 0,
+            "Layer-2-newformula": 1,
+            "Layer-3-citrus": 0,
+            "Layer-3-fresh": 0,
+            "Layer-3-freshsss": 0,
+            "Rating": 2,
+            "ResponseTime": 0.148
+        },
+        {
+            "Panelist": "session_f73b929f271b4715",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "jnj",
+            "Task": 6,
+            "Layer-1-Cap-option2-opaque": 0,
+            "Layer-1-Cap-option1-opaque": 0,
+            "Layer-1-Cap-option2-trans": 0,
+            "Layer-2-green-image": 0,
+            "Layer-2-green-stripe": 0,
+            "Layer-2-newformula": 1,
+            "Layer-3-citrus": 0,
+            "Layer-3-fresh": 0,
+            "Layer-3-freshsss": 1,
+            "Rating": 2,
+            "ResponseTime": 0.146
+        },
+        {
+            "Panelist": "session_f73b929f271b4715",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "jnj",
+            "Task": 7,
+            "Layer-1-Cap-option2-opaque": 0,
+            "Layer-1-Cap-option1-opaque": 1,
+            "Layer-1-Cap-option2-trans": 0,
+            "Layer-2-green-image": 0,
+            "Layer-2-green-stripe": 1,
+            "Layer-2-newformula": 0,
+            "Layer-3-citrus": 1,
+            "Layer-3-fresh": 0,
+            "Layer-3-freshsss": 0,
+            "Rating": 2,
+            "ResponseTime": 0.199
+        },
+        {
+            "Panelist": "session_f73b929f271b4715",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "jnj",
+            "Task": 8,
+            "Layer-1-Cap-option2-opaque": 0,
+            "Layer-1-Cap-option1-opaque": 1,
+            "Layer-1-Cap-option2-trans": 0,
+            "Layer-2-green-image": 1,
+            "Layer-2-green-stripe": 0,
+            "Layer-2-newformula": 0,
+            "Layer-3-citrus": 0,
+            "Layer-3-fresh": 1,
+            "Layer-3-freshsss": 0,
+            "Rating": 2,
+            "ResponseTime": 0.368
+        },
+        {
+            "Panelist": "session_f73b929f271b4715",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "jnj",
+            "Task": 9,
+            "Layer-1-Cap-option2-opaque": 0,
+            "Layer-1-Cap-option1-opaque": 0,
+            "Layer-1-Cap-option2-trans": 1,
+            "Layer-2-green-image": 0,
+            "Layer-2-green-stripe": 0,
+            "Layer-2-newformula": 0,
+            "Layer-3-citrus": 0,
+            "Layer-3-fresh": 0,
+            "Layer-3-freshsss": 1,
+            "Rating": 2,
+            "ResponseTime": 0.779
+        },
+        {
+            "Panelist": "session_f73b929f271b4715",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "jnj",
+            "Task": 10,
+            "Layer-1-Cap-option2-opaque": 0,
+            "Layer-1-Cap-option1-opaque": 1,
+            "Layer-1-Cap-option2-trans": 0,
+            "Layer-2-green-image": 1,
+            "Layer-2-green-stripe": 0,
+            "Layer-2-newformula": 0,
+            "Layer-3-citrus": 0,
+            "Layer-3-fresh": 0,
+            "Layer-3-freshsss": 0,
+            "Rating": 2,
+            "ResponseTime": 0.377
+        },
+        {
+            "Panelist": "session_f73b929f271b4715",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "jnj",
+            "Task": 11,
+            "Layer-1-Cap-option2-opaque": 1,
+            "Layer-1-Cap-option1-opaque": 0,
+            "Layer-1-Cap-option2-trans": 0,
+            "Layer-2-green-image": 1,
+            "Layer-2-green-stripe": 0,
+            "Layer-2-newformula": 0,
+            "Layer-3-citrus": 0,
+            "Layer-3-fresh": 1,
+            "Layer-3-freshsss": 0,
+            "Rating": 2,
+            "ResponseTime": 0.142
+        },
+        {
+            "Panelist": "session_f73b929f271b4715",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "jnj",
+            "Task": 12,
+            "Layer-1-Cap-option2-opaque": 0,
+            "Layer-1-Cap-option1-opaque": 0,
+            "Layer-1-Cap-option2-trans": 1,
+            "Layer-2-green-image": 0,
+            "Layer-2-green-stripe": 1,
+            "Layer-2-newformula": 0,
+            "Layer-3-citrus": 0,
+            "Layer-3-fresh": 0,
+            "Layer-3-freshsss": 1,
+            "Rating": 2,
+            "ResponseTime": 0.165
+        },
+        {
+            "Panelist": "session_f73b929f271b4715",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "jnj",
+            "Task": 13,
+            "Layer-1-Cap-option2-opaque": 1,
+            "Layer-1-Cap-option1-opaque": 0,
+            "Layer-1-Cap-option2-trans": 0,
+            "Layer-2-green-image": 0,
+            "Layer-2-green-stripe": 1,
+            "Layer-2-newformula": 0,
+            "Layer-3-citrus": 1,
+            "Layer-3-fresh": 0,
+            "Layer-3-freshsss": 0,
+            "Rating": 2,
+            "ResponseTime": 0.163
+        },
+        {
+            "Panelist": "session_f73b929f271b4715",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "jnj",
+            "Task": 14,
+            "Layer-1-Cap-option2-opaque": 0,
+            "Layer-1-Cap-option1-opaque": 0,
+            "Layer-1-Cap-option2-trans": 0,
+            "Layer-2-green-image": 0,
+            "Layer-2-green-stripe": 0,
+            "Layer-2-newformula": 1,
+            "Layer-3-citrus": 0,
+            "Layer-3-fresh": 1,
+            "Layer-3-freshsss": 0,
+            "Rating": 2,
+            "ResponseTime": 0.201
+        },
+        {
+            "Panelist": "session_28f9769d1a9745e0",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "jnj",
+            "Task": 1,
+            "Layer-1-Cap-option2-opaque": 0,
+            "Layer-1-Cap-option1-opaque": 1,
+            "Layer-1-Cap-option2-trans": 0,
+            "Layer-2-green-image": 0,
+            "Layer-2-green-stripe": 1,
+            "Layer-2-newformula": 0,
+            "Layer-3-citrus": 0,
+            "Layer-3-fresh": 1,
+            "Layer-3-freshsss": 0,
+            "Rating": 5,
+            "ResponseTime": 1.365
+        },
+        {
+            "Panelist": "session_28f9769d1a9745e0",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "jnj",
+            "Task": 2,
+            "Layer-1-Cap-option2-opaque": 1,
+            "Layer-1-Cap-option1-opaque": 0,
+            "Layer-1-Cap-option2-trans": 0,
+            "Layer-2-green-image": 0,
+            "Layer-2-green-stripe": 0,
+            "Layer-2-newformula": 0,
+            "Layer-3-citrus": 1,
+            "Layer-3-fresh": 0,
+            "Layer-3-freshsss": 0,
+            "Rating": 4,
+            "ResponseTime": 0.174
+        },
+        {
+            "Panelist": "session_28f9769d1a9745e0",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "jnj",
+            "Task": 3,
+            "Layer-1-Cap-option2-opaque": 1,
+            "Layer-1-Cap-option1-opaque": 0,
+            "Layer-1-Cap-option2-trans": 0,
+            "Layer-2-green-image": 1,
+            "Layer-2-green-stripe": 0,
+            "Layer-2-newformula": 0,
+            "Layer-3-citrus": 0,
+            "Layer-3-fresh": 1,
+            "Layer-3-freshsss": 0,
+            "Rating": 3,
+            "ResponseTime": 0.148
+        },
+        {
+            "Panelist": "session_28f9769d1a9745e0",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "jnj",
+            "Task": 4,
+            "Layer-1-Cap-option2-opaque": 0,
+            "Layer-1-Cap-option1-opaque": 1,
+            "Layer-1-Cap-option2-trans": 0,
+            "Layer-2-green-image": 0,
+            "Layer-2-green-stripe": 0,
+            "Layer-2-newformula": 0,
+            "Layer-3-citrus": 0,
+            "Layer-3-fresh": 0,
+            "Layer-3-freshsss": 1,
+            "Rating": 3,
+            "ResponseTime": 0.165
+        },
+        {
+            "Panelist": "session_28f9769d1a9745e0",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "jnj",
+            "Task": 5,
+            "Layer-1-Cap-option2-opaque": 1,
+            "Layer-1-Cap-option1-opaque": 0,
+            "Layer-1-Cap-option2-trans": 0,
+            "Layer-2-green-image": 0,
+            "Layer-2-green-stripe": 0,
+            "Layer-2-newformula": 1,
+            "Layer-3-citrus": 0,
+            "Layer-3-fresh": 0,
+            "Layer-3-freshsss": 1,
+            "Rating": 3,
+            "ResponseTime": 0.162
+        },
+        {
+            "Panelist": "session_28f9769d1a9745e0",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "jnj",
+            "Task": 6,
+            "Layer-1-Cap-option2-opaque": 1,
+            "Layer-1-Cap-option1-opaque": 0,
+            "Layer-1-Cap-option2-trans": 0,
+            "Layer-2-green-image": 0,
+            "Layer-2-green-stripe": 0,
+            "Layer-2-newformula": 1,
+            "Layer-3-citrus": 1,
+            "Layer-3-fresh": 0,
+            "Layer-3-freshsss": 0,
+            "Rating": 3,
+            "ResponseTime": 0.134
+        },
+        {
+            "Panelist": "session_28f9769d1a9745e0",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "jnj",
+            "Task": 7,
+            "Layer-1-Cap-option2-opaque": 0,
+            "Layer-1-Cap-option1-opaque": 0,
+            "Layer-1-Cap-option2-trans": 1,
+            "Layer-2-green-image": 0,
+            "Layer-2-green-stripe": 1,
+            "Layer-2-newformula": 0,
+            "Layer-3-citrus": 0,
+            "Layer-3-fresh": 1,
+            "Layer-3-freshsss": 0,
+            "Rating": 4,
+            "ResponseTime": 0.583
+        },
+        {
+            "Panelist": "session_28f9769d1a9745e0",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "jnj",
+            "Task": 8,
+            "Layer-1-Cap-option2-opaque": 0,
+            "Layer-1-Cap-option1-opaque": 1,
+            "Layer-1-Cap-option2-trans": 0,
+            "Layer-2-green-image": 1,
+            "Layer-2-green-stripe": 0,
+            "Layer-2-newformula": 0,
+            "Layer-3-citrus": 0,
+            "Layer-3-fresh": 1,
+            "Layer-3-freshsss": 0,
+            "Rating": 4,
+            "ResponseTime": 0.162
+        },
+        {
+            "Panelist": "session_28f9769d1a9745e0",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "jnj",
+            "Task": 9,
+            "Layer-1-Cap-option2-opaque": 0,
+            "Layer-1-Cap-option1-opaque": 0,
+            "Layer-1-Cap-option2-trans": 1,
+            "Layer-2-green-image": 0,
+            "Layer-2-green-stripe": 1,
+            "Layer-2-newformula": 0,
+            "Layer-3-citrus": 0,
+            "Layer-3-fresh": 0,
+            "Layer-3-freshsss": 0,
+            "Rating": 4,
+            "ResponseTime": 0.15
+        },
+        {
+            "Panelist": "session_28f9769d1a9745e0",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "jnj",
+            "Task": 10,
+            "Layer-1-Cap-option2-opaque": 0,
+            "Layer-1-Cap-option1-opaque": 1,
+            "Layer-1-Cap-option2-trans": 0,
+            "Layer-2-green-image": 1,
+            "Layer-2-green-stripe": 0,
+            "Layer-2-newformula": 0,
+            "Layer-3-citrus": 0,
+            "Layer-3-fresh": 0,
+            "Layer-3-freshsss": 0,
+            "Rating": 4,
+            "ResponseTime": 0.131
+        },
+        {
+            "Panelist": "session_28f9769d1a9745e0",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "jnj",
+            "Task": 11,
+            "Layer-1-Cap-option2-opaque": 0,
+            "Layer-1-Cap-option1-opaque": 0,
+            "Layer-1-Cap-option2-trans": 0,
+            "Layer-2-green-image": 0,
+            "Layer-2-green-stripe": 1,
+            "Layer-2-newformula": 0,
+            "Layer-3-citrus": 0,
+            "Layer-3-fresh": 0,
+            "Layer-3-freshsss": 1,
+            "Rating": 4,
+            "ResponseTime": 0.152
+        },
+        {
+            "Panelist": "session_28f9769d1a9745e0",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "jnj",
+            "Task": 12,
+            "Layer-1-Cap-option2-opaque": 0,
+            "Layer-1-Cap-option1-opaque": 0,
+            "Layer-1-Cap-option2-trans": 0,
+            "Layer-2-green-image": 0,
+            "Layer-2-green-stripe": 0,
+            "Layer-2-newformula": 1,
+            "Layer-3-citrus": 1,
+            "Layer-3-fresh": 0,
+            "Layer-3-freshsss": 0,
+            "Rating": 4,
+            "ResponseTime": 0.151
+        },
+        {
+            "Panelist": "session_28f9769d1a9745e0",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "jnj",
+            "Task": 13,
+            "Layer-1-Cap-option2-opaque": 0,
+            "Layer-1-Cap-option1-opaque": 0,
+            "Layer-1-Cap-option2-trans": 1,
+            "Layer-2-green-image": 1,
+            "Layer-2-green-stripe": 0,
+            "Layer-2-newformula": 0,
+            "Layer-3-citrus": 1,
+            "Layer-3-fresh": 0,
+            "Layer-3-freshsss": 0,
+            "Rating": 4,
+            "ResponseTime": 0.15
+        },
+        {
+            "Panelist": "session_28f9769d1a9745e0",
+            "Age": 15,
+            "Gender": "male",
+            "jlkasdjkl": "jnj",
+            "Task": 14,
+            "Layer-1-Cap-option2-opaque": 0,
+            "Layer-1-Cap-option1-opaque": 0,
+            "Layer-1-Cap-option2-trans": 1,
+            "Layer-2-green-image": 0,
+            "Layer-2-green-stripe": 0,
+            "Layer-2-newformula": 1,
+            "Layer-3-citrus": 0,
+            "Layer-3-fresh": 0,
+            "Layer-3-freshsss": 1,
+            "Rating": 4,
+            "ResponseTime": 0.154
+        }
+    ],
+    "(T) Overall": {
+        "base_size": 3,
+        "threshold": null,
+        "categories": [
+            {
+                "code": "A",
+                "name": "Layer 1",
+                "elements": [
+                    {
+                        "code": "A1",
+                        "name": "Cap-option2-opaque",
+                        "value": -10,
+                        "above_threshold": false
+                    },
+                    {
+                        "code": "A2",
+                        "name": "Cap-option1-opaque",
+                        "value": -1,
+                        "above_threshold": false
+                    },
+                    {
+                        "code": "A3",
+                        "name": "Cap-option2-trans",
+                        "value": -1,
+                        "above_threshold": false
+                    }
+                ]
+            },
+            {
+                "code": "B",
+                "name": "Layer 2",
+                "elements": [
+                    {
+                        "code": "B1",
+                        "name": "green-image",
+                        "value": 6,
+                        "above_threshold": false
+                    },
+                    {
+                        "code": "B2",
+                        "name": "green-stripe",
+                        "value": 6,
+                        "above_threshold": false
+                    },
+                    {
+                        "code": "B3",
+                        "name": "newformula",
+                        "value": 4,
+                        "above_threshold": false
+                    }
+                ]
+            },
+            {
+                "code": "C",
+                "name": "Layer 3",
+                "elements": [
+                    {
+                        "code": "C1",
+                        "name": "citrus",
+                        "value": 14,
+                        "above_threshold": false
+                    },
+                    {
+                        "code": "C2",
+                        "name": "fresh",
+                        "value": 6,
+                        "above_threshold": false
+                    },
+                    {
+                        "code": "C3",
+                        "name": "freshsss",
+                        "value": -3,
+                        "above_threshold": false
+                    }
+                ]
+            }
+        ]
+    },
+    "(B) Overall": {
+        "base_size": 3,
+        "threshold": null,
+        "categories": [
+            {
+                "code": "A",
+                "name": "Layer 1",
+                "elements": [
+                    {
+                        "code": "A1",
+                        "name": "Cap-option2-opaque",
+                        "value": 0,
+                        "above_threshold": false
+                    },
+                    {
+                        "code": "A2",
+                        "name": "Cap-option1-opaque",
+                        "value": 0,
+                        "above_threshold": false
+                    },
+                    {
+                        "code": "A3",
+                        "name": "Cap-option2-trans",
+                        "value": 0,
+                        "above_threshold": false
+                    }
+                ]
+            },
+            {
+                "code": "B",
+                "name": "Layer 2",
+                "elements": [
+                    {
+                        "code": "B1",
+                        "name": "green-image",
+                        "value": 0,
+                        "above_threshold": false
+                    },
+                    {
+                        "code": "B2",
+                        "name": "green-stripe",
+                        "value": 0,
+                        "above_threshold": false
+                    },
+                    {
+                        "code": "B3",
+                        "name": "newformula",
+                        "value": 0,
+                        "above_threshold": false
+                    }
+                ]
+            },
+            {
+                "code": "C",
+                "name": "Layer 3",
+                "elements": [
+                    {
+                        "code": "C1",
+                        "name": "citrus",
+                        "value": 0,
+                        "above_threshold": false
+                    },
+                    {
+                        "code": "C2",
+                        "name": "fresh",
+                        "value": 0,
+                        "above_threshold": false
+                    },
+                    {
+                        "code": "C3",
+                        "name": "freshsss",
+                        "value": 0,
+                        "above_threshold": false
+                    }
+                ]
+            }
+        ]
+    },
+    "(R) Overall": {
+        "base_size": 3,
+        "threshold": null,
+        "categories": [
+            {
+                "code": "A",
+                "name": "Layer 1",
+                "elements": [
+                    {
+                        "code": "A1",
+                        "name": "Cap-option2-opaque",
+                        "value": -0.1382899657592235,
+                        "above_threshold": false
+                    },
+                    {
+                        "code": "A2",
+                        "name": "Cap-option1-opaque",
+                        "value": 0.4004763548934789,
+                        "above_threshold": false
+                    },
+                    {
+                        "code": "A3",
+                        "name": "Cap-option2-trans",
+                        "value": -0.11625968536730717,
+                        "above_threshold": false
+                    }
+                ]
+            },
+            {
+                "code": "B",
+                "name": "Layer 2",
+                "elements": [
+                    {
+                        "code": "B1",
+                        "name": "green-image",
+                        "value": 0.30253684292869126,
+                        "above_threshold": false
+                    },
+                    {
+                        "code": "B2",
+                        "name": "green-stripe",
+                        "value": -0.0960588341383639,
+                        "above_threshold": false
+                    },
+                    {
+                        "code": "B3",
+                        "name": "newformula",
+                        "value": -0.3801798212285769,
+                        "above_threshold": false
+                    }
+                ]
+            },
+            {
+                "code": "C",
+                "name": "Layer 3",
+                "elements": [
+                    {
+                        "code": "C1",
+                        "name": "citrus",
+                        "value": 0.9743825023054468,
+                        "above_threshold": false
+                    },
+                    {
+                        "code": "C2",
+                        "name": "fresh",
+                        "value": 0.4371014872064453,
+                        "above_threshold": false
+                    },
+                    {
+                        "code": "C3",
+                        "name": "freshsss",
+                        "value": 0.271159693781143,
+                        "above_threshold": false
+                    }
+                ]
+            }
+        ]
+    },
+    "(T) Mindsets": {
+        "base_size": 3,
+        "threshold": null,
+        "groups": {
+            "Total": {
+                "base_size": 3
+            },
+            "Mindset_2": {
+                "Mindset_1_of_2": {
+                    "base_size": 1
+                },
+                "Mindset_2_of_2": {
+                    "base_size": 2
+                }
+            },
+            "Mindset_3": {
+                "Mindset_1_of_3": {
+                    "base_size": 1
+                },
+                "Mindset_2_of_3": {
+                    "base_size": 1
+                },
+                "Mindset_3_of_3": {
+                    "base_size": 1
+                }
+            }
+        },
+        "categories": [
+            {
+                "code": "A",
+                "name": "Layer 1",
+                "elements": [
+                    {
+                        "code": "A1",
+                        "name": "Cap-option2-opaque",
+                        "values": {
+                            "Total": -10,
+                            "Mindset_1_of_2": -1,
+                            "Mindset_2_of_2": -14,
+                            "Mindset_1_of_3": -29,
+                            "Mindset_2_of_3": -1,
+                            "Mindset_3_of_3": 0
+                        },
+                        "above_threshold": {
+                            "Total": false,
+                            "Mindset_1_of_2": false,
+                            "Mindset_2_of_2": false,
+                            "Mindset_1_of_3": false,
+                            "Mindset_2_of_3": false,
+                            "Mindset_3_of_3": false
+                        }
+                    },
+                    {
+                        "code": "A2",
+                        "name": "Cap-option1-opaque",
+                        "values": {
+                            "Total": -1,
+                            "Mindset_1_of_2": 25,
+                            "Mindset_2_of_2": -14,
+                            "Mindset_1_of_3": -28,
+                            "Mindset_2_of_3": 25,
+                            "Mindset_3_of_3": 0
+                        },
+                        "above_threshold": {
+                            "Total": false,
+                            "Mindset_1_of_2": false,
+                            "Mindset_2_of_2": false,
+                            "Mindset_1_of_3": false,
+                            "Mindset_2_of_3": false,
+                            "Mindset_3_of_3": false
+                        }
+                    },
+                    {
+                        "code": "A3",
+                        "name": "Cap-option2-trans",
+                        "values": {
+                            "Total": -1,
+                            "Mindset_1_of_2": -7,
+                            "Mindset_2_of_2": 1,
+                            "Mindset_1_of_3": 3,
+                            "Mindset_2_of_3": -7,
+                            "Mindset_3_of_3": 0
+                        },
+                        "above_threshold": {
+                            "Total": false,
+                            "Mindset_1_of_2": false,
+                            "Mindset_2_of_2": false,
+                            "Mindset_1_of_3": false,
+                            "Mindset_2_of_3": false,
+                            "Mindset_3_of_3": false
+                        }
+                    }
+                ]
+            },
+            {
+                "code": "B",
+                "name": "Layer 2",
+                "elements": [
+                    {
+                        "code": "B1",
+                        "name": "green-image",
+                        "values": {
+                            "Total": 5,
+                            "Mindset_1_of_2": -19,
+                            "Mindset_2_of_2": 17,
+                            "Mindset_1_of_3": 35,
+                            "Mindset_2_of_3": -19,
+                            "Mindset_3_of_3": 0
+                        },
+                        "above_threshold": {
+                            "Total": false,
+                            "Mindset_1_of_2": false,
+                            "Mindset_2_of_2": false,
+                            "Mindset_1_of_3": false,
+                            "Mindset_2_of_3": false,
+                            "Mindset_3_of_3": false
+                        }
+                    },
+                    {
+                        "code": "B2",
+                        "name": "green-stripe",
+                        "values": {
+                            "Total": 6,
+                            "Mindset_1_of_2": 17,
+                            "Mindset_2_of_2": 0,
+                            "Mindset_1_of_3": 0,
+                            "Mindset_2_of_3": 17,
+                            "Mindset_3_of_3": 0
+                        },
+                        "above_threshold": {
+                            "Total": false,
+                            "Mindset_1_of_2": false,
+                            "Mindset_2_of_2": false,
+                            "Mindset_1_of_3": false,
+                            "Mindset_2_of_3": false,
+                            "Mindset_3_of_3": false
+                        }
+                    },
+                    {
+                        "code": "B3",
+                        "name": "newformula",
+                        "values": {
+                            "Total": 3,
+                            "Mindset_1_of_2": 6,
+                            "Mindset_2_of_2": 2,
+                            "Mindset_1_of_3": 4,
+                            "Mindset_2_of_3": 6,
+                            "Mindset_3_of_3": 0
+                        },
+                        "above_threshold": {
+                            "Total": false,
+                            "Mindset_1_of_2": false,
+                            "Mindset_2_of_2": false,
+                            "Mindset_1_of_3": false,
+                            "Mindset_2_of_3": false,
+                            "Mindset_3_of_3": false
+                        }
+                    }
+                ]
+            },
+            {
+                "code": "C",
+                "name": "Layer 3",
+                "elements": [
+                    {
+                        "code": "C1",
+                        "name": "citrus",
+                        "values": {
+                            "Total": 13,
+                            "Mindset_1_of_2": 4,
+                            "Mindset_2_of_2": 18,
+                            "Mindset_1_of_3": 36,
+                            "Mindset_2_of_3": 4,
+                            "Mindset_3_of_3": 0
+                        },
+                        "above_threshold": {
+                            "Total": false,
+                            "Mindset_1_of_2": false,
+                            "Mindset_2_of_2": false,
+                            "Mindset_1_of_3": false,
+                            "Mindset_2_of_3": false,
+                            "Mindset_3_of_3": false
+                        }
+                    },
+                    {
+                        "code": "C2",
+                        "name": "fresh",
+                        "values": {
+                            "Total": 5,
+                            "Mindset_1_of_2": 15,
+                            "Mindset_2_of_2": 0,
+                            "Mindset_1_of_3": 1,
+                            "Mindset_2_of_3": 15,
+                            "Mindset_3_of_3": 0
+                        },
+                        "above_threshold": {
+                            "Total": false,
+                            "Mindset_1_of_2": false,
+                            "Mindset_2_of_2": false,
+                            "Mindset_1_of_3": false,
+                            "Mindset_2_of_3": false,
+                            "Mindset_3_of_3": false
+                        }
+                    },
+                    {
+                        "code": "C3",
+                        "name": "freshsss",
+                        "values": {
+                            "Total": -2,
+                            "Mindset_1_of_2": -11,
+                            "Mindset_2_of_2": 2,
+                            "Mindset_1_of_3": 4,
+                            "Mindset_2_of_3": -11,
+                            "Mindset_3_of_3": 0
+                        },
+                        "above_threshold": {
+                            "Total": false,
+                            "Mindset_1_of_2": false,
+                            "Mindset_2_of_2": false,
+                            "Mindset_1_of_3": false,
+                            "Mindset_2_of_3": false,
+                            "Mindset_3_of_3": false
+                        }
+                    }
+                ]
+            }
+        ]
+    },
+    "(B) Mindsets": {
+        "base_size": 3,
+        "threshold": null,
+        "groups": {
+            "Total": {
+                "base_size": 3
+            },
+            "Mindset_2": {
+                "Mindset_1_of_2": {
+                    "base_size": 1
+                },
+                "Mindset_2_of_2": {
+                    "base_size": 2
+                }
+            },
+            "Mindset_3": {
+                "Mindset_1_of_3": {
+                    "base_size": 1
+                },
+                "Mindset_2_of_3": {
+                    "base_size": 1
+                },
+                "Mindset_3_of_3": {
+                    "base_size": 1
+                }
+            }
+        },
+        "categories": [
+            {
+                "code": "A",
+                "name": "Layer 1",
+                "elements": [
+                    {
+                        "code": "A1",
+                        "name": "Cap-option2-opaque",
+                        "values": {
+                            "Total": 0,
+                            "Mindset_1_of_2": 0,
+                            "Mindset_2_of_2": 0,
+                            "Mindset_1_of_3": 0,
+                            "Mindset_2_of_3": 0,
+                            "Mindset_3_of_3": 0
+                        },
+                        "above_threshold": {
+                            "Total": false,
+                            "Mindset_1_of_2": false,
+                            "Mindset_2_of_2": false,
+                            "Mindset_1_of_3": false,
+                            "Mindset_2_of_3": false,
+                            "Mindset_3_of_3": false
+                        }
+                    },
+                    {
+                        "code": "A2",
+                        "name": "Cap-option1-opaque",
+                        "values": {
+                            "Total": 0,
+                            "Mindset_1_of_2": 0,
+                            "Mindset_2_of_2": 0,
+                            "Mindset_1_of_3": 0,
+                            "Mindset_2_of_3": 0,
+                            "Mindset_3_of_3": 0
+                        },
+                        "above_threshold": {
+                            "Total": false,
+                            "Mindset_1_of_2": false,
+                            "Mindset_2_of_2": false,
+                            "Mindset_1_of_3": false,
+                            "Mindset_2_of_3": false,
+                            "Mindset_3_of_3": false
+                        }
+                    },
+                    {
+                        "code": "A3",
+                        "name": "Cap-option2-trans",
+                        "values": {
+                            "Total": 0,
+                            "Mindset_1_of_2": 0,
+                            "Mindset_2_of_2": 0,
+                            "Mindset_1_of_3": 0,
+                            "Mindset_2_of_3": 0,
+                            "Mindset_3_of_3": 0
+                        },
+                        "above_threshold": {
+                            "Total": false,
+                            "Mindset_1_of_2": false,
+                            "Mindset_2_of_2": false,
+                            "Mindset_1_of_3": false,
+                            "Mindset_2_of_3": false,
+                            "Mindset_3_of_3": false
+                        }
+                    }
+                ]
+            },
+            {
+                "code": "B",
+                "name": "Layer 2",
+                "elements": [
+                    {
+                        "code": "B1",
+                        "name": "green-image",
+                        "values": {
+                            "Total": 0,
+                            "Mindset_1_of_2": 0,
+                            "Mindset_2_of_2": 0,
+                            "Mindset_1_of_3": 0,
+                            "Mindset_2_of_3": 0,
+                            "Mindset_3_of_3": 0
+                        },
+                        "above_threshold": {
+                            "Total": false,
+                            "Mindset_1_of_2": false,
+                            "Mindset_2_of_2": false,
+                            "Mindset_1_of_3": false,
+                            "Mindset_2_of_3": false,
+                            "Mindset_3_of_3": false
+                        }
+                    },
+                    {
+                        "code": "B2",
+                        "name": "green-stripe",
+                        "values": {
+                            "Total": 0,
+                            "Mindset_1_of_2": 0,
+                            "Mindset_2_of_2": 0,
+                            "Mindset_1_of_3": 0,
+                            "Mindset_2_of_3": 0,
+                            "Mindset_3_of_3": 0
+                        },
+                        "above_threshold": {
+                            "Total": false,
+                            "Mindset_1_of_2": false,
+                            "Mindset_2_of_2": false,
+                            "Mindset_1_of_3": false,
+                            "Mindset_2_of_3": false,
+                            "Mindset_3_of_3": false
+                        }
+                    },
+                    {
+                        "code": "B3",
+                        "name": "newformula",
+                        "values": {
+                            "Total": 0,
+                            "Mindset_1_of_2": 0,
+                            "Mindset_2_of_2": 0,
+                            "Mindset_1_of_3": 0,
+                            "Mindset_2_of_3": 0,
+                            "Mindset_3_of_3": 0
+                        },
+                        "above_threshold": {
+                            "Total": false,
+                            "Mindset_1_of_2": false,
+                            "Mindset_2_of_2": false,
+                            "Mindset_1_of_3": false,
+                            "Mindset_2_of_3": false,
+                            "Mindset_3_of_3": false
+                        }
+                    }
+                ]
+            },
+            {
+                "code": "C",
+                "name": "Layer 3",
+                "elements": [
+                    {
+                        "code": "C1",
+                        "name": "citrus",
+                        "values": {
+                            "Total": 0,
+                            "Mindset_1_of_2": 0,
+                            "Mindset_2_of_2": 0,
+                            "Mindset_1_of_3": 0,
+                            "Mindset_2_of_3": 0,
+                            "Mindset_3_of_3": 0
+                        },
+                        "above_threshold": {
+                            "Total": false,
+                            "Mindset_1_of_2": false,
+                            "Mindset_2_of_2": false,
+                            "Mindset_1_of_3": false,
+                            "Mindset_2_of_3": false,
+                            "Mindset_3_of_3": false
+                        }
+                    },
+                    {
+                        "code": "C2",
+                        "name": "fresh",
+                        "values": {
+                            "Total": 0,
+                            "Mindset_1_of_2": 0,
+                            "Mindset_2_of_2": 0,
+                            "Mindset_1_of_3": 0,
+                            "Mindset_2_of_3": 0,
+                            "Mindset_3_of_3": 0
+                        },
+                        "above_threshold": {
+                            "Total": false,
+                            "Mindset_1_of_2": false,
+                            "Mindset_2_of_2": false,
+                            "Mindset_1_of_3": false,
+                            "Mindset_2_of_3": false,
+                            "Mindset_3_of_3": false
+                        }
+                    },
+                    {
+                        "code": "C3",
+                        "name": "freshsss",
+                        "values": {
+                            "Total": 0,
+                            "Mindset_1_of_2": 0,
+                            "Mindset_2_of_2": 0,
+                            "Mindset_1_of_3": 0,
+                            "Mindset_2_of_3": 0,
+                            "Mindset_3_of_3": 0
+                        },
+                        "above_threshold": {
+                            "Total": false,
+                            "Mindset_1_of_2": false,
+                            "Mindset_2_of_2": false,
+                            "Mindset_1_of_3": false,
+                            "Mindset_2_of_3": false,
+                            "Mindset_3_of_3": false
+                        }
+                    }
+                ]
+            }
+        ]
+    },
+    "(R) Mindsets": {
+        "base_size": 3,
+        "threshold": null,
+        "groups": {
+            "Total": {
+                "base_size": 3
+            },
+            "Mindset_2": {
+                "Mindset_1_of_2": {
+                    "base_size": 1
+                },
+                "Mindset_2_of_2": {
+                    "base_size": 2
+                }
+            },
+            "Mindset_3": {
+                "Mindset_1_of_3": {
+                    "base_size": 1
+                },
+                "Mindset_2_of_3": {
+                    "base_size": 1
+                },
+                "Mindset_3_of_3": {
+                    "base_size": 1
+                }
+            }
+        },
+        "categories": [
+            {
+                "code": "A",
+                "name": "Layer 1",
+                "elements": [
+                    {
+                        "code": "A1",
+                        "name": "Cap-option2-opaque",
+                        "values": {
+                            "Total": -0.1382899657592235,
+                            "Mindset_1_of_2": 0.035344875830710075,
+                            "Mindset_2_of_2": -0.2251073865541903,
+                            "Mindset_1_of_3": -0.5399897260273987,
+                            "Mindset_2_of_3": 0.035344875830710075,
+                            "Mindset_3_of_3": 0.08977495291901812
+                        },
+                        "above_threshold": {
+                            "Total": false,
+                            "Mindset_1_of_2": false,
+                            "Mindset_2_of_2": false,
+                            "Mindset_1_of_3": false,
+                            "Mindset_2_of_3": false,
+                            "Mindset_3_of_3": false
+                        }
+                    },
+                    {
+                        "code": "A2",
+                        "name": "Cap-option1-opaque",
+                        "values": {
+                            "Total": 0.4004763548934789,
+                            "Mindset_1_of_2": 0.3565725778244144,
+                            "Mindset_2_of_2": 0.42242824342801116,
+                            "Mindset_1_of_3": -0.3032602739726037,
+                            "Mindset_2_of_3": 0.3565725778244144,
+                            "Mindset_3_of_3": 1.148116760828626
+                        },
+                        "above_threshold": {
+                            "Total": false,
+                            "Mindset_1_of_2": false,
+                            "Mindset_2_of_2": false,
+                            "Mindset_1_of_3": false,
+                            "Mindset_2_of_3": false,
+                            "Mindset_3_of_3": false
+                        }
+                    },
+                    {
+                        "code": "A3",
+                        "name": "Cap-option2-trans",
+                        "values": {
+                            "Total": -0.11625968536730717,
+                            "Mindset_1_of_2": 0.05512731724379161,
+                            "Mindset_2_of_2": -0.20195318667285656,
+                            "Mindset_1_of_3": 0.3983732876712358,
+                            "Mindset_2_of_3": 0.05512731724379161,
+                            "Mindset_3_of_3": -0.8022796610169489
+                        },
+                        "above_threshold": {
+                            "Total": false,
+                            "Mindset_1_of_2": false,
+                            "Mindset_2_of_2": false,
+                            "Mindset_1_of_3": false,
+                            "Mindset_2_of_3": false,
+                            "Mindset_3_of_3": false
+                        }
+                    }
+                ]
+            },
+            {
+                "code": "B",
+                "name": "Layer 2",
+                "elements": [
+                    {
+                        "code": "B1",
+                        "name": "green-image",
+                        "values": {
+                            "Total": 0.30253684292869126,
+                            "Mindset_1_of_2": -0.26961455054214756,
+                            "Mindset_2_of_2": 0.5886125396641106,
+                            "Mindset_1_of_3": 0.6871883561643817,
+                            "Mindset_2_of_3": -0.26961455054214756,
+                            "Mindset_3_of_3": 0.4900367231638396
+                        },
+                        "above_threshold": {
+                            "Total": false,
+                            "Mindset_1_of_2": false,
+                            "Mindset_2_of_2": false,
+                            "Mindset_1_of_3": false,
+                            "Mindset_2_of_3": false,
+                            "Mindset_3_of_3": false
+                        }
+                    },
+                    {
+                        "code": "B2",
+                        "name": "green-stripe",
+                        "values": {
+                            "Total": -0.0960588341383639,
+                            "Mindset_1_of_2": 0.2824113326337881,
+                            "Mindset_2_of_2": -0.2852939175244399,
+                            "Mindset_1_of_3": -0.3535445205479426,
+                            "Mindset_2_of_3": 0.2824113326337881,
+                            "Mindset_3_of_3": -0.21704331450093717
+                        },
+                        "above_threshold": {
+                            "Total": false,
+                            "Mindset_1_of_2": false,
+                            "Mindset_2_of_2": false,
+                            "Mindset_1_of_3": false,
+                            "Mindset_2_of_3": false,
+                            "Mindset_3_of_3": false
+                        }
+                    },
+                    {
+                        "code": "B3",
+                        "name": "newformula",
+                        "values": {
+                            "Total": -0.3801798212285769,
+                            "Mindset_1_of_2": 0.07350612102133605,
+                            "Mindset_2_of_2": -0.6070227923535334,
+                            "Mindset_1_of_3": 0.005739726027395309,
+                            "Mindset_2_of_3": 0.07350612102133605,
+                            "Mindset_3_of_3": -1.219785310734462
+                        },
+                        "above_threshold": {
+                            "Total": false,
+                            "Mindset_1_of_2": false,
+                            "Mindset_2_of_2": false,
+                            "Mindset_1_of_3": false,
+                            "Mindset_2_of_3": false,
+                            "Mindset_3_of_3": false
+                        }
+                    }
+                ]
+            },
+            {
+                "code": "C",
+                "name": "Layer 3",
+                "elements": [
+                    {
+                        "code": "C1",
+                        "name": "citrus",
+                        "values": {
+                            "Total": 0.9743825023054468,
+                            "Mindset_1_of_2": 0.15144630989856564,
+                            "Mindset_2_of_2": 1.3858505985088874,
+                            "Mindset_1_of_3": 1.0631917808219176,
+                            "Mindset_2_of_3": 0.15144630989856564,
+                            "Mindset_3_of_3": 1.708509416195857
+                        },
+                        "above_threshold": {
+                            "Total": false,
+                            "Mindset_1_of_2": false,
+                            "Mindset_2_of_2": false,
+                            "Mindset_1_of_3": false,
+                            "Mindset_2_of_3": false,
+                            "Mindset_3_of_3": false
+                        }
+                    },
+                    {
+                        "code": "C2",
+                        "name": "fresh",
+                        "values": {
+                            "Total": 0.4371014872064453,
+                            "Mindset_1_of_2": 0.35719727177334754,
+                            "Mindset_2_of_2": 0.4770535949229942,
+                            "Mindset_1_of_3": 0.23109589041096268,
+                            "Mindset_2_of_3": 0.35719727177334754,
+                            "Mindset_3_of_3": 0.7230112994350257
+                        },
+                        "above_threshold": {
+                            "Total": false,
+                            "Mindset_1_of_2": false,
+                            "Mindset_2_of_2": false,
+                            "Mindset_1_of_3": false,
+                            "Mindset_2_of_3": false,
+                            "Mindset_3_of_3": false
+                        }
+                    },
+                    {
+                        "code": "C3",
+                        "name": "freshsss",
+                        "values": {
+                            "Total": 0.271159693781143,
+                            "Mindset_1_of_2": -0.06086708639384381,
+                            "Mindset_2_of_2": 0.4371730838686364,
+                            "Mindset_1_of_3": 0.36746575342465465,
+                            "Mindset_2_of_3": -0.06086708639384381,
+                            "Mindset_3_of_3": 0.5068804143126182
+                        },
+                        "above_threshold": {
+                            "Total": false,
+                            "Mindset_1_of_2": false,
+                            "Mindset_2_of_2": false,
+                            "Mindset_1_of_3": false,
+                            "Mindset_2_of_3": false,
+                            "Mindset_3_of_3": false
+                        }
+                    }
+                ]
+            }
+        ]
+    },
+    "(T) Gender": {
+        "threshold": null,
+        "segments": {
+            "Male": {
+                "base_size": 3
+            }
+        },
+        "categories": [
+            {
+                "code": "A",
+                "name": "Layer 1",
+                "elements": [
+                    {
+                        "code": "A1",
+                        "name": "Cap-option2-opaque",
+                        "values": {
+                            "Male": -10
+                        },
+                        "above_threshold": {
+                            "Male": false
+                        }
+                    },
+                    {
+                        "code": "A2",
+                        "name": "Cap-option1-opaque",
+                        "values": {
+                            "Male": -1
+                        },
+                        "above_threshold": {
+                            "Male": false
+                        }
+                    },
+                    {
+                        "code": "A3",
+                        "name": "Cap-option2-trans",
+                        "values": {
+                            "Male": -1
+                        },
+                        "above_threshold": {
+                            "Male": false
+                        }
+                    }
+                ]
+            },
+            {
+                "code": "B",
+                "name": "Layer 2",
+                "elements": [
+                    {
+                        "code": "B1",
+                        "name": "green-image",
+                        "values": {
+                            "Male": 6
+                        },
+                        "above_threshold": {
+                            "Male": false
+                        }
+                    },
+                    {
+                        "code": "B2",
+                        "name": "green-stripe",
+                        "values": {
+                            "Male": 6
+                        },
+                        "above_threshold": {
+                            "Male": false
+                        }
+                    },
+                    {
+                        "code": "B3",
+                        "name": "newformula",
+                        "values": {
+                            "Male": 4
+                        },
+                        "above_threshold": {
+                            "Male": false
+                        }
+                    }
+                ]
+            },
+            {
+                "code": "C",
+                "name": "Layer 3",
+                "elements": [
+                    {
+                        "code": "C1",
+                        "name": "citrus",
+                        "values": {
+                            "Male": 14
+                        },
+                        "above_threshold": {
+                            "Male": false
+                        }
+                    },
+                    {
+                        "code": "C2",
+                        "name": "fresh",
+                        "values": {
+                            "Male": 6
+                        },
+                        "above_threshold": {
+                            "Male": false
+                        }
+                    },
+                    {
+                        "code": "C3",
+                        "name": "freshsss",
+                        "values": {
+                            "Male": -3
+                        },
+                        "above_threshold": {
+                            "Male": false
+                        }
+                    }
+                ]
+            }
+        ]
+    },
+    "(B) Gender": {
+        "threshold": null,
+        "segments": {
+            "Male": {
+                "base_size": 3
+            }
+        },
+        "categories": [
+            {
+                "code": "A",
+                "name": "Layer 1",
+                "elements": [
+                    {
+                        "code": "A1",
+                        "name": "Cap-option2-opaque",
+                        "values": {
+                            "Male": 0
+                        },
+                        "above_threshold": {
+                            "Male": false
+                        }
+                    },
+                    {
+                        "code": "A2",
+                        "name": "Cap-option1-opaque",
+                        "values": {
+                            "Male": 0
+                        },
+                        "above_threshold": {
+                            "Male": false
+                        }
+                    },
+                    {
+                        "code": "A3",
+                        "name": "Cap-option2-trans",
+                        "values": {
+                            "Male": 0
+                        },
+                        "above_threshold": {
+                            "Male": false
+                        }
+                    }
+                ]
+            },
+            {
+                "code": "B",
+                "name": "Layer 2",
+                "elements": [
+                    {
+                        "code": "B1",
+                        "name": "green-image",
+                        "values": {
+                            "Male": 0
+                        },
+                        "above_threshold": {
+                            "Male": false
+                        }
+                    },
+                    {
+                        "code": "B2",
+                        "name": "green-stripe",
+                        "values": {
+                            "Male": 0
+                        },
+                        "above_threshold": {
+                            "Male": false
+                        }
+                    },
+                    {
+                        "code": "B3",
+                        "name": "newformula",
+                        "values": {
+                            "Male": 0
+                        },
+                        "above_threshold": {
+                            "Male": false
+                        }
+                    }
+                ]
+            },
+            {
+                "code": "C",
+                "name": "Layer 3",
+                "elements": [
+                    {
+                        "code": "C1",
+                        "name": "citrus",
+                        "values": {
+                            "Male": 0
+                        },
+                        "above_threshold": {
+                            "Male": false
+                        }
+                    },
+                    {
+                        "code": "C2",
+                        "name": "fresh",
+                        "values": {
+                            "Male": 0
+                        },
+                        "above_threshold": {
+                            "Male": false
+                        }
+                    },
+                    {
+                        "code": "C3",
+                        "name": "freshsss",
+                        "values": {
+                            "Male": 0
+                        },
+                        "above_threshold": {
+                            "Male": false
+                        }
+                    }
+                ]
+            }
+        ]
+    },
+    "(R) Gender": {
+        "threshold": null,
+        "segments": {
+            "Male": {
+                "base_size": 3
+            }
+        },
+        "categories": [
+            {
+                "code": "A",
+                "name": "Layer 1",
+                "elements": [
+                    {
+                        "code": "A1",
+                        "name": "Cap-option2-opaque",
+                        "values": {
+                            "Male": -0.1382899657592235
+                        },
+                        "above_threshold": {
+                            "Male": false
+                        }
+                    },
+                    {
+                        "code": "A2",
+                        "name": "Cap-option1-opaque",
+                        "values": {
+                            "Male": 0.4004763548934789
+                        },
+                        "above_threshold": {
+                            "Male": false
+                        }
+                    },
+                    {
+                        "code": "A3",
+                        "name": "Cap-option2-trans",
+                        "values": {
+                            "Male": -0.11625968536730717
+                        },
+                        "above_threshold": {
+                            "Male": false
+                        }
+                    }
+                ]
+            },
+            {
+                "code": "B",
+                "name": "Layer 2",
+                "elements": [
+                    {
+                        "code": "B1",
+                        "name": "green-image",
+                        "values": {
+                            "Male": 0.30253684292869126
+                        },
+                        "above_threshold": {
+                            "Male": false
+                        }
+                    },
+                    {
+                        "code": "B2",
+                        "name": "green-stripe",
+                        "values": {
+                            "Male": -0.0960588341383639
+                        },
+                        "above_threshold": {
+                            "Male": false
+                        }
+                    },
+                    {
+                        "code": "B3",
+                        "name": "newformula",
+                        "values": {
+                            "Male": -0.3801798212285769
+                        },
+                        "above_threshold": {
+                            "Male": false
+                        }
+                    }
+                ]
+            },
+            {
+                "code": "C",
+                "name": "Layer 3",
+                "elements": [
+                    {
+                        "code": "C1",
+                        "name": "citrus",
+                        "values": {
+                            "Male": 0.9743825023054468
+                        },
+                        "above_threshold": {
+                            "Male": false
+                        }
+                    },
+                    {
+                        "code": "C2",
+                        "name": "fresh",
+                        "values": {
+                            "Male": 0.4371014872064453
+                        },
+                        "above_threshold": {
+                            "Male": false
+                        }
+                    },
+                    {
+                        "code": "C3",
+                        "name": "freshsss",
+                        "values": {
+                            "Male": 0.271159693781143
+                        },
+                        "above_threshold": {
+                            "Male": false
+                        }
+                    }
+                ]
+            }
+        ]
+    },
+    "(T) Age": {
+        "threshold": null,
+        "segments": {
+            "13-17": {
+                "base_size": 3
+            }
+        },
+        "categories": [
+            {
+                "code": "A",
+                "name": "Layer 1",
+                "elements": [
+                    {
+                        "code": "A1",
+                        "name": "Cap-option2-opaque",
+                        "values": {
+                            "13-17": -10
+                        },
+                        "above_threshold": {
+                            "13-17": false
+                        }
+                    },
+                    {
+                        "code": "A2",
+                        "name": "Cap-option1-opaque",
+                        "values": {
+                            "13-17": -1
+                        },
+                        "above_threshold": {
+                            "13-17": false
+                        }
+                    },
+                    {
+                        "code": "A3",
+                        "name": "Cap-option2-trans",
+                        "values": {
+                            "13-17": -1
+                        },
+                        "above_threshold": {
+                            "13-17": false
+                        }
+                    }
+                ]
+            },
+            {
+                "code": "B",
+                "name": "Layer 2",
+                "elements": [
+                    {
+                        "code": "B1",
+                        "name": "green-image",
+                        "values": {
+                            "13-17": 6
+                        },
+                        "above_threshold": {
+                            "13-17": false
+                        }
+                    },
+                    {
+                        "code": "B2",
+                        "name": "green-stripe",
+                        "values": {
+                            "13-17": 6
+                        },
+                        "above_threshold": {
+                            "13-17": false
+                        }
+                    },
+                    {
+                        "code": "B3",
+                        "name": "newformula",
+                        "values": {
+                            "13-17": 4
+                        },
+                        "above_threshold": {
+                            "13-17": false
+                        }
+                    }
+                ]
+            },
+            {
+                "code": "C",
+                "name": "Layer 3",
+                "elements": [
+                    {
+                        "code": "C1",
+                        "name": "citrus",
+                        "values": {
+                            "13-17": 14
+                        },
+                        "above_threshold": {
+                            "13-17": false
+                        }
+                    },
+                    {
+                        "code": "C2",
+                        "name": "fresh",
+                        "values": {
+                            "13-17": 6
+                        },
+                        "above_threshold": {
+                            "13-17": false
+                        }
+                    },
+                    {
+                        "code": "C3",
+                        "name": "freshsss",
+                        "values": {
+                            "13-17": -3
+                        },
+                        "above_threshold": {
+                            "13-17": false
+                        }
+                    }
+                ]
+            }
+        ]
+    },
+    "(B) Age": {
+        "threshold": null,
+        "segments": {
+            "13-17": {
+                "base_size": 3
+            }
+        },
+        "categories": [
+            {
+                "code": "A",
+                "name": "Layer 1",
+                "elements": [
+                    {
+                        "code": "A1",
+                        "name": "Cap-option2-opaque",
+                        "values": {
+                            "13-17": 0
+                        },
+                        "above_threshold": {
+                            "13-17": false
+                        }
+                    },
+                    {
+                        "code": "A2",
+                        "name": "Cap-option1-opaque",
+                        "values": {
+                            "13-17": 0
+                        },
+                        "above_threshold": {
+                            "13-17": false
+                        }
+                    },
+                    {
+                        "code": "A3",
+                        "name": "Cap-option2-trans",
+                        "values": {
+                            "13-17": 0
+                        },
+                        "above_threshold": {
+                            "13-17": false
+                        }
+                    }
+                ]
+            },
+            {
+                "code": "B",
+                "name": "Layer 2",
+                "elements": [
+                    {
+                        "code": "B1",
+                        "name": "green-image",
+                        "values": {
+                            "13-17": 0
+                        },
+                        "above_threshold": {
+                            "13-17": false
+                        }
+                    },
+                    {
+                        "code": "B2",
+                        "name": "green-stripe",
+                        "values": {
+                            "13-17": 0
+                        },
+                        "above_threshold": {
+                            "13-17": false
+                        }
+                    },
+                    {
+                        "code": "B3",
+                        "name": "newformula",
+                        "values": {
+                            "13-17": 0
+                        },
+                        "above_threshold": {
+                            "13-17": false
+                        }
+                    }
+                ]
+            },
+            {
+                "code": "C",
+                "name": "Layer 3",
+                "elements": [
+                    {
+                        "code": "C1",
+                        "name": "citrus",
+                        "values": {
+                            "13-17": 0
+                        },
+                        "above_threshold": {
+                            "13-17": false
+                        }
+                    },
+                    {
+                        "code": "C2",
+                        "name": "fresh",
+                        "values": {
+                            "13-17": 0
+                        },
+                        "above_threshold": {
+                            "13-17": false
+                        }
+                    },
+                    {
+                        "code": "C3",
+                        "name": "freshsss",
+                        "values": {
+                            "13-17": 0
+                        },
+                        "above_threshold": {
+                            "13-17": false
+                        }
+                    }
+                ]
+            }
+        ]
+    },
+    "(R) Age": {
+        "threshold": null,
+        "segments": {
+            "13-17": {
+                "base_size": 3
+            }
+        },
+        "categories": [
+            {
+                "code": "A",
+                "name": "Layer 1",
+                "elements": [
+                    {
+                        "code": "A1",
+                        "name": "Cap-option2-opaque",
+                        "values": {
+                            "13-17": -0.1382899657592235
+                        },
+                        "above_threshold": {
+                            "13-17": false
+                        }
+                    },
+                    {
+                        "code": "A2",
+                        "name": "Cap-option1-opaque",
+                        "values": {
+                            "13-17": 0.4004763548934789
+                        },
+                        "above_threshold": {
+                            "13-17": false
+                        }
+                    },
+                    {
+                        "code": "A3",
+                        "name": "Cap-option2-trans",
+                        "values": {
+                            "13-17": -0.11625968536730717
+                        },
+                        "above_threshold": {
+                            "13-17": false
+                        }
+                    }
+                ]
+            },
+            {
+                "code": "B",
+                "name": "Layer 2",
+                "elements": [
+                    {
+                        "code": "B1",
+                        "name": "green-image",
+                        "values": {
+                            "13-17": 0.30253684292869126
+                        },
+                        "above_threshold": {
+                            "13-17": false
+                        }
+                    },
+                    {
+                        "code": "B2",
+                        "name": "green-stripe",
+                        "values": {
+                            "13-17": -0.0960588341383639
+                        },
+                        "above_threshold": {
+                            "13-17": false
+                        }
+                    },
+                    {
+                        "code": "B3",
+                        "name": "newformula",
+                        "values": {
+                            "13-17": -0.3801798212285769
+                        },
+                        "above_threshold": {
+                            "13-17": false
+                        }
+                    }
+                ]
+            },
+            {
+                "code": "C",
+                "name": "Layer 3",
+                "elements": [
+                    {
+                        "code": "C1",
+                        "name": "citrus",
+                        "values": {
+                            "13-17": 0.9743825023054468
+                        },
+                        "above_threshold": {
+                            "13-17": false
+                        }
+                    },
+                    {
+                        "code": "C2",
+                        "name": "fresh",
+                        "values": {
+                            "13-17": 0.4371014872064453
+                        },
+                        "above_threshold": {
+                            "13-17": false
+                        }
+                    },
+                    {
+                        "code": "C3",
+                        "name": "freshsss",
+                        "values": {
+                            "13-17": 0.271159693781143
+                        },
+                        "above_threshold": {
+                            "13-17": false
+                        }
+                    }
+                ]
+            }
+        ]
+    },
+    "(T) Classification Questions": {
+        "threshold": null,
+        "questions": [
+            {
+                "question_text": "jlkasdjkl",
+                "segments": {
+                    "jnj": {
+                        "base_size": 2
+                    },
+                    "kjds": {
+                        "base_size": 1
+                    }
+                }
+            }
+        ],
+        "categories": [
+            {
+                "code": "A",
+                "name": "Layer 1",
+                "elements": [
+                    {
+                        "code": "A1",
+                        "name": "Cap-option2-opaque",
+                        "values": {
+                            "jlkasdjkl::jnj": {
+                                "value": -15,
+                                "above_threshold": false
+                            },
+                            "jlkasdjkl::kjds": {
+                                "value": 0,
+                                "above_threshold": false
+                            }
+                        }
+                    },
+                    {
+                        "code": "A2",
+                        "name": "Cap-option1-opaque",
+                        "values": {
+                            "jlkasdjkl::jnj": {
+                                "value": -2,
+                                "above_threshold": false
+                            },
+                            "jlkasdjkl::kjds": {
+                                "value": 0,
+                                "above_threshold": false
+                            }
+                        }
+                    },
+                    {
+                        "code": "A3",
+                        "name": "Cap-option2-trans",
+                        "values": {
+                            "jlkasdjkl::jnj": {
+                                "value": -2,
+                                "above_threshold": false
+                            },
+                            "jlkasdjkl::kjds": {
+                                "value": 0,
+                                "above_threshold": false
+                            }
+                        }
+                    }
+                ]
+            },
+            {
+                "code": "B",
+                "name": "Layer 2",
+                "elements": [
+                    {
+                        "code": "B1",
+                        "name": "green-image",
+                        "values": {
+                            "jlkasdjkl::jnj": {
+                                "value": 8,
+                                "above_threshold": false
+                            },
+                            "jlkasdjkl::kjds": {
+                                "value": 0,
+                                "above_threshold": false
+                            }
+                        }
+                    },
+                    {
+                        "code": "B2",
+                        "name": "green-stripe",
+                        "values": {
+                            "jlkasdjkl::jnj": {
+                                "value": 9,
+                                "above_threshold": false
+                            },
+                            "jlkasdjkl::kjds": {
+                                "value": 0,
+                                "above_threshold": false
+                            }
+                        }
+                    },
+                    {
+                        "code": "B3",
+                        "name": "newformula",
+                        "values": {
+                            "jlkasdjkl::jnj": {
+                                "value": 5,
+                                "above_threshold": false
+                            },
+                            "jlkasdjkl::kjds": {
+                                "value": 0,
+                                "above_threshold": false
+                            }
+                        }
+                    }
+                ]
+            },
+            {
+                "code": "C",
+                "name": "Layer 3",
+                "elements": [
+                    {
+                        "code": "C1",
+                        "name": "citrus",
+                        "values": {
+                            "jlkasdjkl::jnj": {
+                                "value": 21,
+                                "above_threshold": false
+                            },
+                            "jlkasdjkl::kjds": {
+                                "value": 0,
+                                "above_threshold": false
+                            }
+                        }
+                    },
+                    {
+                        "code": "C2",
+                        "name": "fresh",
+                        "values": {
+                            "jlkasdjkl::jnj": {
+                                "value": 8,
+                                "above_threshold": false
+                            },
+                            "jlkasdjkl::kjds": {
+                                "value": 0,
+                                "above_threshold": false
+                            }
+                        }
+                    },
+                    {
+                        "code": "C3",
+                        "name": "freshsss",
+                        "values": {
+                            "jlkasdjkl::jnj": {
+                                "value": -4,
+                                "above_threshold": false
+                            },
+                            "jlkasdjkl::kjds": {
+                                "value": 0,
+                                "above_threshold": false
+                            }
+                        }
+                    }
+                ]
+            }
+        ]
+    },
+    "(B) Classification Questions": {
+        "threshold": null,
+        "questions": [
+            {
+                "question_text": "jlkasdjkl",
+                "segments": {
+                    "jnj": {
+                        "base_size": 2
+                    },
+                    "kjds": {
+                        "base_size": 1
+                    }
+                }
+            }
+        ],
+        "categories": [
+            {
+                "code": "A",
+                "name": "Layer 1",
+                "elements": [
+                    {
+                        "code": "A1",
+                        "name": "Cap-option2-opaque",
+                        "values": {
+                            "jlkasdjkl::jnj": {
+                                "value": 0,
+                                "above_threshold": false
+                            },
+                            "jlkasdjkl::kjds": {
+                                "value": 0,
+                                "above_threshold": false
+                            }
+                        }
+                    },
+                    {
+                        "code": "A2",
+                        "name": "Cap-option1-opaque",
+                        "values": {
+                            "jlkasdjkl::jnj": {
+                                "value": 0,
+                                "above_threshold": false
+                            },
+                            "jlkasdjkl::kjds": {
+                                "value": 0,
+                                "above_threshold": false
+                            }
+                        }
+                    },
+                    {
+                        "code": "A3",
+                        "name": "Cap-option2-trans",
+                        "values": {
+                            "jlkasdjkl::jnj": {
+                                "value": 0,
+                                "above_threshold": false
+                            },
+                            "jlkasdjkl::kjds": {
+                                "value": 0,
+                                "above_threshold": false
+                            }
+                        }
+                    }
+                ]
+            },
+            {
+                "code": "B",
+                "name": "Layer 2",
+                "elements": [
+                    {
+                        "code": "B1",
+                        "name": "green-image",
+                        "values": {
+                            "jlkasdjkl::jnj": {
+                                "value": 0,
+                                "above_threshold": false
+                            },
+                            "jlkasdjkl::kjds": {
+                                "value": 0,
+                                "above_threshold": false
+                            }
+                        }
+                    },
+                    {
+                        "code": "B2",
+                        "name": "green-stripe",
+                        "values": {
+                            "jlkasdjkl::jnj": {
+                                "value": 0,
+                                "above_threshold": false
+                            },
+                            "jlkasdjkl::kjds": {
+                                "value": 0,
+                                "above_threshold": false
+                            }
+                        }
+                    },
+                    {
+                        "code": "B3",
+                        "name": "newformula",
+                        "values": {
+                            "jlkasdjkl::jnj": {
+                                "value": 0,
+                                "above_threshold": false
+                            },
+                            "jlkasdjkl::kjds": {
+                                "value": 0,
+                                "above_threshold": false
+                            }
+                        }
+                    }
+                ]
+            },
+            {
+                "code": "C",
+                "name": "Layer 3",
+                "elements": [
+                    {
+                        "code": "C1",
+                        "name": "citrus",
+                        "values": {
+                            "jlkasdjkl::jnj": {
+                                "value": 0,
+                                "above_threshold": false
+                            },
+                            "jlkasdjkl::kjds": {
+                                "value": 0,
+                                "above_threshold": false
+                            }
+                        }
+                    },
+                    {
+                        "code": "C2",
+                        "name": "fresh",
+                        "values": {
+                            "jlkasdjkl::jnj": {
+                                "value": 0,
+                                "above_threshold": false
+                            },
+                            "jlkasdjkl::kjds": {
+                                "value": 0,
+                                "above_threshold": false
+                            }
+                        }
+                    },
+                    {
+                        "code": "C3",
+                        "name": "freshsss",
+                        "values": {
+                            "jlkasdjkl::jnj": {
+                                "value": 0,
+                                "above_threshold": false
+                            },
+                            "jlkasdjkl::kjds": {
+                                "value": 0,
+                                "above_threshold": false
+                            }
+                        }
+                    }
+                ]
+            }
+        ]
+    },
+    "(R) Classification Questions": {
+        "threshold": null,
+        "questions": [
+            {
+                "question_text": "jlkasdjkl",
+                "segments": {
+                    "jnj": {
+                        "base_size": 2
+                    },
+                    "kjds": {
+                        "base_size": 1
+                    }
+                }
+            }
+        ],
+        "categories": [
+            {
+                "code": "A",
+                "name": "Layer 1",
+                "elements": [
+                    {
+                        "code": "A1",
+                        "name": "Cap-option2-opaque",
+                        "values": {
+                            "jlkasdjkl::jnj": {
+                                "value": -0.2523224250983443,
+                                "above_threshold": false
+                            },
+                            "jlkasdjkl::kjds": {
+                                "value": 0.08977495291901812,
+                                "above_threshold": false
+                            }
+                        }
+                    },
+                    {
+                        "code": "A2",
+                        "name": "Cap-option1-opaque",
+                        "values": {
+                            "jlkasdjkl::jnj": {
+                                "value": 0.02665615192590537,
+                                "above_threshold": false
+                            },
+                            "jlkasdjkl::kjds": {
+                                "value": 1.148116760828626,
+                                "above_threshold": false
+                            }
+                        }
+                    },
+                    {
+                        "code": "A3",
+                        "name": "Cap-option2-trans",
+                        "values": {
+                            "jlkasdjkl::jnj": {
+                                "value": 0.2267503024575137,
+                                "above_threshold": false
+                            },
+                            "jlkasdjkl::kjds": {
+                                "value": -0.8022796610169489,
+                                "above_threshold": false
+                            }
+                        }
+                    }
+                ]
+            },
+            {
+                "code": "B",
+                "name": "Layer 2",
+                "elements": [
+                    {
+                        "code": "B1",
+                        "name": "green-image",
+                        "values": {
+                            "jlkasdjkl::jnj": {
+                                "value": 0.20878690281111706,
+                                "above_threshold": false
+                            },
+                            "jlkasdjkl::kjds": {
+                                "value": 0.4900367231638396,
+                                "above_threshold": false
+                            }
+                        }
+                    },
+                    {
+                        "code": "B2",
+                        "name": "green-stripe",
+                        "values": {
+                            "jlkasdjkl::jnj": {
+                                "value": -0.03556659395707726,
+                                "above_threshold": false
+                            },
+                            "jlkasdjkl::kjds": {
+                                "value": -0.21704331450093717,
+                                "above_threshold": false
+                            }
+                        }
+                    },
+                    {
+                        "code": "B3",
+                        "name": "newformula",
+                        "values": {
+                            "jlkasdjkl::jnj": {
+                                "value": 0.03962292352436568,
+                                "above_threshold": false
+                            },
+                            "jlkasdjkl::kjds": {
+                                "value": -1.219785310734462,
+                                "above_threshold": false
+                            }
+                        }
+                    }
+                ]
+            },
+            {
+                "code": "C",
+                "name": "Layer 3",
+                "elements": [
+                    {
+                        "code": "C1",
+                        "name": "citrus",
+                        "values": {
+                            "jlkasdjkl::jnj": {
+                                "value": 0.6073190453602416,
+                                "above_threshold": false
+                            },
+                            "jlkasdjkl::kjds": {
+                                "value": 1.708509416195857,
+                                "above_threshold": false
+                            }
+                        }
+                    },
+                    {
+                        "code": "C2",
+                        "name": "fresh",
+                        "values": {
+                            "jlkasdjkl::jnj": {
+                                "value": 0.2941465810921551,
+                                "above_threshold": false
+                            },
+                            "jlkasdjkl::kjds": {
+                                "value": 0.7230112994350257,
+                                "above_threshold": false
+                            }
+                        }
+                    },
+                    {
+                        "code": "C3",
+                        "name": "freshsss",
+                        "values": {
+                            "jlkasdjkl::jnj": {
+                                "value": 0.15329933351540542,
+                                "above_threshold": false
+                            },
+                            "jlkasdjkl::kjds": {
+                                "value": 0.5068804143126182,
+                                "above_threshold": false
+                            }
+                        }
+                    }
+                ]
+            }
+        ]
+    },
+    "(T) Combined": {
+        "base_size": 3,
+        "threshold": null,
+        "segments": {
+            "Overall": {
+                "base_size": 3
+            },
+            "Gender": {
+                "Male": {
+                    "base_size": 3
+                }
+            },
+            "Age": {
+                "13-17": {
+                    "base_size": 3
+                }
+            },
+            "Classification": {
+                "jlkasdjkl": {
+                    "base_size": 0,
+                    "answers": {
+                        "jnj": {
+                            "base_size": 2
+                        },
+                        "kjds": {
+                            "base_size": 1
+                        }
+                    }
+                }
+            }
+        },
+        "categories": [
+            {
+                "code": "A",
+                "name": "Layer 1",
+                "elements": [
+                    {
+                        "code": "A1",
+                        "name": "Cap-option2-opaque",
+                        "values": {
+                            "Overall": -10,
+                            "Gender::Male": -10,
+                            "Age::13-17": -10,
+                            "Classification::jlkasdjkl::jnj": -15,
+                            "Classification::jlkasdjkl::kjds": 0
+                        },
+                        "above_threshold": {
+                            "Overall": false,
+                            "Gender::Male": false,
+                            "Age::13-17": false,
+                            "Classification::jlkasdjkl::jnj": false,
+                            "Classification::jlkasdjkl::kjds": false
+                        }
+                    },
+                    {
+                        "code": "A2",
+                        "name": "Cap-option1-opaque",
+                        "values": {
+                            "Overall": -1,
+                            "Gender::Male": -1,
+                            "Age::13-17": -1,
+                            "Classification::jlkasdjkl::jnj": -2,
+                            "Classification::jlkasdjkl::kjds": 0
+                        },
+                        "above_threshold": {
+                            "Overall": false,
+                            "Gender::Male": false,
+                            "Age::13-17": false,
+                            "Classification::jlkasdjkl::jnj": false,
+                            "Classification::jlkasdjkl::kjds": false
+                        }
+                    },
+                    {
+                        "code": "A3",
+                        "name": "Cap-option2-trans",
+                        "values": {
+                            "Overall": -1,
+                            "Gender::Male": -1,
+                            "Age::13-17": -1,
+                            "Classification::jlkasdjkl::jnj": -2,
+                            "Classification::jlkasdjkl::kjds": 0
+                        },
+                        "above_threshold": {
+                            "Overall": false,
+                            "Gender::Male": false,
+                            "Age::13-17": false,
+                            "Classification::jlkasdjkl::jnj": false,
+                            "Classification::jlkasdjkl::kjds": false
+                        }
+                    }
+                ]
+            },
+            {
+                "code": "B",
+                "name": "Layer 2",
+                "elements": [
+                    {
+                        "code": "B1",
+                        "name": "green-image",
+                        "values": {
+                            "Overall": 6,
+                            "Gender::Male": 6,
+                            "Age::13-17": 6,
+                            "Classification::jlkasdjkl::jnj": 8,
+                            "Classification::jlkasdjkl::kjds": 0
+                        },
+                        "above_threshold": {
+                            "Overall": false,
+                            "Gender::Male": false,
+                            "Age::13-17": false,
+                            "Classification::jlkasdjkl::jnj": false,
+                            "Classification::jlkasdjkl::kjds": false
+                        }
+                    },
+                    {
+                        "code": "B2",
+                        "name": "green-stripe",
+                        "values": {
+                            "Overall": 6,
+                            "Gender::Male": 6,
+                            "Age::13-17": 6,
+                            "Classification::jlkasdjkl::jnj": 9,
+                            "Classification::jlkasdjkl::kjds": 0
+                        },
+                        "above_threshold": {
+                            "Overall": false,
+                            "Gender::Male": false,
+                            "Age::13-17": false,
+                            "Classification::jlkasdjkl::jnj": false,
+                            "Classification::jlkasdjkl::kjds": false
+                        }
+                    },
+                    {
+                        "code": "B3",
+                        "name": "newformula",
+                        "values": {
+                            "Overall": 4,
+                            "Gender::Male": 4,
+                            "Age::13-17": 4,
+                            "Classification::jlkasdjkl::jnj": 5,
+                            "Classification::jlkasdjkl::kjds": 0
+                        },
+                        "above_threshold": {
+                            "Overall": false,
+                            "Gender::Male": false,
+                            "Age::13-17": false,
+                            "Classification::jlkasdjkl::jnj": false,
+                            "Classification::jlkasdjkl::kjds": false
+                        }
+                    }
+                ]
+            },
+            {
+                "code": "C",
+                "name": "Layer 3",
+                "elements": [
+                    {
+                        "code": "C1",
+                        "name": "citrus",
+                        "values": {
+                            "Overall": 14,
+                            "Gender::Male": 14,
+                            "Age::13-17": 14,
+                            "Classification::jlkasdjkl::jnj": 21,
+                            "Classification::jlkasdjkl::kjds": 0
+                        },
+                        "above_threshold": {
+                            "Overall": false,
+                            "Gender::Male": false,
+                            "Age::13-17": false,
+                            "Classification::jlkasdjkl::jnj": false,
+                            "Classification::jlkasdjkl::kjds": false
+                        }
+                    },
+                    {
+                        "code": "C2",
+                        "name": "fresh",
+                        "values": {
+                            "Overall": 6,
+                            "Gender::Male": 6,
+                            "Age::13-17": 6,
+                            "Classification::jlkasdjkl::jnj": 8,
+                            "Classification::jlkasdjkl::kjds": 0
+                        },
+                        "above_threshold": {
+                            "Overall": false,
+                            "Gender::Male": false,
+                            "Age::13-17": false,
+                            "Classification::jlkasdjkl::jnj": false,
+                            "Classification::jlkasdjkl::kjds": false
+                        }
+                    },
+                    {
+                        "code": "C3",
+                        "name": "freshsss",
+                        "values": {
+                            "Overall": -3,
+                            "Gender::Male": -3,
+                            "Age::13-17": -3,
+                            "Classification::jlkasdjkl::jnj": -4,
+                            "Classification::jlkasdjkl::kjds": 0
+                        },
+                        "above_threshold": {
+                            "Overall": false,
+                            "Gender::Male": false,
+                            "Age::13-17": false,
+                            "Classification::jlkasdjkl::jnj": false,
+                            "Classification::jlkasdjkl::kjds": false
+                        }
+                    }
+                ]
+            }
+        ]
+    },
+    "(B) Combined": {
+        "base_size": 3,
+        "threshold": null,
+        "segments": {
+            "Overall": {
+                "base_size": 3
+            },
+            "Gender": {
+                "Male": {
+                    "base_size": 3
+                }
+            },
+            "Age": {
+                "13-17": {
+                    "base_size": 3
+                }
+            },
+            "Classification": {
+                "jlkasdjkl": {
+                    "base_size": 0,
+                    "answers": {
+                        "jnj": {
+                            "base_size": 2
+                        },
+                        "kjds": {
+                            "base_size": 1
+                        }
+                    }
+                }
+            }
+        },
+        "categories": [
+            {
+                "code": "A",
+                "name": "Layer 1",
+                "elements": [
+                    {
+                        "code": "A1",
+                        "name": "Cap-option2-opaque",
+                        "values": {
+                            "Overall": 0,
+                            "Gender::Male": 0,
+                            "Age::13-17": 0,
+                            "Classification::jlkasdjkl::jnj": 0,
+                            "Classification::jlkasdjkl::kjds": 0
+                        },
+                        "above_threshold": {
+                            "Overall": false,
+                            "Gender::Male": false,
+                            "Age::13-17": false,
+                            "Classification::jlkasdjkl::jnj": false,
+                            "Classification::jlkasdjkl::kjds": false
+                        }
+                    },
+                    {
+                        "code": "A2",
+                        "name": "Cap-option1-opaque",
+                        "values": {
+                            "Overall": 0,
+                            "Gender::Male": 0,
+                            "Age::13-17": 0,
+                            "Classification::jlkasdjkl::jnj": 0,
+                            "Classification::jlkasdjkl::kjds": 0
+                        },
+                        "above_threshold": {
+                            "Overall": false,
+                            "Gender::Male": false,
+                            "Age::13-17": false,
+                            "Classification::jlkasdjkl::jnj": false,
+                            "Classification::jlkasdjkl::kjds": false
+                        }
+                    },
+                    {
+                        "code": "A3",
+                        "name": "Cap-option2-trans",
+                        "values": {
+                            "Overall": 0,
+                            "Gender::Male": 0,
+                            "Age::13-17": 0,
+                            "Classification::jlkasdjkl::jnj": 0,
+                            "Classification::jlkasdjkl::kjds": 0
+                        },
+                        "above_threshold": {
+                            "Overall": false,
+                            "Gender::Male": false,
+                            "Age::13-17": false,
+                            "Classification::jlkasdjkl::jnj": false,
+                            "Classification::jlkasdjkl::kjds": false
+                        }
+                    }
+                ]
+            },
+            {
+                "code": "B",
+                "name": "Layer 2",
+                "elements": [
+                    {
+                        "code": "B1",
+                        "name": "green-image",
+                        "values": {
+                            "Overall": 0,
+                            "Gender::Male": 0,
+                            "Age::13-17": 0,
+                            "Classification::jlkasdjkl::jnj": 0,
+                            "Classification::jlkasdjkl::kjds": 0
+                        },
+                        "above_threshold": {
+                            "Overall": false,
+                            "Gender::Male": false,
+                            "Age::13-17": false,
+                            "Classification::jlkasdjkl::jnj": false,
+                            "Classification::jlkasdjkl::kjds": false
+                        }
+                    },
+                    {
+                        "code": "B2",
+                        "name": "green-stripe",
+                        "values": {
+                            "Overall": 0,
+                            "Gender::Male": 0,
+                            "Age::13-17": 0,
+                            "Classification::jlkasdjkl::jnj": 0,
+                            "Classification::jlkasdjkl::kjds": 0
+                        },
+                        "above_threshold": {
+                            "Overall": false,
+                            "Gender::Male": false,
+                            "Age::13-17": false,
+                            "Classification::jlkasdjkl::jnj": false,
+                            "Classification::jlkasdjkl::kjds": false
+                        }
+                    },
+                    {
+                        "code": "B3",
+                        "name": "newformula",
+                        "values": {
+                            "Overall": 0,
+                            "Gender::Male": 0,
+                            "Age::13-17": 0,
+                            "Classification::jlkasdjkl::jnj": 0,
+                            "Classification::jlkasdjkl::kjds": 0
+                        },
+                        "above_threshold": {
+                            "Overall": false,
+                            "Gender::Male": false,
+                            "Age::13-17": false,
+                            "Classification::jlkasdjkl::jnj": false,
+                            "Classification::jlkasdjkl::kjds": false
+                        }
+                    }
+                ]
+            },
+            {
+                "code": "C",
+                "name": "Layer 3",
+                "elements": [
+                    {
+                        "code": "C1",
+                        "name": "citrus",
+                        "values": {
+                            "Overall": 0,
+                            "Gender::Male": 0,
+                            "Age::13-17": 0,
+                            "Classification::jlkasdjkl::jnj": 0,
+                            "Classification::jlkasdjkl::kjds": 0
+                        },
+                        "above_threshold": {
+                            "Overall": false,
+                            "Gender::Male": false,
+                            "Age::13-17": false,
+                            "Classification::jlkasdjkl::jnj": false,
+                            "Classification::jlkasdjkl::kjds": false
+                        }
+                    },
+                    {
+                        "code": "C2",
+                        "name": "fresh",
+                        "values": {
+                            "Overall": 0,
+                            "Gender::Male": 0,
+                            "Age::13-17": 0,
+                            "Classification::jlkasdjkl::jnj": 0,
+                            "Classification::jlkasdjkl::kjds": 0
+                        },
+                        "above_threshold": {
+                            "Overall": false,
+                            "Gender::Male": false,
+                            "Age::13-17": false,
+                            "Classification::jlkasdjkl::jnj": false,
+                            "Classification::jlkasdjkl::kjds": false
+                        }
+                    },
+                    {
+                        "code": "C3",
+                        "name": "freshsss",
+                        "values": {
+                            "Overall": 0,
+                            "Gender::Male": 0,
+                            "Age::13-17": 0,
+                            "Classification::jlkasdjkl::jnj": 0,
+                            "Classification::jlkasdjkl::kjds": 0
+                        },
+                        "above_threshold": {
+                            "Overall": false,
+                            "Gender::Male": false,
+                            "Age::13-17": false,
+                            "Classification::jlkasdjkl::jnj": false,
+                            "Classification::jlkasdjkl::kjds": false
+                        }
+                    }
+                ]
+            }
+        ]
+    },
+    "(R) Combined": {
+        "base_size": 3,
+        "threshold": null,
+        "segments": {
+            "Overall": {
+                "base_size": 3
+            },
+            "Gender": {
+                "Male": {
+                    "base_size": 3
+                }
+            },
+            "Age": {
+                "13-17": {
+                    "base_size": 3
+                }
+            },
+            "Classification": {
+                "jlkasdjkl": {
+                    "base_size": 0,
+                    "answers": {
+                        "jnj": {
+                            "base_size": 2
+                        },
+                        "kjds": {
+                            "base_size": 1
+                        }
+                    }
+                }
+            }
+        },
+        "categories": [
+            {
+                "code": "A",
+                "name": "Layer 1",
+                "elements": [
+                    {
+                        "code": "A1",
+                        "name": "Cap-option2-opaque",
+                        "values": {
+                            "Overall": -0.1382899657592235,
+                            "Gender::Male": -0.1382899657592235,
+                            "Age::13-17": -0.1382899657592235,
+                            "Classification::jlkasdjkl::jnj": -0.2523224250983443,
+                            "Classification::jlkasdjkl::kjds": 0.08977495291901812
+                        },
+                        "above_threshold": {
+                            "Overall": false,
+                            "Gender::Male": false,
+                            "Age::13-17": false,
+                            "Classification::jlkasdjkl::jnj": false,
+                            "Classification::jlkasdjkl::kjds": false
+                        }
+                    },
+                    {
+                        "code": "A2",
+                        "name": "Cap-option1-opaque",
+                        "values": {
+                            "Overall": 0.4004763548934789,
+                            "Gender::Male": 0.4004763548934789,
+                            "Age::13-17": 0.4004763548934789,
+                            "Classification::jlkasdjkl::jnj": 0.02665615192590537,
+                            "Classification::jlkasdjkl::kjds": 1.148116760828626
+                        },
+                        "above_threshold": {
+                            "Overall": false,
+                            "Gender::Male": false,
+                            "Age::13-17": false,
+                            "Classification::jlkasdjkl::jnj": false,
+                            "Classification::jlkasdjkl::kjds": false
+                        }
+                    },
+                    {
+                        "code": "A3",
+                        "name": "Cap-option2-trans",
+                        "values": {
+                            "Overall": -0.11625968536730717,
+                            "Gender::Male": -0.11625968536730717,
+                            "Age::13-17": -0.11625968536730717,
+                            "Classification::jlkasdjkl::jnj": 0.2267503024575137,
+                            "Classification::jlkasdjkl::kjds": -0.8022796610169489
+                        },
+                        "above_threshold": {
+                            "Overall": false,
+                            "Gender::Male": false,
+                            "Age::13-17": false,
+                            "Classification::jlkasdjkl::jnj": false,
+                            "Classification::jlkasdjkl::kjds": false
+                        }
+                    }
+                ]
+            },
+            {
+                "code": "B",
+                "name": "Layer 2",
+                "elements": [
+                    {
+                        "code": "B1",
+                        "name": "green-image",
+                        "values": {
+                            "Overall": 0.30253684292869126,
+                            "Gender::Male": 0.30253684292869126,
+                            "Age::13-17": 0.30253684292869126,
+                            "Classification::jlkasdjkl::jnj": 0.20878690281111706,
+                            "Classification::jlkasdjkl::kjds": 0.4900367231638396
+                        },
+                        "above_threshold": {
+                            "Overall": false,
+                            "Gender::Male": false,
+                            "Age::13-17": false,
+                            "Classification::jlkasdjkl::jnj": false,
+                            "Classification::jlkasdjkl::kjds": false
+                        }
+                    },
+                    {
+                        "code": "B2",
+                        "name": "green-stripe",
+                        "values": {
+                            "Overall": -0.0960588341383639,
+                            "Gender::Male": -0.0960588341383639,
+                            "Age::13-17": -0.0960588341383639,
+                            "Classification::jlkasdjkl::jnj": -0.03556659395707726,
+                            "Classification::jlkasdjkl::kjds": -0.21704331450093717
+                        },
+                        "above_threshold": {
+                            "Overall": false,
+                            "Gender::Male": false,
+                            "Age::13-17": false,
+                            "Classification::jlkasdjkl::jnj": false,
+                            "Classification::jlkasdjkl::kjds": false
+                        }
+                    },
+                    {
+                        "code": "B3",
+                        "name": "newformula",
+                        "values": {
+                            "Overall": -0.3801798212285769,
+                            "Gender::Male": -0.3801798212285769,
+                            "Age::13-17": -0.3801798212285769,
+                            "Classification::jlkasdjkl::jnj": 0.03962292352436568,
+                            "Classification::jlkasdjkl::kjds": -1.219785310734462
+                        },
+                        "above_threshold": {
+                            "Overall": false,
+                            "Gender::Male": false,
+                            "Age::13-17": false,
+                            "Classification::jlkasdjkl::jnj": false,
+                            "Classification::jlkasdjkl::kjds": false
+                        }
+                    }
+                ]
+            },
+            {
+                "code": "C",
+                "name": "Layer 3",
+                "elements": [
+                    {
+                        "code": "C1",
+                        "name": "citrus",
+                        "values": {
+                            "Overall": 0.9743825023054468,
+                            "Gender::Male": 0.9743825023054468,
+                            "Age::13-17": 0.9743825023054468,
+                            "Classification::jlkasdjkl::jnj": 0.6073190453602416,
+                            "Classification::jlkasdjkl::kjds": 1.708509416195857
+                        },
+                        "above_threshold": {
+                            "Overall": false,
+                            "Gender::Male": false,
+                            "Age::13-17": false,
+                            "Classification::jlkasdjkl::jnj": false,
+                            "Classification::jlkasdjkl::kjds": false
+                        }
+                    },
+                    {
+                        "code": "C2",
+                        "name": "fresh",
+                        "values": {
+                            "Overall": 0.4371014872064453,
+                            "Gender::Male": 0.4371014872064453,
+                            "Age::13-17": 0.4371014872064453,
+                            "Classification::jlkasdjkl::jnj": 0.2941465810921551,
+                            "Classification::jlkasdjkl::kjds": 0.7230112994350257
+                        },
+                        "above_threshold": {
+                            "Overall": false,
+                            "Gender::Male": false,
+                            "Age::13-17": false,
+                            "Classification::jlkasdjkl::jnj": false,
+                            "Classification::jlkasdjkl::kjds": false
+                        }
+                    },
+                    {
+                        "code": "C3",
+                        "name": "freshsss",
+                        "values": {
+                            "Overall": 0.271159693781143,
+                            "Gender::Male": 0.271159693781143,
+                            "Age::13-17": 0.271159693781143,
+                            "Classification::jlkasdjkl::jnj": 0.15329933351540542,
+                            "Classification::jlkasdjkl::kjds": 0.5068804143126182
+                        },
+                        "above_threshold": {
+                            "Overall": false,
+                            "Gender::Male": false,
+                            "Age::13-17": false,
+                            "Classification::jlkasdjkl::jnj": false,
+                            "Classification::jlkasdjkl::kjds": false
+                        }
+                    }
+                ]
+            }
+        ]
+    },
+    "(T) Intercepts": {
+        "threshold": null,
+        "data": [
+            {
+                "element": "Layer-1-Cap-option2-opaque",
+                "beta_no_intercept": -3.386658503871912,
+                "beta_with_intercept": -25.578548886405976,
+                "t_with_intercept": -0.9284940542559674,
+                "t_above_2": false
+            },
+            {
+                "element": "Layer-1-Cap-option1-opaque",
+                "beta_no_intercept": 18.036602640419446,
+                "beta_with_intercept": -3.9148961749333644,
+                "t_with_intercept": -0.13892926595857868,
+                "t_above_2": false
+            },
+            {
+                "element": "Layer-1-Cap-option2-trans",
+                "beta_no_intercept": 25.788180996390302,
+                "beta_with_intercept": 4.8110206772409505,
+                "t_with_intercept": 0.17629755019069576,
+                "t_above_2": false
+            },
+            {
+                "element": "Layer-2-green-image",
+                "beta_no_intercept": 34.65618316440651,
+                "beta_with_intercept": 10.801912732680858,
+                "t_with_intercept": 0.3671599162805288,
+                "t_above_2": false
+            },
+            {
+                "element": "Layer-2-green-stripe",
+                "beta_no_intercept": 45.04575081592954,
+                "beta_with_intercept": 22.057794034365102,
+                "t_with_intercept": 0.7784092852202329,
+                "t_above_2": false
+            },
+            {
+                "element": "Layer-2-newformula",
+                "beta_no_intercept": 21.45785579594666,
+                "beta_with_intercept": -1.4763166380873063,
+                "t_with_intercept": -0.05258339615001807,
+                "t_above_2": false
+            },
+            {
+                "element": "Layer-3-citrus",
+                "beta_no_intercept": 30.26619210801059,
+                "beta_with_intercept": 8.884011185676876,
+                "t_with_intercept": 0.32402963649114014,
+                "t_above_2": false
+            },
+            {
+                "element": "Layer-3-fresh",
+                "beta_no_intercept": 15.432059019254526,
+                "beta_with_intercept": -1.8745165552277454,
+                "t_with_intercept": -0.06976016508640907,
+                "t_above_2": false
+            },
+            {
+                "element": "Layer-3-freshsss",
+                "beta_no_intercept": 22.52195267317172,
+                "beta_with_intercept": -2.759904457153693,
+                "t_with_intercept": -0.09629525323113368,
+                "t_above_2": false
+            }
+        ]
+    },
+    "(B) Intercepts": {
+        "threshold": null,
+        "data": [
+            {
+                "element": "Layer-1-Cap-option2-opaque",
+                "beta_no_intercept": 7.704800465335112,
+                "beta_with_intercept": -6.571861577964505,
+                "t_with_intercept": -0.252224603726559,
+                "t_above_2": false
+            },
+            {
+                "element": "Layer-1-Cap-option1-opaque",
+                "beta_no_intercept": 6.219591872676752,
+                "beta_with_intercept": -7.90241957062678,
+                "t_with_intercept": -0.2965032057121804,
+                "t_above_2": false
+            },
+            {
+                "element": "Layer-1-Cap-option2-trans",
+                "beta_no_intercept": 8.122047312360541,
+                "beta_with_intercept": -5.373145000788055,
+                "t_with_intercept": -0.2081773286055594,
+                "t_above_2": false
+            },
+            {
+                "element": "Layer-2-green-image",
+                "beta_no_intercept": 16.724818771385483,
+                "beta_with_intercept": 1.3787012765344757,
+                "t_with_intercept": 0.04954736831423026,
+                "t_above_2": false
+            },
+            {
+                "element": "Layer-2-green-stripe",
+                "beta_no_intercept": 15.033859376679203,
+                "beta_with_intercept": 0.2450656155729778,
+                "t_with_intercept": 0.009143745466045147,
+                "t_above_2": false
+            },
+            {
+                "element": "Layer-2-newformula",
+                "beta_no_intercept": 24.279793869535176,
+                "beta_with_intercept": 9.52560107930957,
+                "t_with_intercept": 0.35872143160724446,
+                "t_above_2": false
+            },
+            {
+                "element": "Layer-3-citrus",
+                "beta_no_intercept": -4.314377375551052,
+                "beta_with_intercept": -18.070130739270972,
+                "t_with_intercept": -0.6968394803372018,
+                "t_above_2": false
+            },
+            {
+                "element": "Layer-3-fresh",
+                "beta_no_intercept": 8.658704371200404,
+                "beta_with_intercept": -2.4750983983991386,
+                "t_with_intercept": -0.0973882372430959,
+                "t_above_2": false
+            },
+            {
+                "element": "Layer-3-freshsss",
+                "beta_no_intercept": 4.831566054473472,
+                "beta_with_intercept": -11.43295778080629,
+                "t_with_intercept": -0.4217598635342136,
+                "t_above_2": false
+            }
+        ]
+    },
+    "(R) Intercepts": {
+        "threshold": null,
+        "data": [
+            {
+                "element": "Layer-1-Cap-option2-opaque",
+                "beta_no_intercept": -0.26465551500095624,
+                "beta_with_intercept": 0.0036193341494139553,
+                "t_with_intercept": 0.006086039530105106,
+                "t_above_2": false
+            },
+            {
+                "element": "Layer-1-Cap-option1-opaque",
+                "beta_no_intercept": 0.3283920947417825,
+                "beta_with_intercept": 0.5937608817987068,
+                "t_with_intercept": 0.9760856728250388,
+                "t_above_2": false
+            },
+            {
+                "element": "Layer-1-Cap-option2-trans",
+                "beta_no_intercept": -0.02464501263869376,
+                "beta_with_intercept": 0.22894512426339259,
+                "t_with_intercept": 0.38863625892696696,
+                "t_above_2": false
+            },
+            {
+                "element": "Layer-2-green-image",
+                "beta_no_intercept": 0.4988311023240583,
+                "beta_with_intercept": 0.7872022456269288,
+                "t_with_intercept": 1.2394921654921458,
+                "t_above_2": false
+            },
+            {
+                "element": "Layer-2-green-stripe",
+                "beta_no_intercept": 0.011524541195119975,
+                "beta_with_intercept": 0.28942293252383655,
+                "t_with_intercept": 0.4731313592389886,
+                "t_above_2": false
+            },
+            {
+                "element": "Layer-2-newformula",
+                "beta_no_intercept": -0.15327863288865892,
+                "beta_with_intercept": 0.1239695665243766,
+                "t_with_intercept": 0.20454415055399988,
+                "t_above_2": false
+            },
+            {
+                "element": "Layer-3-citrus",
+                "beta_no_intercept": 0.8130406861093964,
+                "beta_with_intercept": 1.0715270639062011,
+                "t_with_intercept": 1.8104296160782818,
+                "t_above_2": false
+            },
+            {
+                "element": "Layer-3-fresh",
+                "beta_no_intercept": 0.16708630531600102,
+                "beta_with_intercept": 0.3763032251692044,
+                "t_with_intercept": 0.6487225936716996,
+                "t_above_2": false
+            },
+            {
+                "element": "Layer-3-freshsss",
+                "beta_no_intercept": 0.22141230587701505,
+                "beta_with_intercept": 0.5270413573442718,
+                "t_with_intercept": 0.8518407103741389,
+                "t_above_2": false
+            }
+        ]
+    }
+}

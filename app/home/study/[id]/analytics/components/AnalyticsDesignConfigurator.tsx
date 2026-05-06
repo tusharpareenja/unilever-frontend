@@ -2,9 +2,9 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import React, { useEffect, useMemo, useState } from "react"
+import React, { useEffect, useMemo, useRef, useState } from "react"
 import { motion } from "framer-motion"
-import { CheckCircle2, ChevronDown, Gauge, ImageIcon, Layers, RotateCcw, Sparkles, Type, X } from "lucide-react"
+import { CheckCircle2, ChevronDown, ImageIcon, RotateCcw, Sparkles, Type, X } from "lucide-react"
 
 type Metric = "Top Down" | "Bottom Up" | "Response Time"
 
@@ -79,6 +79,22 @@ function getBackgroundUrl(analysisData: any): string | null {
     analysisData?.metadata?.background_image_url,
   ]
   return candidates.find(isHttpUrl) || null
+}
+
+function getLayerAspectRatio(analysisData: any): string {
+  const info = analysisData?.["Information Block"] || {}
+  const frontPage = analysisData?.["Front Page"] || {}
+  const raw = normalizeText(info["Aspect Ratio"] ?? info.aspect_ratio ?? frontPage["Aspect Ratio"] ?? frontPage.aspect_ratio)
+    .toLowerCase()
+
+  if (raw === "landscape" || raw === "16:9") return "16 / 9"
+  if (raw === "square" || raw === "1:1") return "1 / 1"
+  if (raw === "portrait" || raw === "9:16") return "9 / 16"
+
+  const match = raw.match(/^(\d+(?:\.\d+)?)\s*[:/]\s*(\d+(?:\.\d+)?)$/)
+  if (match) return `${match[1]} / ${match[2]}`
+
+  return "9 / 16"
 }
 
 function getElementKey(category: string, elementName: string): string {
@@ -311,20 +327,69 @@ function SelectionPreview({
   selectedElements,
   studyType,
   backgroundUrl,
+  aspectRatio,
 }: {
   selectedElements: ConfiguratorElement[]
   studyType: string
   backgroundUrl: string | null
+  aspectRatio: string
 }) {
   const isLayerStudy = studyType === "layer"
+  const containerRef = useRef<HTMLDivElement>(null)
+  const backgroundImgRef = useRef<HTMLImageElement>(null)
+  const [layerFit, setLayerFit] = useState({ left: 0, top: 0, width: 0, height: 0 })
+
+  useEffect(() => {
+    if (!isLayerStudy) return
+
+    const computeFit = () => {
+      const container = containerRef.current
+      if (!container) return
+
+      const cw = container.offsetWidth
+      const ch = container.offsetHeight
+      if (!cw || !ch) return
+
+      const background = backgroundImgRef.current
+      if (!backgroundUrl || !background) {
+        setLayerFit({ left: 0, top: 0, width: cw, height: ch })
+        return
+      }
+
+      const iw = background.naturalWidth || cw
+      const ih = background.naturalHeight || ch
+      const scale = Math.min(cw / iw, ch / ih)
+      const width = iw * scale
+      const height = ih * scale
+
+      setLayerFit({
+        left: (cw - width) / 2,
+        top: (ch - height) / 2,
+        width,
+        height,
+      })
+    }
+
+    computeFit()
+    const resizeObserver = new ResizeObserver(computeFit)
+    if (containerRef.current) resizeObserver.observe(containerRef.current)
+    return () => resizeObserver.disconnect()
+  }, [aspectRatio, backgroundUrl, isLayerStudy])
 
   if (selectedElements.length === 0 && (!isLayerStudy || !backgroundUrl)) {
     return (
-      <div className="flex h-full min-h-[320px] items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-gray-50 text-center">
+      <div
+        className="flex w-full items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 text-center"
+        style={{
+          aspectRatio: isLayerStudy ? aspectRatio : "1 / 1",
+          maxHeight: isLayerStudy ? (aspectRatio === "16 / 9" ? "600px" : "320px") : undefined,
+          maxWidth: isLayerStudy ? (aspectRatio === "16 / 9" ? "100%" : "280px") : undefined,
+          margin: "0 auto"
+        }}
+      >
         <div className="px-6">
-          <Sparkles className="mx-auto mb-3 h-10 w-10 text-[#2674BA]/50" />
-          <p className="text-sm font-semibold text-gray-700">Choose elements to build a preview</p>
-          <p className="mt-1 text-xs text-gray-500">Your combined coefficient will update live.</p>
+          <Sparkles className="mx-auto mb-3 h-8 w-8 text-blue-300" />
+          <p className="text-sm font-medium text-gray-500">Select elements to build your preview</p>
         </div>
       </div>
     )
@@ -332,41 +397,87 @@ function SelectionPreview({
 
   if (isLayerStudy) {
     const sorted = [...selectedElements].sort((a, b) => a.zIndex - b.zIndex)
+    const isLandscape = aspectRatio === "16 / 9"
     return (
-      <div className="relative mx-auto aspect-square min-h-[320px] w-full max-w-xl overflow-hidden rounded-2xl border border-gray-100 bg-[radial-gradient(circle_at_top,#eef6ff,transparent_55%),#f8fafc] shadow-inner">
-        {backgroundUrl ? (
+      <div
+        ref={containerRef}
+        className="relative mx-auto w-full overflow-hidden bg-transparent"
+        style={{ aspectRatio, maxHeight: isLandscape ? "600px" : "320px", maxWidth: isLandscape ? "100%" : "280px" }}
+      >
+        {backgroundUrl && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
+            ref={backgroundImgRef}
             src={backgroundUrl}
             alt="Background"
-            className="absolute inset-0 m-auto max-h-full max-w-full object-contain"
+            className="absolute inset-0 h-full w-full object-contain"
             style={{ zIndex: 0 }}
+            onLoad={() => {
+              const container = containerRef.current
+              const background = backgroundImgRef.current
+              if (!container || !background) return
+
+              const cw = container.offsetWidth
+              const ch = container.offsetHeight
+              const iw = background.naturalWidth || cw
+              const ih = background.naturalHeight || ch
+              const scale = Math.min(cw / iw, ch / ih)
+              const width = iw * scale
+              const height = ih * scale
+
+              setLayerFit({
+                left: (cw - width) / 2,
+                top: (ch - height) / 2,
+                width,
+                height,
+              })
+            }}
             onError={(event) => {
               event.currentTarget.style.display = "none"
             }}
           />
-        ) : (
-          <div className="absolute inset-6 rounded-xl border border-dashed border-blue-100 bg-white/50" />
         )}
-        <div className="absolute inset-0 overflow-hidden">
+        <div
+          className="absolute overflow-hidden"
+          style={{
+            left: backgroundUrl ? layerFit.left : 0,
+            top: backgroundUrl ? layerFit.top : 0,
+            width: backgroundUrl ? layerFit.width || "100%" : "100%",
+            height: backgroundUrl ? layerFit.height || "100%" : "100%",
+            zIndex: 1,
+          }}
+        >
           {sorted.map((element) => {
             const transform = element.transform || { x: 0, y: 0, width: 100, height: 100 }
             const widthPct = Math.max(1, Math.min(100, transform.width))
             const heightPct = Math.max(1, Math.min(100, transform.height))
             const leftPct = Math.max(0, Math.min(100 - widthPct, transform.x))
             const topPct = Math.max(0, Math.min(100 - heightPct, transform.y))
+            const useFitPixels = Boolean(backgroundUrl && layerFit.width && layerFit.height)
+            const fitWidth = layerFit.width || 1
+            const fitHeight = layerFit.height || 1
+            const layerStyle = useFitPixels
+              ? {
+                  top: `${(topPct / 100) * fitHeight}px`,
+                  left: `${(leftPct / 100) * fitWidth}px`,
+                  width: `${(widthPct / 100) * fitWidth}px`,
+                  height: `${(heightPct / 100) * fitHeight}px`,
+                }
+              : {
+                  top: `${topPct}%`,
+                  left: `${leftPct}%`,
+                  width: `${widthPct}%`,
+                  height: `${heightPct}%`,
+                }
 
             if (!element.imageUrl) {
               return (
                 <div
                   key={element.id}
-                  className="absolute flex items-center justify-center rounded-lg border border-white/70 bg-white/80 p-3 text-center text-xs font-semibold text-gray-700 shadow-sm"
+                  className="absolute flex items-center justify-center rounded-lg border border-white/70 bg-white/80 p-2 text-center text-[10px] font-semibold text-gray-700 shadow-sm backdrop-blur-sm sm:p-3 sm:text-xs"
                   style={{
-                    zIndex: Math.max(1, element.zIndex),
-                    top: `${topPct}%`,
-                    left: `${leftPct}%`,
-                    width: `${widthPct}%`,
-                    height: `${heightPct}%`,
+                    zIndex: element.zIndex + 1,
+                    ...layerStyle,
                   }}
                 >
                   {element.name}
@@ -380,13 +491,10 @@ function SelectionPreview({
                 key={element.id}
                 src={element.imageUrl}
                 alt={element.name}
-                className="absolute object-contain drop-shadow-sm"
+                className="absolute object-contain"
                 style={{
-                  zIndex: Math.max(1, element.zIndex),
-                  top: `${topPct}%`,
-                  left: `${leftPct}%`,
-                  width: `${widthPct}%`,
-                  height: `${heightPct}%`,
+                  zIndex: element.zIndex + 1,
+                  ...layerStyle,
                 }}
                 onError={(event) => {
                   event.currentTarget.style.display = "none"
@@ -400,6 +508,33 @@ function SelectionPreview({
   }
 
   const count = selectedElements.length
+  const hasImage = selectedElements.some(e => e.imageUrl && e.elementType?.toLowerCase() !== "text")
+  const allText = count > 0 && !hasImage
+
+  if (allText) {
+    return (
+      <div className="relative mx-auto flex w-full max-w-[380px] items-center justify-center overflow-hidden rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-200 sm:p-6" style={{ minHeight: '380px' }}>
+        <div className="flex w-full flex-col items-center justify-center gap-2 h-full flex-1">
+          {selectedElements.map((element) => (
+            <div
+              key={element.id}
+              className="w-full flex items-center justify-center text-center px-4 py-3 rounded-xl shadow-sm transition-colors bg-gray-50 border border-gray-100"
+              style={{
+                height: `${100 / count}%`,
+                maxHeight: '120px',
+                fontSize: 'clamp(14px, 1.2vw, 20px)',
+                overflowWrap: 'break-word',
+                wordBreak: 'break-word'
+              }}
+            >
+              {element.content || element.name}
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   const gridClass =
     count === 1
       ? "grid-cols-1"
@@ -408,39 +543,39 @@ function SelectionPreview({
         : "grid-cols-2"
 
   return (
-    <div className="relative mx-auto flex min-h-[320px] w-full max-w-xl items-center justify-center overflow-hidden rounded-2xl border border-gray-100 bg-[radial-gradient(circle_at_top,#eef6ff,transparent_55%),#ffffff] p-4 shadow-inner">
+    <div className="relative mx-auto flex aspect-square w-full max-w-[380px] items-center justify-center overflow-hidden rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-200 sm:p-6">
       {backgroundUrl && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={backgroundUrl}
           alt="Background"
-          className="absolute inset-0 h-full w-full object-contain opacity-20"
+          className="absolute inset-0 h-full w-full object-contain opacity-10"
           onError={(event) => {
             event.currentTarget.style.display = "none"
           }}
         />
       )}
-      <div className={`relative grid w-full max-w-md ${gridClass} gap-3`}>
+      <div className={`relative grid w-full ${gridClass} gap-3 sm:gap-4`}>
         {selectedElements.map((element, index) => {
           const isText = !element.imageUrl || element.elementType?.toLowerCase() === "text"
           return (
             <div
               key={element.id}
-              className={`flex min-h-[128px] items-center justify-center overflow-hidden rounded-xl border border-white bg-white/90 p-3 shadow-sm ${
-                count === 3 && index === 2 ? "col-span-2 mx-auto w-[calc(50%-0.375rem)]" : ""
+              className={`flex aspect-square items-center justify-center overflow-hidden rounded-xl border border-gray-100 bg-white p-3 shadow-sm sm:p-4 ${
+                count === 3 && index === 2 ? "col-span-2 mx-auto w-[calc(50%-0.375rem)] sm:w-[calc(50%-0.5rem)]" : ""
               }`}
             >
               {isText ? (
                 <div className="text-center">
-                  <Type className="mx-auto mb-2 h-5 w-5 text-[#2674BA]" />
-                  <p className="text-sm font-semibold leading-snug text-gray-800">{element.content || element.name}</p>
+                  <Type className="mx-auto mb-1.5 h-5 w-5 text-blue-500 sm:mb-2 sm:h-6 sm:w-6" />
+                  <p className="text-xs font-medium leading-snug text-gray-800 sm:text-sm">{element.content || element.name}</p>
                 </div>
               ) : (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={element.imageUrl || ""}
                   alt={element.name}
-                  className="max-h-44 w-full object-contain"
+                  className="h-full w-full object-contain"
                   onError={(event) => {
                     event.currentTarget.style.display = "none"
                   }}
@@ -480,8 +615,18 @@ export function AnalyticsDesignConfigurator({
     [analysisData, activeMetric, activeSegment]
   )
   const backgroundUrl = useMemo(() => getBackgroundUrl(analysisData || {}), [analysisData])
+  const layerAspectRatio = useMemo(() => getLayerAspectRatio(analysisData || {}), [analysisData])
   const [selectedByCategory, setSelectedByCategory] = useState<Record<string, string>>({})
-  const [showLayerBackground, setShowLayerBackground] = useState(false)
+  const [showLayerBackground, setShowLayerBackground] = useState(
+    () => isLayerStudy && Boolean(getBackgroundUrl(analysisData || {}))
+  )
+  const [isSelectionOpen, setIsSelectionOpen] = useState(false)
+
+  useEffect(() => {
+    if (!isLayerStudy) return
+    if (backgroundUrl) setShowLayerBackground(true)
+    else setShowLayerBackground(false)
+  }, [isLayerStudy, backgroundUrl])
 
   useEffect(() => {
     if (segmentOptions.length === 0) return
@@ -530,48 +675,42 @@ export function AnalyticsDesignConfigurator({
       animate={{ opacity: 1, y: 0 }}
       className="mb-10"
     >
-      <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <div className="mb-2 flex items-center gap-2">
-            <div className="h-8 w-1.5 rounded-full bg-[#2674BA]" />
-            <h2 className="text-xl font-bold text-gray-800" style={{ color: "#2674BA" }}>
+          <div className="mb-2 flex items-center gap-3">
+            <div className="h-8 w-1.5 rounded-full bg-blue-600" />
+            <h2 className="text-2xl font-bold text-gray-900">
               Design configurator
             </h2>
           </div>
-          <p className="ml-5 text-sm text-gray-500">
+          <p className="ml-4 text-sm text-gray-500">
             Combine winning {isLayerStudy ? "layer assets" : "elements"} and preview the total coefficient.
           </p>
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <div className="flex flex-wrap gap-2">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+          <div className="flex rounded-xl bg-gray-100 p-1 shadow-inner">
             {METRIC_OPTIONS.map((metric) => (
               <button
                 key={metric.value}
                 type="button"
                 onClick={() => setActiveMetric(metric.value)}
-                className={`rounded-xl border px-4 py-2 text-left transition-all ${
+                className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${
                   activeMetric === metric.value
-                    ? "border-[#2674BA] bg-[#2674BA] text-white shadow-sm"
-                    : "border-gray-200 bg-white text-gray-700 hover:border-[#2674BA]/40 hover:bg-blue-50"
+                    ? "bg-white text-blue-600 shadow-sm"
+                    : "text-gray-600 hover:text-gray-900"
                 }`}
               >
-                <span className="block text-sm font-bold">{metric.label}</span>
-                <span className={`block text-[11px] ${activeMetric === metric.value ? "text-blue-100" : "text-gray-400"}`}>
-                  {metric.description}
-                </span>
+                {metric.label}
               </button>
             ))}
           </div>
 
           <div className="relative min-w-[180px]">
-            <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-gray-500">
-              Segment
-            </label>
             <select
               value={activeSegment?.id || ""}
               onChange={(event) => setActiveSegmentId(event.target.value)}
-              className="h-[46px] w-full appearance-none rounded-xl border border-gray-200 bg-white px-3 pr-9 text-sm font-bold text-gray-800 shadow-sm outline-none transition-colors hover:border-[#2674BA]/50 focus:border-[#2674BA] focus:ring-2 focus:ring-[#2674BA]/15"
+              className="h-10 w-full appearance-none rounded-xl border border-gray-200 bg-white px-4 pr-10 text-sm font-medium text-gray-700 shadow-sm outline-none transition-colors hover:border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
             >
               {segmentOptions.map((segment) => (
                 <option key={segment.id} value={segment.id}>
@@ -579,246 +718,227 @@ export function AnalyticsDesignConfigurator({
                 </option>
               ))}
             </select>
-            <ChevronDown className="pointer-events-none absolute bottom-3.5 right-3 h-4 w-4 text-gray-500" />
+            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           </div>
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-        <div className="grid grid-cols-1 xl:grid-cols-[0.95fr_1.35fr]">
-          <div className="border-b border-gray-100 bg-gradient-to-br from-blue-50 via-white to-white p-5 xl:border-b-0 xl:border-r">
-            <div className="sticky top-4 space-y-4">
-              <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
-                {isLayerStudy && (
-                  <div className="mb-3 flex justify-end">
-                    <button
-                      type="button"
-                      onClick={() => setShowLayerBackground((current) => !current)}
-                      disabled={!backgroundUrl}
-                      className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-bold transition-colors ${
-                        showLayerBackground
-                          ? "border-[#2674BA] bg-[#2674BA] text-white"
-                          : "border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
-                      }`}
-                      aria-pressed={showLayerBackground}
-                    >
-                      <ImageIcon className="h-4 w-4" />
-                      Background Image
-                    </button>
-                  </div>
-                )}
-                <SelectionPreview
-                  selectedElements={selectedElements}
-                  studyType={normalizedStudyType}
-                  backgroundUrl={isLayerStudy ? (showLayerBackground ? backgroundUrl : null) : backgroundUrl}
-                />
-              </div>
-
-              <details className="group rounded-xl border border-gray-100 bg-white shadow-sm">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-                      Selected elements
-                    </p>
-                    <p className="mt-0.5 text-sm font-bold text-gray-900">
-                      {selectedElements.length > 0
-                        ? `${selectedElements.length} selected for ${activeSegment?.label || "Overall"}`
-                        : "No elements selected"}
-                    </p>
-                  </div>
-                  <ChevronDown className="h-4 w-4 text-gray-500 transition-transform group-open:rotate-180" />
-                </summary>
-                <div className="border-t border-gray-100 px-4 py-3">
-                  {selectedElements.length === 0 ? (
-                    <p className="text-xs text-gray-500">
-                      Pick elements from the category cards to see them here.
-                    </p>
-                  ) : (
-                    <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
-                      {selectedElements.map((element) => (
-                        <div
-                          key={`selected-${element.id}`}
-                          className="flex items-center gap-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2"
-                        >
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-bold text-gray-800">{element.name}</p>
-                            <p className="truncate text-xs text-gray-500">{element.category}</p>
-                          </div>
-                          <span
-                            className={`rounded-full px-2.5 py-1 text-xs font-black tabular-nums ${
-                              element.value >= 0 ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"
-                            }`}
-                          >
-                            {element.value >= 0 ? "+" : ""}
-                            {formatValue(element.value, activeMetric)}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setSelectedByCategory((current) => {
-                                const next = { ...current }
-                                delete next[element.category]
-                                return next
-                              })
-                            }
-                            className="rounded-full p-1 text-gray-400 transition-colors hover:bg-white hover:text-red-500"
-                            aria-label={`Remove ${element.name}`}
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </details>
-
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 xl:grid-cols-1">
-                <div className="rounded-xl border border-blue-100 bg-white p-4 shadow-sm">
-                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
-                    <Gauge className="h-4 w-4 text-[#2674BA]" />
-                    Total coefficient
-                  </div>
-                  <p className="mt-2 text-3xl font-black tabular-nums text-gray-900">
-                    {formatValue(totalCoefficient, activeMetric)}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Selected</p>
-                  <p className="mt-2 text-2xl font-bold text-gray-900">
-                    {selectedCount}
-                    <span className="text-sm font-semibold text-gray-400"> / {maxSelections || 0}</span>
-                  </p>
-                </div>
+      <div className="flex flex-col gap-8 lg:h-[calc(100vh-180px)] lg:flex-row">
+        {/* Left Column - Preview & Selected Elements */}
+        <div className="flex flex-col gap-6 lg:w-5/12 lg:h-full lg:overflow-y-auto lg:pr-2 lg:pb-4">
+          {/* Preview Card */}
+          <div className="flex flex-shrink-0 flex-col overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm">
+            <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 px-5 py-3">
+              {isLayerStudy ? (
+                <button
+                  type="button"
+                  onClick={() => setShowLayerBackground((current) => !current)}
+                  disabled={!backgroundUrl}
+                  className={`flex cursor-pointer items-center gap-2 text-sm font-medium transition-colors ${
+                    showLayerBackground ? "text-blue-600" : "text-gray-600 hover:text-gray-900"
+                  } disabled:cursor-not-allowed disabled:opacity-50`}
+                  aria-pressed={showLayerBackground}
+                >
+                  <ImageIcon className="h-4 w-4" /> Background
+                </button>
+              ) : (
+                <div />
+              )}
+              <div className="ml-auto flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setSelectedByCategory(buildDefaultSelection(categories, isLayerStudy))}
-                  className="flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white p-4 text-sm font-bold text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
+                  className="flex cursor-pointer items-center gap-1.5 text-sm font-medium text-blue-600 transition-colors hover:text-blue-700"
                 >
-                  <RotateCcw className="h-4 w-4" />
-                  Reset best mix
+                  <Sparkles className="h-4 w-4" /> Best Mix
+                </button>
+                <div className="mx-1 h-4 w-px bg-gray-300" />
+                <button
+                  type="button"
+                  onClick={() => setSelectedByCategory({})}
+                  className="flex cursor-pointer items-center gap-1.5 text-sm font-medium text-gray-500 transition-colors hover:text-gray-800"
+                >
+                  <RotateCcw className="h-4 w-4" /> Clear
                 </button>
               </div>
+            </div>
 
-              {!isLayerStudy && selectedCount >= MAX_NON_LAYER_SELECTIONS && (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-medium text-amber-800">
-                  Maximum 4 elements can be selected. Remove one to add another category.
+            <div className="bg-transparent p-4 sm:p-6">
+              <SelectionPreview
+                selectedElements={selectedElements}
+                studyType={normalizedStudyType}
+                backgroundUrl={isLayerStudy ? (showLayerBackground ? backgroundUrl : null) : backgroundUrl}
+                aspectRatio={layerAspectRatio}
+              />
+            </div>
+
+            <div className="flex items-center justify-between border-t border-gray-100 bg-white px-6 py-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Total Coefficient</p>
+                <p className="mt-0.5 text-sm font-medium text-gray-400">{activeSegment?.label || "Overall"}</p>
+              </div>
+              <div className="tabular-nums text-3xl font-black text-gray-900">
+                {formatValue(totalCoefficient, activeMetric)}
+              </div>
+            </div>
+          </div>
+
+          {/* Selected Elements Card */}
+          {selectedElements.length > 0 && (
+            <div className={`flex flex-col rounded-3xl border border-gray-200 bg-white shadow-sm transition-all ${isSelectionOpen ? "min-h-[200px] flex-1" : "flex-shrink-0"}`}>
+              <button
+                type="button"
+                onClick={() => setIsSelectionOpen(!isSelectionOpen)}
+                className="flex w-full cursor-pointer items-center justify-between p-5 outline-none sm:p-6"
+              >
+                <h3 className="text-sm font-bold text-gray-900">Active Selection ({selectedElements.length})</h3>
+                <ChevronDown className={`h-5 w-5 text-gray-400 transition-transform ${isSelectionOpen ? "rotate-180" : ""}`} />
+              </button>
+              {isSelectionOpen && (
+                <div className="flex-1 space-y-3 overflow-y-auto px-5 pb-5 pr-3 sm:px-6 sm:pb-6 sm:pr-4">
+                  {selectedElements.map((element) => (
+                    <div key={`selected-${element.id}`} className="group flex items-center justify-between">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gray-50 p-1 ring-1 ring-gray-100">
+                          {element.imageUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={element.imageUrl} alt={element.name} className="h-full w-full object-contain" />
+                          ) : (
+                            <Type className="h-4 w-4 text-gray-400" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-gray-900 break-words">{element.name}</p>
+                          <p className="truncate text-xs text-gray-500">{element.category}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span
+                          className={`tabular-nums text-sm font-bold ${
+                            element.value >= 0 ? "text-emerald-600" : "text-red-600"
+                          }`}
+                        >
+                          {element.value >= 0 ? "+" : ""}
+                          {formatValue(element.value, activeMetric)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSelectedByCategory((current) => {
+                              const next = { ...current }
+                              delete next[element.category]
+                              return next
+                            })
+                          }
+                          className="text-gray-400 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100"
+                          aria-label={`Remove ${element.name}`}
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
-          </div>
+          )}
+        </div>
 
-          <div className="max-h-none space-y-4 p-5 xl:max-h-[780px] xl:overflow-y-auto">
-            <div className="flex flex-col gap-2 rounded-xl border border-gray-100 bg-gray-50 p-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-bold text-gray-800">
-                  {isLayerStudy ? "Select one element per layer" : "Select one element per category"}
-                </p>
-                <p className="mt-0.5 text-xs text-gray-500">
-                  {isLayerStudy
-                    ? "All selected layers stack by z-index in the preview."
-                    : "Grid, text, and hybrid studies support up to 4 selected categories."}
-                </p>
-              </div>
-              <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-[#2674BA] shadow-sm">
-                {isLayerStudy ? <Layers className="h-4 w-4" /> : <ImageIcon className="h-4 w-4" />}
-                {activeMetric}
-              </div>
+        {/* Right Column - Categories */}
+        <div className="space-y-10 pb-10 lg:w-7/12 lg:h-full lg:overflow-y-auto lg:pr-4">
+          {!isLayerStudy && selectedCount >= MAX_NON_LAYER_SELECTIONS && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-medium text-amber-800">
+              Maximum 4 elements can be selected. Remove one to add another category.
             </div>
+          )}
 
-            {categories.map((category) => {
-              const selectedId = selectedByCategory[category.name]
-              return (
-                <div key={category.name} className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-                  <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <h3 className="text-base font-black text-gray-900">
-                        {isLayerStudy ? "Layer" : "Category"}: {category.name}
-                      </h3>
-                      <p className="mt-0.5 text-xs text-gray-500">
-                        {category.elements.length} option{category.elements.length === 1 ? "" : "s"}
-                        {isLayerStudy ? ` · z-index ${category.zIndex}` : ""}
-                      </p>
-                    </div>
-                    {selectedId && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 text-xs font-bold text-green-700">
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        Selected
-                      </span>
-                    )}
+          {categories.map((category) => {
+            const selectedId = selectedByCategory[category.name]
+            return (
+              <div key={category.name}>
+                <div className="mb-4 flex items-baseline justify-between">
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">
+                      {isLayerStudy ? "Layer" : "Category"}: {category.name}
+                    </h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                      {category.elements.length} option{category.elements.length === 1 ? "" : "s"}{" "}
+                      {isLayerStudy ? `· z-index ${category.zIndex}` : ""}
+                    </p>
                   </div>
-
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
-                    {[...category.elements]
-                      .sort((a, b) => b.value - a.value)
-                      .map((element) => {
-                        const isSelected = selectedId === element.id
-                        const disabled =
-                          !isLayerStudy &&
-                          !isSelected &&
-                          !selectedId &&
-                          selectedCount >= MAX_NON_LAYER_SELECTIONS
-                        const isText = !element.imageUrl || element.elementType?.toLowerCase() === "text"
-
-                        return (
-                          <button
-                            key={element.id}
-                            type="button"
-                            onClick={() => handleSelect(category, element)}
-                            disabled={disabled}
-                            className={`group flex min-h-[116px] gap-3 rounded-xl border p-3 text-left transition-all ${
-                              isSelected
-                                ? "border-[#2674BA] bg-blue-50 shadow-sm ring-2 ring-[#2674BA]/10"
-                                : disabled
-                                  ? "cursor-not-allowed border-gray-100 bg-gray-50 opacity-55"
-                                  : "border-gray-100 bg-white hover:-translate-y-0.5 hover:border-[#2674BA]/40 hover:shadow-md"
-                            }`}
-                          >
-                            <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gray-50 ring-1 ring-gray-100">
-                              {isText ? (
-                                <Type className="h-6 w-6 text-[#2674BA]" />
-                              ) : (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={element.imageUrl || ""}
-                                  alt={element.name}
-                                  className="h-full w-full object-contain p-1"
-                                  onError={(event) => {
-                                    event.currentTarget.style.display = "none"
-                                  }}
-                                />
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-start justify-between gap-2">
-                                <p className="line-clamp-3 text-sm font-bold leading-snug text-gray-800">
-                                  {element.name}
-                                </p>
-                                <span
-                                  className={`flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-black tabular-nums ${
-                                    element.value >= 0 ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"
-                                  }`}
-                                >
-                                  {element.value >= 0 ? "+" : ""}
-                                  {formatValue(element.value, activeMetric)}
-                                </span>
-                              </div>
-                              <p className="mt-2 text-xs text-gray-500">
-                                {isLayerStudy
-                                  ? `Layer stack ${element.zIndex}`
-                                  : isText
-                                    ? "Text element"
-                                    : "Image element"}
-                              </p>
-                            </div>
-                          </button>
-                        )
-                      })}
-                  </div>
+                  {selectedId && (
+                    <span className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Selected
+                    </span>
+                  )}
                 </div>
-              )
-            })}
-          </div>
+
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                  {[...category.elements]
+                    .sort((a, b) => b.value - a.value)
+                    .map((element) => {
+                      const isSelected = selectedId === element.id
+                      const disabled =
+                        !isLayerStudy &&
+                        !isSelected &&
+                        !selectedId &&
+                        selectedCount >= MAX_NON_LAYER_SELECTIONS
+                      const isText = !element.imageUrl || element.elementType?.toLowerCase() === "text"
+
+                      return (
+                        <button
+                          key={element.id}
+                          type="button"
+                          onClick={() => handleSelect(category, element)}
+                          disabled={disabled}
+                          className={`relative flex flex-col rounded-2xl border p-3 text-left transition-all ${
+                            isSelected
+                              ? "border-blue-500 ring-1 ring-blue-500 shadow-md bg-white"
+                              : disabled
+                                ? "cursor-not-allowed border-gray-200 bg-gray-50/50 opacity-50"
+                                : "border-gray-200 bg-white hover:border-blue-300 hover:shadow-sm"
+                          }`}
+                        >
+                          <div className="mb-3 flex aspect-square w-full items-center justify-center rounded-xl bg-gray-50 p-2">
+                            {isText ? (
+                              <Type className="h-8 w-8 text-gray-300" />
+                            ) : (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={element.imageUrl || ""}
+                                alt={element.name}
+                                className="h-full w-full object-contain"
+                                onError={(event) => {
+                                  event.currentTarget.style.display = "none"
+                                }}
+                              />
+                            )}
+                          </div>
+                          <div className="flex w-full flex-1 flex-col justify-between">
+                            <p className="mb-2 text-sm font-medium leading-snug text-gray-900 break-words">
+                              {element.name}
+                            </p>
+                            <div className="mt-auto flex items-center justify-between">
+                              {/* <span className="text-xs text-gray-500">
+                                {isLayerStudy ? `Stack ${element.zIndex}` : isText ? "Text" : "Image"}
+                              </span> */}
+                              <span
+                                className={`rounded-md px-2 py-0.5 text-sm font-bold tabular-nums ${
+                                  element.value >= 0 ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"
+                                }`}
+                              >
+                                {element.value >= 0 ? "+" : ""}
+                                {formatValue(element.value, activeMetric)}
+                              </span>
+                            </div>
+                          </div>
+                        </button>
+                      )
+                    })}
+                </div>
+              </div>
+            )
+          })}
         </div>
       </div>
     </motion.section>
