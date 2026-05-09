@@ -1,4 +1,4 @@
-import { StudyDetails } from "@/lib/api/StudyAPI"
+import { normalizeClassificationId } from "@/lib/api/StudyAPI"
 
 /**
  * Hydrates localStorage with study data from the API to make the preview flow work.
@@ -49,12 +49,12 @@ export function hydrateLocalStorageFromStudy(data: any) {
     // 4. Step 4: Classification Questions
     if (classificationQuestions.length > 0) {
         const s4 = classificationQuestions.map((q: any) => ({
-            id: q.id || q.question_id,
+            id: normalizeClassificationId(q.question_id || q.id, crypto.randomUUID()),
             title: q.question_text,
             required: q.is_required === true || q.is_required === "Y",
             options: q.answer_options?.map((o: any) => ({
-                id: o.id,
-                text: o.text,
+                id: normalizeClassificationId(o.id || o.option_id, crypto.randomUUID()),
+                text: o.text || o.option_text,
             })),
         }))
         localStorage.setItem("cs_step4", JSON.stringify(s4))

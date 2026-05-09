@@ -2,18 +2,24 @@
 
 import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { updateStudyAsync, putUpdateStudyAsync } from "@/lib/api/StudyAPI"
+import { normalizeClassificationId, updateStudyAsync, putUpdateStudyAsync } from "@/lib/api/StudyAPI"
 
 interface Option {
 	id: string
+	option_id?: string
 	text: string
+	option_text?: string
 }
 
 interface QuestionCard {
 	id: string
+	question_id?: string
+	question_text?: string
 	title: string
 	required: boolean
+	is_required?: boolean
 	options: Option[]
+	answer_options?: Option[]
 	isOpen?: boolean
 }
 
@@ -25,26 +31,32 @@ interface Step4ClassificationQuestionsProps {
 }
 
 export function Step4ClassificationQuestions({ onNext, onBack, onDataChange, isReadOnly = false }: Step4ClassificationQuestionsProps) {
+	const createClassificationId = () => normalizeClassificationId(crypto.randomUUID(), "")
+
 	const [questions, setQuestions] = useState<QuestionCard[]>(() => {
 		try {
 			const raw = localStorage.getItem('cs_step4')
 			if (raw) {
 				const data = JSON.parse(raw) as QuestionCard[]
 				if (Array.isArray(data) && data.length > 0) {
-					return data.map((q, idx) => ({
-						id: q.id || crypto.randomUUID(),
-						title: q.title || "",
-						required: typeof q.required === 'boolean' ? q.required : true,
-						options: Array.isArray(q.options) && q.options.length > 0 ? q.options.map(o => ({ id: o.id || crypto.randomUUID(), text: o.text || "" })) : [
-							{ id: crypto.randomUUID(), text: "" },
-							{ id: crypto.randomUUID(), text: "" },
-						],
-						isOpen: q.isOpen ?? (idx === 0),
-					}))
+					return data.map((q, idx) => {
+						const options = Array.isArray(q.options) && q.options.length > 0 ? q.options : q.answer_options
+
+						return {
+							id: normalizeClassificationId(q.question_id || q.id, createClassificationId()),
+							title: q.title || q.question_text || "",
+							required: typeof q.required === 'boolean' ? q.required : q.is_required !== false,
+							options: Array.isArray(options) && options.length > 0 ? options.map(o => ({ id: normalizeClassificationId(o.id || o.option_id, createClassificationId()), text: o.text || o.option_text || "" })) : [
+								{ id: createClassificationId(), text: "" },
+								{ id: createClassificationId(), text: "" },
+							],
+							isOpen: q.isOpen ?? (idx === 0),
+						}
+					})
 				}
 			}
 		} catch { }
-		return [{ id: crypto.randomUUID(), title: "", required: true, options: [{ id: crypto.randomUUID(), text: "" }, { id: crypto.randomUUID(), text: "" }], isOpen: true }]
+		return [{ id: createClassificationId(), title: "", required: true, options: [{ id: createClassificationId(), text: "" }, { id: createClassificationId(), text: "" }], isOpen: true }]
 	})
 
 	const [toggleShuffle, setToggleShuffle] = useState<boolean>(() => {
@@ -71,12 +83,12 @@ export function Step4ClassificationQuestions({ onNext, onBack, onDataChange, isR
 		setQuestions((prev) => [
 			...prev.map(q => ({ ...q, isOpen: false })),
 			{
-				id: crypto.randomUUID(),
+				id: createClassificationId(),
 				title: "",
 				required: true,
 				options: [
-					{ id: crypto.randomUUID(), text: "" },
-					{ id: crypto.randomUUID(), text: "" },
+					{ id: createClassificationId(), text: "" },
+					{ id: createClassificationId(), text: "" },
 				],
 				isOpen: true,
 			},
@@ -117,7 +129,7 @@ export function Step4ClassificationQuestions({ onNext, onBack, onDataChange, isR
 	}
 
 	const addOption = (qid: string) => {
-		setQuestions((prev) => prev.map(q => q.id === qid ? { ...q, options: [...q.options, { id: crypto.randomUUID(), text: "" }] } : q))
+		setQuestions((prev) => prev.map(q => q.id === qid ? { ...q, options: [...q.options, { id: createClassificationId(), text: "" }] } : q))
 	}
 
 	const updateQuestionTitle = (qid: string, title: string) => {
@@ -133,6 +145,8 @@ export function Step4ClassificationQuestions({ onNext, onBack, onDataChange, isR
 	}
 
 	const normalizeText = (text: string) => text.toLowerCase().replace(/\s+/g, ' ').trim()
+	const getQuestionId = (q: QuestionCard, idx: number) => normalizeClassificationId(q.question_id || q.id, `Q${idx + 1}`)
+	const getOptionId = (option: Option, optIdx: number) => normalizeClassificationId(option.id || option.option_id, String.fromCharCode(65 + optIdx))
 
 	const duplicateTitles = new Set<string>()
 	const seenTitles = new Set<string>()
@@ -388,14 +402,14 @@ export function Step4ClassificationQuestions({ onNext, onBack, onDataChange, isR
 								const classification_questions = questions
 									.filter(q => q.title && q.title.trim().length > 0)
 									.map((q, idx) => ({
-										question_id: String(q.id || `Q${idx + 1}`).substring(0, 10),
+										question_id: getQuestionId(q, idx),
 										question_text: q.title || "",
 										question_type: "multiple_choice",
 										is_required: q.required !== false,
 										order: idx + 1,
 										answer_options: (q.options || [])
 											.filter(o => o.text && o.text.trim().length > 0)
-											.map((o, optIdx) => ({ id: String(o.id || String.fromCharCode(65 + optIdx)).substring(0, 10), text: o.text || "", order: optIdx + 1 }))
+											.map((o, optIdx) => ({ id: getOptionId(o, optIdx), text: o.text || "", order: optIdx + 1 }))
 									}))
 
 								// Include study_type and step metadata to help server

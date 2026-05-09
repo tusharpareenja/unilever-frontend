@@ -14,7 +14,7 @@ import { StepKeys } from "@/components/create-study/steps/StepKeys"
 import { Step6AudienceSegmentation } from "@/components/create-study/steps/Step6AudienceSegmentation"
 import { Step7TaskGeneration } from "@/components/create-study/steps/Step7TaskGeneration"
 import { Step8LaunchPreview } from "@/components/create-study/steps/Step8LaunchPreview"
-import { getStudyPreview, StudyType } from "@/lib/api/StudyAPI"
+import { getStudyPreview, normalizeClassificationId, StudyType } from "@/lib/api/StudyAPI"
 import { useAuth } from "@/lib/auth/AuthContext"
 import { checkIsSpecialCreator } from "@/lib/config/specialCreators"
 
@@ -32,6 +32,7 @@ interface ClassificationQuestion {
 
 interface AnswerOption {
   id?: string
+  option_id?: string
   text?: string
   option_text?: string
   order?: number
@@ -161,13 +162,13 @@ const loadDraftStudyData = async (studyId: string, shouldUpdateStep: boolean = t
     if (studyDetails.classification_questions && Array.isArray(studyDetails.classification_questions)) {
       // Transform backend format (question_id, question_text, answer_options) to frontend format (id, title, options)
       const transformedQuestions = studyDetails.classification_questions.map((q: ClassificationQuestion) => ({
-        id: q.id || q.question_id || crypto.randomUUID(),
+        id: normalizeClassificationId(q.question_id || q.id, crypto.randomUUID()),
         title: q.title || q.question_text || '',
         required: q.required !== false && q.is_required !== false,
         options: (q.options || q.answer_options || [])
           .sort((a: AnswerOption, b: AnswerOption) => (a.order || 0) - (b.order || 0))
           .map((opt: AnswerOption) => ({
-            id: opt.id || crypto.randomUUID(),
+            id: normalizeClassificationId(opt.id || opt.option_id, crypto.randomUUID()),
             text: opt.text || opt.option_text || ''
           }))
       }))

@@ -4,6 +4,13 @@ import { API_BASE_URL } from "./LoginApi"
 // Types that mirror backend contract
 export type StudyType = "grid" | "layer" | "text" | "hybrid"
 
+const CLASSIFICATION_ID_MAX_LENGTH = 10
+
+export function normalizeClassificationId(value: unknown, fallback: string): string {
+  const raw = value == null || String(value).trim().length === 0 ? fallback : String(value)
+  return raw.substring(0, CLASSIFICATION_ID_MAX_LENGTH)
+}
+
 export interface RatingScalePayload {
   min_value: number
   max_value: number
@@ -511,13 +518,13 @@ export function buildStudyPayloadFromLocalStorage(): CreateStudyPayload {
       const validOptions = q.options?.filter((opt: any) => opt.text && opt.text.trim().length > 0) || []
 
       return {
-        question_id: String(q.id || `Q${idx + 1}`).substring(0, 10),
+        question_id: normalizeClassificationId(q.question_id || q.id, `Q${idx + 1}`),
         question_text: q.title || "",
         question_type: "multiple_choice", // Default to multiple choice
         is_required: q.required !== false, // Use the required field from Step 4
         order: idx + 1,
         answer_options: validOptions.map((option: any, optIdx: number) => ({
-          id: String(option.id || String.fromCharCode(65 + optIdx)).substring(0, 10),
+          id: normalizeClassificationId(option.id || option.option_id, String.fromCharCode(65 + optIdx)),
           text: option.text || "",
           order: optIdx + 1
         })),
@@ -1013,13 +1020,13 @@ export function buildTaskGenerationPayloadFromLocalStorage(): TaskGenerationPayl
       const validOptions = q.options?.filter((opt: any) => opt.text && opt.text.trim().length > 0) || []
 
       return {
-        question_id: String(q.id || `Q${idx + 1}`).substring(0, 10),
+        question_id: normalizeClassificationId(q.question_id || q.id, `Q${idx + 1}`),
         question_text: q.title || "",
         question_type: "multiple_choice",
         is_required: q.required !== false,
         order: idx + 1,
         answer_options: validOptions.map((option: any, optIdx: number) => ({
-          id: String(option.id || String.fromCharCode(65 + optIdx)).substring(0, 10),
+          id: normalizeClassificationId(option.id || option.option_id, String.fromCharCode(65 + optIdx)),
           text: option.text || "",
           order: optIdx + 1
         }))
