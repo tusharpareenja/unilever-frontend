@@ -1031,7 +1031,7 @@ export default function CreateStudyPage() {
       >
         <DashboardHeader />
 
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className={`${currentStep === 5 && studyType === 'layer' ? 'max-w-6xl 2xl:max-w-[1600px]' : 'max-w-6xl'} mx-auto px-4 sm:px-6 lg:px-8 py-6`}>
           <div className="bg-white rounded-xl shadow-sm border border-[rgba(209,223,235,1)]">
             <div className="px-4 sm:px-6 lg:px-8 py-5 border-b border-[rgba(209,223,235,1)] sticky top-0 z-50 bg-white">
               {/* Error message if draft loading failed */}
