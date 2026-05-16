@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
-import { Fragment, useEffect, useRef, useState, forwardRef } from "react"
+import { Fragment, useEffect, useRef, useState, forwardRef, type CSSProperties } from "react"
 import { Rnd } from "react-rnd"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -3558,8 +3558,8 @@ function LayerMode({ onNext, onBack, onDataChange, isReadOnly = false }: LayerMo
         </div>
       </div>
 
-      <div className="mt-2 grid grid-cols-1 md:grid-cols-5 gap-4">
-        <div className={`${previewAspect === 'landscape' ? 'md:col-span-3' : 'md:col-span-2'} rounded-xl bg-white p-4 flex flex-col md:h-full md:overflow-hidden`}>
+      <div className="mt-2 grid grid-cols-1 md:grid-cols-5 gap-4 md:items-start">
+        <div className={`${previewAspect === 'landscape' ? 'md:col-span-3' : 'md:col-span-2'} rounded-xl bg-white p-4 flex flex-col md:sticky md:top-4 md:self-start md:overflow-hidden`}>
           {/* Preview canvas built from z order with draggable/resizable layers */}
           <div
             ref={previewContainerRef}
@@ -3769,9 +3769,12 @@ function LayerMode({ onNext, onBack, onDataChange, isReadOnly = false }: LayerMo
             <Button variant="outline" className="rounded-full px-4 py-1 cursor-pointer" onClick={() => setShowFullPreview(true)}>Preview</Button>
           </div>
         </div>
-        <div className={previewAspect === 'landscape' ? 'md:col-span-2 flex flex-col' : 'md:col-span-3 flex flex-col'}>
+        <div className={previewAspect === 'landscape' ? 'md:col-span-2 flex min-h-0 flex-col' : 'md:col-span-3 flex min-h-0 flex-col'}>
           <div className="text-xs text-gray-600 mb-2">Min {LAYER_MIN}, Max {LAYER_MAX}. Current: {layers.length}</div>
-          <div className="md:pr-2 custom-scrollbar md:overflow-y-auto md:max-h-[300px]">
+          <div
+            className="custom-scrollbar md:h-[var(--layer-preview-height)] md:overflow-y-auto md:pr-2"
+            style={{ '--layer-preview-height': `${containerSize.height}px` } as CSSProperties}
+          >
             {/* Background controls merged into scrollable list */}
             <div className="border rounded-xl bg-white p-2 mb-2">
               <div className="flex items-center justify-between mb-2">
