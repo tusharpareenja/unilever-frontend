@@ -304,24 +304,11 @@ export default function ThankYouPage() {
       return
     }
 
-    if (currentStudyId) {
-      router.push(`/participate/${currentStudyId}`)
-      return
-    }
-
-    // Try to close the tab/window
-    if (window.opener) {
-      // If opened in a popup, close it
-      window.close()
-    } else {
-      // For regular tabs, try to close (may not work due to browser security)
-      window.close()
-
-      // Fallback: redirect to about:blank
-      setTimeout(() => {
-        window.location.href = 'about:blank'
-      }, 100)
-    }
+    // Browsers may block closing tabs not opened by script, so redirect if it stays open.
+    window.close()
+    window.setTimeout(() => {
+      window.location.href = 'https://www.google.com'
+    }, 300)
   }
 
   // No longer use responseTimes for total count as it might be volatile

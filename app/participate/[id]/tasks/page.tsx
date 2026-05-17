@@ -851,7 +851,7 @@ export default function TasksPage() {
           <div className="text-center px-6">
             <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-[rgba(38,116,186,1)] mx-auto mb-6" />
             <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-              Preparing next study...
+              Preparing next part...
             </h2>
             <p className="text-gray-600 mb-2">
               Please wait while we set up the next part of your session.
