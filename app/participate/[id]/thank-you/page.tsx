@@ -11,6 +11,7 @@ import {
   clearParticipateProjectReturn,
   readParticipateProjectReturn,
 } from "@/lib/participate/projectReturnUrl"
+import { clearMergeState } from "@/lib/config/mergedStudies"
 
 export default function ThankYouPage() {
   const router = useRouter()
@@ -94,6 +95,14 @@ export default function ThankYouPage() {
       }
     } catch (error) {
       console.error('Error marking study as completed:', error)
+    }
+
+    // Clear merge-related localStorage items
+    try {
+      clearMergeState()
+      localStorage.removeItem('current_panelist_id')
+    } catch {
+      // Best effort cleanup
     }
 
     // Clear image cache on thank-you page

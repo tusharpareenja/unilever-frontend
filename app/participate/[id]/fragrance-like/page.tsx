@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
 import { submitClassificationAnswers } from "@/lib/api/ResponseAPI"
 import { FRAGRANCE_QUESTION_ID, FRAGRANCE_QUESTION_TEXT } from "@/lib/config/specialCreators"
+import { MERGE_STORAGE_KEYS } from "@/lib/config/mergedStudies"
 
 export default function FragranceLikePage() {
   const params = useParams<{ id: string }>()
@@ -14,6 +15,19 @@ export default function FragranceLikePage() {
   const [guardChecked, setGuardChecked] = useState(false)
 
   useEffect(() => {
+    // Check for pending merge transition recovery
+    // If we successfully arrived at this page from a merge transition, clear the pending flag
+    try {
+      const pendingTransition = localStorage.getItem(MERGE_STORAGE_KEYS.MERGE_PENDING_TRANSITION)
+      if (pendingTransition && pendingTransition === params.id) {
+        // Successfully arrived at second study - clear the pending flag
+        localStorage.removeItem(MERGE_STORAGE_KEYS.MERGE_PENDING_TRANSITION)
+        console.log('[MergedStudy] Successfully transitioned to second study:', params.id)
+      }
+    } catch (e) {
+      console.warn('Failed to check merge transition state:', e)
+    }
+    
     try {
       const completedStudies = JSON.parse(localStorage.getItem("completed_studies") || "{}")
       if (completedStudies[params.id]) {

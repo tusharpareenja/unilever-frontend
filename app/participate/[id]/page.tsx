@@ -6,6 +6,7 @@ import { useMemo, useRef, useState, useEffect } from "react"
 import { startStudy, getRespondentStudyDetails } from "@/lib/api/ResponseAPI"
 import { getStudyDetailsWithoutAuth } from "@/lib/api/StudyAPI"
 import { checkIsSpecialCreator } from "@/lib/config/specialCreators"
+import { clearMergeState, initializeMergeState, isFirstStudyInMerge } from "@/lib/config/mergedStudies"
 
 export default function ParticipateIntroPage() {
   const params = useParams<{ id: string }>()
@@ -188,8 +189,15 @@ export default function ParticipateIntroPage() {
         sessionId: response.session_id,
         respondentId: response.respondent_id,
         studyId: params.id,
-        totalTasks: response.total_tasks_assigned
+        totalTasks: response.total_tasks_assigned,
+        ...(response.done_by_id ? { doneById: response.done_by_id } : {})
       }))
+
+      if (isFirstStudyInMerge(params.id) && response.done_by_id) {
+        initializeMergeState(params.id, response.done_by_id)
+      } else if (!isFirstStudyInMerge(params.id)) {
+        clearMergeState()
+      }
 
       // Get respondent-specific study details using the new API
       try {

@@ -26,6 +26,7 @@ export interface StartStudyResponse {
 	respondent_id: number
 	total_tasks_assigned: number
 	study_info: StudyInfo
+	done_by_id?: string | null
 }
 
 export interface TaskResponse {
@@ -207,6 +208,43 @@ export async function startStudy(studyId: string): Promise<StartStudyResponse> {
 
 	const data = await response.json()
 	// console.log('Study started:', data)
+	return data
+}
+
+/**
+ * Start a merged study session.
+ * Used when transitioning from first study to second study in a merge pair.
+ * @param studyId - The second study ID
+ * @param doneById - Shared Done By ID inherited from the first study
+ * @param personalInfo - Personal info from the first study, copied into the second session
+ * @returns Promise with session details and study info
+ */
+export async function startMergedStudy(
+	studyId: string,
+	doneById: string,
+	personalInfo?: Record<string, any>
+): Promise<StartStudyResponse> {
+	const payload = {
+		study_id: studyId,
+		done_by_id: doneById.trim(),
+		personal_info: personalInfo || {},
+		is_merged_study: true,
+	}
+
+	const response = await fetch(`${API_BASE_URL}/responses/start-study`, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+		},
+		body: JSON.stringify(payload),
+	})
+
+	if (!response.ok) {
+		const errorData = await response.json().catch(() => ({}))
+		throw new Error(`Failed to start merged study: ${response.status} ${JSON.stringify(errorData)}`)
+	}
+
+	const data = await response.json()
 	return data
 }
 

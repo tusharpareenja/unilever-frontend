@@ -5,9 +5,16 @@ import { useState, useRef, useEffect, useLayoutEffect } from "react"
 import Image from "next/image"
 import { ThumbsUp, ThumbsDown } from "lucide-react"
 import { imageCacheManager } from "@/lib/utils/imageCacheManager"
-import { getRespondentStudyDetails, submitTasksBulk, getSessionStatus } from "@/lib/api/ResponseAPI"
+import { getRespondentStudyDetails, submitTasksBulk, getSessionStatus, startMergedStudy } from "@/lib/api/ResponseAPI"
 import { API_BASE_URL } from "@/lib/api/LoginApi"
 import { checkIsSpecialCreator } from "@/lib/config/specialCreators"
+import {
+  getMergedStudyConfig,
+  isMergeStateActive,
+  getMergeDoneById,
+  clearMergeState,
+  MERGE_STORAGE_KEYS,
+} from "@/lib/config/mergedStudies"
 
 const PENDING_TASKS_STORAGE_KEY = 'pending_task_responses'
 
@@ -76,6 +83,7 @@ export default function TasksPage() {
   const [mainQuestion, setMainQuestion] = useState<string>("")
   const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null)
   const [isSpecialCreator, setIsSpecialCreator] = useState(false)
+  const [isMergeTransitioning, setIsMergeTransitioning] = useState(false)
 
   const hoverCountsRef = useRef<Record<number, number>>({})
   const clickCountsRef = useRef<Record<number, number>>({})
@@ -702,7 +710,111 @@ export default function TasksPage() {
           
           // Clear localStorage - session is done
           clearPendingStorage()
-        } finally {
+          
+          // Check for merged study transition - ONLY proceed if all tasks confirmed submitted
+          const mergeConfig = getMergedStudyConfig(studyIdFromParams)
+          const isMerged = isMergeStateActive()
+          const doneById = getMergeDoneById()
+          
+          // Re-verify final completion status before merge transition
+          const finalStatus = await getSessionStatus(sessionId)
+          const allTasksSubmitted = finalStatus.is_completed
+          
+          if (isMerged && mergeConfig && doneById && allTasksSubmitted) {
+            // Transition to second study
+            setIsMergeTransitioning(true)
+            setIsLoading(false)
+            
+            const nextStudyId = mergeConfig.secondStudyId
+            let transitionSuccess = false
+            const maxRetries = 5
+            let personalInfo: Record<string, any> = {}
+
+            try {
+              const personalInfoRaw = localStorage.getItem('personal_info')
+              const parsed = personalInfoRaw ? JSON.parse(personalInfoRaw) : null
+              personalInfo = parsed?.user_details && typeof parsed.user_details === 'object'
+                ? parsed.user_details
+                : (parsed && typeof parsed === 'object' ? parsed : {})
+            } catch {
+              personalInfo = {}
+            }
+            
+            for (let attempt = 0; attempt < maxRetries && !transitionSuccess; attempt++) {
+              try {
+                // 1. Start new session for second study with same Done By ID and demographics
+                const response = await startMergedStudy(nextStudyId, doneById, personalInfo)
+                
+                // 2. Store new session data
+                localStorage.setItem('study_session', JSON.stringify({
+                  sessionId: response.session_id,
+                  respondentId: response.respondent_id,
+                  studyId: nextStudyId,
+                  totalTasks: response.total_tasks_assigned,
+                  doneById: response.done_by_id || doneById,
+                }))
+
+                // 3. Mark transition as pending (for recovery)
+                localStorage.setItem(MERGE_STORAGE_KEYS.MERGE_PENDING_TRANSITION, nextStudyId)
+                
+                // 4. Get respondent study details for second study
+                const respondentDetails = await getRespondentStudyDetails(
+                  String(response.respondent_id),
+                  nextStudyId
+                )
+                
+                // 5. Store study details (same logic as intro page)
+                const normalizedInfo = respondentDetails?.study_info || {}
+                const backgroundUrl = normalizedInfo?.metadata?.background_image_url ||
+                  normalizedInfo?.background_image_url ||
+                  respondentDetails?.metadata?.background_image_url || null
+                  
+                const essentialData = {
+                  study_info: {
+                    ...normalizedInfo,
+                    ...(backgroundUrl ? { metadata: { ...(normalizedInfo.metadata || {}), background_image_url: backgroundUrl } } : {}),
+                  },
+                  assigned_tasks: respondentDetails?.assigned_tasks || [],
+                  classification_questions: respondentDetails?.classification_questions || [],
+                  layers: respondentDetails?.layers || [],
+                  ...(respondentDetails?.metadata ? { metadata: respondentDetails.metadata } : {}),
+                }
+                localStorage.setItem('current_study_details', JSON.stringify(essentialData))
+                
+                // 6. Clear merge state (transition complete)
+                clearMergeState()
+                localStorage.removeItem(MERGE_STORAGE_KEYS.MERGE_PENDING_TRANSITION)
+                
+                transitionSuccess = true
+                
+                // 7. General merged studies skip fragrance and start at classification questions.
+                router.push(`/participate/${nextStudyId}/classification-questions`)
+                return
+              } catch (err) {
+                console.error(`Merge transition attempt ${attempt + 1} failed:`, err)
+                if (attempt < maxRetries - 1) {
+                  // Exponential backoff: 1s, 2s, 4s, 8s, 16s
+                  await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt)))
+                }
+              }
+            }
+            
+            // All attempts failed - clear merge state and go to thank you
+            if (!transitionSuccess) {
+              console.error('All merge transition attempts failed, proceeding to thank you page')
+              clearMergeState()
+              setIsMergeTransitioning(false)
+            }
+          } else if (isMerged && mergeConfig && doneById && !allTasksSubmitted) {
+            // Tasks not confirmed submitted - don't transition, clear merge state
+            console.error('Cannot transition to merged study: tasks not confirmed submitted')
+            clearMergeState()
+          }
+          
+          // Default: go to thank you page
+          router.push(`/participate/${studyIdFromParams}/thank-you`)
+        } catch (finalError) {
+          console.error('Error in last task handling:', finalError)
           router.push(`/participate/${studyIdFromParams}/thank-you`)
         }
       } else {
@@ -733,6 +845,24 @@ export default function TasksPage() {
       className="h-[100dvh] lg:h-screen lg:bg-white overflow-hidden"
       style={{ paddingTop: "max(10px, env(safe-area-inset-top))" }}
     >
+      {/* Merge Transition Loading Overlay */}
+      {isMergeTransitioning && (
+        <div className="fixed inset-0 bg-white z-50 flex items-center justify-center">
+          <div className="text-center px-6">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-[rgba(38,116,186,1)] mx-auto mb-6" />
+            <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+              Preparing next study...
+            </h2>
+            <p className="text-gray-600 mb-2">
+              Please wait while we set up the next part of your session.
+            </p>
+            <p className="text-sm text-gray-500 font-medium">
+              Please don&apos;t close this tab.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className={`max-w-6xl mx-auto h-full flex flex-col ${isBgLandscape ? 'px-0 sm:px-6 lg:px-8' : 'px-4 sm:px-6 lg:px-8'} pt-2 sm:pt-12 md:pt-14 lg:pt-2 pb-2 lg:flex lg:flex-col`}>
         {isFetching ? (
           <div className="p-10 text-center">

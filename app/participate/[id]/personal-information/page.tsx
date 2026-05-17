@@ -511,6 +511,14 @@ function PanelistSelection({
     try {
       setIsSubmitting(true)
       await assignPanelistToSession(sessionId, selectedPanelist.id)
+      
+      // Store panelist ID for special-creator flows only.
+      try {
+        localStorage.setItem('current_panelist_id', selectedPanelist.id)
+      } catch (e) {
+        console.warn('Failed to store panelist ID:', e)
+      }
+      
       // Special creator: fragrance question page before classification
       router.push(`/participate/${studyId}/fragrance-like`)
     } catch (error) {
