@@ -5,7 +5,6 @@ export const FRAGRANCE_QUESTION_TEXT = "Do you like this fragrance?"
 export const SPECIAL_CREATOR_EMAILS = [
     
     'dlovej009@gmail.com',
-    'pareenja55555@gmail.com'
 ]
 
 /** Domains where every user is treated as a special creator (e.g. xyz@unilever.com). */
