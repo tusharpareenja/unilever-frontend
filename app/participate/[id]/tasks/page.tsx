@@ -65,6 +65,17 @@ type Task = {
   _elements_shown_content?: Record<string, unknown>
 }
 
+const flattenAssignedTasksForPreload = (assignedTasks: unknown): any[] => {
+  if (!Array.isArray(assignedTasks)) return []
+
+  return assignedTasks.flatMap((taskOrBucket) => {
+    if (Array.isArray(taskOrBucket)) {
+      return taskOrBucket.filter(Boolean)
+    }
+    return taskOrBucket ? [taskOrBucket] : []
+  })
+}
+
 export default function TasksPage() {
   const params = useParams<{ id: string }>()
   const studyIdFromParams = params.id
@@ -84,6 +95,7 @@ export default function TasksPage() {
   const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null)
   const [isSpecialCreator, setIsSpecialCreator] = useState(false)
   const [isMergeTransitioning, setIsMergeTransitioning] = useState(false)
+  const [mergePreloadProgress, setMergePreloadProgress] = useState(0)
 
   const hoverCountsRef = useRef<Record<number, number>>({})
   const clickCountsRef = useRef<Record<number, number>>({})
@@ -723,6 +735,7 @@ export default function TasksPage() {
           if (isMerged && mergeConfig && doneById && allTasksSubmitted) {
             // Transition to second study
             setIsMergeTransitioning(true)
+            setMergePreloadProgress(5)
             setIsLoading(false)
             
             const nextStudyId = mergeConfig.secondStudyId
@@ -742,8 +755,10 @@ export default function TasksPage() {
             
             for (let attempt = 0; attempt < maxRetries && !transitionSuccess; attempt++) {
               try {
+                setMergePreloadProgress(10)
                 // 1. Start new session for second study with same Done By ID and demographics
                 const response = await startMergedStudy(nextStudyId, doneById, personalInfo)
+                setMergePreloadProgress(20)
                 
                 // 2. Store new session data
                 localStorage.setItem('study_session', JSON.stringify({
@@ -762,6 +777,7 @@ export default function TasksPage() {
                   String(response.respondent_id),
                   nextStudyId
                 )
+                setMergePreloadProgress(35)
                 
                 // 5. Store study details (same logic as intro page)
                 const normalizedInfo = respondentDetails?.study_info || {}
@@ -780,12 +796,53 @@ export default function TasksPage() {
                   ...(respondentDetails?.metadata ? { metadata: respondentDetails.metadata } : {}),
                 }
                 localStorage.setItem('current_study_details', JSON.stringify(essentialData))
+                setMergePreloadProgress(40)
+
+                // The second study skips the normal intro/personal-info warmup, so reset
+                // the first study cache and preload the second study assets before routing.
+                try {
+                  imageCacheManager.clearCache()
+                  setMergePreloadProgress(45)
+
+                  const secondStudyTasks = flattenAssignedTasksForPreload(respondentDetails?.assigned_tasks)
+                  if (secondStudyTasks.length > 0) {
+                    let progressInterval: ReturnType<typeof setInterval> | undefined
+                    const updatePreloadProgress = () => {
+                      const progress = imageCacheManager.getPreloadProgress()
+                      if (progress.total <= 0) return
+
+                      const completed = progress.loaded + progress.failed
+                      const pct = 45 + Math.round((completed / progress.total) * 45)
+                      setMergePreloadProgress(Math.max(45, Math.min(90, pct)))
+                    }
+
+                    try {
+                      progressInterval = setInterval(updatePreloadProgress, 250)
+                      await imageCacheManager.preloadAllTaskImages(secondStudyTasks)
+                      updatePreloadProgress()
+                    } finally {
+                      if (progressInterval) clearInterval(progressInterval)
+                    }
+                    setMergePreloadProgress((prev) => Math.max(prev, 90))
+                  } else {
+                    setMergePreloadProgress(90)
+                  }
+
+                  if (backgroundUrl && typeof backgroundUrl === 'string') {
+                    await imageCacheManager.prewarmUrls([backgroundUrl], "high")
+                  }
+                  setMergePreloadProgress(98)
+                } catch (preloadError) {
+                  console.warn("Second merged study image preload failed:", preloadError)
+                  setMergePreloadProgress((prev) => Math.max(prev, 90))
+                }
                 
                 // 6. Clear merge state (transition complete)
                 clearMergeState()
                 localStorage.removeItem(MERGE_STORAGE_KEYS.MERGE_PENDING_TRANSITION)
                 
                 transitionSuccess = true
+                setMergePreloadProgress(100)
                 
                 // 7. General merged studies skip fragrance and start at classification questions.
                 router.push(`/participate/${nextStudyId}/classification-questions`)
@@ -853,6 +910,17 @@ export default function TasksPage() {
             <h2 className="text-2xl font-semibold text-gray-900 mb-2">
               Preparing next part...
             </h2>
+            <div className="mx-auto mb-4 w-64 max-w-full">
+              <div className="mb-2 text-sm font-semibold text-[rgba(38,116,186,1)]">
+                {mergePreloadProgress}%
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
+                <div
+                  className="h-full rounded-full bg-[rgba(38,116,186,1)] transition-all duration-300"
+                  style={{ width: `${mergePreloadProgress}%` }}
+                />
+              </div>
+            </div>
             <p className="text-gray-600 mb-2">
               Please wait while we set up the next part of your session.
             </p>
