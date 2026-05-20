@@ -332,52 +332,51 @@ export default function TasksPage() {
     setIsInitialLoading(false)
   }, [])
 
-  useEffect(() => {
-    if (!Array.isArray(tasks) || tasks.length === 0) return
-    try {
-      const allLayerUrls: string[] = Array.from(
-        new Set(
-          tasks
-            .flatMap((t: any) => (Array.isArray(t?.layeredImages) ? t.layeredImages : []))
-            .map((li: any) => li?.url)
-            .filter(Boolean),
-        ),
-      ) as string[]
-      const allWithBg = backgroundUrl ? [...allLayerUrls, backgroundUrl] : allLayerUrls
-      if (allWithBg.length > 0) {
-        imageCacheManager.prewarmUrls(allWithBg, "high")
-      }
-    } catch { }
-  }, [totalTasks, backgroundUrl])
-
+  // Per-task warmup: make sure the NEXT task's image bytes are in the
+  // browser HTTP cache. We do this by injecting <link rel="preload"
+  // as="image"> tags into <head> for each URL of the next task, then
+  // removing them on cleanup. This is the only preload mechanism that
+  // provably does NOT decode the image into a full-size bitmap, which is
+  // what was crashing mobile Safari with 80-task / 14-layer studies of
+  // large PNGs (28 decoded bitmaps in the DOM at once exceeded the 384MB
+  // per-tab budget). When the user advances, the visible <img> for the
+  // new task mounts and decodes from the HTTP cache, which is fast enough
+  // to feel instant.
   useEffect(() => {
     if (tasks.length === 0) return
+    if (typeof document === 'undefined') return
 
-    const currentTask = tasks[currentTaskIndex]
-    if (!currentTask) return
-
-    const preloadCurrentTask = async () => {
+    const collectUrls = (t: Task | undefined): string[] => {
+      if (!t) return []
       const urls: string[] = []
-
-      if (currentTask.layeredImages) {
-        currentTask.layeredImages.forEach((img: any) => {
-          if (img.url) urls.push(img.url)
-        })
-      }
-      if (currentTask.gridUrls) {
-        urls.push(...currentTask.gridUrls.filter(Boolean))
-      }
-      if (currentTask.leftImageUrl) urls.push(currentTask.leftImageUrl)
-      if (currentTask.rightImageUrl) urls.push(currentTask.rightImageUrl)
-
-      if (backgroundUrl) {
-        urls.push(backgroundUrl)
-      }
-
-      await imageCacheManager.prewarmUrls(urls, "critical")
+      if (t.layeredImages) t.layeredImages.forEach((img) => { if (img?.url) urls.push(img.url) })
+      if (t.gridUrls) urls.push(...t.gridUrls.filter(Boolean))
+      if (t.leftImageUrl) urls.push(t.leftImageUrl)
+      if (t.rightImageUrl) urls.push(t.rightImageUrl)
+      return urls
     }
 
-    preloadCurrentTask()
+    const nextUrls = Array.from(new Set(collectUrls(tasks[currentTaskIndex + 1]).filter(Boolean)))
+    if (nextUrls.length === 0) return
+
+    const links: HTMLLinkElement[] = []
+    for (const url of nextUrls) {
+      try {
+        const link = document.createElement('link')
+        link.rel = 'preload'
+        link.as = 'image'
+        link.href = url
+        try { (link as any).fetchPriority = 'high' } catch { /* not supported */ }
+        document.head.appendChild(link)
+        links.push(link)
+      } catch { /* best effort */ }
+    }
+
+    return () => {
+      for (const link of links) {
+        try { if (link.parentNode) link.parentNode.removeChild(link) } catch { /* best effort */ }
+      }
+    }
   }, [currentTaskIndex, tasks])
 
   // ResizeObserver for container size (mobile)
@@ -1064,27 +1063,9 @@ export default function TasksPage() {
                                 </div>
                               )
                             })()}
-                            {(tasks[currentTaskIndex + 1]?.layeredImages || []).map((img: any, idx: number) => {
-                              const resolved = getCachedUrl(img.url) || "/placeholder.svg"
-                              return (
-                                <img
-                                  key={`next-${img.url}-${idx}`}
-                                  src={resolved || "/placeholder.svg"}
-                                  alt={String(img.z)}
-                                  decoding="async"
-                                  loading="eager"
-                                  fetchPriority="high"
-                                  style={{
-                                    position: "absolute",
-                                    top: -99999,
-                                    left: -99999,
-                                    width: 1,
-                                    height: 1,
-                                    visibility: "hidden",
-                                  }}
-                                />
-                              )
-                            })}
+                            {/* Next-task warmup is handled by <link rel="preload"> in the useEffect above. */}
+                            {/* Rendering hidden <img> tags here used to crash mobile Safari because each */}
+                            {/* one forced a full-size bitmap decode (14+ layers x large PNG = OOM). */}
                           </div>
                         </div>
                       ) : task?.type === "text" ? (
@@ -1410,27 +1391,9 @@ export default function TasksPage() {
                                 </div>
                               )
                             })()}
-                            {(tasks[currentTaskIndex + 1]?.layeredImages || []).map((img: any, idx: number) => {
-                              const resolved = getCachedUrl(img.url) || "/placeholder.svg"
-                              return (
-                                <img
-                                  key={`next-desktop-${img.url}-${idx}`}
-                                  src={resolved || "/placeholder.svg"}
-                                  alt={String(img.z)}
-                                  decoding="async"
-                                  loading="eager"
-                                  fetchPriority="high"
-                                  style={{
-                                    position: "absolute",
-                                    top: -99999,
-                                    left: -99999,
-                                    width: 1,
-                                    height: 1,
-                                    visibility: "hidden",
-                                  }}
-                                />
-                              )
-                            })}
+                            {/* Next-task warmup is handled by <link rel="preload"> in the useEffect above. */}
+                            {/* Rendering hidden <img> tags here used to crash mobile Safari because each */}
+                            {/* one forced a full-size bitmap decode (14+ layers x large PNG = OOM). */}
                           </div>
                         </div>
                       </div>
