@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useRef, useCallback } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { motion, AnimatePresence } from "framer-motion"
 import { AuthGuard } from "@/components/auth/AuthGuard"
@@ -81,7 +81,12 @@ function StatChip({ icon: Icon, label, value }: { icon: React.ElementType; label
 export default function SyntheticRespondentPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const studyId = params.id as string
+  const projId = searchParams.get('proj_id') || searchParams.get('projectId')
+  const projectQuery = projId ? `?proj_id=${encodeURIComponent(projId)}` : ''
+  const homeHref = `/home${projectQuery}`
+  const studyHref = `/home/study/${studyId}${projectQuery}`
   const { user } = useAuth()
   const isSpecialCreator = checkIsSpecialCreator(user?.email ?? null)
 
@@ -419,7 +424,7 @@ export default function SyntheticRespondentPage() {
             <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
               <h2 className="text-lg font-semibold text-red-800 mb-2">Error</h2>
               <p className="text-red-600">{error || "Study not found"}</p>
-              <button onClick={() => router.push("/home")} className="cursor-pointer mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
+              <button onClick={() => router.push(homeHref)} className="cursor-pointer mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
                 Back to Dashboard
               </button>
             </div>
@@ -459,9 +464,9 @@ export default function SyntheticRespondentPage() {
           <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-7">
             {/* Breadcrumb */}
             <nav className="flex items-center gap-1.5 text-sm mb-5">
-              <Link href="/home" className="text-blue-200/70 hover:text-white transition-colors">Dashboard</Link>
+              <Link href={homeHref} className="text-blue-200/70 hover:text-white transition-colors">Dashboard</Link>
               <ChevronRight className="w-3.5 h-3.5 text-blue-300/50" />
-              <Link href={`/home/study/${studyId}`} className="text-blue-200/70 hover:text-white transition-colors">{studyLabel}</Link>
+              <Link href={studyHref} className="text-blue-200/70 hover:text-white transition-colors">{studyLabel}</Link>
               <ChevronRight className="w-3.5 h-3.5 text-blue-300/50" />
               <span className="text-white/90 font-medium">AI Agentic Respondents</span>
             </nav>
@@ -491,7 +496,7 @@ export default function SyntheticRespondentPage() {
                 animate={{ opacity: 1, x: 0 }}
                 whileHover={{ scale: 1.03, backgroundColor: "rgba(255,255,255,0.18)" }}
                 whileTap={{ scale: 0.97 }}
-                onClick={() => (window.history.length > 1 ? router.back() : router.push(`/home/study/${studyId}`))}
+                onClick={() => (window.history.length > 1 ? router.back() : router.push(studyHref))}
                 className="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-white/30 bg-white/10 backdrop-blur-sm text-white text-sm font-medium transition-colors w-fit"
               >
                 <ArrowLeft className="w-4 h-4" />
@@ -801,7 +806,7 @@ export default function SyntheticRespondentPage() {
                           <motion.button
                             whileHover={{ scale: 1.02, boxShadow: "0 6px 22px rgba(38,116,186,0.35)" }}
                             whileTap={{ scale: 0.97 }}
-                            onClick={() => router.push(`/home/study/${studyId}`)}
+                            onClick={() => router.push(studyHref)}
                             className="cursor-pointer inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-white shadow-md transition-all text-sm"
                             style={{ background: `linear-gradient(135deg, #3486cc, ${BRAND})` }}
                           >

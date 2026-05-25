@@ -16,6 +16,12 @@ export default function StudyResponsesPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const studyId = params.id as string
+  const projId = searchParams.get('proj_id') || searchParams.get('projectId')
+  const projectQuery = projId ? `?proj_id=${encodeURIComponent(projId)}` : ''
+  const homeHref = `/home${projectQuery}`
+  const studyHref = `/home/study/${studyId}${projectQuery}`
+  const responseDetailsHref = (sessionId: string) =>
+    `/home/study/${studyId}/response/details/${encodeURIComponent(sessionId)}${projectQuery}`
 
   const [loading, setLoading] = useState(true)
   const [items, setItems] = useState<StudyResponseItem[]>([])
@@ -192,9 +198,9 @@ export default function StudyResponsesPage() {
               <div>
                 <div className="text-sm text-blue-200">
 
-                  <Link href="/home" className="text-blue-200"><span className="text-blue-200">Dashboard</span></Link>
+                  <Link href={homeHref} className="text-blue-200"><span className="text-blue-200">Dashboard</span></Link>
                   <span className="mx-2">/</span>
-                  <Link href={`/home/study/${studyId}`} className="text-blue-200"><span className="text-blue-200">Studies</span></Link>
+                  <Link href={studyHref} className="text-blue-200"><span className="text-blue-200">Studies</span></Link>
                   <span className="mx-2">/</span>
                   <span className="text-white">
                     {study?.study_type === "grid" ? "Grid Study" : study?.study_type === "hybrid" ? "Hybrid Study" : study?.study_type === "text" ? "Text Study" : study?.study_type === "layer" ? "Layer Study" : "Loading..."}
@@ -204,7 +210,7 @@ export default function StudyResponsesPage() {
                 <p className="text-blue-100 text-sm">Analyze and export response data</p>
               </div>
               <div className="flex gap-2">
-                <button onClick={() => router.push(`/home/study/${studyId}`)} className="px-4 py-2 rounded-md bg-white/10 hover:bg-white/20 text-white">Back to Study</button>
+                <button onClick={() => router.push(studyHref)} className="px-4 py-2 rounded-md bg-white/10 hover:bg-white/20 text-white">Back to Study</button>
                 <button
                   onClick={exportCsv}
                   disabled={exporting}
@@ -311,7 +317,7 @@ export default function StudyResponsesPage() {
                         <td className="px-4 py-3 text-gray-700">{formatDuration(r.total_study_duration)}</td>
                         <td className={`px-4 py-3 font-medium ${statusColor}`}>{status}</td>
                         <td className="px-4 py-3">
-                          <button onClick={() => router.push(`/home/study/${studyId}/response/details/${encodeURIComponent(r.session_id)}`)} className="px-3 py-1.5 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-800">Details</button>
+                          <button onClick={() => router.push(responseDetailsHref(r.session_id))} className="px-3 py-1.5 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-800">Details</button>
                         </td>
                       </tr>
                     )

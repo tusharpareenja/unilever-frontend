@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { DashboardHeader } from "../../components/dashboard-header"
 import { AuthGuard } from "@/components/auth/AuthGuard"
 import { useAuth } from "@/lib/auth/AuthContext"
@@ -62,7 +62,12 @@ const AccordionSection = ({ title, children, defaultOpen = false }: AccordionSec
 export default function StudyManagementPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const studyId = params.id as string
+  const projId = searchParams.get('proj_id') || searchParams.get('projectId')
+  const projectQuery = projId ? `?proj_id=${encodeURIComponent(projId)}` : ''
+  const homeHref = `/home${projectQuery}`
+  const studySubpageHref = (subpage: string) => `/home/study/${studyId}/${subpage}${projectQuery}`
   const { user } = useAuth()
   const isSpecialCreator = checkIsSpecialCreator(user?.email ?? null)
 
@@ -355,7 +360,7 @@ export default function StudyManagementPage() {
               <h2 className="text-lg font-semibold text-red-800 mb-2">Error</h2>
               <p className="text-red-600">{error || "Study not found"}</p>
               <button
-                onClick={() => router.push("/home")}
+                onClick={() => router.push(homeHref)}
                 className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
               >
                 Back to Dashboard
@@ -381,10 +386,10 @@ export default function StudyManagementPage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             {/* Breadcrumbs */}
             <nav className="text-sm mb-2">
-              <Link href="/home" className="text-blue-200"><span className="text-blue-200">Dashboard</span></Link>
+              <Link href={homeHref} className="text-blue-200"><span className="text-blue-200">Dashboard</span></Link>
 
               <span className="mx-2">/</span>
-              <Link href="/home" className="text-blue-200"><span className="text-blue-200">Studies</span></Link>
+              <Link href={homeHref} className="text-blue-200"><span className="text-blue-200">Studies</span></Link>
               <span className="mx-2">/</span>
               <span className="text-white">{study.study_type === "grid" ? "Grid Study" : study.study_type === "hybrid" ? "Hybrid Study" : study.study_type === "text" ? "Text Study" : "Layer Study"}</span>
             </nav>
@@ -394,7 +399,7 @@ export default function StudyManagementPage() {
               <h1 className="text-2xl font-bold min-w-0 break-words flex-1">{study.title}</h1>
               <div className="flex items-center gap-2 flex-wrap lg:justify-end">
                 <button
-                  onClick={() => (typeof window !== 'undefined' && window.history.length > 1) ? router.back() : router.push('/home')}
+                  onClick={() => (typeof window !== 'undefined' && window.history.length > 1) ? router.back() : router.push(homeHref)}
                   className="flex cursor-pointer items-center gap-1.5 px-3 py-1.5 text-md border rounded-md hover:opacity-80 shrink-0"
                   style={{ borderColor: '#FFFFFF', color: '#FFFFFF' }}
                 >
@@ -403,7 +408,7 @@ export default function StudyManagementPage() {
                 </button>
 
                 <button
-                  onClick={() => router.push(`/home/study/${studyId}/response`)}
+                  onClick={() => router.push(studySubpageHref('response'))}
                   className="flex cursor-pointer items-center gap-1.5 px-3 py-1.5 text-md bg-white rounded-md hover:opacity-90 font-medium whitespace-nowrap shrink-0"
                   style={{ color: '#2674BA' }}
                 >
@@ -412,7 +417,7 @@ export default function StudyManagementPage() {
                 </button>
 
                 <button
-                  onClick={() => router.push(`/home/study/${studyId}/analytics`)}
+                  onClick={() => router.push(studySubpageHref('analytics'))}
                   className="flex cursor-pointer items-center gap-1.5 px-3 py-1.5 text-md bg-white rounded-md hover:opacity-90 font-medium whitespace-nowrap shrink-0"
                   style={{ color: '#2674BA' }}
                 >
@@ -464,7 +469,7 @@ export default function StudyManagementPage() {
               <div className="flex items-center gap-5 text-sm" style={{ color: '#2674BA' }}>
                 <div className="relative group">
                   <button
-                    onClick={() => study.status === 'active' && router.push(`/home/study/${studyId}/share`)}
+                    onClick={() => study.status === 'active' && router.push(studySubpageHref('share'))}
                     disabled={study.status !== 'active'}
                     className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all duration-200 ${study.status === 'active'
                       ? 'hover:opacity-80 cursor-pointer'
@@ -523,7 +528,7 @@ export default function StudyManagementPage() {
               </div>
             ) : (
               <Link
-                href={`/home/study/${studyId}/synthetic-respondent`}
+                href={studySubpageHref('synthetic-respondent')}
                 className="mx-6 mb-4 block rounded-xl p-4 cursor-pointer transition-all duration-300 border hover:scale-[1.01] hover:shadow-md border-[#2674BA]/20 bg-gradient-to-br from-[#2674BA]/10 to-[#2674BA]/5 hover:border-[#2674BA]/50 hover:from-[#2674BA]/18 hover:to-[#2674BA]/10"
               >
                 <div className="flex items-center gap-3">

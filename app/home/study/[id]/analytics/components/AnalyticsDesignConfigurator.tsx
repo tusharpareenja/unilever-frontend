@@ -4,7 +4,8 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react"
 import { motion } from "framer-motion"
-import { CheckCircle2, ChevronDown, ImageIcon, RotateCcw, Sparkles, Type, X } from "lucide-react"
+import { CheckCircle2, ChevronDown, Download, Eye, ImageIcon, RotateCcw, Sparkles, Type, X } from "lucide-react"
+import { renderLayersToCanvas } from "@/lib/canvas-export"
 
 type Metric = "Top Down" | "Bottom Up" | "Response Time"
 
@@ -54,6 +55,168 @@ const METRIC_PREFIX: Record<Metric, string> = {
 
 const MAX_NON_LAYER_SELECTIONS = 4
 const AGE_SEGMENTS = ["13-17", "18-24", "25-34", "35-44", "45-54", "55-64", "65+"]
+
+function safeFileName(value: string, fallback = "download"): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || fallback
+}
+
+function getProxiedImageUrl(url: string): string {
+  if (!isHttpUrl(url)) return url
+  if (typeof window !== "undefined" && url.includes(window.location.host)) return url
+  return `/api/proxy-image?url=${encodeURIComponent(url)}`
+}
+
+function getExtensionFromType(contentType: string | null): string {
+  if (!contentType) return "png"
+  if (contentType.includes("jpeg")) return "jpg"
+  if (contentType.includes("webp")) return "webp"
+  if (contentType.includes("gif")) return "gif"
+  if (contentType.includes("svg")) return "svg"
+  return "png"
+}
+
+function triggerDownload(url: string, fileName: string) {
+  const link = document.createElement("a")
+  link.href = url
+  link.download = fileName
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+}
+
+function downloadCanvas(canvas: HTMLCanvasElement, fileName: string) {
+  const dataUrl = canvas.toDataURL("image/png")
+  triggerDownload(dataUrl, fileName)
+}
+
+function getCanvasAspect(aspectRatio: string): "portrait" | "landscape" | "square" {
+  if (aspectRatio === "16 / 9") return "landscape"
+  if (aspectRatio === "1 / 1") return "square"
+  return "portrait"
+}
+
+function loadImageForCanvas(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image()
+    image.crossOrigin = "anonymous"
+    image.onload = () => resolve(image)
+    image.onerror = () => reject(new Error(`Failed to load image: ${url}`))
+    image.src = getProxiedImageUrl(url)
+  })
+}
+
+async function getCanvasBackgroundRect(
+  canvas: HTMLCanvasElement,
+  backgroundUrl: string | null
+): Promise<{ x: number; y: number; width: number; height: number }> {
+  const rect = { x: 0, y: 0, width: canvas.width, height: canvas.height }
+  if (!backgroundUrl) return rect
+
+  try {
+    const background = await loadImageForCanvas(backgroundUrl)
+    const imageAspect = background.width / background.height
+    const canvasAspect = canvas.width / canvas.height
+
+    if (imageAspect > canvasAspect) {
+      rect.width = canvas.width
+      rect.height = canvas.width / imageAspect
+      rect.y = (canvas.height - rect.height) / 2
+    } else {
+      rect.height = canvas.height
+      rect.width = canvas.height * imageAspect
+      rect.x = (canvas.width - rect.width) / 2
+    }
+  } catch (error) {
+    console.warn("Failed to measure background for text layer export", error)
+  }
+
+  return rect
+}
+
+function drawRoundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
+  const safeRadius = Math.min(radius, width / 2, height / 2)
+  ctx.beginPath()
+  ctx.moveTo(x + safeRadius, y)
+  ctx.lineTo(x + width - safeRadius, y)
+  ctx.quadraticCurveTo(x + width, y, x + width, y + safeRadius)
+  ctx.lineTo(x + width, y + height - safeRadius)
+  ctx.quadraticCurveTo(x + width, y + height, x + width - safeRadius, y + height)
+  ctx.lineTo(x + safeRadius, y + height)
+  ctx.quadraticCurveTo(x, y + height, x, y + height - safeRadius)
+  ctx.lineTo(x, y + safeRadius)
+  ctx.quadraticCurveTo(x, y, x + safeRadius, y)
+  ctx.closePath()
+}
+
+function wrapCanvasText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+  const words = text.split(/\s+/).filter(Boolean)
+  const lines: string[] = []
+  let current = ""
+
+  for (const word of words) {
+    const next = current ? `${current} ${word}` : word
+    if (ctx.measureText(next).width <= maxWidth || !current) {
+      current = next
+    } else {
+      lines.push(current)
+      current = word
+    }
+  }
+
+  if (current) lines.push(current)
+  return lines.slice(0, 4)
+}
+
+async function drawTextElementsOnLayerCanvas(
+  canvas: HTMLCanvasElement,
+  elements: ConfiguratorElement[],
+  backgroundUrl: string | null
+) {
+  if (elements.length === 0) return
+
+  const ctx = canvas.getContext("2d")
+  if (!ctx) return
+
+  const backgroundRect = await getCanvasBackgroundRect(canvas, backgroundUrl)
+  const sorted = [...elements].sort((a, b) => a.zIndex - b.zIndex)
+
+  for (const element of sorted) {
+    const transform = element.transform || { x: 0, y: 0, width: 100, height: 100 }
+    const widthPct = Math.max(1, Math.min(100, transform.width))
+    const heightPct = Math.max(1, Math.min(100, transform.height))
+    const leftPct = Math.max(0, Math.min(100 - widthPct, transform.x))
+    const topPct = Math.max(0, Math.min(100 - heightPct, transform.y))
+    const x = backgroundRect.x + (leftPct / 100) * backgroundRect.width
+    const y = backgroundRect.y + (topPct / 100) * backgroundRect.height
+    const width = (widthPct / 100) * backgroundRect.width
+    const height = (heightPct / 100) * backgroundRect.height
+    const fontSize = Math.max(18, Math.min(44, Math.round(height * 0.18)))
+    const lineHeight = fontSize * 1.25
+    const label = element.content || element.name
+
+    ctx.save()
+    drawRoundedRect(ctx, x, y, width, height, Math.max(10, Math.min(width, height) * 0.08))
+    ctx.fillStyle = "rgba(255,255,255,0.82)"
+    ctx.fill()
+    ctx.strokeStyle = "rgba(255,255,255,0.7)"
+    ctx.lineWidth = 2
+    ctx.stroke()
+    ctx.font = `700 ${fontSize}px Arial, sans-serif`
+    ctx.fillStyle = "#374151"
+    ctx.textAlign = "center"
+    ctx.textBaseline = "middle"
+
+    const lines = wrapCanvasText(ctx, label, Math.max(10, width - 24))
+    const startY = y + height / 2 - ((lines.length - 1) * lineHeight) / 2
+    lines.forEach((line, index) => {
+      ctx.fillText(line, x + width / 2, startY + index * lineHeight)
+    })
+    ctx.restore()
+  }
+}
 
 function toNumber(value: unknown, fallback = 0): number {
   const n = Number(value)
@@ -323,18 +486,71 @@ function formatValue(value: number, metric: Metric): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1)
 }
 
+function PreviewFullscreenModal({
+  isOpen,
+  onClose,
+  children,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  children: React.ReactNode
+}) {
+  useEffect(() => {
+    if (!isOpen) return
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose()
+    }
+
+    document.addEventListener("keydown", handleKeyDown)
+    document.body.style.overflow = "hidden"
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown)
+      document.body.style.overflow = ""
+    }
+  }, [isOpen, onClose])
+
+  if (!isOpen) return null
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Full screen preview"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-8"
+    >
+      <div className="absolute inset-0 bg-black" aria-hidden="true" onClick={onClose} />
+      <button
+        type="button"
+        onClick={onClose}
+        className="absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/50"
+        aria-label="Close preview"
+      >
+        <X className="h-6 w-6" />
+      </button>
+      <div className="relative z-10 w-full max-w-6xl" onClick={(event) => event.stopPropagation()}>
+        {children}
+      </div>
+    </div>
+  )
+}
+
 function SelectionPreview({
   selectedElements,
   studyType,
   backgroundUrl,
   aspectRatio,
+  size = "default",
 }: {
   selectedElements: ConfiguratorElement[]
   studyType: string
   backgroundUrl: string | null
   aspectRatio: string
+  size?: "default" | "fullscreen"
 }) {
   const isLayerStudy = studyType === "layer"
+  const isFullscreen = size === "fullscreen"
   const containerRef = useRef<HTMLDivElement>(null)
   const backgroundImgRef = useRef<HTMLImageElement>(null)
   const [layerFit, setLayerFit] = useState({ left: 0, top: 0, width: 0, height: 0 })
@@ -376,14 +592,24 @@ function SelectionPreview({
     return () => resizeObserver.disconnect()
   }, [aspectRatio, backgroundUrl, isLayerStudy])
 
+  const isLandscape = aspectRatio === "16 / 9"
+  const layerMaxHeight = isFullscreen ? "85vh" : isLandscape ? "600px" : "320px"
+  const layerMaxWidth = isFullscreen
+    ? isLandscape
+      ? "90vw"
+      : "min(90vw, 540px)"
+    : isLandscape
+      ? "100%"
+      : "280px"
+
   if (selectedElements.length === 0 && (!isLayerStudy || !backgroundUrl)) {
     return (
       <div
         className="flex w-full items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 text-center"
         style={{
           aspectRatio: isLayerStudy ? aspectRatio : "1 / 1",
-          maxHeight: isLayerStudy ? (aspectRatio === "16 / 9" ? "600px" : "320px") : undefined,
-          maxWidth: isLayerStudy ? (aspectRatio === "16 / 9" ? "100%" : "280px") : undefined,
+          maxHeight: isLayerStudy ? layerMaxHeight : undefined,
+          maxWidth: isLayerStudy ? layerMaxWidth : undefined,
           margin: "0 auto"
         }}
       >
@@ -397,12 +623,11 @@ function SelectionPreview({
 
   if (isLayerStudy) {
     const sorted = [...selectedElements].sort((a, b) => a.zIndex - b.zIndex)
-    const isLandscape = aspectRatio === "16 / 9"
     return (
       <div
         ref={containerRef}
         className="relative mx-auto w-full overflow-hidden bg-transparent"
-        style={{ aspectRatio, maxHeight: isLandscape ? "600px" : "320px", maxWidth: isLandscape ? "100%" : "280px" }}
+        style={{ aspectRatio, maxHeight: layerMaxHeight, maxWidth: layerMaxWidth }}
       >
         {backgroundUrl && (
           // eslint-disable-next-line @next/next/no-img-element
@@ -513,7 +738,12 @@ function SelectionPreview({
 
   if (allText) {
     return (
-      <div className="relative mx-auto flex w-full max-w-[380px] items-center justify-center overflow-hidden rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-200 sm:p-6" style={{ minHeight: '380px' }}>
+      <div
+        className={`relative mx-auto flex w-full items-center justify-center overflow-hidden rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-200 sm:p-6 ${
+          isFullscreen ? "max-w-[min(90vw,720px)]" : "max-w-[380px]"
+        }`}
+        style={{ minHeight: isFullscreen ? "min(70vh, 720px)" : "380px" }}
+      >
         <div className="flex w-full flex-col items-center justify-center gap-2 h-full flex-1">
           {selectedElements.map((element) => (
             <div
@@ -543,7 +773,11 @@ function SelectionPreview({
         : "grid-cols-2"
 
   return (
-    <div className="relative mx-auto flex aspect-square w-full max-w-[380px] items-center justify-center overflow-hidden rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-200 sm:p-6">
+    <div
+      className={`relative mx-auto flex aspect-square w-full items-center justify-center overflow-hidden rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-200 sm:p-6 ${
+        isFullscreen ? "max-w-[min(90vw,720px)]" : "max-w-[380px]"
+      }`}
+    >
       {backgroundUrl && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -621,6 +855,11 @@ export function AnalyticsDesignConfigurator({
     () => isLayerStudy && Boolean(getBackgroundUrl(analysisData || {}))
   )
   const [isSelectionOpen, setIsSelectionOpen] = useState(false)
+  const [openCategoryNames, setOpenCategoryNames] = useState<Record<string, boolean>>({})
+  const [isPreviewDownloading, setIsPreviewDownloading] = useState(false)
+  const [isPreviewFullscreenOpen, setIsPreviewFullscreenOpen] = useState(false)
+  const [downloadingElementId, setDownloadingElementId] = useState<string | null>(null)
+  const previewCaptureRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!isLayerStudy) return
@@ -635,6 +874,15 @@ export function AnalyticsDesignConfigurator({
     }
   }, [segmentOptions, activeSegmentId])
 
+  useEffect(() => {
+    setOpenCategoryNames((current) =>
+      categories.reduce<Record<string, boolean>>((next, category) => {
+        next[category.name] = current[category.name] ?? false
+        return next
+      }, {})
+    )
+  }, [categories])
+
   const selectedElements = useMemo(
     () =>
       categories
@@ -645,7 +893,9 @@ export function AnalyticsDesignConfigurator({
 
   const totalCoefficient = selectedElements.reduce((sum, element) => sum + element.value, 0)
   const selectedCount = selectedElements.length
-  const maxSelections = isLayerStudy ? categories.length : MAX_NON_LAYER_SELECTIONS
+
+  const hasPreviewContent =
+    selectedElements.length > 0 || (isLayerStudy && showLayerBackground && Boolean(backgroundUrl))
 
   const handleSelect = (category: ConfiguratorCategory, element: ConfiguratorElement) => {
     setSelectedByCategory((current) => {
@@ -665,6 +915,124 @@ export function AnalyticsDesignConfigurator({
       next[category.name] = element.id
       return next
     })
+  }
+
+  const toggleCategoryOpen = (categoryName: string) => {
+    setOpenCategoryNames((current) => ({
+      ...current,
+      [categoryName]: !(current[categoryName] ?? false),
+    }))
+  }
+
+  const handleBestMix = () => {
+    const bestSelection = buildDefaultSelection(categories, isLayerStudy)
+    setSelectedByCategory(bestSelection)
+    setOpenCategoryNames(
+      categories.reduce<Record<string, boolean>>((next, category) => {
+        next[category.name] = Boolean(bestSelection[category.name])
+        return next
+      }, {})
+    )
+  }
+
+  const handleDownloadPreview = async () => {
+    if (isPreviewDownloading) return
+
+    if (!hasPreviewContent) return
+
+    setIsPreviewDownloading(true)
+    try {
+      if (isLayerStudy) {
+        const canvas = await renderLayersToCanvas(
+          showLayerBackground && backgroundUrl ? { secureUrl: backgroundUrl, previewUrl: backgroundUrl } : null,
+          selectedElements
+            .filter((element) => element.imageUrl)
+            .map((element) => {
+              const transform = element.transform || { x: 0, y: 0, width: 100, height: 100 }
+              return {
+                id: element.id,
+                name: element.name,
+                z: element.zIndex,
+                transform,
+                images: [
+                  {
+                    id: element.id,
+                    previewUrl: element.imageUrl || "",
+                    secureUrl: element.imageUrl || "",
+                    x: transform.x,
+                    y: transform.y,
+                    width: transform.width,
+                    height: transform.height,
+                  },
+                ],
+              }
+            }),
+          Object.fromEntries(selectedElements.map((element) => [element.id, element.id])),
+          getCanvasAspect(layerAspectRatio)
+        )
+
+        await drawTextElementsOnLayerCanvas(
+          canvas,
+          selectedElements.filter((element) => !element.imageUrl || element.elementType?.toLowerCase() === "text"),
+          showLayerBackground ? backgroundUrl : null
+        )
+        downloadCanvas(canvas, `analytics-preview-${Date.now()}.png`)
+        return
+      }
+
+      const node = previewCaptureRef.current
+      if (!node) return
+      if ((document as any).fonts?.ready) {
+        try {
+          await (document as any).fonts.ready
+        } catch {
+          // Font readiness is best-effort; the export can continue with browser fallbacks.
+        }
+      }
+
+      const domToImage = (await import("dom-to-image-more")).default
+      const rect = node.getBoundingClientRect()
+      const scale = 3
+      const blob = await domToImage.toBlob(node, {
+        width: Math.ceil(rect.width * scale),
+        height: Math.ceil(rect.height * scale),
+        style: {
+          transform: `scale(${scale})`,
+          transformOrigin: "top left",
+          width: `${Math.ceil(rect.width)}px`,
+          height: `${Math.ceil(rect.height)}px`,
+        },
+      })
+      const url = URL.createObjectURL(blob)
+      triggerDownload(url, `analytics-preview-${Date.now()}.png`)
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error("Preview download failed", error)
+      alert("Failed to download preview. Please try again.")
+    } finally {
+      setIsPreviewDownloading(false)
+    }
+  }
+
+  const handleDownloadElement = async (element: ConfiguratorElement) => {
+    if (!element.imageUrl || downloadingElementId) return
+
+    setDownloadingElementId(element.id)
+    try {
+      const response = await fetch(getProxiedImageUrl(element.imageUrl))
+      if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`)
+
+      const blob = await response.blob()
+      const extension = getExtensionFromType(blob.type)
+      const url = URL.createObjectURL(blob)
+      triggerDownload(url, `${safeFileName(element.name, "element")}.${extension}`)
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error("Element download failed", error)
+      alert("Failed to download this element. Please try again.")
+    } finally {
+      setDownloadingElementId(null)
+    }
   }
 
   if (!analysisData || categories.length === 0) return null
@@ -730,24 +1098,42 @@ export function AnalyticsDesignConfigurator({
           <div className="flex flex-shrink-0 flex-col overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 px-5 py-3">
               {isLayerStudy ? (
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowLayerBackground((current) => !current)}
+                    disabled={!backgroundUrl}
+                    className={`flex cursor-pointer items-center gap-2 text-sm font-medium transition-colors ${
+                      showLayerBackground ? "text-blue-600" : "text-gray-600 hover:text-gray-900"
+                    } disabled:cursor-not-allowed disabled:opacity-50`}
+                    aria-pressed={showLayerBackground}
+                  >
+                    <ImageIcon className="h-4 w-4" /> Background
+                  </button>
+                  <div className="h-4 w-px bg-gray-300" />
+                  <button
+                    type="button"
+                    onClick={handleDownloadPreview}
+                    disabled={isPreviewDownloading || (selectedElements.length === 0 && !showLayerBackground)}
+                    className="flex cursor-pointer items-center gap-2 text-sm font-medium text-blue-600 transition-colors hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Download className="h-4 w-4" /> {isPreviewDownloading ? "Downloading..." : "Download"}
+                  </button>
+                </div>
+              ) : (
                 <button
                   type="button"
-                  onClick={() => setShowLayerBackground((current) => !current)}
-                  disabled={!backgroundUrl}
-                  className={`flex cursor-pointer items-center gap-2 text-sm font-medium transition-colors ${
-                    showLayerBackground ? "text-blue-600" : "text-gray-600 hover:text-gray-900"
-                  } disabled:cursor-not-allowed disabled:opacity-50`}
-                  aria-pressed={showLayerBackground}
+                  onClick={handleDownloadPreview}
+                  disabled={isPreviewDownloading || selectedElements.length === 0}
+                  className="flex cursor-pointer items-center gap-2 text-sm font-medium text-blue-600 transition-colors hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <ImageIcon className="h-4 w-4" /> Background
+                  <Download className="h-4 w-4" /> {isPreviewDownloading ? "Downloading..." : "Download"}
                 </button>
-              ) : (
-                <div />
               )}
               <div className="ml-auto flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setSelectedByCategory(buildDefaultSelection(categories, isLayerStudy))}
+                  onClick={handleBestMix}
                   className="flex cursor-pointer items-center gap-1.5 text-sm font-medium text-blue-600 transition-colors hover:text-blue-700"
                 >
                   <Sparkles className="h-4 w-4" /> Best Mix
@@ -764,13 +1150,43 @@ export function AnalyticsDesignConfigurator({
             </div>
 
             <div className="bg-transparent p-4 sm:p-6">
+              <div className="relative">
+                <div
+                  ref={previewCaptureRef}
+                  className={`mx-auto bg-transparent ${isLayerStudy ? "w-full" : "w-full max-w-[380px]"}`}
+                >
+                  <SelectionPreview
+                    selectedElements={selectedElements}
+                    studyType={normalizedStudyType}
+                    backgroundUrl={isLayerStudy ? (showLayerBackground ? backgroundUrl : null) : backgroundUrl}
+                    aspectRatio={layerAspectRatio}
+                  />
+                </div>
+                {hasPreviewContent && (
+                  <button
+                    type="button"
+                    onClick={() => setIsPreviewFullscreenOpen(true)}
+                    className="absolute right-2 top-2 z-10 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-black/55 text-white shadow-md backdrop-blur-sm transition hover:bg-black/75 focus:outline-none focus:ring-2 focus:ring-blue-500/50 sm:right-3 sm:top-3"
+                    aria-label="Open full screen preview"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <PreviewFullscreenModal
+              isOpen={isPreviewFullscreenOpen}
+              onClose={() => setIsPreviewFullscreenOpen(false)}
+            >
               <SelectionPreview
                 selectedElements={selectedElements}
                 studyType={normalizedStudyType}
                 backgroundUrl={isLayerStudy ? (showLayerBackground ? backgroundUrl : null) : backgroundUrl}
                 aspectRatio={layerAspectRatio}
+                size="fullscreen"
               />
-            </div>
+            </PreviewFullscreenModal>
 
             <div className="flex items-center justify-between border-t border-gray-100 bg-white px-6 py-4">
               <div>
@@ -845,7 +1261,7 @@ export function AnalyticsDesignConfigurator({
         </div>
 
         {/* Right Column - Categories */}
-        <div className="space-y-10 pb-10 lg:w-7/12 lg:h-full lg:overflow-y-auto lg:pr-4">
+        <div className="space-y-4 pb-10 lg:w-7/12 lg:h-full lg:overflow-y-auto lg:pr-4">
           {!isLayerStudy && selectedCount >= MAX_NON_LAYER_SELECTIONS && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-medium text-amber-800">
               Maximum 4 elements can be selected. Remove one to add another category.
@@ -854,88 +1270,125 @@ export function AnalyticsDesignConfigurator({
 
           {categories.map((category) => {
             const selectedId = selectedByCategory[category.name]
+            const isOpen = openCategoryNames[category.name] ?? false
             return (
-              <div key={category.name}>
-                <div className="mb-4 flex items-baseline justify-between">
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-900">
-                      {isLayerStudy ? "Layer" : "Category"}: {category.name}
-                    </h3>
+              <div key={category.name} className="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => toggleCategoryOpen(category.name)}
+                  className="flex w-full cursor-pointer items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-gray-50 sm:px-6"
+                  aria-expanded={isOpen}
+                >
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-lg font-bold text-gray-900">
+                        {isLayerStudy ? "Layer" : "Category"}: {category.name}
+                      </h3>
+                      {selectedId && (
+                        <span className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                          <CheckCircle2 className="h-3.5 w-3.5" /> Selected
+                        </span>
+                      )}
+                    </div>
                     <p className="mt-1 text-sm text-gray-500">
                       {category.elements.length} option{category.elements.length === 1 ? "" : "s"}{" "}
                       {isLayerStudy ? `· z-index ${category.zIndex}` : ""}
                     </p>
                   </div>
-                  {selectedId && (
-                    <span className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                      <CheckCircle2 className="h-3.5 w-3.5" /> Selected
-                    </span>
-                  )}
-                </div>
+                  <ChevronDown className={`h-5 w-5 flex-shrink-0 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                </button>
 
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                  {[...category.elements]
-                    .sort((a, b) => b.value - a.value)
-                    .map((element) => {
-                      const isSelected = selectedId === element.id
-                      const disabled =
-                        !isLayerStudy &&
-                        !isSelected &&
-                        !selectedId &&
-                        selectedCount >= MAX_NON_LAYER_SELECTIONS
-                      const isText = !element.imageUrl || element.elementType?.toLowerCase() === "text"
+                {isOpen && (
+                  <div className="border-t border-gray-100 p-5 sm:p-6">
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                      {[...category.elements]
+                        .sort((a, b) => b.value - a.value)
+                        .map((element) => {
+                          const isSelected = selectedId === element.id
+                          const disabled =
+                            !isLayerStudy &&
+                            !isSelected &&
+                            !selectedId &&
+                            selectedCount >= MAX_NON_LAYER_SELECTIONS
+                          const isText = !element.imageUrl || element.elementType?.toLowerCase() === "text"
 
-                      return (
-                        <button
-                          key={element.id}
-                          type="button"
-                          onClick={() => handleSelect(category, element)}
-                          disabled={disabled}
-                          className={`relative flex flex-col rounded-2xl border p-3 text-left transition-all ${
-                            isSelected
-                              ? "border-blue-500 ring-1 ring-blue-500 shadow-md bg-white"
-                              : disabled
-                                ? "cursor-not-allowed border-gray-200 bg-gray-50/50 opacity-50"
-                                : "border-gray-200 bg-white hover:border-blue-300 hover:shadow-sm"
-                          }`}
-                        >
-                          <div className="mb-3 flex aspect-square w-full items-center justify-center rounded-xl bg-gray-50 p-2">
-                            {isText ? (
-                              <Type className="h-8 w-8 text-gray-300" />
-                            ) : (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={element.imageUrl || ""}
-                                alt={element.name}
-                                className="h-full w-full object-contain"
-                                onError={(event) => {
-                                  event.currentTarget.style.display = "none"
-                                }}
-                              />
-                            )}
-                          </div>
-                          <div className="flex w-full flex-1 flex-col justify-between">
-                            <p className="mb-2 text-sm font-medium leading-snug text-gray-900 break-words">
-                              {element.name}
-                            </p>
-                            <div className="mt-auto flex items-center justify-between">
-                              {/* <span className="text-xs text-gray-500">
-                                {isLayerStudy ? `Stack ${element.zIndex}` : isText ? "Text" : "Image"}
-                              </span> */}
-                              <span
-                                className={`rounded-md px-2 py-0.5 text-sm font-bold tabular-nums ${
-                                  element.value >= 0 ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"
-                                }`}
-                              >
-                                {element.value >= 0 ? "+" : ""}
-                                {formatValue(element.value, activeMetric)}
-                              </span>
+                          return (
+                            <div
+                              key={element.id}
+                              role="button"
+                              tabIndex={disabled ? -1 : 0}
+                              onClick={() => {
+                                if (!disabled) handleSelect(category, element)
+                              }}
+                              onKeyDown={(event) => {
+                                if (disabled) return
+                                if (event.key === "Enter" || event.key === " ") {
+                                  event.preventDefault()
+                                  handleSelect(category, element)
+                                }
+                              }}
+                              aria-disabled={disabled}
+                              className={`relative flex flex-col rounded-2xl border p-3 text-left transition-all ${
+                                isSelected
+                                  ? "border-blue-500 ring-1 ring-blue-500 shadow-md bg-white"
+                                  : disabled
+                                    ? "cursor-not-allowed border-gray-200 bg-gray-50/50 opacity-50"
+                                    : "cursor-pointer border-gray-200 bg-white hover:border-blue-300 hover:shadow-sm"
+                              }`}
+                            >
+                              <div className="mb-3 flex aspect-square w-full items-center justify-center rounded-xl bg-gray-50 p-2">
+                                {isText ? (
+                                  <Type className="h-8 w-8 text-gray-300" />
+                                ) : (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={element.imageUrl || ""}
+                                    alt={element.name}
+                                    className="h-full w-full object-contain"
+                                    onError={(event) => {
+                                      event.currentTarget.style.display = "none"
+                                    }}
+                                  />
+                                )}
+                              </div>
+                              <div className="flex w-full flex-1 flex-col justify-between">
+                                <p className="mb-2 text-sm font-medium leading-snug text-gray-900 break-words">
+                                  {element.name}
+                                </p>
+                                <div className="mt-auto flex items-center justify-between">
+                                  {/* <span className="text-xs text-gray-500">
+                                    {isLayerStudy ? `Stack ${element.zIndex}` : isText ? "Text" : "Image"}
+                                  </span> */}
+                                  <span
+                                    className={`rounded-md px-2 py-0.5 text-sm font-bold tabular-nums ${
+                                      element.value >= 0 ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"
+                                    }`}
+                                  >
+                                    {element.value >= 0 ? "+" : ""}
+                                    {formatValue(element.value, activeMetric)}
+                                  </span>
+                                  {!isText && (
+                                    <button
+                                      type="button"
+                                      onClick={(event) => {
+                                        event.stopPropagation()
+                                        void handleDownloadElement(element)
+                                      }}
+                                      disabled={Boolean(downloadingElementId)}
+                                      className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-blue-50 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+                                      aria-label={`Download ${element.name}`}
+                                    >
+                                      <Download className="h-4 w-4" />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        </button>
-                      )
-                    })}
-                </div>
+                          )
+                        })}
+                    </div>
+                  </div>
+                )}
               </div>
             )
           })}

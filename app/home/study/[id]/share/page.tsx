@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { DashboardHeader } from "@/app/home/components/dashboard-header"
 import { AuthGuard } from "@/components/auth/AuthGuard"
 import { getPublicShareDetails } from "@/lib/api/StudyAPI"
@@ -12,7 +12,11 @@ const BRAND = "#2674BA"
 export default function StudySharePage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const studyId = params.id as string
+  const projId = searchParams.get('proj_id') || searchParams.get('projectId')
+  const projectQuery = projId ? `?proj_id=${encodeURIComponent(projId)}` : ''
+  const homeHref = `/home${projectQuery}`
 
   const [shareDetails, setShareDetails] = useState<{ id: string; title: string; study_type: string; status: string } | null>(null)
   const [loading, setLoading] = useState(true)
@@ -117,7 +121,7 @@ export default function StudySharePage() {
                 Share Study{shareDetails?.title ? `: ${shareDetails.title}` : ''}
               </h1>
               <button
-                onClick={() => window.history.length > 1 ? window.history.back() : router.push('/home')}
+                onClick={() => window.history.length > 1 ? window.history.back() : router.push(homeHref)}
                 className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm"
                 style={{ borderColor: BRAND, color: BRAND }}
                 aria-label="Go back"

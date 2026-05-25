@@ -26,7 +26,8 @@ export function DashboardHeader() {
   const pathname = usePathname()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const projId = searchParams.get('proj_id')
+  const projId = searchParams.get('proj_id') || searchParams.get('projectId')
+  const homeHref = projId ? `/home?proj_id=${encodeURIComponent(projId)}` : '/home'
   const isCreateStudyRoute = pathname?.startsWith('/home/create-study')
 
   // Effect to track cs_study_id and user_role in localStorage
@@ -169,8 +170,7 @@ export function DashboardHeader() {
       >
         <div className="max-w-7xl mx-auto flex items-center justify-between h-16">
 
-          <Link href="/home">
-            {/* Logo: always go to All Studies (no project selected) */}
+          <Link href={homeHref}>
             <div className="flex items-center">
               <motion.div whileHover={{ scale: 1.05 }} className="text-2xl font-bold">
                 <span className="text-[rgba(38,116,186,1)]">Mind</span>

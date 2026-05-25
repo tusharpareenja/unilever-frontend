@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useMemo } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { DashboardHeader } from "@/app/home/components/dashboard-header"
 import { AuthGuard } from "@/components/auth/AuthGuard"
 import { getStudyBasicDetails, StudyDetails } from "@/lib/api/StudyAPI"
@@ -25,7 +25,12 @@ import { AnalyticsDesignConfigurator } from "./components/AnalyticsDesignConfigu
 export default function StudyAnalyticsPage() {
     const params = useParams()
     const router = useRouter()
+    const searchParams = useSearchParams()
     const studyId = params.id as string
+    const projId = searchParams.get('proj_id') || searchParams.get('projectId')
+    const projectQuery = projId ? `?proj_id=${encodeURIComponent(projId)}` : ''
+    const homeHref = `/home${projectQuery}`
+    const studyHref = `/home/study/${studyId}${projectQuery}`
 
     const [study, setStudy] = useState<StudyDetails | null>(null)
     const [loading, setLoading] = useState(true)
@@ -161,7 +166,7 @@ export default function StudyAnalyticsPage() {
                             <h2 className="text-lg font-semibold text-red-800 mb-2">Error</h2>
                             <p className="text-red-600">{error || "Study not found"}</p>
                             <button
-                                onClick={() => router.push("/home")}
+                                onClick={() => router.push(homeHref)}
                                 className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
                             >
                                 Back to Dashboard
@@ -183,9 +188,9 @@ export default function StudyAnalyticsPage() {
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
                         {/* Breadcrumbs */}
                         <nav className="text-[10px] sm:text-xs md:text-sm mb-4">
-                            <Link href="/home" className="text-blue-200 hover:text-white transition-colors">Dashboard</Link>
+                            <Link href={homeHref} className="text-blue-200 hover:text-white transition-colors">Dashboard</Link>
                             <span className="mx-2 text-blue-300 opacity-50">/</span>
-                            <Link href="/home" className="text-blue-200 hover:text-white transition-colors">Studies</Link>
+                            <Link href={homeHref} className="text-blue-200 hover:text-white transition-colors">Studies</Link>
                             <span className="mx-2 text-blue-300 opacity-50">/</span>
                             <span className="text-white font-medium">
                                 {studyType === "grid" ? "Grid Study" : studyType === "hybrid" ? "Hybrid Study" : studyType === "text" ? "Text Study" : "Layer Study"} Analytics
@@ -197,7 +202,7 @@ export default function StudyAnalyticsPage() {
                             <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">{pageTitle}</h1>
                             <div className="flex items-center gap-3 w-full lg:w-auto">
                                 <button
-                                    onClick={() => router.push(`/home/study/${studyId}`)}
+                                    onClick={() => router.push(studyHref)}
                                     className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 py-2.5 border rounded-lg transition-all duration-200 hover:bg-white/10 active:scale-95 text-xs sm:text-sm font-semibold"
                                     style={{ borderColor: 'rgba(255, 255, 255, 0.3)', color: '#FFFFFF' }}
                                 >

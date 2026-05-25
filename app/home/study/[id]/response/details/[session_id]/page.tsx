@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { AuthGuard } from "@/components/auth/AuthGuard"
 import { DashboardHeader } from "../../../../../components/dashboard-header"
 import { getResponseSessionDetails, type ResponseSessionDetails, type SessionTaskItem } from "@/lib/api/ResponseAPI"
@@ -9,8 +9,12 @@ import { getResponseSessionDetails, type ResponseSessionDetails, type SessionTas
 export default function ResponseDetailsPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const studyId = params.id as string
   const sessionId = params.session_id as string
+  const projId = searchParams.get('proj_id') || searchParams.get('projectId')
+  const projectQuery = projId ? `?proj_id=${encodeURIComponent(projId)}` : ''
+  const responseHref = `/home/study/${studyId}/response${projectQuery}`
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -125,7 +129,7 @@ export default function ResponseDetailsPage() {
         <div className="text-white" style={{ backgroundColor: '#2674BA' }}>
           <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
             <h1 className="text-xl font-semibold">Response Details</h1>
-            <button onClick={() => router.push(`/home/study/${studyId}/response`)} className="px-4 py-2 rounded-md bg-white/10 hover:bg-white/20 text-white">Back</button>
+            <button onClick={() => router.push(responseHref)} className="px-4 py-2 rounded-md bg-white/10 hover:bg-white/20 text-white">Back</button>
           </div>
         </div>
 
